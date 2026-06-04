@@ -2,7 +2,7 @@
   "name": "smartkline-web-dev",
   "version": "0.1.0",
   "private": true,
-  "description": "Frontend-only SmartKline dev sandbox with mocked KOL signals and market data.",
+  "description": "Frontend-only SmartKline dev sandbox with mocked KOL signals and Binance market data.",
   "engines": {
     "node": ">=20.9.0"
   },
