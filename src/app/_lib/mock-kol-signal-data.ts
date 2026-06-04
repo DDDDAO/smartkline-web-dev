@@ -81,7 +81,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
       entryMax: 152.1,
       triggerPrice: null,
       stopLoss: 141.8,
-      takeProfit: [160.4, 168.8],
+      takeProfit: [160.4, 168.8, 176.2],
       confirmation: "区间接多后回撤，展示已入场浮亏但未止损。",
     }),
   },
@@ -100,7 +100,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
       entryMax: 650,
       triggerPrice: null,
       stopLoss: 666,
-      takeProfit: [604, 588],
+      takeProfit: [604, 588, 572],
       confirmation: "压力区放空，当前已入场浮盈，未到首个止盈。",
     }),
   },
@@ -119,7 +119,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
       entryMax: 0.525,
       triggerPrice: null,
       stopLoss: 0.558,
-      takeProfit: [0.492, 0.468],
+      takeProfit: [0.492, 0.468, 0.446],
       confirmation: "反弹空单入场后继续反抽，展示已入场浮亏。",
     }),
   },
@@ -139,7 +139,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
       entryMax: null,
       triggerPrice: 0.63,
       stopLoss: 0.598,
-      takeProfit: [0.666, 0.692],
+      takeProfit: [0.666, 0.692, 0.724],
       confirmation: "突破 0.63 追多，后续触达第一止盈。",
     }),
   },
@@ -159,7 +159,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
       entryMax: null,
       triggerPrice: 0.141,
       stopLoss: 0.149,
-      takeProfit: [0.135, 0.128],
+      takeProfit: [0.135, 0.128, 0.121],
       confirmation: "跌破触发价做空，后续触达第一止盈。",
     }),
   },
@@ -179,7 +179,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
       entryMax: 17.34,
       triggerPrice: null,
       stopLoss: 16.36,
-      takeProfit: [18.1, 19.4],
+      takeProfit: [18.1, 19.4, 20.6],
       confirmation: "区间多单失效，展示止损离场。",
     }),
   },
@@ -199,7 +199,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
       entryMax: 31.9,
       triggerPrice: null,
       stopLoss: 32.55,
-      takeProfit: [29.8, 28.4],
+      takeProfit: [29.8, 28.4, 27.2],
       confirmation: "压力空单被上破，展示止损离场。",
     }),
   },
@@ -218,7 +218,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
       entryMax: null,
       triggerPrice: 2.78,
       stopLoss: 2.61,
-      takeProfit: [3.05, 3.24],
+      takeProfit: [3.05, 3.24, 3.42],
       confirmation: "上破 2.78 后入场，展示触发价订单。",
     }),
   },
@@ -237,7 +237,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
       entryMax: null,
       triggerPrice: null,
       stopLoss: 1.24,
-      takeProfit: [1.07, 1.01],
+      takeProfit: [1.07, 1.01, 0.96],
       confirmation: "市价空单 mock，展示无挂单价的市价入场。",
     }),
   },
@@ -275,7 +275,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
       entryMax: 5.28,
       triggerPrice: null,
       stopLoss: 4.98,
-      takeProfit: [5.58, 5.9],
+      takeProfit: [5.58, 5.9, 6.18],
       confirmation: "故意缺少信号时刻 1m K 线，展示无法计算仓位。",
     }),
   },
@@ -285,7 +285,7 @@ const duplicateParsedPositionSignal: StructuredSignal = {
   ...mockKolSignalScenarios[0].signal,
   id: "mock-btc-short-range-duplicate-later-message",
   created_at: "2026-06-04T00:08:00+08:00",
-  raw_text: "重复转发：67000附近直接空市价，再挂 68588，止损 70000，止盈 66188 / 65388 / 63888。",
+  raw_text: "重复转发：67000附近直接空市价，再挂 68588，止损 70000，止盈 1 66188 / 止盈 2 65388 / 止盈 3 63888。",
   summary: "Duplicate parsed BTC/USDT:USDT short signal retained only if dedupe fails.",
 };
 
@@ -314,7 +314,7 @@ function createSignal(input: {
   triggerPrice: number | null;
 }): StructuredSignal {
   const entryText = formatEntryText(input);
-  const takeProfitText = input.takeProfit.length > 0 ? input.takeProfit.map(formatPrice).join(" / ") : "--";
+  const takeProfitText = formatTakeProfitText(input.takeProfit);
 
   return {
     id: input.id,
@@ -333,8 +333,8 @@ function createSignal(input: {
     take_profit: input.takeProfit,
     status: "观察中",
     risk_tags: createRiskTags(input),
-    raw_text: `${input.sourceName}: ${input.symbol} ${input.direction === "long" ? "多" : "空"}，入场/触发 ${entryText}，止损 ${formatPrice(input.stopLoss)}，止盈 ${takeProfitText}。${input.confirmation}`,
-    summary: `${input.symbol} ${input.direction === "long" ? "多" : "空"} mock signal: entry ${entryText}, stop ${formatPrice(input.stopLoss)}, take profit ${takeProfitText}`,
+    raw_text: `${input.sourceName}: ${input.symbol} ${input.direction === "long" ? "多" : "空"}，入场/触发 ${entryText}，止损 ${formatPrice(input.stopLoss)}，${takeProfitText}。${input.confirmation}`,
+    summary: `${input.symbol} ${input.direction === "long" ? "多" : "空"} mock signal：入场 ${entryText}，止损 ${formatPrice(input.stopLoss)}，${takeProfitText}`,
     created_at: input.createdAt,
     isStrongAlert: true,
     isReview: false,
@@ -347,6 +347,12 @@ function createRiskTags(input: { entryMax: number | null; entryMin: number | nul
     input.stopLoss !== null ? "止损完整" : "缺少止损",
     input.takeProfit.length > 0 ? "止盈完整" : "缺少止盈",
   ];
+}
+
+function formatTakeProfitText(takeProfit: readonly number[]): string {
+  return takeProfit.length > 0
+    ? takeProfit.map((price, index) => `止盈 ${index + 1} ${formatPrice(price)}`).join(" / ")
+    : "止盈 --";
 }
 
 function formatEntryText(input: { entryMax: number | null; entryMin: number | null; triggerPrice: number | null }): string {
