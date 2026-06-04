@@ -189,6 +189,7 @@ function createSignalTooltipHtml(signal: StructuredSignal): string {
     `<div style="color:#64748b;font-size:11px;margin-bottom:8px;">${escapeHtml(signal.created_at.replace("T", " ").slice(0, 16))} · ${escapeHtml(signal.symbol.replace("/USDT:USDT", ""))}</div>`,
     `<div style="font-weight:700;margin-bottom:6px;">${escapeHtml(signal.summary)}</div>`,
     `<div style="color:#64748b;font-size:11px;">入场/触发 ${escapeHtml(formatSignalEntry(signal))} · 止损 ${escapeHtml(formatSignalPrice(signal.stop_loss))}</div>`,
+    `<div style="color:#64748b;font-size:11px;margin-top:2px;">${escapeHtml(formatSignalTakeProfits(signal.take_profit))}</div>`,
     `<div style="color:#64748b;font-size:11px;margin-top:2px;">点击定位右侧对应 KOL 信号</div>`,
   ].join("");
 }
@@ -199,6 +200,14 @@ function formatSignalEntry(signal: StructuredSignal): string {
   }
 
   return formatSignalPrice(signal.trigger_price);
+}
+
+function formatSignalTakeProfits(takeProfits: readonly number[]): string {
+  if (takeProfits.length === 0) {
+    return "止盈 --";
+  }
+
+  return takeProfits.map((price, index) => `止盈 ${index + 1} ${formatSignalPrice(price)}`).join(" / ");
 }
 
 function formatSignalPrice(value: number | null): string {
