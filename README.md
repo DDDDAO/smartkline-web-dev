@@ -1,33 +1,28 @@
 # SmartKLine Web Dev
 
-Frontend-only SmartKLine UI sandbox for fast UI/UX iteration. The goal is to keep the visual behavior aligned with the production SmartKLine frontend while removing every backend dependency so designers and frontend engineers can tune layouts, cards, chart overlays, and paper-position states quickly.
+Frontend-only SmartKLine UI sandbox for fast UI/UX iteration. The goal is to keep the visual behavior aligned with the production SmartKLine frontend while keeping KOL signals local and using the same Binance Futures market data path as the SmartKLine monorepo.
 
 ## What this project is
 
 - A standalone Next.js app copied from the SmartKLine web frontend.
-- KOL signal loading, realtime KOL pushes, market discovery, historical candles, and realtime candle updates are all local mocks.
-- No backend service, API key, `.env`, Binance network request, or SmartKLine API endpoint is required.
+- KOL signal loading and realtime KOL pushes are local mocks whose price levels are calibrated from recent Binance USDⓈ-M Futures 1m candles.
+- Market discovery and historical candles use Binance USDⓈ-M Futures REST snapshots. WebSocket realtime updates are intentionally disabled in the current UI to keep the chart and KOL ranges stable.
+- No backend service, API key, `.env`, or SmartKLine API endpoint is required.
 - File/function names intentionally stay close to the production app to make UI changes easy to port back.
 
 ## Mock coverage
 
-The mock feed is designed to cover the UI states that matter for KOL position cards and chart overlays:
+The KOL mock feed keeps parsed-signal fixtures for position cards and chart overlays. On load, mock entry ranges, stop-loss, and 止盈 1/2/3 prices are rebuilt around recent Binance Futures 1m candles so the overlays stay inside the real K-line price range. Candle-dependent paper-position states still move as market data changes.
 
-| Case | Expected UI state |
+| Case | Fixture intent |
 | --- | --- |
-| Range short that never reaches entry | `未入场` / not-entered distance display |
-| Long entered with floating profit | entered positive PnL |
-| Long entered with floating loss | entered negative PnL |
-| Short entered with floating profit | entered positive PnL |
-| Short entered with floating loss | entered negative PnL |
-| Long exited by take profit | exited / take-profit badge |
-| Short exited by take profit | exited / take-profit badge |
-| Long exited by stop loss | exited / stop-loss badge |
-| Short exited by stop loss | exited / stop-loss badge |
+| Range short | range entry rendering |
+| Long range | long position rendering |
+| Short range | short position rendering |
 | Trigger-price long | trigger entry rendering |
 | Market short | market-entry rendering |
 | Market long without stop/take-profit | missing risk fields |
-| Missing 1m coverage | invalid paper-position state |
+| Multiple symbols | symbol switching and chart overlay coverage |
 | Duplicate parsed BTC position | frontend dedupe keeps earliest card |
 
 ## Key files
@@ -35,7 +30,7 @@ The mock feed is designed to cover the UI states that matter for KOL position ca
 ```text
 src/app/_lib/mock-kol-signal-data.ts      # all KOL mock scenarios
 src/app/_lib/kol-signal-api.ts           # mocked KOL load + mocked realtime pushes
-src/app/_lib/binance-market-data.ts      # mocked market list, OHLCV history, realtime candles
+src/app/_lib/binance-market-data.ts      # Binance Futures market list and OHLCV snapshot history
 src/app/_components/signal-workspace.tsx # production-aligned workspace state flow
 ```
 
@@ -50,9 +45,15 @@ pnpm dev
 
 The project declares Node `>=20.9.0`, matching the Next.js runtime requirement used here.
 
+## Frontend UI controls
+
+- The KOL panel has three filters at the top: coin, paper-position status, and KOL source.
+- The upper-right floating area contains a Telegram-style `社群接入` button.
+- The notification banner component remains in place for later SSE wiring, but automatic mock pushes are disabled in snapshot mode.
+
 ## Data contracts
 
-These are frontend contracts used by the UI. In this dev project they are fulfilled by local mocks, but the shapes mirror the production frontend's expectations.
+These are frontend contracts used by the UI. KOL signals are fulfilled by local mocks, while market data follows the production frontend's Binance Futures contracts.
 
 ### KOL initial load
 
@@ -71,7 +72,8 @@ export async function fetchKolSignals(): Promise<StructuredSignal[]>;
 Mock behavior:
 
 - Resolves after a short artificial delay.
-- Returns the full mock KOL signal list.
+- Returns the full mock KOL signal list after rebasing prices against recent Binance 1m candles when Binance is reachable.
+- Uses Chinese take-profit numbering: `止盈 1` / `止盈 2` / `止盈 3`.
 - Includes one later duplicate of the BTC short parsed position so the workspace dedupe path is exercised.
 
 Response item shape:
@@ -155,10 +157,9 @@ export function subscribeToKolSignals(handlers: KolSignalSubscriptionHandlers): 
 
 Mock behavior:
 
-- Emits the full mock list once shortly after subscription.
-- Emits a repeated BTC parsed-position event every 12 seconds.
-- Returns an unsubscribe function that clears timers.
-- Does not open `EventSource` or any network connection.
+- Realtime mock pushes are disabled in this snapshot mode, so the KOL list does not re-sort or refresh after the initial load.
+- Returns a stable unsubscribe function for API compatibility.
+- Does not open `EventSource` or any SmartKLine API network connection.
 
 ### KOL dedupe key
 
@@ -202,10 +203,11 @@ Implementation:
 export async function fetchUsdtPerpetualMarkets(): Promise<MarketSymbol[]>;
 ```
 
-Mock behavior:
+Runtime behavior:
 
-- Returns one market symbol for each KOL mock scenario.
-- Does not request Binance exchange info.
+- Requests Binance USDⓈ-M Futures `exchangeInfo`.
+- Keeps perpetual USDT contracts whose status is `TRADING`.
+- Returns symbols in `BASE/USDT:USDT` format.
 
 Example response:
 
@@ -224,7 +226,7 @@ Call site:
 
 ```ts
 const candles = await fetchHistoricalCandles("BTC/USDT:USDT", "1m", {
-  limit: 360,
+  limit: 1500,
 });
 ```
 
@@ -257,12 +259,11 @@ type MarketCandle = {
 };
 ```
 
-Mock behavior:
+Runtime behavior:
 
-- Generates deterministic candles per mock scenario.
-- Forces highs/lows where needed to trigger take-profit or stop-loss states.
-- Supports `limit` and `untilMs` so chart pagination still exercises the production code path.
-- The `invalid-missing-coverage` case intentionally starts candles after the signal time.
+- Requests Binance USDⓈ-M Futures `/fapi/v1/klines`.
+- Supports `limit` and `untilMs` so chart pagination can request older pages.
+- Subtracts 1 ms from `untilMs` before sending Binance `endTime` because Binance treats `endTime` as inclusive.
 
 Example response item:
 
@@ -306,21 +307,21 @@ export function subscribeToBinanceKlines(
 ): () => void;
 ```
 
-Mock behavior:
+Runtime behavior:
 
-- Calls `onOpen` asynchronously.
-- Emits one deterministic candle every 3 seconds.
-- Returns an unsubscribe function that clears the timer.
-- Keeps the production function name for portability, but no WebSocket is opened.
+- The UI currently does not call this subscription path.
+- K-line panels and paper-position calculations use the initial Binance REST snapshot only.
+- This keeps the selected range and KOL status stable while frontend UI work continues.
 
 ## Porting changes back
 
-UI work should usually port cleanly from this project back to the monorepo frontend because the component layout and type contracts remain aligned. Treat these files as mock-only and do not copy them back blindly:
+UI work should usually port cleanly from this project back to the monorepo frontend because the component layout and type contracts remain aligned. Treat these files as dev-local or environment-specific and do not copy them back blindly:
 
 ```text
 src/app/_lib/mock-kol-signal-data.ts
 src/app/_lib/kol-signal-api.ts
-src/app/_lib/binance-market-data.ts
 ```
+
+`src/app/_lib/binance-market-data.ts` keeps the Binance Futures contracts, while the current UI intentionally consumes only REST snapshots for stability.
 
 Copy component-level UI changes first, then reconcile any data contract differences in the production app.

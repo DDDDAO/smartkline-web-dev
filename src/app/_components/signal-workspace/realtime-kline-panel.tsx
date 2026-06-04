@@ -5,8 +5,6 @@ import {
   HISTORICAL_CANDLE_LIMIT,
   fetchHistoricalCandles,
   prependHistoricalCandles,
-  subscribeToBinanceKlines,
-  upsertCandle,
 } from "@/app/_lib/binance-market-data";
 import { KlineChart, type ChartTheme } from "@/app/_components/kline-chart";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
@@ -58,8 +56,6 @@ export function RealtimeKlinePanel({
 
   useEffect(() => {
     let isActive = true;
-    let unsubscribe: (() => void) | null = null;
-
     fetchHistoricalCandles(symbol, interval, { limit: HISTORICAL_CANDLE_LIMIT })
       .then((historicalCandles) => {
         if (!isActive) {
@@ -69,25 +65,6 @@ export function RealtimeKlinePanel({
         setCandles(historicalCandles);
         setCanLoadOlderHistory(historicalCandles.length >= HISTORICAL_CANDLE_LIMIT);
         setLoadError(null);
-        unsubscribe = subscribeToBinanceKlines(symbol, interval, {
-          onOpen: () => {
-            if (isActive) {
-              setLoadError(null);
-            }
-          },
-          onError: (error) => {
-            if (isActive) {
-              setLoadError(error.message);
-            }
-          },
-          onCandle: (nextCandle) => {
-            if (!isActive) {
-              return;
-            }
-
-            setCandles((currentCandles) => upsertCandle(currentCandles, nextCandle));
-          },
-        });
       })
       .catch((error: unknown) => {
         if (isActive) {
@@ -97,7 +74,6 @@ export function RealtimeKlinePanel({
 
     return () => {
       isActive = false;
-      unsubscribe?.();
     };
   }, [interval, symbol]);
 

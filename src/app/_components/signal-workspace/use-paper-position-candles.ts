@@ -3,8 +3,6 @@ import {
   HISTORICAL_CANDLE_LIMIT,
   fetchHistoricalCandles,
   prependHistoricalCandles,
-  subscribeToBinanceKlines,
-  upsertCandle,
 } from "@/app/_lib/binance-market-data";
 import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
@@ -24,8 +22,6 @@ export function usePaperPositionCandles(signals: readonly StructuredSignal[]): {
 
   useEffect(() => {
     let isActive = true;
-    const unsubscribeList: (() => void)[] = [];
-
     for (const group of signalGroups) {
       fetchHistoricalCandlesWithSignalCoverage(group.symbol, PAPER_POSITION_INTERVAL, group.signals)
         .then((historicalCandles) => {
@@ -38,34 +34,6 @@ export function usePaperPositionCandles(signals: readonly StructuredSignal[]): {
             [group.symbol]: historicalCandles,
           }));
           setErrorsBySymbol((currentErrorsBySymbol) => removeRecordKey(currentErrorsBySymbol, group.symbol));
-
-          const unsubscribe = subscribeToBinanceKlines(group.symbol, PAPER_POSITION_INTERVAL, {
-            onOpen: () => {
-              if (isActive) {
-                setErrorsBySymbol((currentErrorsBySymbol) => removeRecordKey(currentErrorsBySymbol, group.symbol));
-              }
-            },
-            onError: (error) => {
-              if (isActive) {
-                setErrorsBySymbol((currentErrorsBySymbol) => ({
-                  ...currentErrorsBySymbol,
-                  [group.symbol]: error.message,
-                }));
-              }
-            },
-            onCandle: (nextCandle) => {
-              if (!isActive) {
-                return;
-              }
-
-              setCandlesBySymbol((currentCandlesBySymbol) => ({
-                ...currentCandlesBySymbol,
-                [group.symbol]: upsertCandle(currentCandlesBySymbol[group.symbol] ?? [], nextCandle),
-              }));
-            },
-          });
-
-          unsubscribeList.push(unsubscribe);
         })
         .catch((error: unknown) => {
           if (isActive) {
@@ -79,9 +47,6 @@ export function usePaperPositionCandles(signals: readonly StructuredSignal[]): {
 
     return () => {
       isActive = false;
-      for (const unsubscribe of unsubscribeList) {
-        unsubscribe();
-      }
     };
   }, [signalGroups]);
 

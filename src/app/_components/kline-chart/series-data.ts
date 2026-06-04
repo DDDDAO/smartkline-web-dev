@@ -30,7 +30,7 @@ export function createSignalPriceLines(signal: StructuredSignal, currentPrice: n
   }
 
   for (const [index, price] of signal.take_profit.entries()) {
-    lines.push(createAxisOnlySignalPriceLine({ price, color: "#16a34a", title: `TP${index + 1}` }));
+    lines.push(createAxisOnlySignalPriceLine({ price, color: "#16a34a", title: `止盈 ${index + 1}` }));
   }
 
   if (currentPrice !== undefined) {

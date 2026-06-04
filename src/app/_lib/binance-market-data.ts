@@ -1,14 +1,51 @@
 import type { UTCTimestamp } from "lightweight-charts";
-import { getMockSignalScenario, mockMarketSymbols, type MockSignalScenario } from "@/app/_lib/mock-kol-signal-data";
 import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
 
-export const HISTORICAL_CANDLE_LIMIT = 360;
+const BINANCE_FUTURES_REST_BASE_URL = "https://fapi.binance.com";
+const BINANCE_FUTURES_MARKET_WS_BASE_URL = "wss://fstream.binance.com/market/ws";
+export const HISTORICAL_CANDLE_LIMIT = 1500;
 const MILLISECONDS_PER_SECOND = 1_000;
-const MINUTE_MS = 60_000;
 
 type HistoricalCandleFetchOptions = {
   limit?: number;
   untilMs?: number;
+};
+
+type BinanceExchangeInfo = {
+  symbols?: BinanceExchangeSymbol[];
+};
+
+type BinanceExchangeSymbol = {
+  baseAsset: string;
+  contractType: string;
+  quoteAsset: string;
+  status: string;
+};
+
+type BinanceKlineRow = [
+  number,
+  string,
+  string,
+  string,
+  string,
+  string,
+  number,
+  string,
+  number,
+  string,
+  string,
+  string,
+];
+
+type BinanceKlinePayload = {
+  k?: {
+    t: number;
+    o: string;
+    h: string;
+    l: string;
+    c: string;
+    v: string;
+  };
 };
 
 type RealtimeHandlers = {
@@ -18,8 +55,23 @@ type RealtimeHandlers = {
 };
 
 export async function fetchUsdtPerpetualMarkets(): Promise<MarketSymbol[]> {
-  await delay(80);
-  return mockMarketSymbols;
+  const response = await fetch(new URL("/fapi/v1/exchangeInfo", BINANCE_FUTURES_REST_BASE_URL));
+  if (!response.ok) {
+    throw new Error(`Binance futures market list failed: ${response.status} ${response.statusText}`);
+  }
+
+  const exchangeInfo = await response.json() as BinanceExchangeInfo;
+  const exchangeSymbols = exchangeInfo.symbols ?? [];
+  const marketSymbols = exchangeSymbols
+    .filter((symbol) => symbol.contractType === "PERPETUAL" && symbol.quoteAsset === "USDT" && symbol.status === "TRADING")
+    .map((symbol) => `${symbol.baseAsset}/USDT:USDT`)
+    .sort((left, right) => left.localeCompare(right));
+
+  if (marketSymbols.length === 0) {
+    throw new Error("Binance USDT perpetual market list is empty.");
+  }
+
+  return marketSymbols;
 }
 
 export async function fetchHistoricalCandles(
@@ -27,14 +79,34 @@ export async function fetchHistoricalCandles(
   interval: KlineInterval,
   options: HistoricalCandleFetchOptions = {},
 ): Promise<MarketCandle[]> {
-  await delay(80);
   const limit = options.limit ?? HISTORICAL_CANDLE_LIMIT;
-  const candles = createMockCandles(symbol, interval);
-  const eligibleCandles = options.untilMs === undefined
-    ? candles
-    : candles.filter((candle) => candle.sourceTimeMs < options.untilMs!);
+  const url = new URL("/fapi/v1/klines", BINANCE_FUTURES_REST_BASE_URL);
+  url.searchParams.set("symbol", toBinanceFuturesStreamSymbol(symbol).toUpperCase());
+  url.searchParams.set("interval", interval);
+  url.searchParams.set("limit", String(limit));
 
-  return eligibleCandles.slice(-limit);
+  if (options.untilMs !== undefined) {
+    /**
+     * Binance endTime is inclusive. Asking for the current oldest candle time
+     * would spend one slot on a duplicate and make full older pages look short.
+     */
+    url.searchParams.set("endTime", String(Math.max(0, options.untilMs - 1)));
+  }
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Binance historical candles failed: ${response.status} ${response.statusText}`);
+  }
+
+  const rows = await response.json() as BinanceKlineRow[];
+  const candles = rows.map((row) => parseKlineRow(row, symbol));
+  const untilMs = options.untilMs;
+
+  if (untilMs === undefined) {
+    return candles;
+  }
+
+  return candles.filter((candle) => candle.sourceTimeMs < untilMs).slice(-limit);
 }
 
 export function subscribeToBinanceKlines(
@@ -42,16 +114,19 @@ export function subscribeToBinanceKlines(
   interval: KlineInterval,
   handlers: RealtimeHandlers,
 ): () => void {
-  let tick = 0;
-  window.setTimeout(handlers.onOpen, 0);
+  const websocket = new WebSocket(createBinanceKlineWebSocketUrl(symbol, interval));
 
-  const intervalId = window.setInterval(() => {
-    tick += 1;
-    const latestCandle = createMockRealtimeCandle(symbol, interval, tick);
-    handlers.onCandle(latestCandle);
-  }, 3_000);
+  websocket.onopen = handlers.onOpen;
+  websocket.onerror = () => {
+    handlers.onError(new Error(`Binance realtime stream failed for ${symbol} ${interval}.`));
+  };
+  websocket.onmessage = (event) => {
+    handlers.onCandle(parseKlineMessage(String(event.data), symbol));
+  };
 
-  return () => window.clearInterval(intervalId);
+  return () => {
+    websocket.close(1000, "smartkline market changed");
+  };
 }
 
 export function upsertCandle(candles: readonly MarketCandle[], nextCandle: MarketCandle): MarketCandle[] {
@@ -93,189 +168,89 @@ export function prependHistoricalCandles(
 }
 
 export function toBinanceFuturesStreamSymbol(symbol: MarketSymbol): string {
-  return symbol.replace("/USDT:USDT", "USDT").toLowerCase();
-}
-
-export function createMockCandles(symbol: MarketSymbol, interval: KlineInterval): MarketCandle[] {
-  const scenario = getMockSignalScenario(symbol);
-  if (!scenario) {
-    return createFallbackCandles(symbol, interval);
+  const match = /^([^/]+)\/([^:]+):USDT$/u.exec(symbol.trim());
+  if (!match) {
+    throw new Error(`Cannot derive Binance Futures stream symbol from ${symbol}.`);
   }
 
-  return scenario.kind === "invalid-missing-coverage"
-    ? createMissingCoverageCandles(scenario, interval)
-    : createScenarioCandles(scenario, interval);
+  return `${match[1]}${match[2]}`.toLowerCase();
 }
 
-function createScenarioCandles(scenario: MockSignalScenario, interval: KlineInterval): MarketCandle[] {
-  const intervalMs = toIntervalMs(interval);
-  const signalTimeMs = getIntervalStartMs(Date.parse(scenario.signal.created_at), intervalMs);
-  const beforeCount = interval === "1m" ? 36 : 80;
-  const afterCount = interval === "1m" ? 112 : 160;
-  const startTimeMs = signalTimeMs - beforeCount * intervalMs;
-  let previousClose = scenario.snapshotPrice;
+function createBinanceKlineWebSocketUrl(symbol: MarketSymbol, interval: KlineInterval): string {
+  const streamSymbol = toBinanceFuturesStreamSymbol(symbol);
+  return `${BINANCE_FUTURES_MARKET_WS_BASE_URL}/${encodeURIComponent(streamSymbol)}@kline_${interval}`;
+}
 
-  return Array.from({ length: beforeCount + afterCount + 1 }, (_, index) => {
-    const sourceTimeMs = startTimeMs + index * intervalMs;
-    const offset = Math.round((sourceTimeMs - signalTimeMs) / intervalMs);
-    const center = resolveScenarioCenterPrice(scenario, offset, afterCount);
-    const open = offset === 0 ? scenario.snapshotPrice : previousClose;
-    let close = center;
-    let high = Math.max(open, close) + scenario.volatility;
-    let low = Math.min(open, close) - scenario.volatility;
+function parseKlineRow(row: BinanceKlineRow, symbol: MarketSymbol): MarketCandle {
+  const [timestamp, open, high, low, close, volume] = row;
+  return createCandle({ timestamp, open, high, low, close, volume, symbol });
+}
 
-    if (offset === 0) {
-      high = Math.max(high, scenario.snapshotPrice + scenario.volatility * 0.7);
-      low = Math.min(low, scenario.snapshotPrice - scenario.volatility * 0.7);
-    }
+function parseKlineMessage(rawMessage: string, symbol: MarketSymbol): MarketCandle {
+  const payload = JSON.parse(rawMessage) as BinanceKlinePayload;
+  const kline = payload.k;
 
-    const forcedExit = resolveForcedExit(scenario, offset);
-    if (forcedExit !== null) {
-      high = Math.max(high, forcedExit.high ?? high);
-      low = Math.min(low, forcedExit.low ?? low);
-      close = forcedExit.close;
-    }
+  if (!kline) {
+    throw new Error(`Binance realtime message did not include kline data for ${symbol}.`);
+  }
 
-    previousClose = close;
-    return createCandle({ close, high, low, open, sourceTimeMs, volumeSeed: index, symbol: scenario.signal.symbol });
+  return createCandle({
+    timestamp: kline.t,
+    open: kline.o,
+    high: kline.h,
+    low: kline.l,
+    close: kline.c,
+    volume: kline.v,
+    symbol,
   });
-}
-
-function createMissingCoverageCandles(scenario: MockSignalScenario, interval: KlineInterval): MarketCandle[] {
-  const intervalMs = toIntervalMs(interval);
-  const signalTimeMs = getIntervalStartMs(Date.parse(scenario.signal.created_at), intervalMs);
-  const startTimeMs = signalTimeMs + 10 * intervalMs;
-  let previousClose = scenario.currentPrice;
-
-  return Array.from({ length: 120 }, (_, index) => {
-    const sourceTimeMs = startTimeMs + index * intervalMs;
-    const wave = Math.sin(index / 6) * scenario.volatility * 2;
-    const close = scenario.currentPrice + wave;
-    const open = previousClose;
-    const high = Math.max(open, close) + scenario.volatility;
-    const low = Math.min(open, close) - scenario.volatility;
-    previousClose = close;
-    return createCandle({ close, high, low, open, sourceTimeMs, volumeSeed: index, symbol: scenario.signal.symbol });
-  });
-}
-
-function createFallbackCandles(symbol: MarketSymbol, interval: KlineInterval): MarketCandle[] {
-  const intervalMs = toIntervalMs(interval);
-  const seed = [...symbol].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  const basePrice = 100 + seed % 80;
-  const startTimeMs = Date.parse("2026-06-03T16:00:00+08:00");
-  let previousClose = basePrice;
-
-  return Array.from({ length: 180 }, (_, index) => {
-    const sourceTimeMs = startTimeMs + index * intervalMs;
-    const close = basePrice + Math.sin(index / 8) * 4 + index * 0.03;
-    const open = previousClose;
-    const high = Math.max(open, close) + 0.8;
-    const low = Math.min(open, close) - 0.8;
-    previousClose = close;
-    return createCandle({ close, high, low, open, sourceTimeMs, volumeSeed: index, symbol });
-  });
-}
-
-function resolveScenarioCenterPrice(scenario: MockSignalScenario, offset: number, afterCount: number): number {
-  if (offset < 0) {
-    return scenario.snapshotPrice + Math.sin(offset / 5) * scenario.volatility * 2;
-  }
-
-  const progress = Math.min(1, offset / Math.max(1, afterCount));
-
-  if (scenario.kind === "trigger-long-entered" && offset < 4) {
-    return scenario.snapshotPrice + offset * scenario.volatility * 1.4;
-  }
-
-  const smoothProgress = 1 - Math.pow(1 - progress, 2);
-  const trend = scenario.snapshotPrice + (scenario.currentPrice - scenario.snapshotPrice) * smoothProgress;
-  return trend + Math.sin(offset / 7) * scenario.volatility * 1.6;
-}
-
-function resolveForcedExit(scenario: MockSignalScenario, offset: number): { close: number; high?: number; low?: number } | null {
-  if (scenario.exitMinute === undefined || offset !== scenario.exitMinute) {
-    return null;
-  }
-
-  const signal = scenario.signal;
-  if (scenario.kind === "exited-long-take-profit") {
-    const takeProfit = signal.take_profit[0];
-    return { close: takeProfit + scenario.volatility, high: takeProfit + scenario.volatility * 2 };
-  }
-
-  if (scenario.kind === "exited-short-take-profit") {
-    const takeProfit = signal.take_profit[0];
-    return { close: takeProfit - scenario.volatility, low: takeProfit - scenario.volatility * 2 };
-  }
-
-  if (scenario.kind === "exited-long-stop-loss" && signal.stop_loss !== null) {
-    return { close: signal.stop_loss - scenario.volatility, low: signal.stop_loss - scenario.volatility * 2 };
-  }
-
-  if (scenario.kind === "exited-short-stop-loss" && signal.stop_loss !== null) {
-    return { close: signal.stop_loss + scenario.volatility, high: signal.stop_loss + scenario.volatility * 2 };
-  }
-
-  return null;
-}
-
-function createMockRealtimeCandle(symbol: MarketSymbol, interval: KlineInterval, tick: number): MarketCandle {
-  const scenario = getMockSignalScenario(symbol);
-  const intervalMs = toIntervalMs(interval);
-  const sourceTimeMs = getIntervalStartMs(Date.parse("2026-06-04T00:30:00+08:00") + tick * intervalMs, intervalMs);
-  const basePrice = scenario?.currentPrice ?? 100;
-  const volatility = scenario?.volatility ?? 1;
-  const open = basePrice + Math.sin(tick / 3) * volatility;
-  const close = basePrice + Math.cos(tick / 4) * volatility;
-  const high = Math.max(open, close) + volatility * 0.8;
-  const low = Math.min(open, close) - volatility * 0.8;
-
-  return createCandle({ close, high, low, open, sourceTimeMs, volumeSeed: tick, symbol });
 }
 
 function createCandle(input: {
-  close: number;
-  high: number;
-  low: number;
-  open: number;
-  sourceTimeMs: number;
+  timestamp: unknown;
+  open: unknown;
+  high: unknown;
+  low: unknown;
+  close: unknown;
+  volume: unknown;
   symbol: MarketSymbol;
-  volumeSeed: number;
 }): MarketCandle {
+  const timestamp = Number(input.timestamp);
+  const open = Number(input.open);
+  const high = Number(input.high);
+  const low = Number(input.low);
+  const close = Number(input.close);
+  const volume = Number(input.volume);
+
+  if (![timestamp, open, high, low, close, volume].every(Number.isFinite)) {
+    throw new Error(`Binance returned invalid OHLCV data for ${input.symbol}.`);
+  }
+
   return {
-    time: Math.floor(input.sourceTimeMs / MILLISECONDS_PER_SECOND) as UTCTimestamp,
-    sourceTimeMs: input.sourceTimeMs,
-    open: roundPrice(input.open),
-    high: roundPrice(input.high),
-    low: roundPrice(input.low),
-    close: roundPrice(input.close),
-    volume: 1_000 + (input.volumeSeed * 73 + input.symbol.length * 19) % 2_500,
+    time: toBrowserLocalChartTimestamp(timestamp),
+    sourceTimeMs: timestamp,
+    open,
+    high,
+    low,
+    close,
+    volume,
   };
 }
 
-function getIntervalStartMs(timestampMs: number, intervalMs: number): number {
-  return Math.floor(timestampMs / intervalMs) * intervalMs;
-}
+function toBrowserLocalChartTimestamp(timestamp: number): UTCTimestamp {
+  const utcDate = new Date(timestamp);
+  const localUtcSeconds = Date.UTC(
+    utcDate.getFullYear(),
+    utcDate.getMonth(),
+    utcDate.getDate(),
+    utcDate.getHours(),
+    utcDate.getMinutes(),
+    utcDate.getSeconds(),
+    utcDate.getMilliseconds(),
+  ) / MILLISECONDS_PER_SECOND;
 
-function toIntervalMs(interval: KlineInterval): number {
-  const unit = interval.at(-1);
-  const value = Number(interval.slice(0, -1));
-  if (unit === "m") return value * MINUTE_MS;
-  if (unit === "h") return value * 60 * MINUTE_MS;
-  return value * 24 * 60 * MINUTE_MS;
-}
-
-function roundPrice(value: number): number {
-  const absoluteValue = Math.abs(value);
-  const maximumFractionDigits = absoluteValue >= 1_000 ? 1 : absoluteValue >= 10 ? 3 : 5;
-  return Number(value.toFixed(maximumFractionDigits));
+  return Math.floor(localUtcSeconds) as UTCTimestamp;
 }
 
 function compareCandlesByTime(left: MarketCandle, right: MarketCandle): number {
   return left.sourceTimeMs - right.sourceTimeMs;
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
