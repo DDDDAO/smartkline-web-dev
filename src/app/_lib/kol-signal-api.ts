@@ -20,7 +20,7 @@ const KOL_SOURCE_NAME_BY_ID: Record<string, string> = {
   "49": "三马哥合约",
 };
 const UTC_8_OFFSET_MINUTES = 8 * 60;
-const DEFAULT_CREATED_AT = "2026-06-03T20:58:00+08:00";
+const DEFAULT_CREATED_AT = "2026-05-31T20:58:00+08:00";
 const MARKET_ALIGNED_SIGNAL_HISTORY_LIMIT = 180;
 const MARKET_ALIGNED_SIGNAL_STAGGER_MINUTES = 11;
 const MARKET_ALIGNED_SIGNAL_MINIMUM_OFFSET_MINUTES = 8;
@@ -136,7 +136,7 @@ export const sampleKolSignalApiResponses: KolSignalApiItem[] = [
     id: "sample:3:0",
     source_id: "sample-3",
     source_message_id: "sample-message-3",
-    created_at: "2026-06-04T09:30:00+08:00",
+    created_at: "2026-05-31T09:30:00+08:00",
     message_type: "OPEN_POSITION",
     entry: {
       raw: "市价多单模拟，用于展示已入场浮动盈亏",
@@ -155,7 +155,7 @@ export const sampleKolSignalApiResponses: KolSignalApiItem[] = [
     id: "sample:4:0",
     source_id: "sample-4",
     source_message_id: "sample-message-4",
-    created_at: "2026-06-04T09:30:00+08:00",
+    created_at: "2026-05-31T09:30:00+08:00",
     message_type: "OPEN_POSITION",
     entry: {
       raw: "市价空单模拟，用于展示已入场浮动盈亏",
@@ -197,7 +197,7 @@ export const sampleKolSignalApiResponses: KolSignalApiItem[] = [
     id: "sample:2:0",
     source_id: "sample-2",
     source_message_id: "sample-message-2",
-    created_at: "2026-06-03T21:02:00+08:00",
+    created_at: "2026-05-31T21:02:00+08:00",
     message_type: "OPEN_POSITION",
     entry: {
       raw: "67400-68600",
@@ -355,14 +355,12 @@ function alignSignalToBinanceCandles(signal: StructuredSignal, index: number, ca
 
   const referencePrice = referenceCandle.open > 0 ? referenceCandle.open : referenceCandle.close;
   const entry = createAlignedEntry(signal, referencePrice);
-  const createdAt = formatTimestampInUtc8(referenceCandle.sourceTimeMs + 8_000);
   const confirmation = createAlignedConfirmation(signal, entry);
 
   return createAlignedSignal({
     ...signal,
     ...entry,
     confirmation,
-    created_at: createdAt,
   });
 }
 

@@ -34,7 +34,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-btc-short-range-not-entered",
       sourceName: "三马哥合约",
-      createdAt: "2026-06-03T23:22:00+08:00",
+      createdAt: "2026-05-31T23:22:00+08:00",
       symbol: "BTC/USDT:USDT",
       direction: "short",
       entryMin: 67000,
@@ -53,7 +53,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-eth-long-entered-profit",
       sourceName: "Alpha Lane",
-      createdAt: "2026-06-03T22:56:00+08:00",
+      createdAt: "2026-05-31T22:56:00+08:00",
       symbol: "ETH/USDT:USDT",
       direction: "long",
       entryMin: 3368,
@@ -72,7 +72,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-sol-long-entered-loss",
       sourceName: "Range Lab",
-      createdAt: "2026-06-03T22:32:00+08:00",
+      createdAt: "2026-05-31T22:32:00+08:00",
       symbol: "SOL/USDT:USDT",
       direction: "long",
       entryMin: 150.5,
@@ -91,7 +91,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-bnb-short-entered-profit",
       sourceName: "Delta Desk",
-      createdAt: "2026-06-03T22:04:00+08:00",
+      createdAt: "2026-05-31T22:04:00+08:00",
       symbol: "BNB/USDT:USDT",
       direction: "short",
       entryMin: 642,
@@ -110,7 +110,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-xrp-short-entered-loss",
       sourceName: "Momentum KOL",
-      createdAt: "2026-06-03T21:36:00+08:00",
+      createdAt: "2026-05-31T21:36:00+08:00",
       symbol: "XRP/USDT:USDT",
       direction: "short",
       entryMin: 0.518,
@@ -130,7 +130,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-ada-long-take-profit",
       sourceName: "TP Hunter",
-      createdAt: "2026-06-03T21:08:00+08:00",
+      createdAt: "2026-05-31T21:08:00+08:00",
       symbol: "ADA/USDT:USDT",
       direction: "long",
       entryMin: null,
@@ -150,7 +150,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-doge-short-take-profit",
       sourceName: "Scalp Room",
-      createdAt: "2026-06-03T20:40:00+08:00",
+      createdAt: "2026-05-31T20:40:00+08:00",
       symbol: "DOGE/USDT:USDT",
       direction: "short",
       entryMin: null,
@@ -170,7 +170,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-link-long-stop-loss",
       sourceName: "Risk Watch",
-      createdAt: "2026-06-03T20:12:00+08:00",
+      createdAt: "2026-05-31T20:12:00+08:00",
       symbol: "LINK/USDT:USDT",
       direction: "long",
       entryMin: 17.05,
@@ -190,7 +190,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-avax-short-stop-loss",
       sourceName: "Risk Watch",
-      createdAt: "2026-06-03T19:44:00+08:00",
+      createdAt: "2026-05-31T19:44:00+08:00",
       symbol: "AVAX/USDT:USDT",
       direction: "short",
       entryMin: 31.2,
@@ -209,7 +209,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-op-trigger-long-entered",
       sourceName: "Breakout Bot",
-      createdAt: "2026-06-03T19:16:00+08:00",
+      createdAt: "2026-05-31T19:16:00+08:00",
       symbol: "OP/USDT:USDT",
       direction: "long",
       entryMin: null,
@@ -228,7 +228,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-arb-market-short-entered",
       sourceName: "Market Flow",
-      createdAt: "2026-06-03T18:48:00+08:00",
+      createdAt: "2026-05-31T18:48:00+08:00",
       symbol: "ARB/USDT:USDT",
       direction: "short",
       entryMin: null,
@@ -247,7 +247,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-ltc-market-long-missing-risk",
       sourceName: "Incomplete Feed",
-      createdAt: "2026-06-03T18:20:00+08:00",
+      createdAt: "2026-05-31T18:20:00+08:00",
       symbol: "LTC/USDT:USDT",
       direction: "long",
       entryMin: null,
@@ -266,7 +266,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
     signal: createSignal({
       id: "mock-near-invalid-coverage",
       sourceName: "Data Gap Feed",
-      createdAt: "2026-06-03T17:52:00+08:00",
+      createdAt: "2026-05-31T17:52:00+08:00",
       symbol: "NEAR/USDT:USDT",
       direction: "long",
       entryMin: 5.18,
@@ -282,7 +282,7 @@ export const mockKolSignalScenarios: MockSignalScenario[] = [
 const duplicateParsedPositionSignal: StructuredSignal = {
   ...mockKolSignalScenarios[0].signal,
   id: "mock-btc-short-range-duplicate-later-message",
-  created_at: "2026-06-04T00:08:00+08:00",
+  created_at: "2026-05-31T23:27:00+08:00",
   raw_text: "重复转发：67000附近直接空市价，再挂 68588，止损 70000，止盈1 66188 / 止盈2 65388 / 止盈3 63888。",
   summary: "Duplicate parsed BTC/USDT:USDT short signal retained only if dedupe fails.",
 };
@@ -290,13 +290,13 @@ const duplicateParsedPositionSignal: StructuredSignal = {
 const fallbackResonanceSignals: StructuredSignal[] = [
   createFallbackResonanceSignal({
     basisPointShift: -0.0012,
-    createdAt: "2026-06-03T23:24:00+08:00",
+    createdAt: "2026-05-31T23:23:00+08:00",
     id: "mock-btc-short-resonance-whale-club",
     sourceName: "Crypto Whale Club",
   }),
   createFallbackResonanceSignal({
     basisPointShift: 0.001,
-    createdAt: "2026-06-03T23:25:00+08:00",
+    createdAt: "2026-05-31T23:24:00+08:00",
     id: "mock-btc-short-resonance-north-star",
     sourceName: "North Star Signals",
   }),
