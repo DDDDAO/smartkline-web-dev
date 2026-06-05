@@ -42,9 +42,11 @@ export type TelegramAuthSession = {
   user: TelegramSessionUser;
 };
 
+export type TelegramCommunityBinding = "unverified" | "pending" | "joined" | "left" | "kicked";
+
 export type TelegramAuthMeResponse = {
   botBinding: "unbound" | "bound";
-  communityBinding: "unverified" | "joined" | "left";
+  communityBinding: TelegramCommunityBinding;
   isLoggedIn: boolean;
   notificationPermission: "none" | "granted";
   sourceBindingCount: number;
@@ -229,10 +231,13 @@ export function createLoggedOutAuthMeResponse(): TelegramAuthMeResponse {
   };
 }
 
-export function createLoggedInAuthMeResponse(session: TelegramAuthSession): TelegramAuthMeResponse {
+export function createLoggedInAuthMeResponse(
+  session: TelegramAuthSession,
+  communityBinding: TelegramCommunityBinding = "unverified",
+): TelegramAuthMeResponse {
   return {
     botBinding: "unbound",
-    communityBinding: "unverified",
+    communityBinding,
     isLoggedIn: true,
     notificationPermission: "none",
     sourceBindingCount: 0,
@@ -355,6 +360,10 @@ function readOptionalTelegramId(payload: JWTPayload): string | undefined {
 
   if (typeof payload.id === "string" && payload.id.length > 0) {
     return payload.id;
+  }
+
+  if (typeof payload.sub === "string" && /^\d+$/.test(payload.sub)) {
+    return payload.sub;
   }
 
   return undefined;

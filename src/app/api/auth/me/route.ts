@@ -5,6 +5,7 @@ import {
   SESSION_COOKIE_NAME,
   verifySessionToken,
 } from "@/app/_lib/auth/telegram-auth";
+import { getTelegramCommunityBindingForSession } from "@/app/_lib/auth/telegram-community";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,7 +21,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const session = await verifySessionToken(sessionToken);
-    return NextResponse.json(createLoggedInAuthMeResponse(session));
+    const communityBinding = await getTelegramCommunityBindingForSession(session).catch(() => "unverified" as const);
+    return NextResponse.json(createLoggedInAuthMeResponse(session, communityBinding));
   } catch {
     const response = NextResponse.json(createLoggedOutAuthMeResponse());
     response.cookies.delete({ name: SESSION_COOKIE_NAME, path: "/" });
