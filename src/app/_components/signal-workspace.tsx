@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { markets } from "@/app/_lib/demo-data";
 import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
@@ -28,7 +28,6 @@ import type { StructuredSignal } from "@/app/_types/signal";
 const MAX_VISIBLE_KOL_SIGNALS = 50;
 const NOTIFICATION_DISMISS_MS = 6_500;
 const INTRO_AUTO_DISMISS_MS = 5_800;
-const TELEGRAM_COMMUNITY_URL = process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
 const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
 
 type WorkspaceLanguage = "zh-CN" | "en-US";
@@ -56,12 +55,6 @@ type TelegramAuthStatus = {
   notificationPermission: "none" | "granted";
   sourceBindingCount: number;
   telegramUser: TelegramAuthUser | null;
-};
-
-type TelegramCommunityInviteResponse = {
-  communityBinding: TelegramAuthStatus["communityBinding"];
-  expiresAt: string | null;
-  inviteLink: string | null;
 };
 
 const DEFAULT_TELEGRAM_AUTH_STATUS: TelegramAuthStatus = {
@@ -138,40 +131,18 @@ export function SignalWorkspace() {
     ? "relative grid h-full min-h-0 gap-3 p-3 lg:grid-cols-[minmax(0,1fr)]"
     : "relative grid h-full min-h-0 gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]";
 
-  const loadTelegramAuthStatus = useCallback(async (): Promise<TelegramAuthStatus> => {
-    const normalizedAuthStatus = await fetchTelegramAuthStatus();
-    setAuthStatus(normalizedAuthStatus);
-    return normalizedAuthStatus;
-  }, []);
-
-  const refreshTelegramCommunityMembership = useCallback(async (): Promise<TelegramAuthStatus> => {
-    await fetch("/api/telegram/community/refresh", {
-      credentials: "same-origin",
-      method: "POST",
-    }).catch(() => null);
-
-    return loadTelegramAuthStatus();
-  }, [loadTelegramAuthStatus]);
-
   const handleTelegramLogin = () => {
     if (typeof window === "undefined") {
       return;
     }
 
-    if (authStatus.communityBinding === "joined") {
-      openTelegramCommunityLink();
-      return;
-    }
-
     if (isLoggedIn) {
-      void openPersonalTelegramCommunityInvite(refreshTelegramCommunityMembership, setWorkspaceNotification);
+      setIsMyPanelOpen(true);
       return;
     }
 
     const redirectPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    const redirectUrl = new URL(redirectPath, window.location.origin);
-    redirectUrl.searchParams.set("join_community", "1");
-    window.location.assign(`/api/auth/telegram/start?redirect=${encodeURIComponent(`${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`)}`);
+    window.location.assign(`/api/auth/telegram/start?redirect=${encodeURIComponent(redirectPath)}`);
   };
 
   const handleMyPanelToggle = () => {
@@ -188,7 +159,6 @@ export function SignalWorkspace() {
   useEffect(() => {
     let isActive = true;
     const authResult = readTelegramAuthResultFromUrl();
-    const shouldJoinCommunity = readShouldJoinCommunityFromUrl();
 
     fetchTelegramAuthStatus()
       .then((normalizedAuthStatus) => {
@@ -203,7 +173,7 @@ export function SignalWorkspace() {
           setWorkspaceNotification({
             id: "telegram-login",
             title: "Telegram 已验证",
-            message: `${formatTelegramDisplayName(normalizedAuthStatus.telegramUser)} 已完成登录验证，可继续绑定社群和 bot。`,
+            message: `${formatTelegramDisplayName(normalizedAuthStatus.telegramUser)} 已完成登录验证，可继续查看实时信号。`,
             meta: "K线情报局 · Telegram OIDC",
           });
         } else if (authResult === "error") {
@@ -216,14 +186,6 @@ export function SignalWorkspace() {
         }
 
         clearTelegramAuthQueryFromUrl();
-
-        if (
-          shouldJoinCommunity
-          && normalizedAuthStatus.isLoggedIn
-          && normalizedAuthStatus.communityBinding !== "joined"
-        ) {
-          void openPersonalTelegramCommunityInvite(refreshTelegramCommunityMembership, setWorkspaceNotification);
-        }
       })
       .catch(() => {
         if (!isActive) {
@@ -239,27 +201,7 @@ export function SignalWorkspace() {
     return () => {
       isActive = false;
     };
-  }, [refreshTelegramCommunityMembership]);
-
-  useEffect(() => {
-    if (!isLoggedIn || authStatus.communityBinding === "joined") {
-      return;
-    }
-
-    const refreshOnReturn = () => {
-      if (document.visibilityState === "visible") {
-        void refreshTelegramCommunityMembership();
-      }
-    };
-
-    window.addEventListener("focus", refreshOnReturn);
-    document.addEventListener("visibilitychange", refreshOnReturn);
-
-    return () => {
-      window.removeEventListener("focus", refreshOnReturn);
-      document.removeEventListener("visibilitychange", refreshOnReturn);
-    };
-  }, [authStatus.communityBinding, isLoggedIn, refreshTelegramCommunityMembership]);
+  }, []);
 
   useEffect(() => {
     if (!workspaceNotification) {
@@ -632,7 +574,7 @@ function ProductIntroScreen({
                 type="button"
                 onClick={onTelegramLogin}
               >
-                Telegram 入群登录
+                Telegram 登录验证
               </button>
             </div>
           </div>
@@ -761,7 +703,6 @@ function WorkspaceAccountActions({
       <div className={actionRowClassName}>
         <BrandLogo isDarkTheme={isDarkTheme} />
         <MyLoginButton isDarkTheme={isDarkTheme} isLoggedIn={isLoggedIn} onClick={onMyPanelToggle} />
-        <TelegramCommunityButton isDarkTheme={isDarkTheme} onTelegramLogin={onTelegramLogin} />
       </div>
       {isMyPanelOpen ? (
         <MyStatusPanel
@@ -835,10 +776,9 @@ function MyStatusPanel({
     : "pointer-events-auto w-full rounded-3xl border border-slate-200 bg-white/96 p-4 text-slate-950 shadow-2xl shadow-slate-300/50 backdrop-blur";
   const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
   const telegramDisplayName = formatTelegramDisplayName(authStatus.telegramUser);
-  const communityStatus = formatTelegramCommunityStatus(authStatus.communityBinding, isLoggedIn);
-  const communityActionLabel = authStatus.communityBinding === "joined" ? "打开 Telegram" : "加入 TG 群";
+  const loginStatus = isLoggedIn ? "已验证" : "待登录";
   const sourceBindingStatus = authStatus.sourceBindingCount > 0 ? `${authStatus.sourceBindingCount} 个信源` : isLoggedIn ? "公共信源" : "登录后可用";
-  const notificationStatus = authStatus.notificationPermission === "granted" ? "已授权" : isLoggedIn ? "待 bot 绑定" : "待授权";
+  const notificationStatus = authStatus.notificationPermission === "granted" ? "已授权" : "待授权";
 
   return (
     <div className={panelClassName}>
@@ -860,17 +800,17 @@ function MyStatusPanel({
 
       <div className="mt-4 grid gap-2">
         <MyBindingRow
-          actionLabel={communityActionLabel}
-          description="网页登录后生成专属入群链接；入群状态由 bot webhook 和 getChatMember 校验。"
+          actionLabel={isLoggedIn ? "已完成" : "TG 登录"}
+          description="当前默认只要求完成 Telegram 网页登录验证，不再把入群验证作为前端准入门槛。"
           isDarkTheme={isDarkTheme}
-          status={communityStatus}
-          title="TG 群验证"
-          tone={authStatus.communityBinding === "joined" ? "positive" : isLoggedIn ? "pending" : "pending"}
+          status={loginStatus}
+          title="Telegram 登录验证"
+          tone={isLoggedIn ? "positive" : "pending"}
           onAction={onTelegramLogin}
         />
         <MyBindingRow
           actionLabel="管理"
-          description="当前已接入 KOL 信号源，后续可在这里绑定自有群。"
+          description="当前已接入 KOL 信号源，后续可在这里管理自选来源。"
           isDarkTheme={isDarkTheme}
           status={sourceBindingStatus}
           title="信号源"
@@ -889,7 +829,7 @@ function MyStatusPanel({
       </div>
 
       <div className={isDarkTheme ? "mt-4 rounded-2xl bg-slate-900 p-3 text-[11px] leading-5 text-slate-400" : "mt-4 rounded-2xl bg-slate-50 p-3 text-[11px] leading-5 text-slate-500"}>
-        当前已接入 Telegram OIDC 登录验证和 TG 群入群校验；通知和自有信号源绑定后续继续接 bot 授权。
+        当前默认启用 Telegram OIDC 登录验证；TG 入群验证 v1 后端能力已保留，后续需要时可以重新接回前端。
       </div>
     </div>
   );
@@ -935,29 +875,6 @@ function MyBindingRow({
         {actionLabel}
       </button>
     </div>
-  );
-}
-
-function TelegramCommunityButton({
-  isDarkTheme,
-  onTelegramLogin,
-}: {
-  isDarkTheme: boolean;
-  onTelegramLogin: () => void;
-}) {
-  const className = isDarkTheme
-    ? "pointer-events-auto inline-flex items-center gap-2 rounded-full border border-sky-500/40 bg-sky-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-950/30 transition hover:bg-sky-400"
-    : "pointer-events-auto inline-flex items-center gap-2 rounded-full border border-sky-300 bg-sky-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-200/70 transition hover:bg-sky-600";
-
-  return (
-    <button className={className} type="button" onClick={onTelegramLogin}>
-      <span className="grid h-5 w-5 place-items-center rounded-full bg-white/20" aria-hidden="true">
-        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M21.7 3.4 18.3 20c-.2 1-1.1 1.3-1.9.8l-5.2-3.9-2.5 2.4c-.3.3-.5.5-1 .5l.4-5.4 9.8-8.9c.4-.4-.1-.6-.7-.2L5.1 13 0 11.4c-1.1-.3-1.1-1.1.2-1.6L20.3 2c.9-.3 1.7.2 1.4 1.4Z" />
-        </svg>
-      </span>
-      社群接入
-    </button>
   );
 }
 
@@ -1146,14 +1063,6 @@ function SidebarCollapseButton({
   );
 }
 
-function openTelegramCommunityLink() {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.open(TELEGRAM_COMMUNITY_URL, "_blank", "noopener,noreferrer");
-}
-
 function readTelegramAuthResultFromUrl(): "success" | "error" | null {
   if (typeof window === "undefined") {
     return null;
@@ -1161,14 +1070,6 @@ function readTelegramAuthResultFromUrl(): "success" | "error" | null {
 
   const authResult = new URLSearchParams(window.location.search).get("telegram_auth");
   return authResult === "success" || authResult === "error" ? authResult : null;
-}
-
-function readShouldJoinCommunityFromUrl(): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return new URLSearchParams(window.location.search).get("join_community") === "1";
 }
 
 function clearTelegramAuthQueryFromUrl() {
@@ -1204,93 +1105,8 @@ async function fetchTelegramAuthStatus(): Promise<TelegramAuthStatus> {
   return normalizeTelegramAuthStatus(nextAuthStatus);
 }
 
-async function openPersonalTelegramCommunityInvite(
-  refreshTelegramCommunityMembership: () => Promise<TelegramAuthStatus>,
-  setWorkspaceNotification: (notification: WorkspaceNotification | null) => void,
-) {
-  const inviteWindow = window.open("about:blank", "_blank");
-
-  try {
-    const response = await fetch("/api/telegram/community/invite", {
-      credentials: "same-origin",
-      method: "POST",
-    });
-    const inviteResponse = await readTelegramCommunityInviteResponse(response);
-
-    if (!response.ok || !inviteResponse) {
-      throw new Error(inviteResponse?.error || "Telegram invite creation failed.");
-    }
-
-    if (inviteResponse.communityBinding === "joined") {
-      inviteWindow?.close();
-      openTelegramCommunityLink();
-      return;
-    }
-
-    if (!inviteResponse.inviteLink) {
-      throw new Error("Telegram invite link is missing.");
-    }
-
-    if (inviteWindow) {
-      inviteWindow.location.href = inviteResponse.inviteLink;
-    } else {
-      window.location.assign(inviteResponse.inviteLink);
-    }
-
-    setWorkspaceNotification({
-      id: "telegram-community-invite",
-      title: "已生成专属入群链接",
-      message: "完成入群后回到页面，系统会自动刷新 TG 群验证状态。",
-      meta: "K线情报局 · TG 群验证",
-    });
-
-    window.setTimeout(() => {
-      void refreshTelegramCommunityMembership();
-    }, 5_000);
-  } catch (error) {
-    inviteWindow?.close();
-    setWorkspaceNotification({
-      id: "telegram-community-invite-error",
-      title: "TG 入群链接生成失败",
-      message: error instanceof Error && error.message
-        ? error.message
-        : "请确认 Vercel 已配置 bot token、群 chat id、webhook secret，并确认状态存储适配器可用。",
-      meta: "K线情报局 · TG 群验证",
-    });
-  }
-}
-
-async function readTelegramCommunityInviteResponse(response: Response): Promise<(TelegramCommunityInviteResponse & { error?: string }) | null> {
-  try {
-    return await response.json() as TelegramCommunityInviteResponse & { error?: string };
-  } catch {
-    return null;
-  }
-}
-
 function normalizeTelegramCommunityBinding(communityBinding: TelegramAuthStatus["communityBinding"]): TelegramAuthStatus["communityBinding"] {
   return ["pending", "joined", "left", "kicked"].includes(communityBinding) ? communityBinding : "unverified";
-}
-
-function formatTelegramCommunityStatus(communityBinding: TelegramAuthStatus["communityBinding"], isLoggedIn: boolean): string {
-  if (!isLoggedIn) {
-    return "待登录";
-  }
-
-  switch (communityBinding) {
-    case "joined":
-      return "已入群";
-    case "pending":
-      return "等待入群";
-    case "left":
-      return "已退出";
-    case "kicked":
-      return "已移除";
-    case "unverified":
-      return "待入群";
-    default:
-      return "待入群";
-  }
 }
 
 function formatTelegramDisplayName(telegramUser: TelegramAuthUser | null): string {

@@ -63,6 +63,13 @@ GET  /api/auth/telegram/start
 GET  /api/auth/telegram/callback
 GET  /api/auth/me
 POST /api/auth/logout
+```
+
+Telegram community verification is retained as the v1 backend capability, but
+the default frontend product flow only requires Telegram OIDC login and does not
+show a join-group gate.
+
+```text
 POST /api/telegram/community/invite
 POST /api/telegram/community/refresh
 POST /api/telegram/webhook
@@ -80,12 +87,7 @@ Configure these Vercel Environment Variables without the `NEXT_PUBLIC_` prefix:
 APP_ORIGIN=https://www.smartkline.com
 TELEGRAM_CLIENT_ID=
 TELEGRAM_CLIENT_SECRET=
-TELEGRAM_BOT_USERNAME=
-TELEGRAM_BOT_TOKEN=
 TELEGRAM_OIDC_SCOPES=openid profile telegram:bot_access
-TELEGRAM_COMMUNITY_CHAT_ID=
-TELEGRAM_WEBHOOK_SECRET=
-TELEGRAM_COMMUNITY_INVITE_TTL_SECONDS=600
 SESSION_SECRET=
 ```
 
@@ -98,15 +100,26 @@ openssl rand -base64 32
 ```
 
 Rotating `SESSION_SECRET` invalidates existing browser sessions. Rotating
-`TELEGRAM_CLIENT_SECRET` or the bot token requires updating Vercel before the
-next deployment.
+`TELEGRAM_CLIENT_SECRET` requires updating Vercel before the next deployment.
 
-Telegram community verification uses bot-generated one-person invite links.
-The current code keeps the storage boundary behind
+### Telegram community verification v1
+
+Telegram community verification v1 uses bot-generated one-person invite links.
+The frontend no longer calls this flow by default. The code keeps the storage boundary behind
 `src/app/_lib/auth/telegram-community-store.ts`, with a process-memory adapter
 only for wiring the architecture. Before relying on webhooks in production,
 replace that adapter with a durable Redis/Postgres/KV implementation because
 Telegram webhook requests do not include browser session cookies.
+
+Optional environment variables for re-enabling the v1 flow:
+
+```bash
+TELEGRAM_BOT_USERNAME=
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_COMMUNITY_CHAT_ID=
+TELEGRAM_WEBHOOK_SECRET=
+TELEGRAM_COMMUNITY_INVITE_TTL_SECONDS=600
+```
 
 Add the verification bot to the target group as an administrator with
 invite-link rights, then configure the webhook:
