@@ -263,7 +263,7 @@ export function SignalWorkspace() {
         id: `kol-signal-poll-${Date.now()}`,
         title: "KOL 信源更新",
         message: `已加载 ${incomingSignals.length} 条新情报。`,
-        meta: "K线情报局 · REST 轮询",
+        meta: "K线情报局 · 最新信号",
       });
     };
 

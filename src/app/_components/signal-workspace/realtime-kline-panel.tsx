@@ -252,7 +252,7 @@ function MarketEnvironmentGuide({ error, isDarkTheme }: { error: string; isDarkT
           当前行情图加载失败，可能与地区网络环境有关。请切换网络地区或开启可访问 Binance 行情源的网络环境后重试。
         </p>
         <div className={isDarkTheme ? "mt-4 rounded-2xl bg-slate-900 p-3 text-xs leading-5 text-slate-400" : "mt-4 rounded-2xl bg-slate-50 p-3 text-xs leading-5 text-slate-500"}>
-          <div>建议环境：可访问 Binance USDⓈ-M Futures REST 行情源。</div>
+          <div>建议环境：可正常访问 Binance 行情数据。</div>
           <div>当前错误：{error}</div>
         </div>
       </div>

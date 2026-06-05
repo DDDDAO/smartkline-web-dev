@@ -80,8 +80,8 @@ export function KolSignalSourceNotice({
 }) {
   if (status.error) {
     const message = signalCount > 0
-      ? "KOL 信源轮询连接异常，当前展示最近一次成功加载的数据。"
-      : "KOL 信源接口请求失败，当前没有展示备用样例。请检查 API 域名、HTTPS 连接和 CORS 配置。";
+      ? "最新信号暂时没有更新成功，当前展示最近一次加载到的内容。"
+      : "暂时没有加载到 KOL 信号，请稍后重试。";
 
     return (
       <div className={isDarkTheme ? "rounded-2xl border border-rose-900/70 bg-rose-950/40 p-3 text-xs leading-5 text-rose-200" : "rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-700"}>
@@ -93,7 +93,7 @@ export function KolSignalSourceNotice({
   if (status.isLoading) {
     return (
       <div className={isDarkTheme ? "rounded-2xl border border-slate-800 bg-slate-950 p-3 text-xs text-slate-400" : "rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500"}>
-        正在加载 KOL 信源接口…
+        正在加载最新 KOL 信号…
       </div>
     );
   }
@@ -101,7 +101,7 @@ export function KolSignalSourceNotice({
   if (signalCount === 0) {
     return (
       <div className={isDarkTheme ? "rounded-2xl border border-slate-800 bg-slate-950 p-3 text-xs text-slate-400" : "rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500"}>
-        当前接口没有返回 KOL 信号。
+        当前暂无 KOL 信号。
       </div>
     );
   }
