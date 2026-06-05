@@ -63,6 +63,9 @@ GET  /api/auth/telegram/start
 GET  /api/auth/telegram/callback
 GET  /api/auth/me
 POST /api/auth/logout
+POST /api/telegram/community/invite
+POST /api/telegram/community/refresh
+POST /api/telegram/webhook
 ```
 
 BotFather must allow this exact redirect URI:
@@ -80,6 +83,9 @@ TELEGRAM_CLIENT_SECRET=
 TELEGRAM_BOT_USERNAME=
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_OIDC_SCOPES=openid profile telegram:bot_access
+TELEGRAM_COMMUNITY_CHAT_ID=
+TELEGRAM_WEBHOOK_SECRET=
+TELEGRAM_COMMUNITY_INVITE_TTL_SECONDS=600
 SESSION_SECRET=
 ```
 
@@ -94,6 +100,33 @@ openssl rand -base64 32
 Rotating `SESSION_SECRET` invalidates existing browser sessions. Rotating
 `TELEGRAM_CLIENT_SECRET` or the bot token requires updating Vercel before the
 next deployment.
+
+Telegram community verification uses bot-generated one-person invite links.
+The current code keeps the storage boundary behind
+`src/app/_lib/auth/telegram-community-store.ts`, with a process-memory adapter
+only for wiring the architecture. Before relying on webhooks in production,
+replace that adapter with a durable Redis/Postgres/KV implementation because
+Telegram webhook requests do not include browser session cookies.
+
+Add the verification bot to the target group as an administrator with
+invite-link rights, then configure the webhook:
+
+```bash
+curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+  -d "url=https://www.smartkline.com/api/telegram/webhook" \
+  -d "secret_token=$TELEGRAM_WEBHOOK_SECRET" \
+  -d 'allowed_updates=["chat_member"]'
+```
+
+The web flow is:
+
+```text
+Telegram OIDC login
+  -> /api/telegram/community/invite creates a dedicated invite link
+  -> user joins the Telegram group
+  -> /api/telegram/webhook records chat_member status through the storage adapter
+  -> /api/auth/me returns communityBinding=joined
+```
 
 ## KOL 信源接口
 
