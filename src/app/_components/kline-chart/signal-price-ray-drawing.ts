@@ -15,6 +15,9 @@ export function drawSignalPriceRange(
     return;
   }
 
+  const endX = range.endCoordinate === null
+    ? scope.bitmapSize.width
+    : Math.max(startX + scope.horizontalPixelRatio, Math.round(range.endCoordinate * scope.horizontalPixelRatio));
   const topY = Math.max(0, Math.round(Math.min(range.maxCoordinate, range.minCoordinate) * scope.verticalPixelRatio));
   const bottomY = Math.min(scope.bitmapSize.height, Math.round(Math.max(range.maxCoordinate, range.minCoordinate) * scope.verticalPixelRatio));
   if (bottomY <= topY) {
@@ -26,8 +29,12 @@ export function drawSignalPriceRange(
     height: bottomY - topY,
     startX,
     topY,
-    width: scope.bitmapSize.width - startX,
+    width: Math.min(scope.bitmapSize.width, endX) - startX,
   };
+
+  if (rect.width <= 0) {
+    return;
+  }
 
   ctx.fillStyle = range.fillColor;
   ctx.fillRect(rect.startX, rect.topY, rect.width, rect.height);

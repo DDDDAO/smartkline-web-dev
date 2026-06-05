@@ -145,7 +145,13 @@ function createSignalPriceRayDrawingState(input: {
       return [];
     }
 
+    const rangeEndCoordinate = range.endTimeMs === undefined ? null : resolveSignalTimeCoordinate(chart, candles, range.endTimeMs);
+    if (range.endTimeMs !== undefined && rangeEndCoordinate === null) {
+      return [];
+    }
+
     return [{
+      endCoordinate: rangeEndCoordinate,
       fillColor: range.fillColor,
       maxCoordinate: Number(maxCoordinate),
       minCoordinate: Number(minCoordinate),

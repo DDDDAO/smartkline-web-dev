@@ -21,6 +21,7 @@ export type SignalPriceRaySource = {
 };
 
 export type SignalPriceRangeSource = {
+  endTimeMs?: number;
   fillColor: string;
   maxPrice: number;
   minPrice: number;
@@ -38,6 +39,7 @@ export type SignalPriceRayDrawing = {
 };
 
 export type SignalPriceRangeDrawing = {
+  endCoordinate: number | null;
   fillColor: string;
   maxCoordinate: number;
   minCoordinate: number;

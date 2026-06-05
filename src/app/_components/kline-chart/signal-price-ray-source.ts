@@ -21,16 +21,15 @@ export function createSignalPriceRaySourceState(
   const isExited = paperPosition?.status === "exited";
   const endTimeMs = isExited ? paperPosition.exitTimeMs ?? undefined : undefined;
 
-  if (!isExited) {
-    ranges.push(...createSignalRiskRewardRanges(signal, paperPosition, style));
-  }
+  ranges.push(...createSignalRiskRewardRanges(signal, paperPosition, style, endTimeMs));
 
   if (signal.entry_min !== null && signal.entry_max !== null) {
     const minPrice = Math.min(signal.entry_min, signal.entry_max);
     const maxPrice = Math.max(signal.entry_min, signal.entry_max);
 
-    if (!isExited && minPrice !== maxPrice) {
+    if (minPrice !== maxPrice) {
       ranges.push({
+        endTimeMs,
         fillColor: style.entryRangeFillColor,
         maxPrice,
         minPrice,
@@ -99,10 +98,10 @@ function createSignalDrawingStyle(
     const exitedTargetColor = paperPosition.exitReason === "take-profit" ? "#16a34a" : secondaryTargetColor;
 
     return {
-      entryRangeFillColor: "transparent",
+      entryRangeFillColor: theme === "light" ? "rgba(8, 145, 178, 0.05)" : "rgba(34, 211, 238, 0.06)",
       entryRay: { color: secondaryEntryColor, lineStyle: LineStyle.Solid, lineWidth: 1 },
-      riskRangeFillColor: "transparent",
-      rewardRangeFillColor: "transparent",
+      riskRangeFillColor: theme === "light" ? "rgba(239, 68, 68, 0.08)" : "rgba(248, 113, 113, 0.10)",
+      rewardRangeFillColor: theme === "light" ? "rgba(34, 197, 94, 0.08)" : "rgba(74, 222, 128, 0.10)",
       stopLossRay: { color: exitedStopColor, lineStyle: LineStyle.Solid, lineWidth: paperPosition.exitReason === "stop-loss" ? 2 : 1 },
       takeProfitRay: { color: exitedTargetColor, lineStyle: LineStyle.Solid, lineWidth: paperPosition.exitReason === "take-profit" ? 2 : 1 },
     };
@@ -122,6 +121,7 @@ function createSignalRiskRewardRanges(
   signal: StructuredSignal,
   paperPosition: PaperPositionRecord | null,
   style: Pick<ReturnType<typeof createSignalDrawingStyle>, "riskRangeFillColor" | "rewardRangeFillColor">,
+  endTimeMs: number | undefined,
 ): SignalPriceRangeSource[] {
   const anchors = resolveRiskRewardAnchors(signal, paperPosition);
   if (!anchors) {
@@ -134,6 +134,7 @@ function createSignalRiskRewardRanges(
 
   if (stopLoss !== null && isStopLossValid(signal.direction, anchors.riskAnchorPrice, stopLoss)) {
     ranges.push({
+      endTimeMs,
       fillColor: style.riskRangeFillColor,
       maxPrice: Math.max(anchors.riskAnchorPrice, stopLoss),
       minPrice: Math.min(anchors.riskAnchorPrice, stopLoss),
@@ -142,6 +143,7 @@ function createSignalRiskRewardRanges(
 
   if (takeProfit !== null) {
     ranges.push({
+      endTimeMs,
       fillColor: style.rewardRangeFillColor,
       maxPrice: Math.max(anchors.rewardAnchorPrice, takeProfit),
       minPrice: Math.min(anchors.rewardAnchorPrice, takeProfit),
