@@ -69,6 +69,14 @@ Telegram community verification is retained as the v1 backend capability, but
 the default frontend product flow only requires Telegram OIDC login and does not
 show a join-group gate.
 
+The workspace also exposes a lightweight “加入 TG 群讨论” CTA. It is only a
+public discussion link and does not call the community verification v1 routes.
+Configure it with:
+
+```bash
+NEXT_PUBLIC_TELEGRAM_GROUP_URL=https://t.me/smartkline
+```
+
 ```text
 POST /api/telegram/community/invite
 POST /api/telegram/community/refresh
@@ -202,6 +210,10 @@ then keeps a result-message SSE connection open for incremental updates. Do not
 point the frontend at `/kol-message-ai-results/signals/stream`; that endpoint
 republishes a refreshed signal list instead of only newly parsed messages.
 
+KOL signals are publicly visible in real time by default. Telegram login is
+kept as an optional personalization entry point, not as a gate for reading the
+live signal feed.
+
 Paper-position cards load historical 1m candle coverage with REST only when the
 visible signal set changes. They do not create per-symbol Binance WebSockets;
 live price comes from the active chart WebSocket.
@@ -210,6 +222,7 @@ live price comes from the active chart WebSocket.
 
 ```bash
 NEXT_PUBLIC_KOL_SIGNALS_API_BASE_URL=https://api.smartkline.com/kol
+NEXT_PUBLIC_TELEGRAM_GROUP_URL=https://t.me/smartkline
 ```
 
 `NEXT_PUBLIC_` 变量会在 Next.js 构建时写入浏览器 bundle；修改后需要重新部署才会对前端生效。

@@ -28,6 +28,7 @@ import type { StructuredSignal } from "@/app/_types/signal";
 const MAX_VISIBLE_KOL_SIGNALS = 50;
 const NOTIFICATION_DISMISS_MS = 6_500;
 const INTRO_AUTO_DISMISS_MS = 5_800;
+const TELEGRAM_DISCUSSION_GROUP_URL = process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
 const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
 
 type WorkspaceLanguage = "zh-CN" | "en-US";
@@ -152,6 +153,10 @@ export function SignalWorkspace() {
     }
 
     handleTelegramLogin();
+  };
+
+  const handleTelegramDiscussionJoin = () => {
+    openExternalTelegramUrl(TELEGRAM_DISCUSSION_GROUP_URL);
   };
 
   const toggleTheme = () => setTheme((currentTheme) => currentTheme === "light" ? "dark" : "light");
@@ -384,8 +389,8 @@ export function SignalWorkspace() {
         <ProductIntroScreen
           isDarkTheme={isDarkTheme}
           onEnter={() => setShowIntro(false)}
-          onTelegramLogin={() => {
-            handleTelegramLogin();
+          onTelegramDiscussionJoin={() => {
+            handleTelegramDiscussionJoin();
             setShowIntro(false);
           }}
         />
@@ -399,6 +404,7 @@ export function SignalWorkspace() {
           layout="floating"
           notification={workspaceNotification}
           onTelegramLogin={handleTelegramLogin}
+          onTelegramDiscussionJoin={handleTelegramDiscussionJoin}
           onMyPanelClose={() => setIsMyPanelOpen(false)}
           onMyPanelToggle={handleMyPanelToggle}
           onNotificationDismiss={() => setWorkspaceNotification(null)}
@@ -472,6 +478,7 @@ export function SignalWorkspace() {
               layout="rail"
               notification={workspaceNotification}
               onTelegramLogin={handleTelegramLogin}
+              onTelegramDiscussionJoin={handleTelegramDiscussionJoin}
               onMyPanelClose={() => setIsMyPanelOpen(false)}
               onMyPanelToggle={handleMyPanelToggle}
               onNotificationDismiss={() => setWorkspaceNotification(null)}
@@ -485,8 +492,6 @@ export function SignalWorkspace() {
               <KolPanel
                 activeSignal={activeKolSignal}
                 isDarkTheme={isDarkTheme}
-                isLoggedIn={isLoggedIn}
-                onTelegramLogin={handleTelegramLogin}
                 paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
                 paperPositionsBySignalId={paperPositionsBySignalId}
                 sourceStatus={kolSignalSourceStatus}
@@ -524,11 +529,11 @@ export function SignalWorkspace() {
 function ProductIntroScreen({
   isDarkTheme,
   onEnter,
-  onTelegramLogin,
+  onTelegramDiscussionJoin,
 }: {
   isDarkTheme: boolean;
   onEnter: () => void;
-  onTelegramLogin: () => void;
+  onTelegramDiscussionJoin: () => void;
 }) {
   const containerClassName = isDarkTheme
     ? "fixed inset-0 z-[80] flex items-center justify-center bg-slate-950 px-4 text-slate-100"
@@ -572,9 +577,9 @@ function ProductIntroScreen({
               <button
                 className={isDarkTheme ? "rounded-full border border-slate-700 bg-slate-950 px-5 py-3 text-sm font-black text-slate-100 transition hover:border-cyan-500 hover:text-cyan-300" : "rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700"}
                 type="button"
-                onClick={onTelegramLogin}
+                onClick={onTelegramDiscussionJoin}
               >
-                Telegram 登录验证
+                加入 TG 群讨论
               </button>
             </div>
           </div>
@@ -676,6 +681,7 @@ function WorkspaceAccountActions({
   onMyPanelClose,
   onMyPanelToggle,
   onTelegramLogin,
+  onTelegramDiscussionJoin,
   onNotificationDismiss,
 }: {
   authStatus: TelegramAuthStatus;
@@ -687,6 +693,7 @@ function WorkspaceAccountActions({
   onMyPanelClose: () => void;
   onMyPanelToggle: () => void;
   onTelegramLogin: () => void;
+  onTelegramDiscussionJoin: () => void;
   onNotificationDismiss: () => void;
 }) {
   const containerClassName = layout === "floating"
@@ -702,6 +709,7 @@ function WorkspaceAccountActions({
     <div className={containerClassName}>
       <div className={actionRowClassName}>
         <BrandLogo isDarkTheme={isDarkTheme} />
+        <TelegramDiscussionButton isDarkTheme={isDarkTheme} onClick={onTelegramDiscussionJoin} />
         <MyLoginButton isDarkTheme={isDarkTheme} isLoggedIn={isLoggedIn} onClick={onMyPanelToggle} />
       </div>
       {isMyPanelOpen ? (
@@ -758,6 +766,29 @@ function MyLoginButton({
   );
 }
 
+function TelegramDiscussionButton({
+  isDarkTheme,
+  onClick,
+}: {
+  isDarkTheme: boolean;
+  onClick: () => void;
+}) {
+  const className = isDarkTheme
+    ? "pointer-events-auto inline-flex items-center gap-2 rounded-full border border-sky-500/40 bg-sky-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-950/30 transition hover:bg-sky-400"
+    : "pointer-events-auto inline-flex items-center gap-2 rounded-full border border-sky-300 bg-sky-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-200/70 transition hover:bg-sky-600";
+
+  return (
+    <button className={className} type="button" onClick={onClick}>
+      <span className="grid h-5 w-5 place-items-center rounded-full bg-white/20" aria-hidden="true">
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21.7 3.4 18.3 20c-.2 1-1.1 1.3-1.9.8l-5.2-3.9-2.5 2.4c-.3.3-.5.5-1 .5l.4-5.4 9.8-8.9c.4-.4-.1-.6-.7-.2L5.1 13 0 11.4c-1.1-.3-1.1-1.1.2-1.6L20.3 2c.9-.3 1.7.2 1.4 1.4Z" />
+        </svg>
+      </span>
+      加入 TG 群讨论
+    </button>
+  );
+}
+
 function MyStatusPanel({
   authStatus,
   isDarkTheme,
@@ -777,7 +808,7 @@ function MyStatusPanel({
   const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
   const telegramDisplayName = formatTelegramDisplayName(authStatus.telegramUser);
   const loginStatus = isLoggedIn ? "已验证" : "待登录";
-  const sourceBindingStatus = authStatus.sourceBindingCount > 0 ? `${authStatus.sourceBindingCount} 个信源` : isLoggedIn ? "公共信源" : "登录后可用";
+  const sourceBindingStatus = authStatus.sourceBindingCount > 0 ? `${authStatus.sourceBindingCount} 个信源` : "实时公开";
   const notificationStatus = authStatus.notificationPermission === "granted" ? "已授权" : "待授权";
 
   return (
@@ -786,7 +817,7 @@ function MyStatusPanel({
         <div>
           <div className={isDarkTheme ? "text-sm font-black text-slate-50" : "text-sm font-black text-slate-950"}>我的情报工作台</div>
           <p className={`mt-1 text-xs leading-5 ${mutedClassName}`}>
-            {isLoggedIn ? `${telegramDisplayName} 已通过 Telegram 登录验证。` : "使用 Telegram 登录后解锁最新情报。"}
+            {isLoggedIn ? `${telegramDisplayName} 已通过 Telegram 登录验证。` : "KOL 实时信号当前公开展示；登录作为后续个性化能力入口。"}
           </p>
         </div>
         <button
@@ -801,7 +832,7 @@ function MyStatusPanel({
       <div className="mt-4 grid gap-2">
         <MyBindingRow
           actionLabel={isLoggedIn ? "已完成" : "TG 登录"}
-          description="当前默认只要求完成 Telegram 网页登录验证，不再把入群验证作为前端准入门槛。"
+          description="登录不再作为查看 KOL 实时信号的前置条件，后续用于个性化提醒和自选源管理。"
           isDarkTheme={isDarkTheme}
           status={loginStatus}
           title="Telegram 登录验证"
@@ -810,7 +841,7 @@ function MyStatusPanel({
         />
         <MyBindingRow
           actionLabel="管理"
-          description="当前已接入 KOL 信号源，后续可在这里管理自选来源。"
+          description="KOL 信号源当前实时公开展示，后续可在这里管理自选来源。"
           isDarkTheme={isDarkTheme}
           status={sourceBindingStatus}
           title="信号源"
@@ -829,7 +860,7 @@ function MyStatusPanel({
       </div>
 
       <div className={isDarkTheme ? "mt-4 rounded-2xl bg-slate-900 p-3 text-[11px] leading-5 text-slate-400" : "mt-4 rounded-2xl bg-slate-50 p-3 text-[11px] leading-5 text-slate-500"}>
-        当前默认启用 Telegram OIDC 登录验证；TG 入群验证 v1 后端能力已保留，后续需要时可以重新接回前端。
+        当前 KOL 实时信源先公开展示；Telegram 登录和 TG 群讨论作为后续转化入口保留。
       </div>
     </div>
   );
@@ -1061,6 +1092,14 @@ function SidebarCollapseButton({
       </svg>
     </button>
   );
+}
+
+function openExternalTelegramUrl(url: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 function readTelegramAuthResultFromUrl(): "success" | "error" | null {

@@ -10,13 +10,10 @@ import { RawSignalDialog } from "./raw-signal-dialog";
 const ALL_SYMBOL_FILTER = "全部币种";
 const ALL_DIRECTION_FILTER = "全部多空";
 const ALL_KOL_FILTER = "全部KOL";
-const UNAUTHENTICATED_DELAY_DAYS = 3;
 
 export function KolPanel({
   activeSignal,
-  isLoggedIn,
   isDarkTheme,
-  onTelegramLogin,
   paperPositionErrorsBySymbol,
   paperPositionsBySignalId,
   sourceStatus,
@@ -24,9 +21,7 @@ export function KolPanel({
   onSignalSelect,
 }: {
   activeSignal: StructuredSignal | null;
-  isLoggedIn: boolean;
   isDarkTheme: boolean;
-  onTelegramLogin: () => void;
   paperPositionErrorsBySymbol: Readonly<Record<string, string>>;
   paperPositionsBySignalId: Readonly<Record<string, PaperPositionRecord>>;
   sourceStatus: KolSignalSourceStatus;
@@ -55,9 +50,9 @@ export function KolPanel({
 
     return matchesSymbol && matchesDirection && matchesKol;
   }), [effectiveDirectionFilter, effectiveKolFilter, effectiveSymbolFilter, signals]);
-  const headerStatusClassName = isLoggedIn
-    ? isDarkTheme ? "shrink-0 rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-black text-emerald-300" : "shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700"
-    : isDarkTheme ? "shrink-0 rounded-full bg-amber-500/15 px-2 py-1 text-[10px] font-black text-amber-300" : "shrink-0 rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700";
+  const headerStatusClassName = isDarkTheme
+    ? "shrink-0 rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-black text-emerald-300"
+    : "shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700";
 
   useLayoutEffect(() => {
     const previousRects = previousCardRectsRef.current;
@@ -134,7 +129,7 @@ export function KolPanel({
               </p>
             </div>
             <span className={headerStatusClassName}>
-              {isLoggedIn ? "实时接入" : "延迟样例"}
+              实时接入
             </span>
           </div>
         </div>
@@ -156,35 +151,22 @@ export function KolPanel({
         {visibleSignals.length === 0 && signals.length > 0 ? (
           <FilterEmptyState isDarkTheme={isDarkTheme} />
         ) : null}
-        {visibleSignals.map((signal, index) => {
+        {visibleSignals.map((signal) => {
           const entryText = formatKolEntryText(signal);
           const paperPositionError = paperPositionErrorsBySymbol[signal.symbol] ?? null;
           const paperPositionRecord = paperPositionsBySignalId[signal.id] ?? null;
           const takeProfitText = formatTakeProfitText(signal.take_profit);
           const isActive = signal.id === activeSignal?.id;
           const isFlipped = flippedSignalIds.has(signal.id);
-          const isLocked = !isLoggedIn && index < 3;
-          const isDelayedSample = !isLoggedIn && !isLocked;
-          const displaySignal = isDelayedSample ? createDelayedDisplaySignal(signal) : signal;
-          const cardClassName = getSignalCardClassName({ isActive, isDarkTheme, isLocked, record: paperPositionRecord });
+          const cardClassName = getSignalCardClassName({ isActive, isDarkTheme, record: paperPositionRecord });
           const backCardClassName = getSignalCardBackClassName(isDarkTheme, paperPositionRecord);
           const rawButtonClassName = isDarkTheme
             ? "shrink-0 rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-slate-300 transition hover:border-cyan-500 hover:text-cyan-300"
             : "shrink-0 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-cyan-300 hover:text-cyan-700";
           const handleSelect = () => {
-            if (isLocked) {
-              onTelegramLogin();
-              return;
-            }
-
             onSignalSelect(signal);
           };
           const toggleFlip = () => {
-            if (isLocked) {
-              onTelegramLogin();
-              return;
-            }
-
             setFlippedSignalIds((currentSignalIds) => {
               const nextSignalIds = new Set(currentSignalIds);
               if (nextSignalIds.has(signal.id)) {
@@ -236,17 +218,10 @@ export function KolPanel({
                       <div className="min-w-0">
                         <div className={isDarkTheme ? "truncate text-sm font-semibold text-slate-50" : "truncate text-sm font-semibold text-slate-950"}>{signal.source_name}</div>
                         <div className={isDarkTheme ? "mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-400" : "mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500"}>
-                          <span>{signal.source_type} · {formatSignalDisplayTime(displaySignal)}</span>
-                          {isLocked ? (
-                            <span className={isDarkTheme ? "rounded-full bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-black text-cyan-300" : "rounded-full bg-cyan-50 px-1.5 py-0.5 text-[10px] font-black text-cyan-700"}>
-                              最新情报
-                            </span>
-                          ) : null}
-                          {isDelayedSample ? (
-                            <span className={isDarkTheme ? "rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-black text-amber-300" : "rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-black text-amber-700"}>
-                              三天前样例
-                            </span>
-                          ) : null}
+                          <span>{signal.source_type} · {formatSignalDisplayTime(signal)}</span>
+                          <span className={isDarkTheme ? "rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black text-emerald-700"}>
+                            实时信源
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -283,8 +258,6 @@ export function KolPanel({
                     isDarkTheme={isDarkTheme}
                     record={paperPositionRecord}
                   />
-
-                  {isLocked ? <LockedSignalOverlay isDarkTheme={isDarkTheme} onTelegramLogin={onTelegramLogin} /> : null}
                 </div>
                 <div className={`${backCardClassName} signal-card-face signal-card-back absolute inset-0 overflow-hidden [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)] [transform-style:preserve-3d]`}>
                   <div className="flex h-full min-h-0 flex-col">
@@ -296,7 +269,7 @@ export function KolPanel({
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            setRawSignalDialogSignal(displaySignal);
+                            setRawSignalDialogSignal(signal);
                           }}
                         >
                           放大
@@ -314,7 +287,7 @@ export function KolPanel({
                       </div>
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto">
-                      <TelegramSignalMessage isDarkTheme={isDarkTheme} signal={displaySignal} />
+                      <TelegramSignalMessage isDarkTheme={isDarkTheme} signal={signal} />
                     </div>
                   </div>
                 </div>
@@ -445,89 +418,28 @@ function createUniqueOptions<T extends string>(values: readonly T[]): T[] {
   return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right));
 }
 
-function createDelayedDisplaySignal(signal: StructuredSignal): StructuredSignal {
-  return {
-    ...signal,
-    created_at: shiftSignalCreatedAt(signal.created_at, -UNAUTHENTICATED_DELAY_DAYS),
-    raw_text: `【三天前延迟样例】${signal.raw_text}`,
-  };
-}
-
-function shiftSignalCreatedAt(createdAt: string, dayOffset: number): string {
-  const timestamp = Date.parse(createdAt);
-  if (!Number.isFinite(timestamp)) {
-    return createdAt;
-  }
-
-  const shiftedDate = new Date(timestamp + dayOffset * 24 * 60 * 60 * 1_000);
-  return formatDateTimeWithUtc8Offset(shiftedDate);
-}
-
-function formatDateTimeWithUtc8Offset(date: Date): string {
-  const utc8Date = new Date(date.getTime() + 8 * 60 * 60 * 1_000);
-  const year = utc8Date.getUTCFullYear();
-  const month = padTimePart(utc8Date.getUTCMonth() + 1);
-  const day = padTimePart(utc8Date.getUTCDate());
-  const hours = padTimePart(utc8Date.getUTCHours());
-  const minutes = padTimePart(utc8Date.getUTCMinutes());
-  const seconds = padTimePart(utc8Date.getUTCSeconds());
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+08:00`;
-}
-
 function formatSignalDisplayTime(signal: StructuredSignal): string {
   return signal.created_at.replace("T", " ").slice(0, 16);
-}
-
-function LockedSignalOverlay({
-  isDarkTheme,
-  onTelegramLogin,
-}: {
-  isDarkTheme: boolean;
-  onTelegramLogin: () => void;
-}) {
-  return (
-    <div className={isDarkTheme ? "absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-slate-950/55 px-5 backdrop-blur-[3px]" : "absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/52 px-5 backdrop-blur-[3px]"}>
-      <div className={isDarkTheme ? "rounded-2xl border border-cyan-500/35 bg-slate-950/90 p-4 text-center shadow-2xl" : "rounded-2xl border border-cyan-200 bg-white/92 p-4 text-center shadow-2xl"}>
-        <div className={isDarkTheme ? "text-sm font-black text-slate-50" : "text-sm font-black text-slate-950"}>登录解锁最新情报</div>
-        <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-500"}>
-          未登录仅展示延迟样例，接入 Telegram 群后查看实时信源。
-        </p>
-        <button
-          className="mt-3 rounded-full bg-cyan-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400"
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onTelegramLogin();
-          }}
-        >
-          Telegram 登录
-        </button>
-      </div>
-    </div>
-  );
 }
 
 function getSignalCardClassName({
   isActive,
   isDarkTheme,
-  isLocked,
   record,
 }: {
   isActive: boolean;
   isDarkTheme: boolean;
-  isLocked: boolean;
   record: PaperPositionRecord | null;
 }): string {
   const baseClassName = "relative w-full cursor-pointer overflow-hidden rounded-2xl border p-3 text-left shadow-sm transition";
   const activeClassName = isActive ? " ring-2 ring-cyan-400/65" : "";
-  const lockedClassName = isLocked ? " min-h-[274px]" : "";
 
   if (record?.status === "entered") {
     const isNegative = record.pnlPercent !== null && record.pnlPercent < 0;
     const toneClassName = isDarkTheme
       ? isNegative ? "border-rose-800/70 bg-rose-950/28 hover:border-rose-600" : "border-emerald-800/70 bg-emerald-950/28 hover:border-emerald-600"
       : isNegative ? "border-rose-200 bg-rose-50/86 hover:border-rose-300" : "border-emerald-200 bg-emerald-50/86 hover:border-emerald-300";
-    return `${baseClassName} ${toneClassName}${activeClassName}${lockedClassName}`;
+    return `${baseClassName} ${toneClassName}${activeClassName}`;
   }
 
   if (record?.status === "exited") {
@@ -535,20 +447,20 @@ function getSignalCardClassName({
     const toneClassName = isDarkTheme
       ? isStopLoss ? "border-rose-900/70 bg-slate-950 hover:border-rose-700" : "border-emerald-900/70 bg-slate-950 hover:border-emerald-700"
       : isStopLoss ? "border-rose-200 bg-white hover:bg-rose-50/70" : "border-emerald-200 bg-white hover:bg-emerald-50/70";
-    return `${baseClassName} ${toneClassName}${activeClassName}${lockedClassName}`;
+    return `${baseClassName} ${toneClassName}${activeClassName}`;
   }
 
   if (record?.status === "not-entered") {
     const toneClassName = isDarkTheme
       ? "border-amber-800/70 bg-amber-950/24 hover:border-amber-600"
       : "border-amber-200 bg-amber-50/78 hover:border-amber-300";
-    return `${baseClassName} ${toneClassName}${activeClassName}${lockedClassName}`;
+    return `${baseClassName} ${toneClassName}${activeClassName}`;
   }
 
   const defaultClassName = isDarkTheme
     ? "border-slate-800 bg-slate-950 hover:border-slate-700"
     : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50";
-  return `${baseClassName} ${defaultClassName}${activeClassName}${lockedClassName}`;
+  return `${baseClassName} ${defaultClassName}${activeClassName}`;
 }
 
 function getSignalCardBackClassName(isDarkTheme: boolean, record: PaperPositionRecord | null): string {
@@ -588,8 +500,4 @@ function formatSymbolLabel(symbol: string): string {
 
 function formatDirectionLabel(direction: StructuredSignal["direction"]): string {
   return direction === "long" ? "多头" : "空头";
-}
-
-function padTimePart(value: number): string {
-  return String(value).padStart(2, "0");
 }
