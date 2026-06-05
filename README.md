@@ -163,6 +163,7 @@ The copy-trading radar reads Signal Center through a server-side BFF route so th
 GET /api/signal-center/v1/signal-sources?signalType=BinanceSmartMoney
 GET /api/signal-center/v1/signal-sources/{id}/positions
 GET /api/signal-center/v1/signal-sources/{id}/trades?limit=100
+GET /api/signal-center/v1/copy-trading-radar?signalType=BinanceSmartMoney&sourceLimit=12&tradeLimit=100
 ```
 
 Configure these Vercel Environment Variables without the `NEXT_PUBLIC_` prefix:
