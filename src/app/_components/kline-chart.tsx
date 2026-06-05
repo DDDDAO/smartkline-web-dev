@@ -19,7 +19,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { AiSignalSummaryOverlay } from "./kline-chart/ai-signal-summary-overlay";
 import { ChartPaperPositionOverlay } from "./kline-chart/paper-position-overlay";
 import { createChartPalette } from "./kline-chart/palette";
-import { createSignalPriceLines, toVolumeData } from "./kline-chart/series-data";
+import { createSignalPriceLines, KLINE_PRICE_FORMAT, toVolumeData } from "./kline-chart/series-data";
 import { createSignalEventRenderKey, renderSignalEventLabels } from "./kline-chart/signal-event-labels";
 import { SignalPriceRayPrimitive } from "./kline-chart/signal-price-ray-primitive";
 import { readTradePointMarkerId, TradePointPrimitive, type KlineTradePointMarker } from "./kline-chart/trade-point-primitive";
@@ -148,6 +148,7 @@ export function KlineChart({
       downColor: palette.down,
       borderVisible: false,
       lastValueVisible: false,
+      priceFormat: KLINE_PRICE_FORMAT,
       priceLineVisible: false,
       wickUpColor: palette.up,
       wickDownColor: palette.down,
@@ -266,6 +267,7 @@ export function KlineChart({
       downColor: palette.down,
       borderVisible: false,
       lastValueVisible: false,
+      priceFormat: KLINE_PRICE_FORMAT,
       priceLineVisible: false,
       wickUpColor: palette.up,
       wickDownColor: palette.down,

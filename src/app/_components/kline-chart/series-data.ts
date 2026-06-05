@@ -1,8 +1,20 @@
-import { LineStyle, type CreatePriceLineOptions, type HistogramData } from "lightweight-charts";
+import { LineStyle, type CreatePriceLineOptions, type HistogramData, type PriceFormat } from "lightweight-charts";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { MarketCandle } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type { ChartTheme } from "@/app/_components/kline-chart";
+
+const PRICE_AXIS_SIGNIFICANT_DIGITS = 6;
+const priceAxisNumberFormatter = new Intl.NumberFormat("en-US", {
+  maximumSignificantDigits: PRICE_AXIS_SIGNIFICANT_DIGITS,
+  useGrouping: false,
+});
+
+export const KLINE_PRICE_FORMAT = {
+  formatter: formatKlinePriceAxisValue,
+  minMove: 0.00000001,
+  type: "custom",
+} satisfies PriceFormat;
 
 export function toVolumeData(candle: MarketCandle, theme: ChartTheme): HistogramData {
   return {
@@ -12,6 +24,14 @@ export function toVolumeData(candle: MarketCandle, theme: ChartTheme): Histogram
       ? theme === "light" ? "rgba(22, 163, 74, 0.22)" : "rgba(34, 197, 94, 0.34)"
       : theme === "light" ? "rgba(220, 38, 38, 0.22)" : "rgba(239, 68, 68, 0.34)",
   };
+}
+
+function formatKlinePriceAxisValue(priceValue: number): string {
+  if (!Number.isFinite(priceValue)) {
+    return String(priceValue);
+  }
+
+  return priceAxisNumberFormatter.format(priceValue);
 }
 
 export function createSignalPriceLines(
