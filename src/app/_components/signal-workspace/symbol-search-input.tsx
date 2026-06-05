@@ -53,8 +53,11 @@ export function SymbolSearchInput({
           setHighlightedIndex(0);
         }}
         onFocus={(event) => {
-          event.currentTarget.select();
+          const input = event.currentTarget;
+          setQuery("");
           setIsOpen(true);
+          setHighlightedIndex(0);
+          requestAnimationFrame(() => input.select());
         }}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {
@@ -101,7 +104,7 @@ export function SymbolSearchInput({
               }}
             >
               <span>{market}</span>
-              <span className={isDarkTheme ? "text-[11px] text-slate-500" : "text-[11px] text-slate-400"}>Mock</span>
+              <span className={isDarkTheme ? "text-[11px] text-slate-500" : "text-[11px] text-slate-400"}>Binance</span>
             </button>
           )) : (
             <div className={isDarkTheme ? "px-3 py-3 text-xs text-slate-500" : "px-3 py-3 text-xs text-slate-400"}>没有匹配的合约</div>
@@ -111,4 +114,3 @@ export function SymbolSearchInput({
     </div>
   );
 }
-

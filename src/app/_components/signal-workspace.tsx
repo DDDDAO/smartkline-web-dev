@@ -1,27 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { markets } from "@/app/_lib/demo-data";
 import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
+import {
+  createCopyTradingChartSignals,
+  createMarketAlignedMockCopyTradingRadarSnapshot,
+  createCopyTradingTradeMarkers,
+  createMockCopyTradingRadarSnapshot,
+  fetchCopyTradingRadarSnapshot,
+  getCopyTradingEventChartSignalId,
+  toCopyTradingMarketSymbol,
+} from "@/app/_lib/copy-trading-radar-api";
 import { createStructuredSignalPositionKey, fetchKolSignals, subscribeToKolSignals } from "@/app/_lib/kol-signal-api";
 import { computePaperPositionRecord, type PaperPositionRecord } from "@/app/_lib/paper-position";
+import { CopyTradingRadarPanel } from "./signal-workspace/copy-trading-radar-panel";
 import { KolPanel } from "./signal-workspace/kol-panel";
 import { RealtimeKlinePanel } from "./signal-workspace/realtime-kline-panel";
 import { formatKolSignalSourceError, type KolSignalSourceStatus } from "./signal-workspace/types";
 import { type PaperPositionMarketCandleUpdate, usePaperPositionCandles } from "./signal-workspace/use-paper-position-candles";
-import type { ChartTheme } from "@/app/_components/kline-chart";
+import { createSignalFocusRequestKey, type ChartTheme } from "@/app/_components/kline-chart";
 import type { KlineInterval, MarketSymbol } from "@/app/_types/market";
+import type { CopyTradingEvent, CopyTradingRadarSnapshot, CopyTradingTradeMarker } from "@/app/_types/copy-trading";
 import type { StructuredSignal } from "@/app/_types/signal";
 
 const MAX_VISIBLE_KOL_SIGNALS = 50;
-const MOCK_NOTIFICATION_DISMISS_MS = 6_500;
+const NOTIFICATION_DISMISS_MS = 6_500;
 const INTRO_AUTO_DISMISS_MS = 5_800;
 const TELEGRAM_COMMUNITY_URL = process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
+const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
 
 type WorkspaceLanguage = "zh-CN" | "en-US";
+type WorkspaceModule = "kol-signals" | "copy-trading-radar";
 
-type MockSignalNotification = {
+type WorkspaceNotification = {
   id: string;
   message: string;
   meta: string;
@@ -38,11 +51,17 @@ type TelegramAuthUser = {
 
 type TelegramAuthStatus = {
   botBinding: "unbound" | "bound";
-  communityBinding: "unverified" | "joined" | "left";
+  communityBinding: "unverified" | "pending" | "joined" | "left" | "kicked";
   isLoggedIn: boolean;
   notificationPermission: "none" | "granted";
   sourceBindingCount: number;
   telegramUser: TelegramAuthUser | null;
+};
+
+type TelegramCommunityInviteResponse = {
+  communityBinding: TelegramAuthStatus["communityBinding"];
+  expiresAt: string | null;
+  inviteLink: string | null;
 };
 
 const DEFAULT_TELEGRAM_AUTH_STATUS: TelegramAuthStatus = {
@@ -57,7 +76,10 @@ const DEFAULT_TELEGRAM_AUTH_STATUS: TelegramAuthStatus = {
 export function SignalWorkspace() {
   const [symbol, setSymbol] = useState<MarketSymbol>("BTC/USDT:USDT");
   const [interval, setInterval] = useState<KlineInterval>("15m");
+  const [activeWorkspaceModule, setActiveWorkspaceModule] = useState<WorkspaceModule>("kol-signals");
   const [activeSignalId, setActiveSignalId] = useState("");
+  const [activeCopyTradingEventId, setActiveCopyTradingEventId] = useState("");
+  const [chartFocusSignalRequestKey, setChartFocusSignalRequestKey] = useState<string | null>(null);
   const [theme, setTheme] = useState<ChartTheme>("light");
   const [language, setLanguage] = useState<WorkspaceLanguage>("zh-CN");
   const [authStatus, setAuthStatus] = useState<TelegramAuthStatus>(DEFAULT_TELEGRAM_AUTH_STATUS);
@@ -66,15 +88,29 @@ export function SignalWorkspace() {
   const [showIntro, setShowIntro] = useState(true);
   const [marketOptions, setMarketOptions] = useState<MarketSymbol[]>(markets);
   const [signals, setSignals] = useState<StructuredSignal[]>([]);
+  const [copyTradingSnapshot, setCopyTradingSnapshot] = useState<CopyTradingRadarSnapshot>(() => createMockCopyTradingRadarSnapshot());
   const [latestMarketCandleUpdate, setLatestMarketCandleUpdate] = useState<PaperPositionMarketCandleUpdate | null>(null);
-  const [mockSignalNotification, setMockSignalNotification] = useState<MockSignalNotification | null>(null);
+  const [workspaceNotification, setWorkspaceNotification] = useState<WorkspaceNotification | null>(null);
   const [kolSignalSourceStatus, setKolSignalSourceStatus] = useState<KolSignalSourceStatus>({
     error: null,
     isLoading: true,
   });
+  const [copyTradingSourceStatus, setCopyTradingSourceStatus] = useState<KolSignalSourceStatus>({
+    error: null,
+    isLoading: true,
+  });
+  const notifiedCopyTradingEventIdsRef = useRef(new Set<string>());
 
-  const activeSignal = signals.find((signal) => signal.id === activeSignalId) ?? signals[0] ?? null;
+  const activeKolSignal = signals.find((signal) => signal.id === activeSignalId) ?? signals[0] ?? null;
   const kolSignals = useMemo(() => sortSignalsForKolPanel(signals), [signals]);
+  const copyTradingChartSignals = useMemo(() => createCopyTradingChartSignals(copyTradingSnapshot), [copyTradingSnapshot]);
+  const copyTradingTradeMarkers = useMemo(() => createCopyTradingTradeMarkers(copyTradingSnapshot), [copyTradingSnapshot]);
+  const activeCopyTradingChartSignal = copyTradingChartSignals.find((signal) => signal.id === getCopyTradingEventChartSignalId(activeCopyTradingEventId)) ?? copyTradingChartSignals[0] ?? null;
+  const activeCopyTradingEvent = copyTradingSnapshot.events.find((event) => event.event_id === activeCopyTradingEventId) ?? copyTradingSnapshot.events[0] ?? null;
+  const isCopyTradingModuleActive = activeWorkspaceModule === "copy-trading-radar";
+  const chartSignals = isCopyTradingModuleActive ? copyTradingChartSignals : signals;
+  const chartTradeMarkers = isCopyTradingModuleActive ? copyTradingTradeMarkers : EMPTY_COPY_TRADING_TRADE_MARKERS;
+  const activeChartSignal = isCopyTradingModuleActive ? activeCopyTradingChartSignal : activeKolSignal;
   const {
     candlesBySymbol: paperPositionCandlesBySymbol,
     errorsBySymbol: paperPositionErrorsBySymbol,
@@ -94,6 +130,7 @@ export function SignalWorkspace() {
 
     return recordsBySignalId;
   }, [paperPositionCandlesBySymbol, paperPositionLatestPricesBySymbol, signals]);
+  const activeChartPaperPosition = !isCopyTradingModuleActive && activeKolSignal ? paperPositionsBySignalId[activeKolSignal.id] ?? null : null;
   const isDarkTheme = theme === "dark";
   const isLoggedIn = authStatus.isLoggedIn;
   const pageClassName = isDarkTheme ? "h-screen w-screen overflow-hidden bg-slate-950 text-slate-100" : "h-screen w-screen overflow-hidden bg-[#f5f7fb] text-slate-900";
@@ -101,18 +138,40 @@ export function SignalWorkspace() {
     ? "relative grid h-full min-h-0 gap-3 p-3 lg:grid-cols-[minmax(0,1fr)]"
     : "relative grid h-full min-h-0 gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]";
 
+  const loadTelegramAuthStatus = useCallback(async (): Promise<TelegramAuthStatus> => {
+    const normalizedAuthStatus = await fetchTelegramAuthStatus();
+    setAuthStatus(normalizedAuthStatus);
+    return normalizedAuthStatus;
+  }, []);
+
+  const refreshTelegramCommunityMembership = useCallback(async (): Promise<TelegramAuthStatus> => {
+    await fetch("/api/telegram/community/refresh", {
+      credentials: "same-origin",
+      method: "POST",
+    }).catch(() => null);
+
+    return loadTelegramAuthStatus();
+  }, [loadTelegramAuthStatus]);
+
   const handleTelegramLogin = () => {
     if (typeof window === "undefined") {
       return;
     }
 
-    if (isLoggedIn) {
+    if (authStatus.communityBinding === "joined") {
       openTelegramCommunityLink();
       return;
     }
 
+    if (isLoggedIn) {
+      void openPersonalTelegramCommunityInvite(refreshTelegramCommunityMembership, setWorkspaceNotification);
+      return;
+    }
+
     const redirectPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.assign(`/api/auth/telegram/start?redirect=${encodeURIComponent(redirectPath)}`);
+    const redirectUrl = new URL(redirectPath, window.location.origin);
+    redirectUrl.searchParams.set("join_community", "1");
+    window.location.assign(`/api/auth/telegram/start?redirect=${encodeURIComponent(`${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`)}`);
   };
 
   const handleMyPanelToggle = () => {
@@ -129,27 +188,26 @@ export function SignalWorkspace() {
   useEffect(() => {
     let isActive = true;
     const authResult = readTelegramAuthResultFromUrl();
+    const shouldJoinCommunity = readShouldJoinCommunityFromUrl();
 
-    fetch("/api/auth/me", { credentials: "same-origin" })
-      .then((response) => response.ok ? response.json() as Promise<TelegramAuthStatus> : DEFAULT_TELEGRAM_AUTH_STATUS)
-      .then((nextAuthStatus) => {
+    fetchTelegramAuthStatus()
+      .then((normalizedAuthStatus) => {
         if (!isActive) {
           return;
         }
 
-        const normalizedAuthStatus = normalizeTelegramAuthStatus(nextAuthStatus);
         setAuthStatus(normalizedAuthStatus);
 
         if (authResult === "success" && normalizedAuthStatus.isLoggedIn) {
           setIsMyPanelOpen(true);
-          setMockSignalNotification({
+          setWorkspaceNotification({
             id: "telegram-login",
             title: "Telegram 已验证",
             message: `${formatTelegramDisplayName(normalizedAuthStatus.telegramUser)} 已完成登录验证，可继续绑定社群和 bot。`,
             meta: "K线情报局 · Telegram OIDC",
           });
         } else if (authResult === "error") {
-          setMockSignalNotification({
+          setWorkspaceNotification({
             id: "telegram-login-error",
             title: "Telegram 登录失败",
             message: "授权回调未通过验证，请重新发起 Telegram 登录。",
@@ -157,7 +215,15 @@ export function SignalWorkspace() {
           });
         }
 
-        clearTelegramAuthResultFromUrl();
+        clearTelegramAuthQueryFromUrl();
+
+        if (
+          shouldJoinCommunity
+          && normalizedAuthStatus.isLoggedIn
+          && normalizedAuthStatus.communityBinding !== "joined"
+        ) {
+          void openPersonalTelegramCommunityInvite(refreshTelegramCommunityMembership, setWorkspaceNotification);
+        }
       })
       .catch(() => {
         if (!isActive) {
@@ -166,23 +232,43 @@ export function SignalWorkspace() {
 
         setAuthStatus(DEFAULT_TELEGRAM_AUTH_STATUS);
         if (authResult === "error") {
-          clearTelegramAuthResultFromUrl();
+          clearTelegramAuthQueryFromUrl();
         }
       });
 
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [refreshTelegramCommunityMembership]);
 
   useEffect(() => {
-    if (!mockSignalNotification) {
+    if (!isLoggedIn || authStatus.communityBinding === "joined") {
       return;
     }
 
-    const timeout = window.setTimeout(() => setMockSignalNotification(null), MOCK_NOTIFICATION_DISMISS_MS);
+    const refreshOnReturn = () => {
+      if (document.visibilityState === "visible") {
+        void refreshTelegramCommunityMembership();
+      }
+    };
+
+    window.addEventListener("focus", refreshOnReturn);
+    document.addEventListener("visibilitychange", refreshOnReturn);
+
+    return () => {
+      window.removeEventListener("focus", refreshOnReturn);
+      document.removeEventListener("visibilitychange", refreshOnReturn);
+    };
+  }, [authStatus.communityBinding, isLoggedIn, refreshTelegramCommunityMembership]);
+
+  useEffect(() => {
+    if (!workspaceNotification) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setWorkspaceNotification(null), NOTIFICATION_DISMISS_MS);
     return () => window.clearTimeout(timeout);
-  }, [mockSignalNotification]);
+  }, [workspaceNotification]);
 
   useEffect(() => {
     if (!showIntro) {
@@ -266,6 +352,90 @@ export function SignalWorkspace() {
     };
   }, []);
 
+  useEffect(() => {
+    let isActive = true;
+
+    fetchCopyTradingRadarSnapshot()
+      .then((snapshot) => {
+        if (!isActive) {
+          return;
+        }
+
+        setCopyTradingSnapshot(snapshot);
+        setCopyTradingSourceStatus({ error: null, isLoading: false });
+        setActiveCopyTradingEventId((currentEventId) => (
+          snapshot.events.some((event) => event.event_id === currentEventId) ? currentEventId : snapshot.events[0]?.event_id ?? ""
+        ));
+      })
+      .catch(async (error: unknown) => {
+        const fallbackSnapshot = await createMarketAlignedMockCopyTradingRadarSnapshot();
+        if (!isActive) {
+          return;
+        }
+
+        setCopyTradingSnapshot(fallbackSnapshot);
+        setCopyTradingSourceStatus({ error: formatKolSignalSourceError(error), isLoading: false });
+        setActiveCopyTradingEventId((currentEventId) => (
+          fallbackSnapshot.events.some((event) => event.event_id === currentEventId) ? currentEventId : fallbackSnapshot.events[0]?.event_id ?? ""
+        ));
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (copyTradingSourceStatus.isLoading) {
+      return;
+    }
+
+    const latestImportantEvent = copyTradingSnapshot.events.find((event) => event.event_type === "open" || event.event_type === "close" || event.event_type === "reverse");
+    if (!latestImportantEvent || notifiedCopyTradingEventIdsRef.current.has(latestImportantEvent.event_id)) {
+      return;
+    }
+
+    notifiedCopyTradingEventIdsRef.current.add(latestImportantEvent.event_id);
+    setWorkspaceNotification({
+      id: `copy-radar-${latestImportantEvent.event_id}`,
+      title: "带单雷达事件提醒",
+      message: latestImportantEvent.title,
+      meta: `${latestImportantEvent.symbol} · ${latestImportantEvent.occurred_at.replace("T", " ").slice(0, 16)}`,
+    });
+  }, [copyTradingSnapshot.events, copyTradingSourceStatus.isLoading]);
+
+  const handleCopyTradingEventSelect = (event: CopyTradingEvent) => {
+    const nextSymbol = toCopyTradingMarketSymbol(event.symbol);
+    const nextSignal = copyTradingChartSignals.find((signal) => signal.id === getCopyTradingEventChartSignalId(event.event_id)) ?? null;
+    if (nextSignal && nextSymbol !== symbol) {
+      setChartFocusSignalRequestKey(createSignalFocusRequestKey(nextSignal));
+    } else {
+      setChartFocusSignalRequestKey(null);
+    }
+
+    setActiveCopyTradingEventId(event.event_id);
+    setSymbol(nextSymbol);
+    setWorkspaceNotification({
+      id: `copy-radar-focus-${event.event_id}`,
+      title: "图表已定位带单事件",
+      message: event.title,
+      meta: `${event.symbol} · ${event.occurred_at.replace("T", " ").slice(0, 16)}`,
+    });
+  };
+
+  const handleWorkspaceModuleChange = (nextModule: WorkspaceModule) => {
+    setChartFocusSignalRequestKey(null);
+    setActiveWorkspaceModule(nextModule);
+    if (nextModule === "copy-trading-radar" && activeCopyTradingEvent) {
+      setSymbol(toCopyTradingMarketSymbol(activeCopyTradingEvent.symbol));
+      return;
+    }
+
+    if (nextModule === "kol-signals" && activeKolSignal) {
+      setSymbol(activeKolSignal.symbol);
+    }
+  };
+
   return (
     <main className={pageClassName}>
       {showIntro ? (
@@ -285,11 +455,11 @@ export function SignalWorkspace() {
           isLoggedIn={isLoggedIn}
           isDarkTheme={isDarkTheme}
           layout="floating"
-          notification={mockSignalNotification}
+          notification={workspaceNotification}
           onTelegramLogin={handleTelegramLogin}
           onMyPanelClose={() => setIsMyPanelOpen(false)}
           onMyPanelToggle={handleMyPanelToggle}
-          onNotificationDismiss={() => setMockSignalNotification(null)}
+          onNotificationDismiss={() => setWorkspaceNotification(null)}
         />
       ) : null}
       <WorkspaceSettingsDock
@@ -301,23 +471,47 @@ export function SignalWorkspace() {
       <section className={workspaceGridClassName}>
         <RealtimeKlinePanel
           key={`${symbol}-${interval}`}
-          activePaperPosition={activeSignal ? paperPositionsBySignalId[activeSignal.id] ?? null : null}
-          activeSignal={activeSignal}
+          activePaperPosition={activeChartPaperPosition}
+          activeSignal={activeChartSignal}
+          focusSignalRequestKey={chartFocusSignalRequestKey}
           interval={interval}
           marketOptions={marketOptions}
           symbol={symbol}
-          signals={signals}
+          signals={chartSignals}
           theme={theme}
-          onIntervalChange={setInterval}
+          tradeMarkers={chartTradeMarkers}
+          onIntervalChange={(nextInterval) => {
+            setChartFocusSignalRequestKey(null);
+            setInterval(nextInterval);
+          }}
           onSymbolChange={(nextSymbol) => {
-            const nextSignal = signals.find((signal) => signal.symbol === nextSymbol);
+            const nextSignal = chartSignals.find((signal) => signal.symbol === nextSymbol);
+            setChartFocusSignalRequestKey(null);
             setSymbol(nextSymbol);
-            setActiveSignalId(nextSignal?.id ?? "");
+            if (isCopyTradingModuleActive) {
+              const nextEvent = copyTradingSnapshot.events.find((event) => getCopyTradingEventChartSignalId(event.event_id) === nextSignal?.id);
+              setActiveCopyTradingEventId(nextEvent?.event_id ?? "");
+            } else {
+              setActiveSignalId(nextSignal?.id ?? "");
+            }
           }}
           onSignalSelect={(signal) => {
-            setActiveSignalId(signal.id);
+            if (signal.symbol !== symbol) {
+              setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
+            } else {
+              setChartFocusSignalRequestKey(null);
+            }
+            if (isCopyTradingModuleActive) {
+              const event = copyTradingSnapshot.events.find((item) => getCopyTradingEventChartSignalId(item.event_id) === signal.id);
+              if (event) {
+                setActiveCopyTradingEventId(event.event_id);
+              }
+            } else {
+              setActiveSignalId(signal.id);
+            }
             setSymbol(signal.symbol);
           }}
+          onFocusSignalRequestHandled={() => setChartFocusSignalRequestKey(null)}
           onMarketCandleUpdate={setLatestMarketCandleUpdate}
         />
 
@@ -334,26 +528,50 @@ export function SignalWorkspace() {
               isLoggedIn={isLoggedIn}
               isDarkTheme={isDarkTheme}
               layout="rail"
-              notification={mockSignalNotification}
+              notification={workspaceNotification}
               onTelegramLogin={handleTelegramLogin}
               onMyPanelClose={() => setIsMyPanelOpen(false)}
               onMyPanelToggle={handleMyPanelToggle}
-              onNotificationDismiss={() => setMockSignalNotification(null)}
+              onNotificationDismiss={() => setWorkspaceNotification(null)}
             />
-            <KolPanel
-              activeSignal={activeSignal}
+            <WorkspaceModuleTabs
+              activeModule={activeWorkspaceModule}
               isDarkTheme={isDarkTheme}
-              isLoggedIn={isLoggedIn}
-              onTelegramLogin={handleTelegramLogin}
-              paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
-              paperPositionsBySignalId={paperPositionsBySignalId}
-              sourceStatus={kolSignalSourceStatus}
-              signals={kolSignals}
-              onSignalSelect={(signal) => {
-                setActiveSignalId(signal.id);
-                setSymbol(signal.symbol);
-              }}
+              onModuleChange={handleWorkspaceModuleChange}
             />
+            {activeWorkspaceModule === "kol-signals" ? (
+              <KolPanel
+                activeSignal={activeKolSignal}
+                isDarkTheme={isDarkTheme}
+                isLoggedIn={isLoggedIn}
+                onTelegramLogin={handleTelegramLogin}
+                paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
+                paperPositionsBySignalId={paperPositionsBySignalId}
+                sourceStatus={kolSignalSourceStatus}
+                signals={kolSignals}
+                onSignalSelect={(signal) => {
+                  if (signal.symbol !== symbol) {
+                    setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
+                  } else {
+                    setChartFocusSignalRequestKey(null);
+                  }
+                  setActiveSignalId(signal.id);
+                  setSymbol(signal.symbol);
+                }}
+              />
+            ) : (
+              <CopyTradingRadarPanel
+                activeEventId={activeCopyTradingEvent?.event_id ?? ""}
+                isDarkTheme={isDarkTheme}
+                snapshot={copyTradingSnapshot}
+                sourceStatus={copyTradingSourceStatus}
+                onEventSelect={handleCopyTradingEventSelect}
+                onSymbolSelect={(nextSymbol) => {
+                  setChartFocusSignalRequestKey(null);
+                  setSymbol(toCopyTradingMarketSymbol(nextSymbol));
+                }}
+              />
+            )}
           </div>
         ) : null}
       </section>
@@ -450,6 +668,61 @@ function ProductIntroScreen({
   );
 }
 
+function WorkspaceModuleTabs({
+  activeModule,
+  isDarkTheme,
+  onModuleChange,
+}: {
+  activeModule: WorkspaceModule;
+  isDarkTheme: boolean;
+  onModuleChange: (module: WorkspaceModule) => void;
+}) {
+  const containerClassName = isDarkTheme
+    ? "grid grid-cols-2 gap-1 rounded-2xl border border-slate-800 bg-slate-900/88 p-1 shadow-sm"
+    : "grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white/90 p-1 shadow-sm";
+
+  return (
+    <div className={containerClassName}>
+      <WorkspaceModuleTabButton
+        isActive={activeModule === "kol-signals"}
+        isDarkTheme={isDarkTheme}
+        label="KOL 信源"
+        onClick={() => onModuleChange("kol-signals")}
+      />
+      <WorkspaceModuleTabButton
+        isActive={activeModule === "copy-trading-radar"}
+        isDarkTheme={isDarkTheme}
+        label="带单雷达"
+        onClick={() => onModuleChange("copy-trading-radar")}
+      />
+    </div>
+  );
+}
+
+function WorkspaceModuleTabButton({
+  isActive,
+  isDarkTheme,
+  label,
+  onClick,
+}: {
+  isActive: boolean;
+  isDarkTheme: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  const className = isActive
+    ? "rounded-xl bg-cyan-500 px-3 py-2.5 text-xs font-black text-white shadow-sm"
+    : isDarkTheme
+      ? "rounded-xl px-3 py-2.5 text-xs font-bold text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
+      : "rounded-xl px-3 py-2.5 text-xs font-bold text-slate-500 transition hover:bg-slate-50 hover:text-slate-950";
+
+  return (
+    <button className={className} type="button" onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+
 
 function WorkspaceAccountActions({
   authStatus,
@@ -468,7 +741,7 @@ function WorkspaceAccountActions({
   isLoggedIn: boolean;
   isDarkTheme: boolean;
   layout: "floating" | "rail";
-  notification: MockSignalNotification | null;
+  notification: WorkspaceNotification | null;
   onMyPanelClose: () => void;
   onMyPanelToggle: () => void;
   onTelegramLogin: () => void;
@@ -500,7 +773,7 @@ function WorkspaceAccountActions({
         />
       ) : null}
       {notification ? (
-        <MockSignalNotificationBanner
+        <WorkspaceNotificationBanner
           isDarkTheme={isDarkTheme}
           notification={notification}
           onDismiss={onNotificationDismiss}
@@ -562,7 +835,8 @@ function MyStatusPanel({
     : "pointer-events-auto w-full rounded-3xl border border-slate-200 bg-white/96 p-4 text-slate-950 shadow-2xl shadow-slate-300/50 backdrop-blur";
   const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
   const telegramDisplayName = formatTelegramDisplayName(authStatus.telegramUser);
-  const communityStatus = authStatus.communityBinding === "joined" ? "已入群" : isLoggedIn ? "待验证" : "待登录";
+  const communityStatus = formatTelegramCommunityStatus(authStatus.communityBinding, isLoggedIn);
+  const communityActionLabel = authStatus.communityBinding === "joined" ? "打开 Telegram" : "加入 TG 群";
   const sourceBindingStatus = authStatus.sourceBindingCount > 0 ? `${authStatus.sourceBindingCount} 个信源` : isLoggedIn ? "公共信源" : "登录后可用";
   const notificationStatus = authStatus.notificationPermission === "granted" ? "已授权" : isLoggedIn ? "待 bot 绑定" : "待授权";
 
@@ -586,11 +860,11 @@ function MyStatusPanel({
 
       <div className="mt-4 grid gap-2">
         <MyBindingRow
-          actionLabel="打开 Telegram"
-          description="OIDC 已确认 Telegram 身份；社群成员状态后续由 bot 校验。"
+          actionLabel={communityActionLabel}
+          description="网页登录后生成专属入群链接；入群状态由 bot webhook 和 getChatMember 校验。"
           isDarkTheme={isDarkTheme}
           status={communityStatus}
-          title="TG 登录验证"
+          title="TG 群验证"
           tone={authStatus.communityBinding === "joined" ? "positive" : isLoggedIn ? "pending" : "pending"}
           onAction={onTelegramLogin}
         />
@@ -615,7 +889,7 @@ function MyStatusPanel({
       </div>
 
       <div className={isDarkTheme ? "mt-4 rounded-2xl bg-slate-900 p-3 text-[11px] leading-5 text-slate-400" : "mt-4 rounded-2xl bg-slate-50 p-3 text-[11px] leading-5 text-slate-500"}>
-        当前已接入 Telegram OIDC 登录验证；社群、bot 和自有信号源绑定需要继续接 webhook 与持久化存储。
+        当前已接入 Telegram OIDC 登录验证和 TG 群入群校验；通知和自有信号源绑定后续继续接 bot 授权。
       </div>
     </div>
   );
@@ -687,13 +961,13 @@ function TelegramCommunityButton({
   );
 }
 
-function MockSignalNotificationBanner({
+function WorkspaceNotificationBanner({
   isDarkTheme,
   notification,
   onDismiss,
 }: {
   isDarkTheme: boolean;
-  notification: MockSignalNotification;
+  notification: WorkspaceNotification;
   onDismiss: () => void;
 }) {
   const className = isDarkTheme
@@ -704,7 +978,7 @@ function MockSignalNotificationBanner({
     <div className={className} role="status">
       <div className={isDarkTheme ? "border-b border-slate-800 bg-slate-900/80 px-4 py-2" : "border-b border-slate-100 bg-slate-50/90 px-4 py-2"}>
         <div className="flex items-center justify-between gap-3">
-          <span className={isDarkTheme ? "text-[11px] font-bold text-cyan-300" : "text-[11px] font-bold text-cyan-700"}>浏览器通知 Mock</span>
+          <span className={isDarkTheme ? "text-[11px] font-bold text-cyan-300" : "text-[11px] font-bold text-cyan-700"}>浏览器通知</span>
           <button
             className={isDarkTheme ? "rounded-full px-2 py-0.5 text-xs text-slate-500 transition hover:bg-slate-800 hover:text-slate-200" : "rounded-full px-2 py-0.5 text-xs text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"}
             type="button"
@@ -889,13 +1163,25 @@ function readTelegramAuthResultFromUrl(): "success" | "error" | null {
   return authResult === "success" || authResult === "error" ? authResult : null;
 }
 
-function clearTelegramAuthResultFromUrl() {
-  if (typeof window === "undefined" || !window.location.search.includes("telegram_auth=")) {
+function readShouldJoinCommunityFromUrl(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return new URLSearchParams(window.location.search).get("join_community") === "1";
+}
+
+function clearTelegramAuthQueryFromUrl() {
+  if (
+    typeof window === "undefined"
+    || (!window.location.search.includes("telegram_auth=") && !window.location.search.includes("join_community="))
+  ) {
     return;
   }
 
   const searchParams = new URLSearchParams(window.location.search);
   searchParams.delete("telegram_auth");
+  searchParams.delete("join_community");
   const nextSearch = searchParams.toString();
   const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
   window.history.replaceState(null, "", nextUrl);
@@ -904,12 +1190,97 @@ function clearTelegramAuthResultFromUrl() {
 function normalizeTelegramAuthStatus(authStatus: TelegramAuthStatus): TelegramAuthStatus {
   return {
     botBinding: authStatus.botBinding === "bound" ? "bound" : "unbound",
-    communityBinding: authStatus.communityBinding === "joined" || authStatus.communityBinding === "left" ? authStatus.communityBinding : "unverified",
+    communityBinding: normalizeTelegramCommunityBinding(authStatus.communityBinding),
     isLoggedIn: Boolean(authStatus.isLoggedIn && authStatus.telegramUser),
     notificationPermission: authStatus.notificationPermission === "granted" ? "granted" : "none",
     sourceBindingCount: Number.isFinite(authStatus.sourceBindingCount) ? Math.max(0, authStatus.sourceBindingCount) : 0,
     telegramUser: authStatus.telegramUser,
   };
+}
+
+async function fetchTelegramAuthStatus(): Promise<TelegramAuthStatus> {
+  const response = await fetch("/api/auth/me", { credentials: "same-origin" });
+  const nextAuthStatus = response.ok ? await response.json() as TelegramAuthStatus : DEFAULT_TELEGRAM_AUTH_STATUS;
+  return normalizeTelegramAuthStatus(nextAuthStatus);
+}
+
+async function openPersonalTelegramCommunityInvite(
+  refreshTelegramCommunityMembership: () => Promise<TelegramAuthStatus>,
+  setWorkspaceNotification: (notification: WorkspaceNotification | null) => void,
+) {
+  const inviteWindow = window.open("about:blank", "_blank");
+
+  try {
+    const response = await fetch("/api/telegram/community/invite", {
+      credentials: "same-origin",
+      method: "POST",
+    });
+    const inviteResponse = response.ok ? await response.json() as TelegramCommunityInviteResponse : null;
+
+    if (!response.ok || !inviteResponse) {
+      throw new Error("Telegram invite creation failed.");
+    }
+
+    if (inviteResponse.communityBinding === "joined") {
+      inviteWindow?.close();
+      openTelegramCommunityLink();
+      return;
+    }
+
+    if (!inviteResponse.inviteLink) {
+      throw new Error("Telegram invite link is missing.");
+    }
+
+    if (inviteWindow) {
+      inviteWindow.location.href = inviteResponse.inviteLink;
+    } else {
+      window.location.assign(inviteResponse.inviteLink);
+    }
+
+    setWorkspaceNotification({
+      id: "telegram-community-invite",
+      title: "已生成专属入群链接",
+      message: "完成入群后回到页面，系统会自动刷新 TG 群验证状态。",
+      meta: "K线情报局 · TG 群验证",
+    });
+
+    window.setTimeout(() => {
+      void refreshTelegramCommunityMembership();
+    }, 5_000);
+  } catch {
+    inviteWindow?.close();
+    setWorkspaceNotification({
+      id: "telegram-community-invite-error",
+      title: "TG 入群链接生成失败",
+      message: "请确认 Vercel 已配置 bot token、群 chat id、webhook secret，并确认状态存储适配器可用。",
+      meta: "K线情报局 · TG 群验证",
+    });
+  }
+}
+
+function normalizeTelegramCommunityBinding(communityBinding: TelegramAuthStatus["communityBinding"]): TelegramAuthStatus["communityBinding"] {
+  return ["pending", "joined", "left", "kicked"].includes(communityBinding) ? communityBinding : "unverified";
+}
+
+function formatTelegramCommunityStatus(communityBinding: TelegramAuthStatus["communityBinding"], isLoggedIn: boolean): string {
+  if (!isLoggedIn) {
+    return "待登录";
+  }
+
+  switch (communityBinding) {
+    case "joined":
+      return "已入群";
+    case "pending":
+      return "等待入群";
+    case "left":
+      return "已退出";
+    case "kicked":
+      return "已移除";
+    case "unverified":
+      return "待入群";
+    default:
+      return "待入群";
+  }
 }
 
 function formatTelegramDisplayName(telegramUser: TelegramAuthUser | null): string {

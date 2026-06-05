@@ -148,10 +148,14 @@ function createSignalPriceRayDrawingState(input: {
     }
 
     return [{
+      borderColor: range.borderColor,
+      borderLineStyle: range.borderLineStyle,
+      borderLineWidth: range.borderLineWidth,
       fillColor: range.fillColor,
       maxCoordinate: Number(maxCoordinate),
       minCoordinate: Number(minCoordinate),
       startCoordinate: rangeStartCoordinate,
+      stripeColor: range.stripeColor,
     }];
   });
 

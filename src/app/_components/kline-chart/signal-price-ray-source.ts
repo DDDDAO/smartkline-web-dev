@@ -20,6 +20,7 @@ export function createSignalPriceRaySourceState(
   const ranges: SignalPriceRangeSource[] = [];
   const rays: SignalPriceRaySource[] = [];
   const style = createSignalDrawingStyle(theme, paperPosition);
+  ranges.push(...createAiSummaryContextRanges(signalAiSummary, theme));
   ranges.push(...createSignalRiskRewardRanges(signal, paperPosition, style));
 
   if (signal.entry_min !== null && signal.entry_max !== null) {
@@ -50,15 +51,6 @@ export function createSignalPriceRaySourceState(
 
   for (const price of signal.take_profit) {
     rays.push({ price, ...style.takeProfitRay });
-  }
-
-  if (signalAiSummary) {
-    ranges.push(...signalAiSummary.highlights.map((range) => ({
-      fillColor: createAiHighlightFillColor(theme, range.tone),
-      maxPrice: range.maxPrice,
-      minPrice: range.minPrice,
-      startTimeMs: 0,
-    })));
   }
 
   return { ranges, rays, startTimeMs };
@@ -123,32 +115,56 @@ function createSignalRiskRewardRanges(
   paperPosition: PaperPositionRecord | null,
   style: Pick<ReturnType<typeof createSignalDrawingStyle>, "riskRangeFillColor" | "rewardRangeFillColor">,
 ): SignalPriceRangeSource[] {
-  const entryPrice = resolveSignalEntryReferencePrice(signal, paperPosition);
-  if (entryPrice === null) {
+  const anchors = resolveRiskRewardAnchors(signal, paperPosition);
+  if (!anchors) {
     return [];
   }
 
   const ranges: SignalPriceRangeSource[] = [];
   const stopLoss = normalizePositivePrice(signal.stop_loss);
-  const takeProfit = resolvePrimaryTakeProfit(signal);
+  const takeProfit = resolveRewardRangeTakeProfit(signal, anchors.rewardAnchorPrice);
 
-  if (stopLoss !== null && isStopLossValid(signal.direction, entryPrice, stopLoss)) {
+  if (stopLoss !== null && isStopLossValid(signal.direction, anchors.riskAnchorPrice, stopLoss)) {
     ranges.push({
       fillColor: style.riskRangeFillColor,
-      maxPrice: Math.max(entryPrice, stopLoss),
-      minPrice: Math.min(entryPrice, stopLoss),
+      maxPrice: Math.max(anchors.riskAnchorPrice, stopLoss),
+      minPrice: Math.min(anchors.riskAnchorPrice, stopLoss),
     });
   }
 
   if (takeProfit !== null) {
     ranges.push({
       fillColor: style.rewardRangeFillColor,
-      maxPrice: Math.max(entryPrice, takeProfit),
-      minPrice: Math.min(entryPrice, takeProfit),
+      maxPrice: Math.max(anchors.rewardAnchorPrice, takeProfit),
+      minPrice: Math.min(anchors.rewardAnchorPrice, takeProfit),
     });
   }
 
   return ranges;
+}
+
+function resolveRiskRewardAnchors(
+  signal: StructuredSignal,
+  paperPosition: PaperPositionRecord | null,
+): { rewardAnchorPrice: number; riskAnchorPrice: number } | null {
+  const entryMin = normalizePositivePrice(signal.entry_min);
+  const entryMax = normalizePositivePrice(signal.entry_max);
+  if (entryMin !== null && entryMax !== null) {
+    const lowerEntryBoundary = Math.min(entryMin, entryMax);
+    const upperEntryBoundary = Math.max(entryMin, entryMax);
+
+    /**
+     * Range entries have their own blue zone. Risk/reward fills start from the
+     * range edge that faces the stop/target so the red and green areas do not
+     * overlap the entry zone.
+     */
+    return signal.direction === "long"
+      ? { riskAnchorPrice: lowerEntryBoundary, rewardAnchorPrice: upperEntryBoundary }
+      : { riskAnchorPrice: upperEntryBoundary, rewardAnchorPrice: lowerEntryBoundary };
+  }
+
+  const entryPrice = resolveSignalEntryReferencePrice(signal, paperPosition);
+  return entryPrice === null ? null : { riskAnchorPrice: entryPrice, rewardAnchorPrice: entryPrice };
 }
 
 function resolveSignalEntryReferencePrice(signal: StructuredSignal, paperPosition: PaperPositionRecord | null): number | null {
@@ -171,24 +187,22 @@ function resolveSignalEntryReferencePrice(signal: StructuredSignal, paperPositio
   return null;
 }
 
-function resolvePrimaryTakeProfit(signal: StructuredSignal): number | null {
-  const entryPrice = resolveSignalEntryReferencePrice(signal, null);
+function resolveRewardRangeTakeProfit(signal: StructuredSignal, anchorPrice: number): number | null {
   const validTakeProfits = signal.take_profit
     .map(normalizePositivePrice)
     .filter((price): price is number => price !== null)
-    .filter((price) => {
-      if (entryPrice === null) {
-        return true;
-      }
-
-      return signal.direction === "long" ? price > entryPrice : price < entryPrice;
-    });
+    .filter((price) => signal.direction === "long" ? price > anchorPrice : price < anchorPrice);
 
   if (validTakeProfits.length === 0) {
     return null;
   }
 
-  return signal.direction === "long" ? Math.min(...validTakeProfits) : Math.max(...validTakeProfits);
+  /**
+   * The green plan zone should communicate the full intended reward envelope,
+   * not just TP1. Keep the API/display order semantics: TP3 is the third valid
+   * take-profit level, falling back to the last available TP when fewer exist.
+   */
+  return validTakeProfits[Math.min(2, validTakeProfits.length - 1)];
 }
 
 function isStopLossValid(direction: StructuredSignal["direction"], entryPrice: number, stopLoss: number): boolean {
@@ -199,16 +213,70 @@ function normalizePositivePrice(value: number | null): number | null {
   return value !== null && Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function createAiHighlightFillColor(theme: ChartTheme, tone: SignalAiHighlightTone): string {
-  const colors: Record<SignalAiHighlightTone, { dark: string; light: string }> = {
-    disagreement: { dark: "rgba(168, 85, 247, 0.10)", light: "rgba(168, 85, 247, 0.08)" },
-    long: { dark: "rgba(34, 197, 94, 0.10)", light: "rgba(34, 197, 94, 0.08)" },
-    risk: { dark: "rgba(244, 63, 94, 0.10)", light: "rgba(244, 63, 94, 0.08)" },
-    short: { dark: "rgba(239, 68, 68, 0.10)", light: "rgba(239, 68, 68, 0.08)" },
-    target: { dark: "rgba(20, 184, 166, 0.10)", light: "rgba(20, 184, 166, 0.08)" },
-  };
+function createAiSummaryContextRanges(
+  signalAiSummary: SignalAiSummary | null,
+  theme: ChartTheme,
+): SignalPriceRangeSource[] {
+  if (!signalAiSummary) {
+    return [];
+  }
 
-  return theme === "dark" ? colors[tone].dark : colors[tone].light;
+  return signalAiSummary.highlights.flatMap((range) => {
+    if (!isDrawableAiSummaryTone(range.tone)) {
+      return [];
+    }
+
+    return [{
+      ...createAiSummaryContextStyle(theme, range.tone),
+      maxPrice: range.maxPrice,
+      minPrice: range.minPrice,
+    }];
+  });
+}
+
+function isDrawableAiSummaryTone(tone: SignalAiHighlightTone): tone is Exclude<SignalAiHighlightTone, "risk" | "target"> {
+  return tone !== "risk" && tone !== "target";
+}
+
+function createAiSummaryContextStyle(
+  theme: ChartTheme,
+  tone: Exclude<SignalAiHighlightTone, "risk" | "target">,
+): Pick<SignalPriceRangeSource, "borderColor" | "borderLineStyle" | "borderLineWidth" | "fillColor" | "stripeColor"> {
+  /**
+   * Summary ranges are an aggregate context layer, not the selected signal's
+   * trading plan. They use hatching and dotted borders, and skip aggregate
+   * risk/target clusters so they cannot be mistaken for active stop/TP zones.
+   */
+  const colors: Record<Exclude<SignalAiHighlightTone, "risk" | "target">, {
+    border: { dark: string; light: string };
+    fill: { dark: string; light: string };
+    stripe: { dark: string; light: string };
+  }> = {
+    disagreement: {
+      border: { dark: "rgba(196, 181, 253, 0.36)", light: "rgba(124, 58, 237, 0.28)" },
+      fill: { dark: "rgba(168, 85, 247, 0.055)", light: "rgba(168, 85, 247, 0.045)" },
+      stripe: { dark: "rgba(196, 181, 253, 0.20)", light: "rgba(124, 58, 237, 0.14)" },
+    },
+    long: {
+      border: { dark: "rgba(110, 231, 183, 0.32)", light: "rgba(5, 150, 105, 0.24)" },
+      fill: { dark: "rgba(34, 197, 94, 0.045)", light: "rgba(34, 197, 94, 0.036)" },
+      stripe: { dark: "rgba(110, 231, 183, 0.18)", light: "rgba(5, 150, 105, 0.12)" },
+    },
+    short: {
+      border: { dark: "rgba(252, 165, 165, 0.32)", light: "rgba(220, 38, 38, 0.22)" },
+      fill: { dark: "rgba(239, 68, 68, 0.045)", light: "rgba(239, 68, 68, 0.036)" },
+      stripe: { dark: "rgba(252, 165, 165, 0.18)", light: "rgba(220, 38, 38, 0.11)" },
+    },
+  };
+  const palette = colors[tone];
+
+  return {
+    borderColor: theme === "dark" ? palette.border.dark : palette.border.light,
+    borderLineStyle: LineStyle.Dotted,
+    borderLineWidth: 1,
+    fillColor: theme === "dark" ? palette.fill.dark : palette.fill.light,
+    stripeColor: theme === "dark" ? palette.stripe.dark : palette.stripe.light,
+  };
 }
 
 export function resolveSignalTimeCoordinate(
