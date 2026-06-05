@@ -24,6 +24,10 @@ export type PaperPositionRecord = {
   dataIssue: string | null;
 };
 
+type ComputePaperPositionRecordOptions = {
+  currentPriceOverride?: number | null;
+};
+
 type EntryRule =
   | { type: "range"; min: number; max: number }
   | { type: "price"; price: number }
@@ -43,10 +47,14 @@ type ExitFill = {
 
 const PAPER_POSITION_CANDLE_MS = 60_000;
 
-export function computePaperPositionRecord(signal: StructuredSignal, candles: readonly MarketCandle[]): PaperPositionRecord {
+export function computePaperPositionRecord(
+  signal: StructuredSignal,
+  candles: readonly MarketCandle[],
+  options: ComputePaperPositionRecordOptions = {},
+): PaperPositionRecord {
   const baseRecord = createEmptyRecord(signal.id);
   const sortedCandles = candles.slice().sort((left, right) => left.sourceTimeMs - right.sourceTimeMs);
-  const currentPrice = sortedCandles.at(-1)?.close ?? null;
+  const currentPrice = normalizeCurrentPriceOverride(options.currentPriceOverride) ?? sortedCandles.at(-1)?.close ?? null;
   const signalTimeMs = Date.parse(signal.created_at);
 
   if (!Number.isFinite(signalTimeMs)) {
@@ -160,6 +168,10 @@ function createEmptyRecord(signalId: string): PaperPositionRecord {
     distanceToEntryPercent: null,
     dataIssue: null,
   };
+}
+
+function normalizeCurrentPriceOverride(value: number | null | undefined): number | null {
+  return value !== null && value !== undefined && Number.isFinite(value) && value > 0 ? value : null;
 }
 
 function getPaperCandleStartMs(timestampMs: number): number {

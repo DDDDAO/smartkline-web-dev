@@ -7,6 +7,7 @@ export const markets: MarketSymbol[] = mockMarketSymbols;
 export const intervals: KlineInterval[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
 export const structuredSignals = fallbackKolSignals;
 
+
 export function createDemoCandles(symbol: MarketSymbol, interval: KlineInterval): MarketCandle[] {
   const basePrice = symbol.startsWith("ETH") ? 3780 : symbol.startsWith("SOL") ? 166 : symbol.startsWith("BNB") ? 650 : 70000;
   const volatility = symbol.startsWith("ETH") ? 34 : symbol.startsWith("SOL") ? 2.1 : symbol.startsWith("BNB") ? 5 : 520;
