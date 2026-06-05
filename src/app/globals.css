@@ -39,9 +39,11 @@ button {
 }
 
 .signal-card-flipper {
+  -webkit-transform-style: preserve-3d;
   position: relative;
   transform-style: preserve-3d;
   transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
 .signal-card-flipper.is-flipped {
@@ -49,6 +51,8 @@ button {
 }
 
 .signal-card-face {
+  -webkit-backface-visibility: hidden;
+  -webkit-transform-style: preserve-3d;
   backface-visibility: hidden;
   transform-style: preserve-3d;
 }

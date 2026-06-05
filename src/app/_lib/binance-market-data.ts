@@ -8,6 +8,7 @@ const MILLISECONDS_PER_SECOND = 1_000;
 
 type HistoricalCandleFetchOptions = {
   limit?: number;
+  signal?: AbortSignal;
   untilMs?: number;
 };
 
@@ -93,7 +94,7 @@ export async function fetchHistoricalCandles(
     url.searchParams.set("endTime", String(Math.max(0, options.untilMs - 1)));
   }
 
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: options.signal });
   if (!response.ok) {
     throw new Error(`Binance historical candles failed: ${response.status} ${response.statusText}`);
   }
@@ -148,6 +149,19 @@ export function upsertCandle(candles: readonly MarketCandle[], nextCandle: Marke
   const updatedCandles = candles.slice();
   updatedCandles[existingIndex] = nextCandle;
   return updatedCandles.sort(compareCandlesByTime);
+}
+
+export function upsertCandles(
+  candles: readonly MarketCandle[],
+  nextCandles: readonly MarketCandle[],
+): MarketCandle[] {
+  let mergedCandles = candles.slice();
+
+  for (const nextCandle of nextCandles) {
+    mergedCandles = upsertCandle(mergedCandles, nextCandle);
+  }
+
+  return mergedCandles;
 }
 
 export function prependHistoricalCandles(

@@ -5,12 +5,18 @@ import {
   HISTORICAL_CANDLE_LIMIT,
   fetchHistoricalCandles,
   prependHistoricalCandles,
+  subscribeToBinanceKlines,
+  upsertCandle,
+  upsertCandles,
 } from "@/app/_lib/binance-market-data";
 import { KlineChart, type ChartTheme } from "@/app/_components/kline-chart";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 import { SymbolSearchInput } from "./symbol-search-input";
+
+const LATEST_CANDLE_BACKFILL_INTERVAL_MS = 60_000;
+const LATEST_CANDLE_BACKFILL_LIMIT = 3;
 
 export function RealtimeKlinePanel({
   activePaperPosition,
@@ -23,6 +29,7 @@ export function RealtimeKlinePanel({
   onIntervalChange,
   onSymbolChange,
   onSignalSelect,
+  onMarketCandleUpdate,
 }: {
   activePaperPosition: PaperPositionRecord | null;
   activeSignal: StructuredSignal | null;
@@ -34,6 +41,7 @@ export function RealtimeKlinePanel({
   onIntervalChange: (interval: KlineInterval) => void;
   onSymbolChange: (symbol: MarketSymbol) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
+  onMarketCandleUpdate: (update: { candles: readonly MarketCandle[]; interval: KlineInterval; symbol: MarketSymbol }) => void;
 }) {
   const [candles, setCandles] = useState<MarketCandle[]>([]);
   const [canLoadOlderHistory, setCanLoadOlderHistory] = useState(true);
@@ -55,7 +63,37 @@ export function RealtimeKlinePanel({
 
   useEffect(() => {
     let isActive = true;
-    fetchHistoricalCandles(symbol, interval, { limit: HISTORICAL_CANDLE_LIMIT })
+    const abortController = new AbortController();
+    let unsubscribe: (() => void) | null = null;
+    let latestBackfillIntervalId: number | null = null;
+
+    const backfillLatestCandles = () => {
+      fetchHistoricalCandles(symbol, interval, {
+        limit: LATEST_CANDLE_BACKFILL_LIMIT,
+        signal: abortController.signal,
+      })
+        .then((latestCandles) => {
+          if (!isActive) {
+            return;
+          }
+
+          if (latestCandles.length > 0) {
+            setCandles((currentCandles) => upsertCandles(currentCandles, latestCandles));
+            onMarketCandleUpdate({ candles: latestCandles, interval, symbol });
+          }
+          setLoadError(null);
+        })
+        .catch((error: unknown) => {
+          if (isActive && !isAbortError(error)) {
+            setLoadError(error instanceof Error ? error.message : String(error));
+          }
+        });
+    };
+
+    fetchHistoricalCandles(symbol, interval, {
+      limit: HISTORICAL_CANDLE_LIMIT,
+      signal: abortController.signal,
+    })
       .then((historicalCandles) => {
         if (!isActive) {
           return;
@@ -64,17 +102,43 @@ export function RealtimeKlinePanel({
         setCandles(historicalCandles);
         setCanLoadOlderHistory(historicalCandles.length >= HISTORICAL_CANDLE_LIMIT);
         setLoadError(null);
+        unsubscribe = subscribeToBinanceKlines(symbol, interval, {
+          onOpen: () => {
+            if (isActive) {
+              setLoadError(null);
+            }
+          },
+          onError: (error) => {
+            if (isActive) {
+              setLoadError(error.message);
+            }
+          },
+          onCandle: (nextCandle) => {
+            if (!isActive) {
+              return;
+            }
+
+            setCandles((currentCandles) => upsertCandle(currentCandles, nextCandle));
+            onMarketCandleUpdate({ candles: [nextCandle], interval, symbol });
+          },
+        });
+        latestBackfillIntervalId = window.setInterval(backfillLatestCandles, LATEST_CANDLE_BACKFILL_INTERVAL_MS);
       })
       .catch((error: unknown) => {
-        if (isActive) {
+        if (isActive && !isAbortError(error)) {
           setLoadError(error instanceof Error ? error.message : String(error));
         }
       });
 
     return () => {
       isActive = false;
+      abortController.abort();
+      if (latestBackfillIntervalId !== null) {
+        window.clearInterval(latestBackfillIntervalId);
+      }
+      unsubscribe?.();
     };
-  }, [interval, symbol]);
+  }, [interval, onMarketCandleUpdate, symbol]);
 
   const loadOlderHistory = useCallback(async () => {
     if (isLoadingOlderHistoryRef.current || !canLoadOlderHistory) {
@@ -161,6 +225,10 @@ export function RealtimeKlinePanel({
       </div>
     </section>
   );
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function MarketEnvironmentGuide({ error, isDarkTheme }: { error: string; isDarkTheme: boolean }) {

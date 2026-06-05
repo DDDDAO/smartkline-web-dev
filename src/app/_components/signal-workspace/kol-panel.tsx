@@ -215,11 +215,11 @@ export function KolPanel({
             <div
               key={signal.id}
               ref={setCardRef}
-              className="signal-card-scene will-change-transform"
+              className="signal-card-scene [perspective:1200px]"
             >
-              <div className={`signal-card-flipper ${isFlipped ? "is-flipped" : ""}`}>
+              <div className={`signal-card-flipper relative [transform-style:preserve-3d] transition-transform duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-reduce:transition-none ${isFlipped ? "is-flipped [transform:rotateY(180deg)]" : ""}`}>
                 <div
-                  className={`${cardClassName} signal-card-face`}
+                  className={`${cardClassName} signal-card-face [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform-style:preserve-3d]`}
                   role="button"
                   tabIndex={0}
                   onClick={handleSelect}
@@ -286,7 +286,7 @@ export function KolPanel({
 
                   {isLocked ? <LockedSignalOverlay isDarkTheme={isDarkTheme} onTelegramLogin={onTelegramLogin} /> : null}
                 </div>
-                <div className={`${backCardClassName} signal-card-face signal-card-back`}>
+                <div className={`${backCardClassName} signal-card-face signal-card-back absolute inset-0 overflow-hidden [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)] [transform-style:preserve-3d]`}>
                   <div className="flex h-full min-h-0 flex-col">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div className={isDarkTheme ? "text-sm font-bold text-slate-50" : "text-sm font-bold text-slate-950"}>情报源回放</div>

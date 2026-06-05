@@ -9,7 +9,7 @@ import { computePaperPositionRecord, type PaperPositionRecord } from "@/app/_lib
 import { KolPanel } from "./signal-workspace/kol-panel";
 import { RealtimeKlinePanel } from "./signal-workspace/realtime-kline-panel";
 import { formatKolSignalSourceError, type KolSignalSourceStatus } from "./signal-workspace/types";
-import { usePaperPositionCandles } from "./signal-workspace/use-paper-position-candles";
+import { type PaperPositionMarketCandleUpdate, usePaperPositionCandles } from "./signal-workspace/use-paper-position-candles";
 import type { ChartTheme } from "@/app/_components/kline-chart";
 import type { KlineInterval, MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
@@ -28,18 +28,45 @@ type MockSignalNotification = {
   title: string;
 };
 
+type TelegramAuthUser = {
+  avatarUrl?: string;
+  id: string;
+  name?: string;
+  telegramId?: string;
+  username?: string;
+};
+
+type TelegramAuthStatus = {
+  botBinding: "unbound" | "bound";
+  communityBinding: "unverified" | "joined" | "left";
+  isLoggedIn: boolean;
+  notificationPermission: "none" | "granted";
+  sourceBindingCount: number;
+  telegramUser: TelegramAuthUser | null;
+};
+
+const DEFAULT_TELEGRAM_AUTH_STATUS: TelegramAuthStatus = {
+  botBinding: "unbound",
+  communityBinding: "unverified",
+  isLoggedIn: false,
+  notificationPermission: "none",
+  sourceBindingCount: 0,
+  telegramUser: null,
+};
+
 export function SignalWorkspace() {
   const [symbol, setSymbol] = useState<MarketSymbol>("BTC/USDT:USDT");
   const [interval, setInterval] = useState<KlineInterval>("15m");
   const [activeSignalId, setActiveSignalId] = useState("");
   const [theme, setTheme] = useState<ChartTheme>("light");
   const [language, setLanguage] = useState<WorkspaceLanguage>("zh-CN");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authStatus, setAuthStatus] = useState<TelegramAuthStatus>(DEFAULT_TELEGRAM_AUTH_STATUS);
   const [isMyPanelOpen, setIsMyPanelOpen] = useState(false);
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
   const [marketOptions, setMarketOptions] = useState<MarketSymbol[]>(markets);
   const [signals, setSignals] = useState<StructuredSignal[]>([]);
+  const [latestMarketCandleUpdate, setLatestMarketCandleUpdate] = useState<PaperPositionMarketCandleUpdate | null>(null);
   const [mockSignalNotification, setMockSignalNotification] = useState<MockSignalNotification | null>(null);
   const [kolSignalSourceStatus, setKolSignalSourceStatus] = useState<KolSignalSourceStatus>({
     error: null,
@@ -51,38 +78,41 @@ export function SignalWorkspace() {
   const {
     candlesBySymbol: paperPositionCandlesBySymbol,
     errorsBySymbol: paperPositionErrorsBySymbol,
-  } = usePaperPositionCandles(signals);
+    latestPricesBySymbol: paperPositionLatestPricesBySymbol,
+  } = usePaperPositionCandles(signals, latestMarketCandleUpdate);
   const paperPositionsBySignalId = useMemo(() => {
     const recordsBySignalId: Record<string, PaperPositionRecord> = {};
 
     for (const signal of signals) {
       const candles = paperPositionCandlesBySymbol[signal.symbol];
       if (candles && candles.length > 0) {
-        recordsBySignalId[signal.id] = computePaperPositionRecord(signal, candles);
+        recordsBySignalId[signal.id] = computePaperPositionRecord(signal, candles, {
+          currentPriceOverride: paperPositionLatestPricesBySymbol[signal.symbol] ?? null,
+        });
       }
     }
 
     return recordsBySignalId;
-  }, [paperPositionCandlesBySymbol, signals]);
+  }, [paperPositionCandlesBySymbol, paperPositionLatestPricesBySymbol, signals]);
   const isDarkTheme = theme === "dark";
+  const isLoggedIn = authStatus.isLoggedIn;
   const pageClassName = isDarkTheme ? "h-screen w-screen overflow-hidden bg-slate-950 text-slate-100" : "h-screen w-screen overflow-hidden bg-[#f5f7fb] text-slate-900";
   const workspaceGridClassName = isRightPanelCollapsed
     ? "relative grid h-full min-h-0 gap-3 p-3 lg:grid-cols-[minmax(0,1fr)]"
     : "relative grid h-full min-h-0 gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]";
 
-  const handleTelegramLogin = ({ openCommunity = true }: { openCommunity?: boolean } = {}) => {
-    if (openCommunity) {
-      openTelegramCommunityLink();
+  const handleTelegramLogin = () => {
+    if (typeof window === "undefined") {
+      return;
     }
 
-    setIsLoggedIn(true);
-    setIsMyPanelOpen(true);
-    setMockSignalNotification({
-      id: "telegram-login",
-      title: "Telegram 已接入",
-      message: "已进入“我的”状态，可继续绑定群、信号源和通知权限。",
-      meta: "K线情报局 · Demo 登录",
-    });
+    if (isLoggedIn) {
+      openTelegramCommunityLink();
+      return;
+    }
+
+    const redirectPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.assign(`/api/auth/telegram/start?redirect=${encodeURIComponent(redirectPath)}`);
   };
 
   const handleMyPanelToggle = () => {
@@ -95,6 +125,55 @@ export function SignalWorkspace() {
   };
 
   const toggleTheme = () => setTheme((currentTheme) => currentTheme === "light" ? "dark" : "light");
+
+  useEffect(() => {
+    let isActive = true;
+    const authResult = readTelegramAuthResultFromUrl();
+
+    fetch("/api/auth/me", { credentials: "same-origin" })
+      .then((response) => response.ok ? response.json() as Promise<TelegramAuthStatus> : DEFAULT_TELEGRAM_AUTH_STATUS)
+      .then((nextAuthStatus) => {
+        if (!isActive) {
+          return;
+        }
+
+        const normalizedAuthStatus = normalizeTelegramAuthStatus(nextAuthStatus);
+        setAuthStatus(normalizedAuthStatus);
+
+        if (authResult === "success" && normalizedAuthStatus.isLoggedIn) {
+          setIsMyPanelOpen(true);
+          setMockSignalNotification({
+            id: "telegram-login",
+            title: "Telegram 已验证",
+            message: `${formatTelegramDisplayName(normalizedAuthStatus.telegramUser)} 已完成登录验证，可继续绑定社群和 bot。`,
+            meta: "K线情报局 · Telegram OIDC",
+          });
+        } else if (authResult === "error") {
+          setMockSignalNotification({
+            id: "telegram-login-error",
+            title: "Telegram 登录失败",
+            message: "授权回调未通过验证，请重新发起 Telegram 登录。",
+            meta: "K线情报局 · Telegram OIDC",
+          });
+        }
+
+        clearTelegramAuthResultFromUrl();
+      })
+      .catch(() => {
+        if (!isActive) {
+          return;
+        }
+
+        setAuthStatus(DEFAULT_TELEGRAM_AUTH_STATUS);
+        if (authResult === "error") {
+          clearTelegramAuthResultFromUrl();
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!mockSignalNotification) {
@@ -152,7 +231,15 @@ export function SignalWorkspace() {
       ));
     };
 
+    const applyIncomingSignals = (incomingSignals: StructuredSignal[]) => {
+      if (!isActive || incomingSignals.length === 0) {
+        return;
+      }
 
+      setSignals((currentSignals) => mergeIncomingSignals(incomingSignals, currentSignals));
+      setKolSignalSourceStatus({ error: null, isLoading: false });
+      setActiveSignalId((currentActiveSignalId) => currentActiveSignalId || incomingSignals[0]?.id || "");
+    };
 
     fetchKolSignals()
       .then(applyInitialSignals)
@@ -164,7 +251,14 @@ export function SignalWorkspace() {
         }
       });
 
-    const unsubscribe = subscribeToKolSignals();
+    const unsubscribe = subscribeToKolSignals({
+      onSignals: applyIncomingSignals,
+      onError: (error) => {
+        if (isActive) {
+          setKolSignalSourceStatus({ error: formatKolSignalSourceError(error), isLoading: false });
+        }
+      },
+    });
 
     return () => {
       isActive = false;
@@ -186,6 +280,7 @@ export function SignalWorkspace() {
       ) : null}
       {isRightPanelCollapsed ? (
         <WorkspaceAccountActions
+          authStatus={authStatus}
           isMyPanelOpen={isMyPanelOpen}
           isLoggedIn={isLoggedIn}
           isDarkTheme={isDarkTheme}
@@ -223,6 +318,7 @@ export function SignalWorkspace() {
             setActiveSignalId(signal.id);
             setSymbol(signal.symbol);
           }}
+          onMarketCandleUpdate={setLatestMarketCandleUpdate}
         />
 
         <SidebarCollapseButton
@@ -233,6 +329,7 @@ export function SignalWorkspace() {
         {!isRightPanelCollapsed ? (
           <div className="flex min-h-0 flex-col gap-3">
             <WorkspaceAccountActions
+              authStatus={authStatus}
               isMyPanelOpen={isMyPanelOpen}
               isLoggedIn={isLoggedIn}
               isDarkTheme={isDarkTheme}
@@ -355,6 +452,7 @@ function ProductIntroScreen({
 
 
 function WorkspaceAccountActions({
+  authStatus,
   isMyPanelOpen,
   isLoggedIn,
   isDarkTheme,
@@ -365,6 +463,7 @@ function WorkspaceAccountActions({
   onTelegramLogin,
   onNotificationDismiss,
 }: {
+  authStatus: TelegramAuthStatus;
   isMyPanelOpen: boolean;
   isLoggedIn: boolean;
   isDarkTheme: boolean;
@@ -393,6 +492,7 @@ function WorkspaceAccountActions({
       </div>
       {isMyPanelOpen ? (
         <MyStatusPanel
+          authStatus={authStatus}
           isDarkTheme={isDarkTheme}
           isLoggedIn={isLoggedIn}
           onClose={onMyPanelClose}
@@ -445,11 +545,13 @@ function MyLoginButton({
 }
 
 function MyStatusPanel({
+  authStatus,
   isDarkTheme,
   isLoggedIn,
   onClose,
   onTelegramLogin,
 }: {
+  authStatus: TelegramAuthStatus;
   isDarkTheme: boolean;
   isLoggedIn: boolean;
   onClose: () => void;
@@ -459,6 +561,10 @@ function MyStatusPanel({
     ? "pointer-events-auto w-full rounded-3xl border border-slate-700 bg-slate-950/96 p-4 text-slate-100 shadow-2xl shadow-black/30 backdrop-blur"
     : "pointer-events-auto w-full rounded-3xl border border-slate-200 bg-white/96 p-4 text-slate-950 shadow-2xl shadow-slate-300/50 backdrop-blur";
   const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
+  const telegramDisplayName = formatTelegramDisplayName(authStatus.telegramUser);
+  const communityStatus = authStatus.communityBinding === "joined" ? "已入群" : isLoggedIn ? "待验证" : "待登录";
+  const sourceBindingStatus = authStatus.sourceBindingCount > 0 ? `${authStatus.sourceBindingCount} 个信源` : isLoggedIn ? "公共信源" : "登录后可用";
+  const notificationStatus = authStatus.notificationPermission === "granted" ? "已授权" : isLoggedIn ? "待 bot 绑定" : "待授权";
 
   return (
     <div className={panelClassName}>
@@ -466,7 +572,7 @@ function MyStatusPanel({
         <div>
           <div className={isDarkTheme ? "text-sm font-black text-slate-50" : "text-sm font-black text-slate-950"}>我的情报工作台</div>
           <p className={`mt-1 text-xs leading-5 ${mutedClassName}`}>
-            {isLoggedIn ? "Telegram Demo 已接入，可继续绑定群、信号源和通知权限。" : "使用 Telegram 入群登录后解锁最新情报。"}
+            {isLoggedIn ? `${telegramDisplayName} 已通过 Telegram 登录验证。` : "使用 Telegram 登录后解锁最新情报。"}
           </p>
         </div>
         <button
@@ -481,18 +587,18 @@ function MyStatusPanel({
       <div className="mt-4 grid gap-2">
         <MyBindingRow
           actionLabel="打开 Telegram"
-          description="入群后用于绑定官方社群、接收产品更新和通知授权。"
+          description="OIDC 已确认 Telegram 身份；社群成员状态后续由 bot 校验。"
           isDarkTheme={isDarkTheme}
-          status={isLoggedIn ? "已接入" : "待登录"}
-          title="TG 群绑定"
-          tone={isLoggedIn ? "positive" : "pending"}
+          status={communityStatus}
+          title="TG 登录验证"
+          tone={authStatus.communityBinding === "joined" ? "positive" : isLoggedIn ? "pending" : "pending"}
           onAction={onTelegramLogin}
         />
         <MyBindingRow
           actionLabel="管理"
-          description="当前 Demo 已接入 mock KOL 信号源，后续可在这里绑定自有群。"
+          description="当前已接入 KOL 信号源，后续可在这里绑定自有群。"
           isDarkTheme={isDarkTheme}
-          status={isLoggedIn ? "12 个信源" : "登录后可用"}
+          status={sourceBindingStatus}
           title="信号源"
           tone={isLoggedIn ? "positive" : "pending"}
           onAction={onTelegramLogin}
@@ -501,15 +607,15 @@ function MyStatusPanel({
           actionLabel="授权通知"
           description="命中入场、止盈、止损和多源共振时推送提醒。"
           isDarkTheme={isDarkTheme}
-          status={isLoggedIn ? "Demo 已授权" : "待授权"}
+          status={notificationStatus}
           title="通知权限"
-          tone={isLoggedIn ? "positive" : "pending"}
+          tone={authStatus.notificationPermission === "granted" ? "positive" : "pending"}
           onAction={onTelegramLogin}
         />
       </div>
 
       <div className={isDarkTheme ? "mt-4 rounded-2xl bg-slate-900 p-3 text-[11px] leading-5 text-slate-400" : "mt-4 rounded-2xl bg-slate-50 p-3 text-[11px] leading-5 text-slate-500"}>
-        Telegram 群链接可通过 <span className="font-bold">NEXT_PUBLIC_TELEGRAM_GROUP_URL</span> 配置；当前为 Demo 前端登录状态。
+        当前已接入 Telegram OIDC 登录验证；社群、bot 和自有信号源绑定需要继续接 webhook 与持久化存储。
       </div>
     </div>
   );
@@ -772,6 +878,77 @@ function openTelegramCommunityLink() {
   }
 
   window.open(TELEGRAM_COMMUNITY_URL, "_blank", "noopener,noreferrer");
+}
+
+function readTelegramAuthResultFromUrl(): "success" | "error" | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const authResult = new URLSearchParams(window.location.search).get("telegram_auth");
+  return authResult === "success" || authResult === "error" ? authResult : null;
+}
+
+function clearTelegramAuthResultFromUrl() {
+  if (typeof window === "undefined" || !window.location.search.includes("telegram_auth=")) {
+    return;
+  }
+
+  const searchParams = new URLSearchParams(window.location.search);
+  searchParams.delete("telegram_auth");
+  const nextSearch = searchParams.toString();
+  const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
+  window.history.replaceState(null, "", nextUrl);
+}
+
+function normalizeTelegramAuthStatus(authStatus: TelegramAuthStatus): TelegramAuthStatus {
+  return {
+    botBinding: authStatus.botBinding === "bound" ? "bound" : "unbound",
+    communityBinding: authStatus.communityBinding === "joined" || authStatus.communityBinding === "left" ? authStatus.communityBinding : "unverified",
+    isLoggedIn: Boolean(authStatus.isLoggedIn && authStatus.telegramUser),
+    notificationPermission: authStatus.notificationPermission === "granted" ? "granted" : "none",
+    sourceBindingCount: Number.isFinite(authStatus.sourceBindingCount) ? Math.max(0, authStatus.sourceBindingCount) : 0,
+    telegramUser: authStatus.telegramUser,
+  };
+}
+
+function formatTelegramDisplayName(telegramUser: TelegramAuthUser | null): string {
+  if (!telegramUser) {
+    return "Telegram 用户";
+  }
+
+  if (telegramUser.username) {
+    return `@${telegramUser.username}`;
+  }
+
+  return telegramUser.name || "Telegram 用户";
+}
+
+function mergeIncomingSignals(
+  incomingSignals: readonly StructuredSignal[],
+  currentSignals: StructuredSignal[],
+): StructuredSignal[] {
+  const mergedSignals = dedupeStructuredSignalsByPosition([...currentSignals, ...incomingSignals]);
+  return areStructuredSignalListsEqual(currentSignals, mergedSignals) ? currentSignals : mergedSignals;
+}
+
+function areStructuredSignalListsEqual(
+  leftSignals: readonly StructuredSignal[],
+  rightSignals: readonly StructuredSignal[],
+): boolean {
+  if (leftSignals.length !== rightSignals.length) {
+    return false;
+  }
+
+  return leftSignals.every((leftSignal, index) => {
+    const rightSignal = rightSignals[index];
+    return Boolean(
+      rightSignal
+      && leftSignal.id === rightSignal.id
+      && leftSignal.created_at === rightSignal.created_at
+      && createStructuredSignalPositionKey(leftSignal) === createStructuredSignalPositionKey(rightSignal),
+    );
+  });
 }
 
 function dedupeStructuredSignalsByPosition(signals: readonly StructuredSignal[]): StructuredSignal[] {
