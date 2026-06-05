@@ -483,7 +483,6 @@ function createPaperPositionTradeMarkers(
   if (paperPosition.entryPrice !== null && paperPosition.entryTimeMs !== null) {
     const side = signal.direction === "long" ? "buy" : "sell";
     markers.push({
-      avatarUrl: signal.source_avatar_url,
       id: `paper-trade-point:${signal.id}:entry`,
       label: side === "buy" ? "B" : "S",
       price: paperPosition.entryPrice,
@@ -491,14 +490,12 @@ function createPaperPositionTradeMarkers(
       signalId: signal.id,
       sourceTimeMs: paperPosition.entryTimeMs,
       title: `${signal.source_name} ${side === "buy" ? "买入" : "卖出"} ${signal.symbol} @ ${formatTradePointPrice(paperPosition.entryPrice)}`,
-      traderName: signal.source_name,
     });
   }
 
   if (paperPosition.exitPrice !== null && paperPosition.exitTimeMs !== null) {
     const side = signal.direction === "long" ? "sell" : "buy";
     markers.push({
-      avatarUrl: signal.source_avatar_url,
       id: `paper-trade-point:${signal.id}:exit`,
       label: side === "buy" ? "B" : "S",
       price: paperPosition.exitPrice,
@@ -506,7 +503,6 @@ function createPaperPositionTradeMarkers(
       signalId: signal.id,
       sourceTimeMs: paperPosition.exitTimeMs,
       title: `${signal.source_name} ${side === "buy" ? "买入平仓" : "卖出平仓"} ${signal.symbol} @ ${formatTradePointPrice(paperPosition.exitPrice)}`,
-      traderName: signal.source_name,
     });
   }
 

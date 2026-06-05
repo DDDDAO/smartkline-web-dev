@@ -11,32 +11,29 @@ import type {
 import type { ChartTheme } from "@/app/_components/kline-chart";
 import type { MarketCandle } from "@/app/_types/market";
 
-const TRADE_POINT_RADIUS = 12;
-const TRADE_POINT_ACTIVE_RADIUS = 15;
+const TRADE_POINT_MARKER_WIDTH = 20;
+const TRADE_POINT_MARKER_HEIGHT = 18;
+const TRADE_POINT_ACTIVE_MARKER_WIDTH = 23;
+const TRADE_POINT_ACTIVE_MARKER_HEIGHT = 20;
 const TRADE_POINT_EDGE_PADDING = 18;
-const TRADE_POINT_STACK_GAP = 26;
+const TRADE_POINT_CANDLE_GAP = 7;
+const TRADE_POINT_POINTER_SIZE = 5;
+const TRADE_POINT_STACK_GAP = 24;
 const HOVER_OBJECT_ID_PREFIX = "kline-trade-point:";
 
-type AvatarCacheEntry = {
-  image: HTMLImageElement | null;
-  status: "error" | "loading" | "ready";
-};
-
 type DrawnTradePoint = {
-  avatarUrl: string | null;
-  fallbackLabel: string;
+  height: number;
   id: string;
   isActive: boolean;
   label: "B" | "S";
-  radius: number;
   side: "buy" | "sell";
   title: string;
+  width: number;
   x: number;
   y: number;
 };
 
 export type KlineTradePointMarker = {
-  avatarUrl: string | null;
   id: string;
   label: "B" | "S";
   price: number;
@@ -44,7 +41,6 @@ export type KlineTradePointMarker = {
   signalId: string;
   sourceTimeMs: number;
   title: string;
-  traderName: string;
 };
 
 type TradePointPrimitiveOptions = {
@@ -66,10 +62,9 @@ type AttachedContext = {
 };
 
 /**
- * The trade point overlay follows AlphaFox's market chart approach: draw the
- * signal source avatar at the exact price/time coordinate instead of using
- * axis-only price lines. This keeps buy/sell evidence visible while the user
- * pans or zooms the chart.
+ * The trade point overlay draws Binance-style B/S execution flags near the
+ * candle high or low. Keeping the marker anchored to the candle body prevents
+ * avatars or exact-price bubbles from hiding the wick at dense zoom levels.
  */
 export class TradePointPrimitive implements ISeriesPrimitive<Time> {
   private readonly paneView = new TradePointPaneView();
@@ -94,13 +89,11 @@ export class TradePointPrimitive implements ISeriesPrimitive<Time> {
       requestUpdate,
       series: series as ISeriesApi<"Candlestick", Time>,
     };
-    this.paneView.setRequestUpdate(requestUpdate);
     this.updateAllViews();
   }
 
   detached() {
     this.attachedContext = null;
-    this.paneView.setRequestUpdate(null);
     this.paneView.update({ items: [], theme: this.options.theme });
   }
 
@@ -146,14 +139,10 @@ class TradePointPaneView implements IPrimitivePaneView {
     this.rendererInstance.update(state);
   }
 
-  setRequestUpdate(requestUpdate: (() => void) | null) {
-    this.rendererInstance.setRequestUpdate(requestUpdate);
-  }
-
   hitTest(x: number, y: number): PrimitiveHoveredItem | null {
     const item = [...this.items].reverse().find((candidate) => {
-      const distance = Math.hypot(x - candidate.x, y - candidate.y);
-      return distance <= candidate.radius + 4;
+      return Math.abs(x - candidate.x) <= candidate.width / 2 + 4
+        && Math.abs(y - candidate.y) <= candidate.height / 2 + TRADE_POINT_POINTER_SIZE + 4;
     });
 
     if (!item) {
@@ -173,8 +162,6 @@ class TradePointPaneView implements IPrimitivePaneView {
 }
 
 class TradePointRenderer implements IPrimitivePaneRenderer {
-  private avatarCache = new Map<string, AvatarCacheEntry>();
-  private requestUpdate: (() => void) | null = null;
   private state: TradePointPrimitiveDrawingState = { items: [], theme: "light" };
 
   draw(target: Parameters<IPrimitivePaneRenderer["draw"]>[0]) {
@@ -189,11 +176,9 @@ class TradePointRenderer implements IPrimitivePaneRenderer {
         drawTradePoint(ctx, {
           item,
           pixelRatio,
-          requestAvatarUpdate: () => this.requestUpdate?.(),
           theme: this.state.theme,
           x: item.x * horizontalPixelRatio,
           y: item.y * verticalPixelRatio,
-          avatarCache: this.avatarCache,
         });
       }
       ctx.restore();
@@ -202,10 +187,6 @@ class TradePointRenderer implements IPrimitivePaneRenderer {
 
   update(state: TradePointPrimitiveDrawingState) {
     this.state = state;
-  }
-
-  setRequestUpdate(requestUpdate: (() => void) | null) {
-    this.requestUpdate = requestUpdate;
   }
 }
 
@@ -231,8 +212,9 @@ function createTradePointDrawingState(input: {
     }
 
     const x = context.chart.timeScale().timeToCoordinate(nearestCandle.time);
-    const priceY = context.series.priceToCoordinate(marker.price);
-    if (x === null || priceY === null) {
+    const boundaryPrice = marker.side === "buy" ? nearestCandle.low : nearestCandle.high;
+    const candleBoundaryY = context.series.priceToCoordinate(boundaryPrice);
+    if (x === null || candleBoundaryY === null) {
       return [];
     }
 
@@ -244,19 +226,24 @@ function createTradePointDrawingState(input: {
     const stackKey = `${nearestCandle.sourceTimeMs}:${marker.side}`;
     const stackIndex = stackIndexes.get(stackKey) ?? 0;
     stackIndexes.set(stackKey, stackIndex + 1);
-    const radius = marker.signalId === activeSignalId ? TRADE_POINT_ACTIVE_RADIUS : TRADE_POINT_RADIUS;
+    const isActive = marker.signalId === activeSignalId;
+    const width = isActive ? TRADE_POINT_ACTIVE_MARKER_WIDTH : TRADE_POINT_MARKER_WIDTH;
+    const height = isActive ? TRADE_POINT_ACTIVE_MARKER_HEIGHT : TRADE_POINT_MARKER_HEIGHT;
 
     return [{
-      avatarUrl: marker.avatarUrl,
-      fallbackLabel: createFallbackLabel(marker.traderName),
+      height,
       id: marker.id,
-      isActive: marker.signalId === activeSignalId,
+      isActive,
       label: marker.label,
-      radius,
       side: marker.side,
       title: marker.title,
+      width,
       x: normalizedX,
-      y: clampPointY(Number(priceY) + createStackOffset(marker.side, stackIndex), paneSize.height, radius),
+      y: clampPointY(
+        Number(candleBoundaryY) + createStackOffset(marker.side, stackIndex, height),
+        paneSize.height,
+        height,
+      ),
     }];
   });
 
@@ -264,56 +251,75 @@ function createTradePointDrawingState(input: {
 }
 
 function drawTradePoint(ctx: CanvasRenderingContext2D, input: {
-  avatarCache: Map<string, AvatarCacheEntry>;
   item: DrawnTradePoint;
   pixelRatio: number;
-  requestAvatarUpdate: () => void;
   theme: ChartTheme;
   x: number;
   y: number;
 }) {
-  const { avatarCache, item, pixelRatio, requestAvatarUpdate, theme, x, y } = input;
-  const radius = item.radius * pixelRatio;
+  const { item, pixelRatio, theme, x, y } = input;
   const colors = getTradePointColors(item.side, theme);
+  const width = item.width * pixelRatio;
+  const height = item.height * pixelRatio;
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  const pointerSize = TRADE_POINT_POINTER_SIZE * pixelRatio;
+  const radius = 4 * pixelRatio;
+  const top = y - halfHeight;
+  const bottom = y + halfHeight;
 
   ctx.save();
   if (item.isActive) {
-    ctx.beginPath();
-    ctx.fillStyle = colors.glow;
-    ctx.arc(x, y, radius + 7 * pixelRatio, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.shadowColor = colors.glow;
+    ctx.shadowBlur = 10 * pixelRatio;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
   }
 
+  drawMarkerPointer(ctx, item.side, x, top, bottom, pointerSize, colors.background, colors.border, pixelRatio);
   ctx.beginPath();
   ctx.fillStyle = colors.background;
   ctx.strokeStyle = colors.border;
-  ctx.lineWidth = item.isActive ? 3 * pixelRatio : 2 * pixelRatio;
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.lineWidth = item.isActive ? 1.6 * pixelRatio : 1.2 * pixelRatio;
+  roundRect(ctx, x - halfWidth, top, width, height, radius);
   ctx.fill();
   ctx.stroke();
 
-  const image = readAvatarImage(avatarCache, item.avatarUrl, requestAvatarUpdate);
-  if (image?.complete && image.naturalWidth > 0) {
-    drawAvatar(ctx, image, x, y, radius - 2 * pixelRatio);
-  } else {
-    drawFallbackText(ctx, item.fallbackLabel, x, y, colors.text, pixelRatio, item.isActive);
-  }
-
-  drawSideBadge(ctx, item.label, x, y, radius, pixelRatio, colors.side);
+  ctx.shadowColor = "transparent";
+  drawMarkerLabel(ctx, item.label, x, y, colors.text, pixelRatio, item.isActive);
   ctx.restore();
 }
 
-function drawAvatar(ctx: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, radius: number) {
-  ctx.save();
+function drawMarkerPointer(
+  ctx: CanvasRenderingContext2D,
+  side: "buy" | "sell",
+  x: number,
+  top: number,
+  bottom: number,
+  pointerSize: number,
+  fill: string,
+  stroke: string,
+  pixelRatio: number,
+) {
   ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.clip();
-  const diameter = radius * 2;
-  ctx.drawImage(image, x - radius, y - radius, diameter, diameter);
-  ctx.restore();
+  if (side === "buy") {
+    ctx.moveTo(x - pointerSize, top);
+    ctx.lineTo(x + pointerSize, top);
+    ctx.lineTo(x, top - pointerSize);
+  } else {
+    ctx.moveTo(x - pointerSize, bottom);
+    ctx.lineTo(x + pointerSize, bottom);
+    ctx.lineTo(x, bottom + pointerSize);
+  }
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 1.2 * pixelRatio;
+  ctx.fill();
+  ctx.stroke();
 }
 
-function drawFallbackText(
+function drawMarkerLabel(
   ctx: CanvasRenderingContext2D,
   label: string,
   x: number,
@@ -323,66 +329,22 @@ function drawFallbackText(
   isActive: boolean,
 ) {
   ctx.fillStyle = color;
-  ctx.font = `${isActive ? 800 : 700} ${isActive ? 12 * pixelRatio : 11 * pixelRatio}px Arial, Helvetica, sans-serif`;
+  ctx.font = `${isActive ? 900 : 800} ${isActive ? 13 * pixelRatio : 12 * pixelRatio}px Arial, Helvetica, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(label, x, y + 0.5 * pixelRatio);
+  ctx.fillText(label, x, y + 0.3 * pixelRatio);
 }
 
-function drawSideBadge(
-  ctx: CanvasRenderingContext2D,
-  label: "B" | "S",
-  x: number,
-  y: number,
-  radius: number,
-  pixelRatio: number,
-  color: string,
-) {
-  const badgeRadius = 6.5 * pixelRatio;
-  const badgeX = x + radius * 0.66;
-  const badgeY = y + radius * 0.66;
-
-  ctx.beginPath();
-  ctx.fillStyle = color;
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 1.5 * pixelRatio;
-  ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `800 ${7.5 * pixelRatio}px Arial, Helvetica, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(label, badgeX, badgeY + 0.4 * pixelRatio);
-}
-
-function readAvatarImage(
-  avatarCache: Map<string, AvatarCacheEntry>,
-  avatarUrl: string | null,
-  requestUpdate: () => void,
-): HTMLImageElement | null {
-  if (!avatarUrl || typeof Image === "undefined") {
-    return null;
-  }
-
-  const cached = avatarCache.get(avatarUrl);
-  if (cached) {
-    return cached.status === "error" ? null : cached.image;
-  }
-
-  const image = new Image();
-  image.onload = () => {
-    avatarCache.set(avatarUrl, { image, status: "ready" });
-    requestUpdate();
-  };
-  image.onerror = () => {
-    avatarCache.set(avatarUrl, { image: null, status: "error" });
-    requestUpdate();
-  };
-  image.src = avatarUrl;
-  avatarCache.set(avatarUrl, { image, status: "loading" });
-  return image;
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
 }
 
 function findNearestCandle(candles: readonly MarketCandle[], sourceTimeMs: number): MarketCandle | null {
@@ -419,22 +381,17 @@ function findNearestCandle(candles: readonly MarketCandle[], sourceTimeMs: numbe
   return Math.abs(left.sourceTimeMs - sourceTimeMs) <= Math.abs(right.sourceTimeMs - sourceTimeMs) ? left : right;
 }
 
-function createStackOffset(side: "buy" | "sell", stackIndex: number): number {
-  if (stackIndex === 0) {
-    return 0;
-  }
-
-  return side === "buy" ? stackIndex * TRADE_POINT_STACK_GAP : stackIndex * -TRADE_POINT_STACK_GAP;
+function createStackOffset(side: "buy" | "sell", stackIndex: number, markerHeight: number): number {
+  const baseOffset = TRADE_POINT_CANDLE_GAP + TRADE_POINT_POINTER_SIZE + markerHeight / 2;
+  const stackedOffset = baseOffset + stackIndex * TRADE_POINT_STACK_GAP;
+  return side === "buy" ? stackedOffset : -stackedOffset;
 }
 
-function clampPointY(y: number, paneHeight: number, radius: number): number {
-  const minY = radius + 6;
-  const maxY = Math.max(minY, paneHeight - radius - 6);
+function clampPointY(y: number, paneHeight: number, markerHeight: number): number {
+  const markerHalfHeight = markerHeight / 2 + TRADE_POINT_POINTER_SIZE;
+  const minY = markerHalfHeight + 6;
+  const maxY = Math.max(minY, paneHeight - markerHalfHeight - 6);
   return Math.min(Math.max(y, minY), maxY);
-}
-
-function createFallbackLabel(value: string): string {
-  return value.trim().slice(0, 1).toUpperCase() || "T";
 }
 
 function getTradePointColors(side: "buy" | "sell", theme: ChartTheme) {
@@ -442,19 +399,17 @@ function getTradePointColors(side: "buy" | "sell", theme: ChartTheme) {
 
   if (theme === "dark") {
     return {
-      background: isBuy ? "rgba(5, 46, 22, 0.98)" : "rgba(69, 10, 10, 0.98)",
-      border: isBuy ? "#22c55e" : "#f87171",
-      glow: isBuy ? "rgba(34, 197, 94, 0.22)" : "rgba(248, 113, 113, 0.22)",
-      side: isBuy ? "#16a34a" : "#dc2626",
-      text: isBuy ? "#bbf7d0" : "#fecaca",
+      background: isBuy ? "#16a34a" : "#dc2626",
+      border: isBuy ? "#22c55e" : "#ef4444",
+      glow: isBuy ? "rgba(34, 197, 94, 0.45)" : "rgba(239, 68, 68, 0.45)",
+      text: "#ffffff",
     };
   }
 
   return {
-    background: isBuy ? "rgba(240, 253, 244, 0.99)" : "rgba(254, 242, 242, 0.99)",
-    border: isBuy ? "#16a34a" : "#dc2626",
-    glow: isBuy ? "rgba(34, 197, 94, 0.22)" : "rgba(220, 38, 38, 0.20)",
-    side: isBuy ? "#16a34a" : "#dc2626",
-    text: isBuy ? "#166534" : "#991b1b",
+    background: isBuy ? "#16a34a" : "#dc2626",
+    border: isBuy ? "#15803d" : "#b91c1c",
+    glow: isBuy ? "rgba(22, 163, 74, 0.32)" : "rgba(220, 38, 38, 0.30)",
+    text: "#ffffff",
   };
 }
