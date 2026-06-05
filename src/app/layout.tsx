@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
+import Script from "next/script";
+import { Suspense } from "react";
+import { GoogleTagManagerPageView } from "./_components/google-tag-manager-page-view";
 import "./globals.css";
 
+const GOOGLE_TAG_MANAGER_ID = "GTM-MVGXC53S";
 
 export const metadata: Metadata = {
   title: "K线情报局",
@@ -14,7 +18,30 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${GOOGLE_TAG_MANAGER_ID}`}
+            height="0"
+            width="0"
+            title="Google Tag Manager"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
+        <Suspense fallback={null}>
+          <GoogleTagManagerPageView />
+        </Suspense>
+        {children}
+        <Script id="google-tag-manager" strategy="beforeInteractive">
+          {`
+(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','${GOOGLE_TAG_MANAGER_ID}');
+          `}
+        </Script>
+      </body>
     </html>
   );
 }
