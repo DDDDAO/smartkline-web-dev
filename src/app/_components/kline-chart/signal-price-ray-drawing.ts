@@ -1,5 +1,37 @@
 import { LineStyle } from "lightweight-charts";
-import type { SignalPriceRayDrawing } from "./signal-price-ray-types";
+import type { SignalPriceRangeDrawing, SignalPriceRayDrawing } from "./signal-price-ray-types";
+
+export function drawSignalPriceRange(
+  ctx: CanvasRenderingContext2D,
+  scope: {
+    bitmapSize: { height: number; width: number };
+    horizontalPixelRatio: number;
+    verticalPixelRatio: number;
+  },
+  range: SignalPriceRangeDrawing,
+) {
+  const startX = Math.max(0, Math.round(range.startCoordinate * scope.horizontalPixelRatio));
+  if (startX >= scope.bitmapSize.width) {
+    return;
+  }
+
+  const topY = Math.max(0, Math.round(Math.min(range.maxCoordinate, range.minCoordinate) * scope.verticalPixelRatio));
+  const bottomY = Math.min(scope.bitmapSize.height, Math.round(Math.max(range.maxCoordinate, range.minCoordinate) * scope.verticalPixelRatio));
+  if (bottomY <= topY) {
+    return;
+  }
+
+  const rect = {
+    bottomY,
+    height: bottomY - topY,
+    startX,
+    topY,
+    width: scope.bitmapSize.width - startX,
+  };
+
+  ctx.fillStyle = range.fillColor;
+  ctx.fillRect(rect.startX, rect.topY, rect.width, rect.height);
+}
 
 export function drawSignalPriceRay(
   ctx: CanvasRenderingContext2D,
@@ -29,12 +61,14 @@ export function drawSignalPriceRay(
   ctx.lineTo(Math.min(scope.bitmapSize.width, endX), yCenter);
   ctx.stroke();
 
-  drawLineLabel(ctx, scope, {
-    color: ray.color,
-    label: ray.label,
-    startX,
-    yCenter,
-  });
+  if (ray.label) {
+    drawLineLabel(ctx, scope, {
+      color: ray.color,
+      label: ray.label,
+      startX,
+      yCenter,
+    });
+  }
 }
 
 function drawLineLabel(
@@ -57,11 +91,11 @@ function drawLineLabel(
   const left = hasLeftSpace ? labelX - pillWidth : input.startX + gap;
   const top = input.yCenter - pillHeight / 2;
 
-  ctx.fillStyle = "rgba(15, 23, 42, 0.76)";
+  ctx.fillStyle = input.color;
   roundRect(ctx, left, top, pillWidth, pillHeight, 5 * scope.horizontalPixelRatio);
   ctx.fill();
 
-  ctx.fillStyle = input.color;
+  ctx.fillStyle = "#ffffff";
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.fillText(input.label, left + paddingX, input.yCenter + 0.5 * scope.verticalPixelRatio);

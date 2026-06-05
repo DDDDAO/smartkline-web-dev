@@ -334,7 +334,7 @@ export function KlineChart({
       series.removePriceLine(priceLine);
     }
 
-    priceLineRefs.current = createSignalPriceLines(candles.at(-1)?.close).map((line) => series.createPriceLine(line));
+    priceLineRefs.current = createSignalPriceLines(activeSignal, chartPaperPosition, candles.at(-1)?.close).map((line) => series.createPriceLine(line));
 
     signalRayPrimitiveRef.current?.applyOptions({
       candles,
