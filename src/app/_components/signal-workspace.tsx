@@ -20,7 +20,7 @@ import { KolPanel } from "./signal-workspace/kol-panel";
 import { RealtimeKlinePanel } from "./signal-workspace/realtime-kline-panel";
 import { formatKolSignalSourceError, type KolSignalSourceStatus } from "./signal-workspace/types";
 import { type PaperPositionMarketCandleUpdate, usePaperPositionCandles } from "./signal-workspace/use-paper-position-candles";
-import type { ChartTheme } from "@/app/_components/kline-chart";
+import { createSignalFocusRequestKey, type ChartTheme } from "@/app/_components/kline-chart";
 import type { KlineInterval, MarketSymbol } from "@/app/_types/market";
 import type { CopyTradingEvent, CopyTradingRadarSnapshot, CopyTradingTradeMarker } from "@/app/_types/copy-trading";
 import type { StructuredSignal } from "@/app/_types/signal";
@@ -73,6 +73,7 @@ export function SignalWorkspace() {
   const [activeWorkspaceModule, setActiveWorkspaceModule] = useState<WorkspaceModule>("kol-signals");
   const [activeSignalId, setActiveSignalId] = useState("");
   const [activeCopyTradingEventId, setActiveCopyTradingEventId] = useState("");
+  const [chartFocusSignalRequestKey, setChartFocusSignalRequestKey] = useState<string | null>(null);
   const [theme, setTheme] = useState<ChartTheme>("light");
   const [language, setLanguage] = useState<WorkspaceLanguage>("zh-CN");
   const [authStatus, setAuthStatus] = useState<TelegramAuthStatus>(DEFAULT_TELEGRAM_AUTH_STATUS);
@@ -349,8 +350,14 @@ export function SignalWorkspace() {
   }, [copyTradingSnapshot.events, copyTradingSourceStatus.isLoading]);
 
   const handleCopyTradingEventSelect = (event: CopyTradingEvent) => {
+    const nextSymbol = toCopyTradingMarketSymbol(event.symbol);
+    const nextSignal = copyTradingChartSignals.find((signal) => signal.id === getCopyTradingEventChartSignalId(event.event_id)) ?? null;
+    if (nextSignal && nextSymbol !== symbol) {
+      setChartFocusSignalRequestKey(createSignalFocusRequestKey(nextSignal));
+    }
+
     setActiveCopyTradingEventId(event.event_id);
-    setSymbol(toCopyTradingMarketSymbol(event.symbol));
+    setSymbol(nextSymbol);
     setMockSignalNotification({
       id: `copy-radar-focus-${event.event_id}`,
       title: "图表已定位带单事件",
@@ -408,6 +415,7 @@ export function SignalWorkspace() {
           key={`${symbol}-${interval}`}
           activePaperPosition={activeChartPaperPosition}
           activeSignal={activeChartSignal}
+          focusSignalRequestKey={chartFocusSignalRequestKey}
           interval={interval}
           marketOptions={marketOptions}
           symbol={symbol}
@@ -417,6 +425,7 @@ export function SignalWorkspace() {
           onIntervalChange={setInterval}
           onSymbolChange={(nextSymbol) => {
             const nextSignal = chartSignals.find((signal) => signal.symbol === nextSymbol);
+            setChartFocusSignalRequestKey(null);
             setSymbol(nextSymbol);
             if (isCopyTradingModuleActive) {
               const nextEvent = copyTradingSnapshot.events.find((event) => getCopyTradingEventChartSignalId(event.event_id) === nextSignal?.id);
@@ -426,6 +435,9 @@ export function SignalWorkspace() {
             }
           }}
           onSignalSelect={(signal) => {
+            if (signal.symbol !== symbol) {
+              setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
+            }
             if (isCopyTradingModuleActive) {
               const event = copyTradingSnapshot.events.find((item) => getCopyTradingEventChartSignalId(item.event_id) === signal.id);
               if (event) {
@@ -474,6 +486,9 @@ export function SignalWorkspace() {
                 sourceStatus={kolSignalSourceStatus}
                 signals={kolSignals}
                 onSignalSelect={(signal) => {
+                  if (signal.symbol !== symbol) {
+                    setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
+                  }
                   setActiveSignalId(signal.id);
                   setSymbol(signal.symbol);
                 }}
@@ -485,7 +500,10 @@ export function SignalWorkspace() {
                 snapshot={copyTradingSnapshot}
                 sourceStatus={copyTradingSourceStatus}
                 onEventSelect={handleCopyTradingEventSelect}
-                onSymbolSelect={(nextSymbol) => setSymbol(toCopyTradingMarketSymbol(nextSymbol))}
+                onSymbolSelect={(nextSymbol) => {
+                  setChartFocusSignalRequestKey(null);
+                  setSymbol(toCopyTradingMarketSymbol(nextSymbol));
+                }}
               />
             )}
           </div>
