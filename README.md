@@ -95,6 +95,34 @@ Rotating `SESSION_SECRET` invalidates existing browser sessions. Rotating
 `TELEGRAM_CLIENT_SECRET` or the bot token requires updating Vercel before the
 next deployment.
 
+## Copy-trading radar / Signal Center BFF
+
+The workspace now has a right-panel module switcher:
+
+- `KOL 信源`: structured KOL messages and paper-position tracking.
+- `带单雷达`: Binance Smart Money traders, current positions, trade events, and the US stock / ETF signal area.
+
+The copy-trading radar reads Signal Center through a server-side BFF route so the
+`x-token` credential is never exposed to browser JavaScript:
+
+```text
+GET /api/signal-center/v1/signal-sources?signalType=BinanceSmartMoney
+GET /api/signal-center/v1/signal-sources/{id}/positions
+GET /api/signal-center/v1/signal-sources/{id}/trades?limit=100
+```
+
+Configure these Vercel Environment Variables without the `NEXT_PUBLIC_` prefix:
+
+```bash
+SIGNAL_CENTER_API_BASE_URL=https://api.smartkline.com/signal-center
+SIGNAL_CENTER_API_TOKEN=
+```
+
+If Signal Center is unavailable or the token is not configured, the radar keeps
+the UI usable with built-in demo data for 星辰, 勇行, user watchlist targets, all
+ten monitored event types, and the QQQ / SPY / NVDA / TSLA / COIN / MSTR / IBIT
+/ ETHA equity-ETF section.
+
 ## KOL 信源接口
 
 前端已适配后端 KOL 成功交易信号列表接口和 SSE 实时接口。真实接口模式下，如果页面运行在 `localhost` / `127.0.0.1`，会默认请求：
