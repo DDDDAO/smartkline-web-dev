@@ -17,6 +17,7 @@ The KOL mock feed keeps parsed-signal fixtures for position cards and chart over
 | Case | Fixture intent |
 | --- | --- |
 | Range short | range entry rendering |
+| BTC short resonance | same-direction multi-KOL avatar stack and resonance pulse |
 | Long range | long position rendering |
 | Short range | short position rendering |
 | Trigger-price long | trigger entry rendering |
@@ -31,6 +32,7 @@ The KOL mock feed keeps parsed-signal fixtures for position cards and chart over
 src/app/_lib/mock-kol-signal-data.ts      # all KOL mock scenarios
 src/app/_lib/kol-signal-api.ts           # mocked KOL load + mocked realtime pushes
 src/app/_lib/binance-market-data.ts      # Binance Futures market list and OHLCV snapshot history
+src/app/_lib/signal-ai-summary.ts        # demo AI window summary and key-price ranges
 src/app/_components/signal-workspace.tsx # production-aligned workspace state flow
 ```
 
@@ -47,8 +49,15 @@ The project declares Node `>=20.9.0`, matching the Next.js runtime requirement u
 
 ## Frontend UI controls
 
-- The KOL panel has three filters at the top: coin, paper-position status, and KOL source.
-- The upper-right floating area contains a Telegram-style `社群接入` button.
+- The app opens with a short `K线情报局` intro card, product benefit copy, and a simple signal-to-K-line walkthrough.
+- The upper-right floating area contains the `K线情报局` brand, `我的 · TG登录`, and Telegram community entry. Telegram entry opens `NEXT_PUBLIC_TELEGRAM_GROUP_URL` when configured, falling back to a demo `t.me` URL.
+- After the demo Telegram login, the `我的` panel shows TG group binding, signal-source binding, and notification-permission status cards.
+- The lower-left dock contains the theme and language settings so the chart header stays focused on market controls.
+- The KOL panel has three filters at the top: KOL source, long/short direction, and coin.
+- KOL cards can flip from the structured signal front side to a Telegram-like source-message back side. In the logged-out state, the latest cards show a frosted login overlay and the browsable cards are labeled as three-day delayed samples.
+- The chart replaces the old text signal marker with KOL avatars, shows resonance badges for nearby same-direction sources, draws risk/reward bands, and marks paper-position entry/exit with `B`/`S`.
+- The chart area includes an AI window summary for long/short percentages, high-frequency prices, and highlighted key ranges. If Binance candles cannot load, the chart area shows a network-region environment guide.
+- The middle collapse arrow hides or restores the right intelligence panel for full-width chart review.
 - The notification banner component remains in place for later SSE wiring, but automatic mock pushes are disabled in snapshot mode.
 
 ## Monorepo interface protocol
