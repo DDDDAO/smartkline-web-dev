@@ -42,6 +42,7 @@ type KlineChartProps = {
   theme: ChartTheme;
   tradeMarkers: readonly KlineTradePointMarker[];
   onEventSignalSelect: (signal: StructuredSignal) => void;
+  onFocusSignalRequestHandled: () => void;
   onLoadOlderHistory: () => void;
 };
 
@@ -62,6 +63,7 @@ export function KlineChart({
   tradeMarkers,
   onLoadOlderHistory,
   onEventSignalSelect,
+  onFocusSignalRequestHandled,
 }: KlineChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -376,7 +378,8 @@ export function KlineChart({
       to: Math.min(candles.length - 1, targetIndex + 52),
     });
     handledFocusSignalRequestKeyRef.current = focusSignalRequestKey;
-  }, [activeSignal, candles, focusSignalRequestKey]);
+    onFocusSignalRequestHandled();
+  }, [activeSignal, candles, focusSignalRequestKey, onFocusSignalRequestHandled]);
 
   return (
     <div className="relative h-full w-full">

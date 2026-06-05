@@ -409,6 +409,8 @@ export function SignalWorkspace() {
     const nextSignal = copyTradingChartSignals.find((signal) => signal.id === getCopyTradingEventChartSignalId(event.event_id)) ?? null;
     if (nextSignal && nextSymbol !== symbol) {
       setChartFocusSignalRequestKey(createSignalFocusRequestKey(nextSignal));
+    } else {
+      setChartFocusSignalRequestKey(null);
     }
 
     setActiveCopyTradingEventId(event.event_id);
@@ -422,6 +424,7 @@ export function SignalWorkspace() {
   };
 
   const handleWorkspaceModuleChange = (nextModule: WorkspaceModule) => {
+    setChartFocusSignalRequestKey(null);
     setActiveWorkspaceModule(nextModule);
     if (nextModule === "copy-trading-radar" && activeCopyTradingEvent) {
       setSymbol(toCopyTradingMarketSymbol(activeCopyTradingEvent.symbol));
@@ -477,7 +480,10 @@ export function SignalWorkspace() {
           signals={chartSignals}
           theme={theme}
           tradeMarkers={chartTradeMarkers}
-          onIntervalChange={setInterval}
+          onIntervalChange={(nextInterval) => {
+            setChartFocusSignalRequestKey(null);
+            setInterval(nextInterval);
+          }}
           onSymbolChange={(nextSymbol) => {
             const nextSignal = chartSignals.find((signal) => signal.symbol === nextSymbol);
             setChartFocusSignalRequestKey(null);
@@ -492,6 +498,8 @@ export function SignalWorkspace() {
           onSignalSelect={(signal) => {
             if (signal.symbol !== symbol) {
               setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
+            } else {
+              setChartFocusSignalRequestKey(null);
             }
             if (isCopyTradingModuleActive) {
               const event = copyTradingSnapshot.events.find((item) => getCopyTradingEventChartSignalId(item.event_id) === signal.id);
@@ -503,6 +511,7 @@ export function SignalWorkspace() {
             }
             setSymbol(signal.symbol);
           }}
+          onFocusSignalRequestHandled={() => setChartFocusSignalRequestKey(null)}
           onMarketCandleUpdate={setLatestMarketCandleUpdate}
         />
 
@@ -543,6 +552,8 @@ export function SignalWorkspace() {
                 onSignalSelect={(signal) => {
                   if (signal.symbol !== symbol) {
                     setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
+                  } else {
+                    setChartFocusSignalRequestKey(null);
                   }
                   setActiveSignalId(signal.id);
                   setSymbol(signal.symbol);

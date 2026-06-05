@@ -32,6 +32,7 @@ export function RealtimeKlinePanel({
   onIntervalChange,
   onSymbolChange,
   onSignalSelect,
+  onFocusSignalRequestHandled,
   onMarketCandleUpdate,
 }: {
   activePaperPosition: PaperPositionRecord | null;
@@ -46,6 +47,7 @@ export function RealtimeKlinePanel({
   onIntervalChange: (interval: KlineInterval) => void;
   onSymbolChange: (symbol: MarketSymbol) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
+  onFocusSignalRequestHandled: () => void;
   onMarketCandleUpdate: (update: { candles: readonly MarketCandle[]; interval: KlineInterval; symbol: MarketSymbol }) => void;
 }) {
   const [candles, setCandles] = useState<MarketCandle[]>([]);
@@ -221,6 +223,7 @@ export function RealtimeKlinePanel({
           theme={theme}
           tradeMarkers={chartTradeMarkers}
           onEventSignalSelect={onSignalSelect}
+          onFocusSignalRequestHandled={onFocusSignalRequestHandled}
           onLoadOlderHistory={loadOlderHistory}
         />
         {loadError && candles.length === 0 ? (
