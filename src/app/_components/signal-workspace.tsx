@@ -1,28 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { markets } from "@/app/_lib/demo-data";
 import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
-import {
-  createCopyTradingChartSignals,
-  createMarketAlignedMockCopyTradingRadarSnapshot,
-  createCopyTradingTradeMarkers,
-  createMockCopyTradingRadarSnapshot,
-  fetchCopyTradingRadarSnapshot,
-  getCopyTradingEventChartSignalId,
-  toCopyTradingMarketSymbol,
-} from "@/app/_lib/copy-trading-radar-api";
 import { createStructuredSignalPositionKey, fetchKolSignals, subscribeToKolSignals } from "@/app/_lib/kol-signal-api";
 import { computePaperPositionRecord, type PaperPositionRecord } from "@/app/_lib/paper-position";
-import { CopyTradingRadarPanel } from "./signal-workspace/copy-trading-radar-panel";
 import { KolPanel } from "./signal-workspace/kol-panel";
 import { RealtimeKlinePanel } from "./signal-workspace/realtime-kline-panel";
 import { formatKolSignalSourceError, type KolSignalSourceStatus } from "./signal-workspace/types";
 import { type PaperPositionMarketCandleUpdate, usePaperPositionCandles } from "./signal-workspace/use-paper-position-candles";
 import { createSignalFocusRequestKey, type ChartTheme } from "@/app/_components/kline-chart";
 import type { KlineInterval, MarketSymbol } from "@/app/_types/market";
-import type { CopyTradingEvent, CopyTradingRadarSnapshot, CopyTradingTradeMarker } from "@/app/_types/copy-trading";
+import type { CopyTradingTradeMarker } from "@/app/_types/copy-trading";
 import type { StructuredSignal } from "@/app/_types/signal";
 
 const MAX_VISIBLE_KOL_SIGNALS = 50;
@@ -32,7 +22,6 @@ const TELEGRAM_DISCUSSION_GROUP_URL = process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL
 const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
 
 type WorkspaceLanguage = "zh-CN" | "en-US";
-type WorkspaceModule = "kol-signals" | "copy-trading-radar";
 
 type WorkspaceNotification = {
   id: string;
@@ -70,9 +59,7 @@ const DEFAULT_TELEGRAM_AUTH_STATUS: TelegramAuthStatus = {
 export function SignalWorkspace() {
   const [symbol, setSymbol] = useState<MarketSymbol>("BTC/USDT:USDT");
   const [interval, setInterval] = useState<KlineInterval>("15m");
-  const [activeWorkspaceModule, setActiveWorkspaceModule] = useState<WorkspaceModule>("kol-signals");
   const [activeSignalId, setActiveSignalId] = useState("");
-  const [activeCopyTradingEventId, setActiveCopyTradingEventId] = useState("");
   const [chartFocusSignalRequestKey, setChartFocusSignalRequestKey] = useState<string | null>(null);
   const [theme, setTheme] = useState<ChartTheme>("light");
   const [language, setLanguage] = useState<WorkspaceLanguage>("zh-CN");
@@ -82,29 +69,15 @@ export function SignalWorkspace() {
   const [showIntro, setShowIntro] = useState(true);
   const [marketOptions, setMarketOptions] = useState<MarketSymbol[]>(markets);
   const [signals, setSignals] = useState<StructuredSignal[]>([]);
-  const [copyTradingSnapshot, setCopyTradingSnapshot] = useState<CopyTradingRadarSnapshot>(() => createMockCopyTradingRadarSnapshot());
   const [latestMarketCandleUpdate, setLatestMarketCandleUpdate] = useState<PaperPositionMarketCandleUpdate | null>(null);
   const [workspaceNotification, setWorkspaceNotification] = useState<WorkspaceNotification | null>(null);
   const [kolSignalSourceStatus, setKolSignalSourceStatus] = useState<KolSignalSourceStatus>({
     error: null,
     isLoading: true,
   });
-  const [copyTradingSourceStatus, setCopyTradingSourceStatus] = useState<KolSignalSourceStatus>({
-    error: null,
-    isLoading: true,
-  });
-  const notifiedCopyTradingEventIdsRef = useRef(new Set<string>());
 
   const activeKolSignal = signals.find((signal) => signal.id === activeSignalId) ?? signals[0] ?? null;
   const kolSignals = useMemo(() => sortSignalsForKolPanel(signals), [signals]);
-  const copyTradingChartSignals = useMemo(() => createCopyTradingChartSignals(copyTradingSnapshot), [copyTradingSnapshot]);
-  const copyTradingTradeMarkers = useMemo(() => createCopyTradingTradeMarkers(copyTradingSnapshot), [copyTradingSnapshot]);
-  const activeCopyTradingChartSignal = copyTradingChartSignals.find((signal) => signal.id === getCopyTradingEventChartSignalId(activeCopyTradingEventId)) ?? copyTradingChartSignals[0] ?? null;
-  const activeCopyTradingEvent = copyTradingSnapshot.events.find((event) => event.event_id === activeCopyTradingEventId) ?? copyTradingSnapshot.events[0] ?? null;
-  const isCopyTradingModuleActive = activeWorkspaceModule === "copy-trading-radar";
-  const chartSignals = isCopyTradingModuleActive ? copyTradingChartSignals : signals;
-  const chartTradeMarkers = isCopyTradingModuleActive ? copyTradingTradeMarkers : EMPTY_COPY_TRADING_TRADE_MARKERS;
-  const activeChartSignal = isCopyTradingModuleActive ? activeCopyTradingChartSignal : activeKolSignal;
   const {
     candlesBySymbol: paperPositionCandlesBySymbol,
     errorsBySymbol: paperPositionErrorsBySymbol,
@@ -124,7 +97,7 @@ export function SignalWorkspace() {
 
     return recordsBySignalId;
   }, [paperPositionCandlesBySymbol, paperPositionLatestPricesBySymbol, signals]);
-  const activeChartPaperPosition = !isCopyTradingModuleActive && activeKolSignal ? paperPositionsBySignalId[activeKolSignal.id] ?? null : null;
+  const activeChartPaperPosition = activeKolSignal ? paperPositionsBySignalId[activeKolSignal.id] ?? null : null;
   const isDarkTheme = theme === "dark";
   const isLoggedIn = authStatus.isLoggedIn;
   const pageClassName = isDarkTheme ? "h-screen w-screen overflow-hidden bg-slate-950 text-slate-100" : "h-screen w-screen overflow-hidden bg-[#f5f7fb] text-slate-900";
@@ -290,90 +263,6 @@ export function SignalWorkspace() {
     };
   }, []);
 
-  useEffect(() => {
-    let isActive = true;
-
-    fetchCopyTradingRadarSnapshot()
-      .then((snapshot) => {
-        if (!isActive) {
-          return;
-        }
-
-        setCopyTradingSnapshot(snapshot);
-        setCopyTradingSourceStatus({ error: null, isLoading: false });
-        setActiveCopyTradingEventId((currentEventId) => (
-          snapshot.events.some((event) => event.event_id === currentEventId) ? currentEventId : snapshot.events[0]?.event_id ?? ""
-        ));
-      })
-      .catch(async (error: unknown) => {
-        const fallbackSnapshot = await createMarketAlignedMockCopyTradingRadarSnapshot();
-        if (!isActive) {
-          return;
-        }
-
-        setCopyTradingSnapshot(fallbackSnapshot);
-        setCopyTradingSourceStatus({ error: formatKolSignalSourceError(error), isLoading: false });
-        setActiveCopyTradingEventId((currentEventId) => (
-          fallbackSnapshot.events.some((event) => event.event_id === currentEventId) ? currentEventId : fallbackSnapshot.events[0]?.event_id ?? ""
-        ));
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (copyTradingSourceStatus.isLoading) {
-      return;
-    }
-
-    const latestImportantEvent = copyTradingSnapshot.events.find((event) => event.event_type === "open" || event.event_type === "close" || event.event_type === "reverse");
-    if (!latestImportantEvent || notifiedCopyTradingEventIdsRef.current.has(latestImportantEvent.event_id)) {
-      return;
-    }
-
-    notifiedCopyTradingEventIdsRef.current.add(latestImportantEvent.event_id);
-    setWorkspaceNotification({
-      id: `copy-radar-${latestImportantEvent.event_id}`,
-      title: "带单雷达事件提醒",
-      message: latestImportantEvent.title,
-      meta: `${latestImportantEvent.symbol} · ${latestImportantEvent.occurred_at.replace("T", " ").slice(0, 16)}`,
-    });
-  }, [copyTradingSnapshot.events, copyTradingSourceStatus.isLoading]);
-
-  const handleCopyTradingEventSelect = (event: CopyTradingEvent) => {
-    const nextSymbol = toCopyTradingMarketSymbol(event.symbol);
-    const nextSignal = copyTradingChartSignals.find((signal) => signal.id === getCopyTradingEventChartSignalId(event.event_id)) ?? null;
-    if (nextSignal && nextSymbol !== symbol) {
-      setChartFocusSignalRequestKey(createSignalFocusRequestKey(nextSignal));
-    } else {
-      setChartFocusSignalRequestKey(null);
-    }
-
-    setActiveCopyTradingEventId(event.event_id);
-    setSymbol(nextSymbol);
-    setWorkspaceNotification({
-      id: `copy-radar-focus-${event.event_id}`,
-      title: "图表已定位带单事件",
-      message: event.title,
-      meta: `${event.symbol} · ${event.occurred_at.replace("T", " ").slice(0, 16)}`,
-    });
-  };
-
-  const handleWorkspaceModuleChange = (nextModule: WorkspaceModule) => {
-    setChartFocusSignalRequestKey(null);
-    setActiveWorkspaceModule(nextModule);
-    if (nextModule === "copy-trading-radar" && activeCopyTradingEvent) {
-      setSymbol(toCopyTradingMarketSymbol(activeCopyTradingEvent.symbol));
-      return;
-    }
-
-    if (nextModule === "kol-signals" && activeKolSignal) {
-      setSymbol(activeKolSignal.symbol);
-    }
-  };
-
   return (
     <main className={pageClassName}>
       {showIntro ? (
@@ -410,28 +299,23 @@ export function SignalWorkspace() {
         <RealtimeKlinePanel
           key={`${symbol}-${interval}`}
           activePaperPosition={activeChartPaperPosition}
-          activeSignal={activeChartSignal}
+          activeSignal={activeKolSignal}
           focusSignalRequestKey={chartFocusSignalRequestKey}
           interval={interval}
           marketOptions={marketOptions}
           symbol={symbol}
-          signals={chartSignals}
+          signals={signals}
           theme={theme}
-          tradeMarkers={chartTradeMarkers}
+          tradeMarkers={EMPTY_COPY_TRADING_TRADE_MARKERS}
           onIntervalChange={(nextInterval) => {
             setChartFocusSignalRequestKey(null);
             setInterval(nextInterval);
           }}
           onSymbolChange={(nextSymbol) => {
-            const nextSignal = chartSignals.find((signal) => signal.symbol === nextSymbol);
+            const nextSignal = signals.find((signal) => signal.symbol === nextSymbol);
             setChartFocusSignalRequestKey(null);
             setSymbol(nextSymbol);
-            if (isCopyTradingModuleActive) {
-              const nextEvent = copyTradingSnapshot.events.find((event) => getCopyTradingEventChartSignalId(event.event_id) === nextSignal?.id);
-              setActiveCopyTradingEventId(nextEvent?.event_id ?? "");
-            } else {
-              setActiveSignalId(nextSignal?.id ?? "");
-            }
+            setActiveSignalId(nextSignal?.id ?? "");
           }}
           onSignalSelect={(signal) => {
             if (signal.symbol !== symbol) {
@@ -439,14 +323,7 @@ export function SignalWorkspace() {
             } else {
               setChartFocusSignalRequestKey(null);
             }
-            if (isCopyTradingModuleActive) {
-              const event = copyTradingSnapshot.events.find((item) => getCopyTradingEventChartSignalId(item.event_id) === signal.id);
-              if (event) {
-                setActiveCopyTradingEventId(event.event_id);
-              }
-            } else {
-              setActiveSignalId(signal.id);
-            }
+            setActiveSignalId(signal.id);
             setSymbol(signal.symbol);
           }}
           onFocusSignalRequestHandled={() => setChartFocusSignalRequestKey(null)}
@@ -472,42 +349,23 @@ export function SignalWorkspace() {
               onMyPanelClose={() => setIsMyPanelOpen(false)}
               onNotificationDismiss={() => setWorkspaceNotification(null)}
             />
-            <WorkspaceModuleTabs
-              activeModule={activeWorkspaceModule}
+            <KolPanel
+              activeSignal={activeKolSignal}
               isDarkTheme={isDarkTheme}
-              onModuleChange={handleWorkspaceModuleChange}
-            />
-            {activeWorkspaceModule === "kol-signals" ? (
-              <KolPanel
-                activeSignal={activeKolSignal}
-                isDarkTheme={isDarkTheme}
-                paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
-                paperPositionsBySignalId={paperPositionsBySignalId}
-                sourceStatus={kolSignalSourceStatus}
-                signals={kolSignals}
-                onSignalSelect={(signal) => {
-                  if (signal.symbol !== symbol) {
-                    setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
-                  } else {
-                    setChartFocusSignalRequestKey(null);
-                  }
-                  setActiveSignalId(signal.id);
-                  setSymbol(signal.symbol);
-                }}
-              />
-            ) : (
-              <CopyTradingRadarPanel
-                activeEventId={activeCopyTradingEvent?.event_id ?? ""}
-                isDarkTheme={isDarkTheme}
-                snapshot={copyTradingSnapshot}
-                sourceStatus={copyTradingSourceStatus}
-                onEventSelect={handleCopyTradingEventSelect}
-                onSymbolSelect={(nextSymbol) => {
+              paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
+              paperPositionsBySignalId={paperPositionsBySignalId}
+              sourceStatus={kolSignalSourceStatus}
+              signals={kolSignals}
+              onSignalSelect={(signal) => {
+                if (signal.symbol !== symbol) {
+                  setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
+                } else {
                   setChartFocusSignalRequestKey(null);
-                  setSymbol(toCopyTradingMarketSymbol(nextSymbol));
-                }}
-              />
-            )}
+                }
+                setActiveSignalId(signal.id);
+                setSymbol(signal.symbol);
+              }}
+            />
           </div>
         ) : null}
       </section>
@@ -597,62 +455,6 @@ function ProductIntroScreen({
     </div>
   );
 }
-
-function WorkspaceModuleTabs({
-  activeModule,
-  isDarkTheme,
-  onModuleChange,
-}: {
-  activeModule: WorkspaceModule;
-  isDarkTheme: boolean;
-  onModuleChange: (module: WorkspaceModule) => void;
-}) {
-  const containerClassName = isDarkTheme
-    ? "grid grid-cols-2 gap-1 rounded-2xl border border-slate-800 bg-slate-900/88 p-1 shadow-sm"
-    : "grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white/90 p-1 shadow-sm";
-
-  return (
-    <div className={containerClassName}>
-      <WorkspaceModuleTabButton
-        isActive={activeModule === "kol-signals"}
-        isDarkTheme={isDarkTheme}
-        label="KOL 信源"
-        onClick={() => onModuleChange("kol-signals")}
-      />
-      <WorkspaceModuleTabButton
-        isActive={activeModule === "copy-trading-radar"}
-        isDarkTheme={isDarkTheme}
-        label="带单雷达"
-        onClick={() => onModuleChange("copy-trading-radar")}
-      />
-    </div>
-  );
-}
-
-function WorkspaceModuleTabButton({
-  isActive,
-  isDarkTheme,
-  label,
-  onClick,
-}: {
-  isActive: boolean;
-  isDarkTheme: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  const className = isActive
-    ? "rounded-xl bg-cyan-500 px-3 py-2.5 text-xs font-black text-white shadow-sm"
-    : isDarkTheme
-      ? "rounded-xl px-3 py-2.5 text-xs font-bold text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
-      : "rounded-xl px-3 py-2.5 text-xs font-bold text-slate-500 transition hover:bg-slate-50 hover:text-slate-950";
-
-  return (
-    <button className={className} type="button" onClick={onClick}>
-      {label}
-    </button>
-  );
-}
-
 
 function WorkspaceAccountActions({
   authStatus,

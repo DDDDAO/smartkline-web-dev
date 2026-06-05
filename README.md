@@ -151,10 +151,9 @@ Telegram OIDC login
 
 ## Copy-trading radar / Signal Center BFF
 
-The workspace now has a right-panel module switcher:
-
-- `KOL 信源`: structured KOL messages and paper-position tracking.
-- `带单雷达`: Signal Center signal sources, current positions, trade events, and the US stock / ETF signal area.
+The main workspace currently shows the KOL signal panel only. The copy-trading
+radar UI is hidden from the main branch while it is being finished in the
+`feature/copy-trading-radar` worktree.
 
 The copy-trading radar reads Signal Center through a server-side BFF route so the
 `x-token` credential is never exposed to browser JavaScript:
