@@ -146,15 +146,6 @@ export function SignalWorkspace() {
     window.location.assign(`/api/auth/telegram/start?redirect=${encodeURIComponent(redirectPath)}`);
   };
 
-  const handleMyPanelToggle = () => {
-    if (isLoggedIn) {
-      setIsMyPanelOpen((currentValue) => !currentValue);
-      return;
-    }
-
-    handleTelegramLogin();
-  };
-
   const handleTelegramDiscussionJoin = () => {
     openExternalTelegramUrl(TELEGRAM_DISCUSSION_GROUP_URL);
   };
@@ -406,7 +397,6 @@ export function SignalWorkspace() {
           onTelegramLogin={handleTelegramLogin}
           onTelegramDiscussionJoin={handleTelegramDiscussionJoin}
           onMyPanelClose={() => setIsMyPanelOpen(false)}
-          onMyPanelToggle={handleMyPanelToggle}
           onNotificationDismiss={() => setWorkspaceNotification(null)}
         />
       ) : null}
@@ -480,7 +470,6 @@ export function SignalWorkspace() {
               onTelegramLogin={handleTelegramLogin}
               onTelegramDiscussionJoin={handleTelegramDiscussionJoin}
               onMyPanelClose={() => setIsMyPanelOpen(false)}
-              onMyPanelToggle={handleMyPanelToggle}
               onNotificationDismiss={() => setWorkspaceNotification(null)}
             />
             <WorkspaceModuleTabs
@@ -679,7 +668,6 @@ function WorkspaceAccountActions({
   layout,
   notification,
   onMyPanelClose,
-  onMyPanelToggle,
   onTelegramLogin,
   onTelegramDiscussionJoin,
   onNotificationDismiss,
@@ -691,7 +679,6 @@ function WorkspaceAccountActions({
   layout: "floating" | "rail";
   notification: WorkspaceNotification | null;
   onMyPanelClose: () => void;
-  onMyPanelToggle: () => void;
   onTelegramLogin: () => void;
   onTelegramDiscussionJoin: () => void;
   onNotificationDismiss: () => void;
@@ -710,7 +697,6 @@ function WorkspaceAccountActions({
       <div className={actionRowClassName}>
         <BrandLogo isDarkTheme={isDarkTheme} />
         <TelegramDiscussionButton isDarkTheme={isDarkTheme} onClick={onTelegramDiscussionJoin} />
-        <MyLoginButton isDarkTheme={isDarkTheme} isLoggedIn={isLoggedIn} onClick={onMyPanelToggle} />
       </div>
       {isMyPanelOpen ? (
         <MyStatusPanel
@@ -741,30 +727,6 @@ function BrandLogo({ isDarkTheme }: { isDarkTheme: boolean }) {
   );
 }
 
-function MyLoginButton({
-  isDarkTheme,
-  isLoggedIn,
-  onClick,
-}: {
-  isDarkTheme: boolean;
-  isLoggedIn: boolean;
-  onClick: () => void;
-}) {
-  const className = isLoggedIn
-    ? isDarkTheme
-      ? "inline-flex items-center gap-2 rounded-full border border-emerald-700 bg-emerald-950/75 px-4 py-2 text-xs font-bold text-emerald-300 shadow-lg shadow-black/20 backdrop-blur"
-      : "inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 shadow-lg shadow-emerald-100"
-    : isDarkTheme
-      ? "inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/92 px-4 py-2 text-xs font-bold text-slate-200 shadow-lg shadow-black/20 transition hover:border-cyan-500 hover:text-cyan-300 backdrop-blur"
-      : "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/92 px-4 py-2 text-xs font-bold text-slate-700 shadow-lg shadow-slate-200/70 transition hover:border-cyan-300 hover:text-cyan-700 backdrop-blur";
-
-  return (
-    <button className={className} type="button" onClick={onClick}>
-      <span aria-hidden="true">{isLoggedIn ? "✓" : "👤"}</span>
-      {isLoggedIn ? "我的 · 已接入" : "我的 · TG登录"}
-    </button>
-  );
-}
 
 function TelegramDiscussionButton({
   isDarkTheme,
