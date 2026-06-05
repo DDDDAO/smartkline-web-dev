@@ -1,6 +1,6 @@
 const DEFAULT_SIGNAL_CENTER_API_BASE_URL = "https://api.smartkline.com/signal-center";
 const SIGNAL_CENTER_API_BASE_URL = process.env.SIGNAL_CENTER_API_BASE_URL ?? DEFAULT_SIGNAL_CENTER_API_BASE_URL;
-const SIGNAL_CENTER_API_TOKEN = process.env.SIGNAL_CENTER_API_TOKEN;
+const SIGNAL_CENTER_API_TOKEN = process.env.SIGNAL_CENTER_API_TOKEN?.trim();
 
 type SignalCenterRouteContext = {
   params: Promise<{ path?: string[] }>;
@@ -19,6 +19,12 @@ async function proxySignalCenterRequest(request: Request, context: SignalCenterR
    * Signal Center protects source and position data with x-token. Keeping the
    * token in this route avoids shipping server credentials to the browser.
    */
+  if (isProtectedSignalCenterPath(path) && !SIGNAL_CENTER_API_TOKEN) {
+    return Response.json(
+      { error: "SIGNAL_CENTER_API_TOKEN is not configured on the Next.js server." },
+      { status: 503 },
+    );
+  }
   if (SIGNAL_CENTER_API_TOKEN) {
     headers.set("x-token", SIGNAL_CENTER_API_TOKEN);
   }
@@ -46,6 +52,10 @@ async function proxySignalCenterRequest(request: Request, context: SignalCenterR
       { status: 502 },
     );
   }
+}
+
+function isProtectedSignalCenterPath(pathSegments: readonly string[]): boolean {
+  return pathSegments[0] === "v1";
 }
 
 function createSignalCenterTargetUrl(pathSegments: readonly string[], requestUrl: string): string {
