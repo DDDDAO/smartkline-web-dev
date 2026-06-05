@@ -591,12 +591,6 @@ function ProductIntroScreen({
                 </div>
               ))}
             </div>
-            <div className={isDarkTheme ? "mt-4 rounded-2xl border border-slate-800 bg-slate-900 p-4" : "mt-4 rounded-2xl border border-slate-200 bg-white p-4"}>
-              <div className="text-sm font-black">Demo 重点</div>
-              <div className={`mt-2 text-xs leading-5 ${mutedClassName}`}>
-                信号源可信感 → 结构化信号卡 → K线风险收益可视化 → 原始社群消息可追溯 → Telegram/登录转化
-              </div>
-            </div>
           </div>
         </div>
       </div>
