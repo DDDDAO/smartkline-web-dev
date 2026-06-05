@@ -13,35 +13,24 @@ export type SignalPriceRayPrimitiveOptions = {
 
 export type SignalPriceRaySource = {
   color: string;
+  endTimeMs?: number;
+  label: string;
   lineStyle: LineStyle;
   lineWidth: LineWidth;
   price: number;
 };
 
-export type SignalPriceRangeSource = {
-  fillColor: string;
-  maxPrice: number;
-  minPrice: number;
-  startTimeMs?: number;
-};
-
 export type SignalPriceRayDrawing = {
   color: string;
+  endCoordinate: number | null;
+  label: string;
   lineStyle: LineStyle;
   lineWidth: LineWidth;
   priceCoordinate: number;
   startCoordinate: number;
 };
 
-export type SignalPriceRangeDrawing = {
-  fillColor: string;
-  maxCoordinate: number;
-  minCoordinate: number;
-  startCoordinate: number;
-};
-
 export type SignalPriceRayDrawingState = {
-  ranges: SignalPriceRangeDrawing[];
   rays: SignalPriceRayDrawing[];
 };
 

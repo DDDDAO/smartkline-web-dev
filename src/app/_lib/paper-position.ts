@@ -45,8 +45,6 @@ type ExitFill = {
   timeMs: number;
 };
 
-const PAPER_POSITION_CANDLE_MS = 60_000;
-
 export function computePaperPositionRecord(
   signal: StructuredSignal,
   candles: readonly MarketCandle[],
@@ -61,12 +59,15 @@ export function computePaperPositionRecord(
     return { ...baseRecord, currentPrice, dataIssue: "Invalid signal time." };
   }
 
-  const trackingStartMs = getPaperCandleStartMs(signalTimeMs);
-  const trackingCandles = sortedCandles.filter((candle) => candle.sourceTimeMs >= trackingStartMs);
-  const hasSignalCoverage = sortedCandles.some((candle) => candle.sourceTimeMs <= trackingStartMs);
+  const trackingStartMs = resolveTrackingStartMs(sortedCandles, signalTimeMs);
+  if (trackingStartMs === null) {
+    return { ...baseRecord, currentPrice, dataIssue: "Missing candles at signal time." };
+  }
 
-  if (trackingCandles.length === 0 || !hasSignalCoverage) {
-    return { ...baseRecord, currentPrice, dataIssue: "Missing 1m candles at signal time." };
+  const trackingCandles = sortedCandles.filter((candle) => candle.sourceTimeMs >= trackingStartMs);
+
+  if (trackingCandles.length === 0) {
+    return { ...baseRecord, currentPrice, dataIssue: "Missing candles at signal time." };
   }
 
   const signalSnapshotPrice = resolveSignalSnapshotPrice(sortedCandles, trackingStartMs);
@@ -174,8 +175,21 @@ function normalizeCurrentPriceOverride(value: number | null | undefined): number
   return value !== null && value !== undefined && Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function getPaperCandleStartMs(timestampMs: number): number {
-  return Math.floor(timestampMs / PAPER_POSITION_CANDLE_MS) * PAPER_POSITION_CANDLE_MS;
+function resolveTrackingStartMs(candles: readonly MarketCandle[], signalTimeMs: number): number | null {
+  if (!Number.isFinite(signalTimeMs) || candles.length === 0) {
+    return null;
+  }
+
+  let startTimeMs: number | null = null;
+  for (const candle of candles) {
+    if (candle.sourceTimeMs > signalTimeMs) {
+      break;
+    }
+
+    startTimeMs = candle.sourceTimeMs;
+  }
+
+  return startTimeMs;
 }
 
 function summarizeCandles(candles: readonly MarketCandle[]): { high: number | null; low: number | null } {
@@ -196,8 +210,8 @@ function resolveSignalSnapshotPrice(candles: readonly MarketCandle[], trackingSt
   }
 
   /**
-   * 1m OHLC data does not expose the exact intra-minute tick that created the signal.
-   * Use the signal minute open as the least future-looking approximation for market fills.
+   * OHLC data does not expose the exact intra-candle tick that created the signal.
+   * Use the signal candle open as the least future-looking approximation for market fills.
    */
   return signalCandle.open;
 }
@@ -230,12 +244,13 @@ function findEntryFill(input: {
   trackingCandles: readonly MarketCandle[];
 }): EntryFill | null {
   if (input.entryRule.type === "market") {
-    return { candleIndex: 0, price: input.entryRule.price, timeMs: input.signalTimeMs };
+    const signalCandle = input.trackingCandles[0];
+    return signalCandle ? { candleIndex: 0, price: input.entryRule.price, timeMs: signalCandle.sourceTimeMs } : null;
   }
 
   for (const [candleIndex, candle] of input.trackingCandles.entries()) {
     if (input.entryRule.type === "price" && candle.low <= input.entryRule.price && candle.high >= input.entryRule.price) {
-      return { candleIndex, price: input.entryRule.price, timeMs: Math.max(candle.sourceTimeMs, input.signalTimeMs) };
+      return { candleIndex, price: input.entryRule.price, timeMs: candle.sourceTimeMs };
     }
 
     if (input.entryRule.type === "range" && candle.low <= input.entryRule.max && candle.high >= input.entryRule.min) {
@@ -246,7 +261,7 @@ function findEntryFill(input: {
           range: input.entryRule,
           signalSnapshotPrice: candleIndex === 0 ? input.signalSnapshotPrice : null,
         }),
-        timeMs: Math.max(candle.sourceTimeMs, input.signalTimeMs),
+        timeMs: candle.sourceTimeMs,
       };
     }
   }

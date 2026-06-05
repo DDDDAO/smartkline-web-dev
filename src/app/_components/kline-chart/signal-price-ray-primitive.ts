@@ -9,7 +9,7 @@ import type { MarketCandle } from "@/app/_types/market";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type { ChartTheme } from "@/app/_components/kline-chart";
-import { drawSignalPriceRange, drawSignalPriceRay } from "./signal-price-ray-drawing";
+import { drawSignalPriceRay } from "./signal-price-ray-drawing";
 import { createSignalPriceRaySourceState, resolveSignalTimeCoordinate } from "./signal-price-ray-source";
 import type {
   SignalPriceRayChartApi,
@@ -82,7 +82,7 @@ class SignalPriceRayPaneView implements IPrimitivePaneView {
 }
 
 class SignalPriceRayRenderer implements IPrimitivePaneRenderer {
-  private drawings: SignalPriceRayDrawingState = { ranges: [], rays: [] };
+  private drawings: SignalPriceRayDrawingState = { rays: [] };
 
   draw(target: Parameters<IPrimitivePaneRenderer["draw"]>[0]) {
     target.useBitmapCoordinateSpace((scope) => {
@@ -90,10 +90,6 @@ class SignalPriceRayRenderer implements IPrimitivePaneRenderer {
       ctx.save();
       ctx.lineCap = "butt";
       ctx.setLineDash([]);
-
-      for (const range of this.drawings.ranges) {
-        drawSignalPriceRange(ctx, scope, range);
-      }
 
       for (const ray of this.drawings.rays) {
         drawSignalPriceRay(ctx, scope, ray);
@@ -117,41 +113,19 @@ function createSignalPriceRayDrawingState(input: {
   theme: ChartTheme;
 }): SignalPriceRayDrawingState {
   if (!input.chart || !input.series || input.candles.length === 0) {
-    return { ranges: [], rays: [] };
+    return { rays: [] };
   }
 
   const { candles, chart, paperPosition, series, signal, theme } = input;
   const sourceState = signal ? createSignalPriceRaySourceState(signal, paperPosition, theme) : null;
   if (!sourceState) {
-    return { ranges: [], rays: [] };
+    return { rays: [] };
   }
 
   const startCoordinate = resolveSignalTimeCoordinate(chart, candles, sourceState.startTimeMs);
   if (startCoordinate === null) {
-    return { ranges: [], rays: [] };
+    return { rays: [] };
   }
-
-  const ranges = sourceState.ranges.flatMap((range) => {
-    const maxCoordinate = series.priceToCoordinate(range.maxPrice);
-    const minCoordinate = series.priceToCoordinate(range.minPrice);
-    if (maxCoordinate === null || minCoordinate === null) {
-      return [];
-    }
-
-    const rangeStartCoordinate = range.startTimeMs === undefined
-      ? startCoordinate
-      : resolveSignalTimeCoordinate(chart, candles, range.startTimeMs);
-    if (rangeStartCoordinate === null) {
-      return [];
-    }
-
-    return [{
-      fillColor: range.fillColor,
-      maxCoordinate: Number(maxCoordinate),
-      minCoordinate: Number(minCoordinate),
-      startCoordinate: rangeStartCoordinate,
-    }];
-  });
 
   const rays = sourceState.rays.flatMap((ray) => {
     const priceCoordinate = series.priceToCoordinate(ray.price);
@@ -159,8 +133,15 @@ function createSignalPriceRayDrawingState(input: {
       return [];
     }
 
+    const endCoordinate = ray.endTimeMs === undefined ? null : resolveSignalTimeCoordinate(chart, candles, ray.endTimeMs);
+    if (ray.endTimeMs !== undefined && endCoordinate === null) {
+      return [];
+    }
+
     return [{
       color: ray.color,
+      endCoordinate,
+      label: ray.label,
       lineStyle: ray.lineStyle,
       lineWidth: ray.lineWidth,
       priceCoordinate: Number(priceCoordinate),
@@ -168,5 +149,5 @@ function createSignalPriceRayDrawingState(input: {
     }];
   });
 
-  return { ranges, rays };
+  return { rays };
 }

@@ -2,12 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   HISTORICAL_CANDLE_LIMIT,
   fetchHistoricalCandles,
-  prependHistoricalCandles,
 } from "@/app/_lib/binance-market-data";
 import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 
-const PAPER_POSITION_INTERVAL: KlineInterval = "1m";
+const PAPER_POSITION_INTERVAL: KlineInterval = "15m";
 
 type SignalCoverageGroup = {
   earliestSignalTimeMs: number | null;
@@ -30,9 +29,8 @@ export function usePaperPositionCandles(
   latestPricesBySymbol: Record<string, number>;
 } {
   /**
-   * Paper positions own only historical 1m coverage. Live pricing is borrowed
-   * from the active chart feed so the right panel does not create one Binance
-   * WebSocket per symbol.
+   * Paper-position state is confirmed from a fixed 15m history window. Chart
+   * markers are recalculated separately from the currently visible interval.
    */
   const [candlesBySymbol, setCandlesBySymbol] = useState<Record<string, MarketCandle[]>>({});
   const [errorsBySymbol, setErrorsBySymbol] = useState<Record<string, string>>({});
@@ -51,10 +49,9 @@ export function usePaperPositionCandles(
     const abortController = new AbortController();
 
     for (const group of signalGroups) {
-      fetchHistoricalCandlesWithSignalCoverage(
+      fetchPaperPositionCandles(
         group.symbol,
         PAPER_POSITION_INTERVAL,
-        group.earliestSignalTimeMs,
         abortController.signal,
       )
         .then((historicalCandles) => {
@@ -166,41 +163,15 @@ function removeRecordKey<T>(record: Record<string, T>, keyToRemove: string): Rec
   return Object.fromEntries(Object.entries(record).filter(([key]) => key !== keyToRemove));
 }
 
-const MAX_INITIAL_HISTORY_PAGES = 4;
-
-async function fetchHistoricalCandlesWithSignalCoverage(
+async function fetchPaperPositionCandles(
   symbol: MarketSymbol,
   interval: KlineInterval,
-  earliestSignalTimeMs: number | null,
   signal?: AbortSignal,
 ): Promise<MarketCandle[]> {
-  let candles = await fetchHistoricalCandles(symbol, interval, {
+  return fetchHistoricalCandles(symbol, interval, {
     limit: HISTORICAL_CANDLE_LIMIT,
     signal,
   });
-  let loadedPages = 1;
-
-  while (
-    earliestSignalTimeMs !== null
-    && candles.length > 0
-    && candles[0].sourceTimeMs > earliestSignalTimeMs
-    && loadedPages < MAX_INITIAL_HISTORY_PAGES
-  ) {
-    const olderCandles = await fetchHistoricalCandles(symbol, interval, {
-      limit: HISTORICAL_CANDLE_LIMIT,
-      signal,
-      untilMs: candles[0].sourceTimeMs,
-    });
-
-    if (olderCandles.length === 0) {
-      break;
-    }
-
-    candles = prependHistoricalCandles(candles, olderCandles);
-    loadedPages += 1;
-  }
-
-  return candles;
 }
 
 function getSignalTimeMs(signal: StructuredSignal): number | null {
