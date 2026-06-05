@@ -658,8 +658,9 @@ function formatTimestampInUtc8(timestampMs: number): string {
   const hours = padDatePart(utc8Date.getUTCHours());
   const minutes = padDatePart(utc8Date.getUTCMinutes());
   const seconds = padDatePart(utc8Date.getUTCSeconds());
+  const milliseconds = String(utc8Date.getUTCMilliseconds()).padStart(3, "0");
 
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+08:00`;
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+08:00`;
 }
 
 export function adaptKolSignalPayload(payload: KolSignalApiPayload, options: AdaptKolSignalOptions = {}): StructuredSignal[] {
@@ -1084,8 +1085,9 @@ function normalizeCreatedAtToUtc8(value: string): string {
   const hours = padDatePart(utc8Date.getUTCHours());
   const minutes = padDatePart(utc8Date.getUTCMinutes());
   const seconds = padDatePart(utc8Date.getUTCSeconds());
+  const milliseconds = String(utc8Date.getUTCMilliseconds()).padStart(3, "0");
 
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+08:00`;
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+08:00`;
 }
 
 function padDatePart(value: number): string {
