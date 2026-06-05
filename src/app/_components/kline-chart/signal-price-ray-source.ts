@@ -1,7 +1,6 @@
 import { LineStyle } from "lightweight-charts";
 import type { MarketCandle } from "@/app/_types/market";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
-import type { SignalAiHighlightTone, SignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type { ChartTheme } from "@/app/_components/kline-chart";
 import type { SignalPriceRangeSource, SignalPriceRayChartApi, SignalPriceRaySource } from "./signal-price-ray-types";
@@ -9,7 +8,6 @@ import type { SignalPriceRangeSource, SignalPriceRayChartApi, SignalPriceRaySour
 export function createSignalPriceRaySourceState(
   signal: StructuredSignal,
   paperPosition: PaperPositionRecord | null,
-  signalAiSummary: SignalAiSummary | null,
   theme: ChartTheme,
 ): { ranges: SignalPriceRangeSource[]; rays: SignalPriceRaySource[]; startTimeMs: number } | null {
   const startTimeMs = Date.parse(signal.created_at);
@@ -20,7 +18,6 @@ export function createSignalPriceRaySourceState(
   const ranges: SignalPriceRangeSource[] = [];
   const rays: SignalPriceRaySource[] = [];
   const style = createSignalDrawingStyle(theme, paperPosition);
-  ranges.push(...createAiSummaryContextRanges(signalAiSummary, theme));
   ranges.push(...createSignalRiskRewardRanges(signal, paperPosition, style));
 
   if (signal.entry_min !== null && signal.entry_max !== null) {
@@ -211,72 +208,6 @@ function isStopLossValid(direction: StructuredSignal["direction"], entryPrice: n
 
 function normalizePositivePrice(value: number | null): number | null {
   return value !== null && Number.isFinite(value) && value > 0 ? value : null;
-}
-
-function createAiSummaryContextRanges(
-  signalAiSummary: SignalAiSummary | null,
-  theme: ChartTheme,
-): SignalPriceRangeSource[] {
-  if (!signalAiSummary) {
-    return [];
-  }
-
-  return signalAiSummary.highlights.flatMap((range) => {
-    if (!isDrawableAiSummaryTone(range.tone)) {
-      return [];
-    }
-
-    return [{
-      ...createAiSummaryContextStyle(theme, range.tone),
-      maxPrice: range.maxPrice,
-      minPrice: range.minPrice,
-    }];
-  });
-}
-
-function isDrawableAiSummaryTone(tone: SignalAiHighlightTone): tone is Exclude<SignalAiHighlightTone, "risk" | "target"> {
-  return tone !== "risk" && tone !== "target";
-}
-
-function createAiSummaryContextStyle(
-  theme: ChartTheme,
-  tone: Exclude<SignalAiHighlightTone, "risk" | "target">,
-): Pick<SignalPriceRangeSource, "borderColor" | "borderLineStyle" | "borderLineWidth" | "fillColor" | "stripeColor"> {
-  /**
-   * Summary ranges are an aggregate context layer, not the selected signal's
-   * trading plan. They use hatching and dotted borders, and skip aggregate
-   * risk/target clusters so they cannot be mistaken for active stop/TP zones.
-   */
-  const colors: Record<Exclude<SignalAiHighlightTone, "risk" | "target">, {
-    border: { dark: string; light: string };
-    fill: { dark: string; light: string };
-    stripe: { dark: string; light: string };
-  }> = {
-    disagreement: {
-      border: { dark: "rgba(196, 181, 253, 0.36)", light: "rgba(124, 58, 237, 0.28)" },
-      fill: { dark: "rgba(168, 85, 247, 0.055)", light: "rgba(168, 85, 247, 0.045)" },
-      stripe: { dark: "rgba(196, 181, 253, 0.20)", light: "rgba(124, 58, 237, 0.14)" },
-    },
-    long: {
-      border: { dark: "rgba(110, 231, 183, 0.32)", light: "rgba(5, 150, 105, 0.24)" },
-      fill: { dark: "rgba(34, 197, 94, 0.045)", light: "rgba(34, 197, 94, 0.036)" },
-      stripe: { dark: "rgba(110, 231, 183, 0.18)", light: "rgba(5, 150, 105, 0.12)" },
-    },
-    short: {
-      border: { dark: "rgba(252, 165, 165, 0.32)", light: "rgba(220, 38, 38, 0.22)" },
-      fill: { dark: "rgba(239, 68, 68, 0.045)", light: "rgba(239, 68, 68, 0.036)" },
-      stripe: { dark: "rgba(252, 165, 165, 0.18)", light: "rgba(220, 38, 38, 0.11)" },
-    },
-  };
-  const palette = colors[tone];
-
-  return {
-    borderColor: theme === "dark" ? palette.border.dark : palette.border.light,
-    borderLineStyle: LineStyle.Dotted,
-    borderLineWidth: 1,
-    fillColor: theme === "dark" ? palette.fill.dark : palette.fill.light,
-    stripeColor: theme === "dark" ? palette.stripe.dark : palette.stripe.light,
-  };
 }
 
 export function resolveSignalTimeCoordinate(

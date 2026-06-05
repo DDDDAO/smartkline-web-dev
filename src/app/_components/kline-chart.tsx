@@ -276,7 +276,7 @@ export function KlineChart({
     if (candles.length === 0) {
       candleSeriesRef.current.setData([]);
       volumeSeriesRef.current.setData([]);
-      signalRayPrimitiveRef.current?.applyOptions({ candles, paperPosition: null, signal: null, signalAiSummary: null, theme });
+      signalRayPrimitiveRef.current?.applyOptions({ candles, paperPosition: null, signal: null, theme });
       tradePointPrimitiveRef.current?.applyOptions({ activeSignalId: null, candles, markers: [], theme });
       labelOverlayRef.current?.replaceChildren();
       hasFittedContentRef.current = false;
@@ -338,7 +338,6 @@ export function KlineChart({
       candles,
       paperPosition: activePaperPosition,
       signal: activeSignal,
-      signalAiSummary: aiSummary,
       theme,
     });
     tradePointPrimitiveRef.current?.applyOptions({

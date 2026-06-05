@@ -31,8 +31,6 @@ export function drawSignalPriceRange(
 
   ctx.fillStyle = range.fillColor;
   ctx.fillRect(rect.startX, rect.topY, rect.width, rect.height);
-  drawSignalPriceRangeStripes(ctx, scope, range, rect);
-  drawSignalPriceRangeBorder(ctx, scope, range, rect);
 }
 
 export function drawSignalPriceRay(
@@ -79,71 +77,6 @@ function createCanvasLineDash(lineStyle: LineStyle, lineWidth: number): number[]
   }
 
   return [];
-}
-
-function drawSignalPriceRangeStripes(
-  ctx: CanvasRenderingContext2D,
-  scope: {
-    bitmapSize: { width: number };
-    horizontalPixelRatio: number;
-    verticalPixelRatio: number;
-  },
-  range: SignalPriceRangeDrawing,
-  rect: { bottomY: number; height: number; startX: number; topY: number; width: number },
-) {
-  if (!range.stripeColor || rect.height < 2 || rect.width <= 0) {
-    return;
-  }
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(rect.startX, rect.topY, rect.width, rect.height);
-  ctx.clip();
-  ctx.strokeStyle = range.stripeColor;
-  ctx.lineWidth = Math.max(1, Math.round(scope.verticalPixelRatio));
-  ctx.setLineDash([]);
-
-  const step = Math.max(7, Math.round(10 * scope.horizontalPixelRatio));
-  const diagonalLength = rect.height + step;
-  for (let x = rect.startX - diagonalLength; x < scope.bitmapSize.width + diagonalLength; x += step) {
-    ctx.beginPath();
-    ctx.moveTo(x, rect.bottomY);
-    ctx.lineTo(x + diagonalLength, rect.topY);
-    ctx.stroke();
-  }
-
-  ctx.restore();
-}
-
-function drawSignalPriceRangeBorder(
-  ctx: CanvasRenderingContext2D,
-  scope: {
-    bitmapSize: { width: number };
-    verticalPixelRatio: number;
-  },
-  range: SignalPriceRangeDrawing,
-  rect: { bottomY: number; height: number; startX: number; topY: number },
-) {
-  if (!range.borderColor || range.borderLineStyle === undefined || range.borderLineWidth === undefined || rect.height < 2) {
-    return;
-  }
-
-  const lineWidth = Math.max(1, Math.round(range.borderLineWidth * scope.verticalPixelRatio));
-  const topCenterY = rect.topY + lineWidth / 2;
-  const bottomCenterY = rect.bottomY - lineWidth / 2;
-  if (bottomCenterY <= topCenterY) {
-    return;
-  }
-
-  ctx.beginPath();
-  ctx.strokeStyle = range.borderColor;
-  ctx.lineWidth = lineWidth;
-  ctx.setLineDash(createCanvasLineDash(range.borderLineStyle, lineWidth));
-  ctx.moveTo(rect.startX, topCenterY);
-  ctx.lineTo(scope.bitmapSize.width, topCenterY);
-  ctx.moveTo(rect.startX, bottomCenterY);
-  ctx.lineTo(scope.bitmapSize.width, bottomCenterY);
-  ctx.stroke();
 }
 
 function positionBitmapLine(positionMedia: number, pixelRatio: number, desiredWidthMedia: number): { length: number; position: number } {
