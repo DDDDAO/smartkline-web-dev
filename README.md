@@ -179,16 +179,16 @@ ten monitored event types, and the QQQ / SPY / NVDA / TSLA / COIN / MSTR / IBIT
 
 ## KOL 信源接口
 
-前端已适配后端 KOL 成功交易信号列表接口和 SSE 实时接口。真实接口模式下，如果页面运行在 `localhost` / `127.0.0.1`，会默认请求：
+前端已适配后端 KOL 成功交易信号列表接口和增量 REST 接口。真实接口模式下，如果页面运行在 `localhost` / `127.0.0.1`，会默认请求：
 
 ```text
-REST: http://127.0.0.1:3001/kol-message-ai-results?limit=50
-SSE:  http://127.0.0.1:3001/kol-message-ai-results/stream?limit=1
+Initial:     http://127.0.0.1:3001/kol-message-ai-results?limit=50
+Incremental: http://127.0.0.1:3001/kol-message-ai-results/success-after?since={latest_created_at}&limit=50
 ```
 
 ## Development mock data
 
-This standalone web-dev project keeps `src/app/_lib/mock-kol-signal-data.ts` for local UI work. In `next dev`, when neither `NEXT_PUBLIC_KOL_SIGNALS_ENDPOINT` nor `NEXT_PUBLIC_KOL_SIGNALS_API_BASE_URL` is configured, KOL signals use the Binance-aligned mock scenarios and the SSE subscription is disabled.
+This standalone web-dev project keeps `src/app/_lib/mock-kol-signal-data.ts` for local UI work. In `next dev`, when neither `NEXT_PUBLIC_KOL_SIGNALS_ENDPOINT` nor `NEXT_PUBLIC_KOL_SIGNALS_API_BASE_URL` is configured, KOL signals use the Binance-aligned mock scenarios and incremental polling is disabled.
 
 Use `NEXT_PUBLIC_KOL_SIGNALS_USE_MOCK=true` to force mock KOL signals, or `NEXT_PUBLIC_KOL_SIGNALS_USE_MOCK=false` plus an endpoint/base URL to exercise the real monorepo API contract.
 
@@ -201,14 +201,20 @@ NEXT_PUBLIC_KOL_SIGNALS_API_BASE_URL=https://api.smartkline.com/kol
 前端会基于该 base URL 请求：
 
 ```text
-REST: https://api.smartkline.com/kol/kol-message-ai-results?limit=50
-SSE:  https://api.smartkline.com/kol/kol-message-ai-results/stream?limit=1
+Initial:     https://api.smartkline.com/kol/kol-message-ai-results?limit=50
+Incremental: https://api.smartkline.com/kol/kol-message-ai-results/success-after?since={latest_created_at}&limit=50
 ```
 
 The page loads the latest 50 successful KOL result messages once on first render,
-then keeps a result-message SSE connection open for incremental updates. Do not
-point the frontend at `/kol-message-ai-results/signals/stream`; that endpoint
-republishes a refreshed signal list instead of only newly parsed messages.
+then polls the incremental REST endpoint every 30 seconds with the latest loaded
+message time:
+
+```text
+GET /kol-message-ai-results/success-after?since={latest_created_at}&limit=50
+```
+
+The incremental endpoint returns only successful messages after `since`, so the
+frontend can append new cards without reopening an SSE connection.
 
 KOL signals are publicly visible in real time by default. Telegram login is
 kept as an optional personalization entry point, not as a gate for reading the

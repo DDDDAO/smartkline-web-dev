@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { markets } from "@/app/_lib/demo-data";
 import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
-import { createStructuredSignalPositionKey, fetchKolSignals, subscribeToKolSignals } from "@/app/_lib/kol-signal-api";
+import { createStructuredSignalPositionKey, fetchKolSignals, fetchKolSignalsAfter } from "@/app/_lib/kol-signal-api";
 import { computePaperPositionRecord, type PaperPositionRecord } from "@/app/_lib/paper-position";
 import { KolPanel } from "./signal-workspace/kol-panel";
 import { RealtimeKlinePanel } from "./signal-workspace/realtime-kline-panel";
@@ -18,6 +18,7 @@ import type { StructuredSignal } from "@/app/_types/signal";
 const MAX_VISIBLE_KOL_SIGNALS = 50;
 const NOTIFICATION_DISMISS_MS = 6_500;
 const INTRO_AUTO_DISMISS_MS = 5_800;
+const KOL_SIGNAL_POLL_INTERVAL_MS = 30_000;
 const TELEGRAM_DISCUSSION_GROUP_URL = process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
 const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
 
@@ -75,6 +76,7 @@ export function SignalWorkspace() {
     error: null,
     isLoading: true,
   });
+  const latestKolSignalCreatedAtRef = useRef<string | null>(null);
 
   const activeKolSignal = signals.find((signal) => signal.id === activeSignalId) ?? signals[0] ?? null;
   const kolSignals = useMemo(() => sortSignalsForKolPanel(signals), [signals]);
@@ -215,12 +217,29 @@ export function SignalWorkspace() {
 
   useEffect(() => {
     let isActive = true;
+    let isPolling = false;
+    let pollingIntervalId: number | null = null;
+
+    const rememberLatestSignalCreatedAt = (nextSignals: readonly StructuredSignal[]) => {
+      const latestCreatedAt = getLatestStructuredSignalCreatedAt(nextSignals);
+      if (!latestCreatedAt) {
+        return;
+      }
+
+      const currentTimestamp = Date.parse(latestKolSignalCreatedAtRef.current ?? "");
+      const nextTimestamp = Date.parse(latestCreatedAt);
+      if (!latestKolSignalCreatedAtRef.current || !Number.isFinite(currentTimestamp) || nextTimestamp > currentTimestamp) {
+        latestKolSignalCreatedAtRef.current = latestCreatedAt;
+      }
+    };
+
     const applyInitialSignals = (loadedSignals: StructuredSignal[]) => {
       if (!isActive) {
         return;
       }
 
       const sortedSignals = dedupeStructuredSignalsByPosition(loadedSignals);
+      rememberLatestSignalCreatedAt(sortedSignals);
       setSignals(sortedSignals);
       setKolSignalSourceStatus({ error: null, isLoading: false });
       setActiveSignalId((currentActiveSignalId) => (
@@ -233,13 +252,59 @@ export function SignalWorkspace() {
         return;
       }
 
-      setSignals((currentSignals) => mergeIncomingSignals(incomingSignals, currentSignals));
+      setSignals((currentSignals) => {
+        const mergedSignals = mergeIncomingSignals(incomingSignals, currentSignals);
+        rememberLatestSignalCreatedAt(mergedSignals);
+        return mergedSignals;
+      });
       setKolSignalSourceStatus({ error: null, isLoading: false });
       setActiveSignalId((currentActiveSignalId) => currentActiveSignalId || incomingSignals[0]?.id || "");
+      setWorkspaceNotification({
+        id: `kol-signal-poll-${Date.now()}`,
+        title: "KOL 信源更新",
+        message: `已加载 ${incomingSignals.length} 条新情报。`,
+        meta: "K线情报局 · REST 轮询",
+      });
+    };
+
+    const pollIncomingSignals = async () => {
+      const latestCreatedAt = latestKolSignalCreatedAtRef.current;
+      if (!isActive || isPolling || !latestCreatedAt) {
+        return;
+      }
+
+      isPolling = true;
+      try {
+        const incomingSignals = await fetchKolSignalsAfter(latestCreatedAt);
+        if (incomingSignals.length > 0) {
+          applyIncomingSignals(incomingSignals);
+        } else if (isActive) {
+          setKolSignalSourceStatus({ error: null, isLoading: false });
+        }
+      } catch (error: unknown) {
+        if (isActive) {
+          setKolSignalSourceStatus({ error: formatKolSignalSourceError(error), isLoading: false });
+        }
+      } finally {
+        isPolling = false;
+      }
+    };
+
+    const startPolling = () => {
+      if (pollingIntervalId !== null) {
+        return;
+      }
+
+      pollingIntervalId = window.setInterval(() => {
+        void pollIncomingSignals();
+      }, KOL_SIGNAL_POLL_INTERVAL_MS);
     };
 
     fetchKolSignals()
-      .then(applyInitialSignals)
+      .then((loadedSignals) => {
+        applyInitialSignals(loadedSignals);
+        startPolling();
+      })
       .catch((error: unknown) => {
         if (isActive) {
           setSignals([]);
@@ -248,18 +313,11 @@ export function SignalWorkspace() {
         }
       });
 
-    const unsubscribe = subscribeToKolSignals({
-      onSignals: applyIncomingSignals,
-      onError: (error) => {
-        if (isActive) {
-          setKolSignalSourceStatus({ error: formatKolSignalSourceError(error), isLoading: false });
-        }
-      },
-    });
-
     return () => {
       isActive = false;
-      unsubscribe();
+      if (pollingIntervalId !== null) {
+        window.clearInterval(pollingIntervalId);
+      }
     };
   }, []);
 
@@ -968,6 +1026,21 @@ function compareStructuredSignalCreatedAt(left: StructuredSignal, right: Structu
 function getStructuredSignalCreatedAtTimestamp(signal: StructuredSignal): number {
   const timestamp = Date.parse(signal.created_at);
   return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
+}
+
+function getLatestStructuredSignalCreatedAt(signals: readonly StructuredSignal[]): string | null {
+  let latestSignal: StructuredSignal | null = null;
+  let latestTimestamp = Number.NEGATIVE_INFINITY;
+
+  for (const signal of signals) {
+    const timestamp = Date.parse(signal.created_at);
+    if (Number.isFinite(timestamp) && timestamp > latestTimestamp) {
+      latestSignal = signal;
+      latestTimestamp = timestamp;
+    }
+  }
+
+  return latestSignal?.created_at ?? null;
 }
 
 function sortSignalsForKolPanel(signals: readonly StructuredSignal[]): StructuredSignal[] {

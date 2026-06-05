@@ -4,16 +4,15 @@ import type { MarketCandle, MarketSymbol } from "@/app/_types/market";
 import type { SignalDirection, StructuredSignal } from "@/app/_types/signal";
 
 const CONFIGURED_REST_ENDPOINT = process.env.NEXT_PUBLIC_KOL_SIGNALS_ENDPOINT;
-const CONFIGURED_STREAM_ENDPOINT = process.env.NEXT_PUBLIC_KOL_SIGNALS_STREAM_ENDPOINT;
+const CONFIGURED_INCREMENTAL_ENDPOINT = process.env.NEXT_PUBLIC_KOL_SIGNALS_INCREMENTAL_ENDPOINT;
 const CONFIGURED_API_BASE_URL = process.env.NEXT_PUBLIC_KOL_SIGNALS_API_BASE_URL;
 const CONFIGURED_MOCK_MODE = process.env.NEXT_PUBLIC_KOL_SIGNALS_USE_MOCK;
 const DEFAULT_REMOTE_API_BASE_URL = "https://api.smartkline.com/kol";
 const KOL_SIGNALS_REST_PATH = "/kol-message-ai-results";
-const KOL_SIGNALS_STREAM_PATH = "/kol-message-ai-results/stream";
+const KOL_SIGNALS_INCREMENTAL_PATH = "/kol-message-ai-results/success-after";
 const KOL_SIGNALS_LIMIT = "50";
-const KOL_SIGNALS_STREAM_LIMIT = "1";
 const LOCAL_REST_ENDPOINT = "http://127.0.0.1:3001/kol-message-ai-results?limit=50";
-const LOCAL_STREAM_ENDPOINT = "http://127.0.0.1:3001/kol-message-ai-results/stream?limit=1";
+const LOCAL_INCREMENTAL_ENDPOINT = "http://127.0.0.1:3001/kol-message-ai-results/success-after?limit=50";
 const DEFAULT_SOURCE_NAME = "KOL 信源";
 const KOL_SOURCE_NAME_BY_ID: Record<string, string> = {
   "34": "大镖客合约群",
@@ -119,11 +118,6 @@ type AdaptKolSignalOptions = {
   sourceName?: string | null;
   sourceAvatarUrl?: string | null;
   standardMessageDedupKey?: string | null;
-};
-
-type KolSignalSubscriptionHandlers = {
-  onSignals: (signals: StructuredSignal[]) => void;
-  onError?: (error: Error) => void;
 };
 
 type ResolvedKolSignalEndpoint = {
@@ -248,40 +242,31 @@ export async function fetchKolSignals(): Promise<StructuredSignal[]> {
   }
 }
 
-export function subscribeToKolSignals(handlers: KolSignalSubscriptionHandlers): () => void {
+export async function fetchKolSignalsAfter(createdAt: string): Promise<StructuredSignal[]> {
   if (shouldUseDevMockKolSignals()) {
-    return () => undefined;
+    return [];
   }
 
-  const endpoint = resolveKolSignalsStreamEndpoint();
-  if (!endpoint || typeof EventSource === "undefined") {
-    return () => undefined;
+  const endpoint = resolveKolSignalsIncrementalEndpoint();
+  if (!endpoint) {
+    return [];
   }
 
-  const eventSource = new EventSource(endpoint.url);
-  const handleSignals = (event: MessageEvent<string>) => {
-    try {
-      const payload = JSON.parse(event.data) as KolSignalApiStreamPayload;
-      const signals = adaptKolSignalPayload(payload);
-      if (signals.length > 0) {
-        handlers.onSignals(signals);
-      }
-    } catch (error) {
-      handlers.onError?.(error instanceof Error ? error : new Error(String(error)));
+  try {
+    const response = await fetch(appendKolSignalsSinceParam(endpoint.url, createdAt), { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`KOL signal incremental source failed: ${response.status} ${response.statusText}`);
     }
-  };
 
-  eventSource.addEventListener("messages", handleSignals);
-  eventSource.addEventListener("signals", handleSignals);
-  eventSource.onerror = () => {
-    handlers.onError?.(new Error("KOL signal SSE stream failed."));
-  };
+    const payload = await response.json() as KolSignalApiStreamPayload;
+    return adaptKolSignalPayload(payload);
+  } catch (error) {
+    if (endpoint.shouldFallbackOnFailure) {
+      return [];
+    }
 
-  return () => {
-    eventSource.removeEventListener("messages", handleSignals);
-    eventSource.removeEventListener("signals", handleSignals);
-    eventSource.close();
-  };
+    throw error;
+  }
 }
 
 function shouldUseDevMockKolSignals(): boolean {
@@ -942,29 +927,27 @@ function resolveKolSignalsEndpoint(): ResolvedKolSignalEndpoint | null {
   return defaultRemoteEndpoint ? { shouldFallbackOnFailure: false, url: defaultRemoteEndpoint } : null;
 }
 
-function resolveKolSignalsStreamEndpoint(): ResolvedKolSignalEndpoint | null {
-  if (CONFIGURED_STREAM_ENDPOINT) {
-    return { shouldFallbackOnFailure: false, url: CONFIGURED_STREAM_ENDPOINT };
+function resolveKolSignalsIncrementalEndpoint(): ResolvedKolSignalEndpoint | null {
+  if (CONFIGURED_INCREMENTAL_ENDPOINT) {
+    return { shouldFallbackOnFailure: false, url: CONFIGURED_INCREMENTAL_ENDPOINT };
   }
 
   const configuredApiBaseEndpoint = createKolSignalsEndpoint(
     CONFIGURED_API_BASE_URL,
-    KOL_SIGNALS_STREAM_PATH,
-    KOL_SIGNALS_STREAM_LIMIT,
+    KOL_SIGNALS_INCREMENTAL_PATH,
   );
   if (configuredApiBaseEndpoint) {
     return { shouldFallbackOnFailure: false, url: configuredApiBaseEndpoint };
   }
 
-  const localEndpoint = resolveLocalEndpoint(LOCAL_STREAM_ENDPOINT);
+  const localEndpoint = resolveLocalEndpoint(LOCAL_INCREMENTAL_ENDPOINT);
   if (localEndpoint) {
     return { shouldFallbackOnFailure: true, url: localEndpoint };
   }
 
   const defaultRemoteEndpoint = createKolSignalsEndpoint(
     DEFAULT_REMOTE_API_BASE_URL,
-    KOL_SIGNALS_STREAM_PATH,
-    KOL_SIGNALS_STREAM_LIMIT,
+    KOL_SIGNALS_INCREMENTAL_PATH,
   );
   return defaultRemoteEndpoint ? { shouldFallbackOnFailure: false, url: defaultRemoteEndpoint } : null;
 }
@@ -983,6 +966,12 @@ function createKolSignalsEndpoint(apiBaseUrl: string | undefined, path: string, 
   } catch {
     return null;
   }
+}
+
+function appendKolSignalsSinceParam(endpoint: string, createdAt: string): string {
+  const url = new URL(endpoint, "https://smartkline.local");
+  url.searchParams.set("since", createdAt);
+  return endpoint.startsWith("/") ? `${url.pathname}${url.search}` : url.toString();
 }
 
 function normalizeKolSignalsApiBaseUrl(apiBaseUrl: string): string {

@@ -80,7 +80,7 @@ export function KolSignalSourceNotice({
 }) {
   if (status.error) {
     const message = signalCount > 0
-      ? "KOL 信源实时连接异常，当前展示最近一次成功加载的数据。"
+      ? "KOL 信源轮询连接异常，当前展示最近一次成功加载的数据。"
       : "KOL 信源接口请求失败，当前没有展示备用样例。请检查 API 域名、HTTPS 连接和 CORS 配置。";
 
     return (
