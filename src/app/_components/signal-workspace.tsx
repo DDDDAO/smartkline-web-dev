@@ -1215,10 +1215,10 @@ async function openPersonalTelegramCommunityInvite(
       credentials: "same-origin",
       method: "POST",
     });
-    const inviteResponse = response.ok ? await response.json() as TelegramCommunityInviteResponse : null;
+    const inviteResponse = await readTelegramCommunityInviteResponse(response);
 
     if (!response.ok || !inviteResponse) {
-      throw new Error("Telegram invite creation failed.");
+      throw new Error(inviteResponse?.error || "Telegram invite creation failed.");
     }
 
     if (inviteResponse.communityBinding === "joined") {
@@ -1247,14 +1247,24 @@ async function openPersonalTelegramCommunityInvite(
     window.setTimeout(() => {
       void refreshTelegramCommunityMembership();
     }, 5_000);
-  } catch {
+  } catch (error) {
     inviteWindow?.close();
     setWorkspaceNotification({
       id: "telegram-community-invite-error",
       title: "TG 入群链接生成失败",
-      message: "请确认 Vercel 已配置 bot token、群 chat id、webhook secret，并确认状态存储适配器可用。",
+      message: error instanceof Error && error.message
+        ? error.message
+        : "请确认 Vercel 已配置 bot token、群 chat id、webhook secret，并确认状态存储适配器可用。",
       meta: "K线情报局 · TG 群验证",
     });
+  }
+}
+
+async function readTelegramCommunityInviteResponse(response: Response): Promise<(TelegramCommunityInviteResponse & { error?: string }) | null> {
+  try {
+    return await response.json() as TelegramCommunityInviteResponse & { error?: string };
+  } catch {
+    return null;
   }
 }
 

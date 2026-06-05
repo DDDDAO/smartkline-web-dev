@@ -354,7 +354,7 @@ async function callTelegramBotApi<T>(config: TelegramCommunityConfig, method: st
   return payload.result;
 }
 
-class TelegramBotApiError extends Error {
+export class TelegramBotApiError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "TelegramBotApiError";
