@@ -26,7 +26,7 @@ import type { CopyTradingEvent, CopyTradingRadarSnapshot, CopyTradingTradeMarker
 import type { StructuredSignal } from "@/app/_types/signal";
 
 const MAX_VISIBLE_KOL_SIGNALS = 50;
-const MOCK_NOTIFICATION_DISMISS_MS = 6_500;
+const NOTIFICATION_DISMISS_MS = 6_500;
 const INTRO_AUTO_DISMISS_MS = 5_800;
 const TELEGRAM_COMMUNITY_URL = process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
 const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
@@ -34,7 +34,7 @@ const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
 type WorkspaceLanguage = "zh-CN" | "en-US";
 type WorkspaceModule = "kol-signals" | "copy-trading-radar";
 
-type MockSignalNotification = {
+type WorkspaceNotification = {
   id: string;
   message: string;
   meta: string;
@@ -84,7 +84,7 @@ export function SignalWorkspace() {
   const [signals, setSignals] = useState<StructuredSignal[]>([]);
   const [copyTradingSnapshot, setCopyTradingSnapshot] = useState<CopyTradingRadarSnapshot>(() => createMockCopyTradingRadarSnapshot());
   const [latestMarketCandleUpdate, setLatestMarketCandleUpdate] = useState<PaperPositionMarketCandleUpdate | null>(null);
-  const [mockSignalNotification, setMockSignalNotification] = useState<MockSignalNotification | null>(null);
+  const [workspaceNotification, setWorkspaceNotification] = useState<WorkspaceNotification | null>(null);
   const [kolSignalSourceStatus, setKolSignalSourceStatus] = useState<KolSignalSourceStatus>({
     error: null,
     isLoading: true,
@@ -173,14 +173,14 @@ export function SignalWorkspace() {
 
         if (authResult === "success" && normalizedAuthStatus.isLoggedIn) {
           setIsMyPanelOpen(true);
-          setMockSignalNotification({
+          setWorkspaceNotification({
             id: "telegram-login",
             title: "Telegram 已验证",
             message: `${formatTelegramDisplayName(normalizedAuthStatus.telegramUser)} 已完成登录验证，可继续绑定社群和 bot。`,
             meta: "K线情报局 · Telegram OIDC",
           });
         } else if (authResult === "error") {
-          setMockSignalNotification({
+          setWorkspaceNotification({
             id: "telegram-login-error",
             title: "Telegram 登录失败",
             message: "授权回调未通过验证，请重新发起 Telegram 登录。",
@@ -207,13 +207,13 @@ export function SignalWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (!mockSignalNotification) {
+    if (!workspaceNotification) {
       return;
     }
 
-    const timeout = window.setTimeout(() => setMockSignalNotification(null), MOCK_NOTIFICATION_DISMISS_MS);
+    const timeout = window.setTimeout(() => setWorkspaceNotification(null), NOTIFICATION_DISMISS_MS);
     return () => window.clearTimeout(timeout);
-  }, [mockSignalNotification]);
+  }, [workspaceNotification]);
 
   useEffect(() => {
     if (!showIntro) {
@@ -341,7 +341,7 @@ export function SignalWorkspace() {
     }
 
     notifiedCopyTradingEventIdsRef.current.add(latestImportantEvent.event_id);
-    setMockSignalNotification({
+    setWorkspaceNotification({
       id: `copy-radar-${latestImportantEvent.event_id}`,
       title: "带单雷达事件提醒",
       message: latestImportantEvent.title,
@@ -358,7 +358,7 @@ export function SignalWorkspace() {
 
     setActiveCopyTradingEventId(event.event_id);
     setSymbol(nextSymbol);
-    setMockSignalNotification({
+    setWorkspaceNotification({
       id: `copy-radar-focus-${event.event_id}`,
       title: "图表已定位带单事件",
       message: event.title,
@@ -397,11 +397,11 @@ export function SignalWorkspace() {
           isLoggedIn={isLoggedIn}
           isDarkTheme={isDarkTheme}
           layout="floating"
-          notification={mockSignalNotification}
+          notification={workspaceNotification}
           onTelegramLogin={handleTelegramLogin}
           onMyPanelClose={() => setIsMyPanelOpen(false)}
           onMyPanelToggle={handleMyPanelToggle}
-          onNotificationDismiss={() => setMockSignalNotification(null)}
+          onNotificationDismiss={() => setWorkspaceNotification(null)}
         />
       ) : null}
       <WorkspaceSettingsDock
@@ -464,11 +464,11 @@ export function SignalWorkspace() {
               isLoggedIn={isLoggedIn}
               isDarkTheme={isDarkTheme}
               layout="rail"
-              notification={mockSignalNotification}
+              notification={workspaceNotification}
               onTelegramLogin={handleTelegramLogin}
               onMyPanelClose={() => setIsMyPanelOpen(false)}
               onMyPanelToggle={handleMyPanelToggle}
-              onNotificationDismiss={() => setMockSignalNotification(null)}
+              onNotificationDismiss={() => setWorkspaceNotification(null)}
             />
             <WorkspaceModuleTabs
               activeModule={activeWorkspaceModule}
@@ -675,7 +675,7 @@ function WorkspaceAccountActions({
   isLoggedIn: boolean;
   isDarkTheme: boolean;
   layout: "floating" | "rail";
-  notification: MockSignalNotification | null;
+  notification: WorkspaceNotification | null;
   onMyPanelClose: () => void;
   onMyPanelToggle: () => void;
   onTelegramLogin: () => void;
@@ -707,7 +707,7 @@ function WorkspaceAccountActions({
         />
       ) : null}
       {notification ? (
-        <MockSignalNotificationBanner
+        <WorkspaceNotificationBanner
           isDarkTheme={isDarkTheme}
           notification={notification}
           onDismiss={onNotificationDismiss}
@@ -894,13 +894,13 @@ function TelegramCommunityButton({
   );
 }
 
-function MockSignalNotificationBanner({
+function WorkspaceNotificationBanner({
   isDarkTheme,
   notification,
   onDismiss,
 }: {
   isDarkTheme: boolean;
-  notification: MockSignalNotification;
+  notification: WorkspaceNotification;
   onDismiss: () => void;
 }) {
   const className = isDarkTheme
@@ -911,7 +911,7 @@ function MockSignalNotificationBanner({
     <div className={className} role="status">
       <div className={isDarkTheme ? "border-b border-slate-800 bg-slate-900/80 px-4 py-2" : "border-b border-slate-100 bg-slate-50/90 px-4 py-2"}>
         <div className="flex items-center justify-between gap-3">
-          <span className={isDarkTheme ? "text-[11px] font-bold text-cyan-300" : "text-[11px] font-bold text-cyan-700"}>浏览器通知 Mock</span>
+          <span className={isDarkTheme ? "text-[11px] font-bold text-cyan-300" : "text-[11px] font-bold text-cyan-700"}>浏览器通知</span>
           <button
             className={isDarkTheme ? "rounded-full px-2 py-0.5 text-xs text-slate-500 transition hover:bg-slate-800 hover:text-slate-200" : "rounded-full px-2 py-0.5 text-xs text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"}
             type="button"
