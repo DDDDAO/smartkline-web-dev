@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { markets } from "@/app/_lib/demo-data";
 import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
 import { createStructuredSignalPositionKey, fetchKolSignals, subscribeToKolSignals } from "@/app/_lib/kol-signal-api";
@@ -15,6 +16,10 @@ import type { StructuredSignal } from "@/app/_types/signal";
 
 const MAX_VISIBLE_KOL_SIGNALS = 50;
 const MOCK_NOTIFICATION_DISMISS_MS = 6_500;
+const INTRO_AUTO_DISMISS_MS = 5_800;
+const TELEGRAM_COMMUNITY_URL = process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
+
+type WorkspaceLanguage = "zh-CN" | "en-US";
 
 type MockSignalNotification = {
   id: string;
@@ -28,6 +33,11 @@ export function SignalWorkspace() {
   const [interval, setInterval] = useState<KlineInterval>("15m");
   const [activeSignalId, setActiveSignalId] = useState("");
   const [theme, setTheme] = useState<ChartTheme>("light");
+  const [language, setLanguage] = useState<WorkspaceLanguage>("zh-CN");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isMyPanelOpen, setIsMyPanelOpen] = useState(false);
+  const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
+  const [showIntro, setShowIntro] = useState(true);
   const [marketOptions, setMarketOptions] = useState<MarketSymbol[]>(markets);
   const [signals, setSignals] = useState<StructuredSignal[]>([]);
   const [mockSignalNotification, setMockSignalNotification] = useState<MockSignalNotification | null>(null);
@@ -56,6 +66,35 @@ export function SignalWorkspace() {
   }, [paperPositionCandlesBySymbol, signals]);
   const isDarkTheme = theme === "dark";
   const pageClassName = isDarkTheme ? "h-screen w-screen overflow-hidden bg-slate-950 text-slate-100" : "h-screen w-screen overflow-hidden bg-[#f5f7fb] text-slate-900";
+  const workspaceGridClassName = isRightPanelCollapsed
+    ? "relative grid h-full min-h-0 gap-3 p-3 lg:grid-cols-[minmax(0,1fr)]"
+    : "relative grid h-full min-h-0 gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]";
+
+  const handleTelegramLogin = ({ openCommunity = true }: { openCommunity?: boolean } = {}) => {
+    if (openCommunity) {
+      openTelegramCommunityLink();
+    }
+
+    setIsLoggedIn(true);
+    setIsMyPanelOpen(true);
+    setMockSignalNotification({
+      id: "telegram-login",
+      title: "Telegram 已接入",
+      message: "已进入“我的”状态，可继续绑定群、信号源和通知权限。",
+      meta: "K线情报局 · Demo 登录",
+    });
+  };
+
+  const handleMyPanelToggle = () => {
+    if (isLoggedIn) {
+      setIsMyPanelOpen((currentValue) => !currentValue);
+      return;
+    }
+
+    handleTelegramLogin();
+  };
+
+  const toggleTheme = () => setTheme((currentTheme) => currentTheme === "light" ? "dark" : "light");
 
   useEffect(() => {
     if (!mockSignalNotification) {
@@ -65,6 +104,15 @@ export function SignalWorkspace() {
     const timeout = window.setTimeout(() => setMockSignalNotification(null), MOCK_NOTIFICATION_DISMISS_MS);
     return () => window.clearTimeout(timeout);
   }, [mockSignalNotification]);
+
+  useEffect(() => {
+    if (!showIntro) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setShowIntro(false), INTRO_AUTO_DISMISS_MS);
+    return () => window.clearTimeout(timeout);
+  }, [showIntro]);
 
   useEffect(() => {
     let isActive = true;
@@ -126,12 +174,36 @@ export function SignalWorkspace() {
 
   return (
     <main className={pageClassName}>
-      <WorkspaceFloatingActions
+      {showIntro ? (
+        <ProductIntroScreen
+          isDarkTheme={isDarkTheme}
+          onEnter={() => setShowIntro(false)}
+          onTelegramLogin={() => {
+            handleTelegramLogin();
+            setShowIntro(false);
+          }}
+        />
+      ) : null}
+      {isRightPanelCollapsed ? (
+        <WorkspaceAccountActions
+          isMyPanelOpen={isMyPanelOpen}
+          isLoggedIn={isLoggedIn}
+          isDarkTheme={isDarkTheme}
+          layout="floating"
+          notification={mockSignalNotification}
+          onTelegramLogin={handleTelegramLogin}
+          onMyPanelClose={() => setIsMyPanelOpen(false)}
+          onMyPanelToggle={handleMyPanelToggle}
+          onNotificationDismiss={() => setMockSignalNotification(null)}
+        />
+      ) : null}
+      <WorkspaceSettingsDock
         isDarkTheme={isDarkTheme}
-        notification={mockSignalNotification}
-        onNotificationDismiss={() => setMockSignalNotification(null)}
+        language={language}
+        onLanguageChange={setLanguage}
+        onThemeToggle={toggleTheme}
       />
-      <section className="grid h-full min-h-0 gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]">
+      <section className={workspaceGridClassName}>
         <RealtimeKlinePanel
           key={`${symbol}-${interval}`}
           activePaperPosition={activeSignal ? paperPositionsBySignalId[activeSignal.id] ?? null : null}
@@ -151,39 +223,182 @@ export function SignalWorkspace() {
             setActiveSignalId(signal.id);
             setSymbol(signal.symbol);
           }}
-          onThemeToggle={() => setTheme((currentTheme) => currentTheme === "light" ? "dark" : "light")}
         />
 
-        <KolPanel
-          activeSignal={activeSignal}
+        <SidebarCollapseButton
+          isCollapsed={isRightPanelCollapsed}
           isDarkTheme={isDarkTheme}
-          paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
-          paperPositionsBySignalId={paperPositionsBySignalId}
-          sourceStatus={kolSignalSourceStatus}
-          signals={kolSignals}
-          onSignalSelect={(signal) => {
-            setActiveSignalId(signal.id);
-            setSymbol(signal.symbol);
-          }}
+          onToggle={() => setIsRightPanelCollapsed((currentValue) => !currentValue)}
         />
+        {!isRightPanelCollapsed ? (
+          <div className="flex min-h-0 flex-col gap-3">
+            <WorkspaceAccountActions
+              isMyPanelOpen={isMyPanelOpen}
+              isLoggedIn={isLoggedIn}
+              isDarkTheme={isDarkTheme}
+              layout="rail"
+              notification={mockSignalNotification}
+              onTelegramLogin={handleTelegramLogin}
+              onMyPanelClose={() => setIsMyPanelOpen(false)}
+              onMyPanelToggle={handleMyPanelToggle}
+              onNotificationDismiss={() => setMockSignalNotification(null)}
+            />
+            <KolPanel
+              activeSignal={activeSignal}
+              isDarkTheme={isDarkTheme}
+              isLoggedIn={isLoggedIn}
+              onTelegramLogin={handleTelegramLogin}
+              paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
+              paperPositionsBySignalId={paperPositionsBySignalId}
+              sourceStatus={kolSignalSourceStatus}
+              signals={kolSignals}
+              onSignalSelect={(signal) => {
+                setActiveSignalId(signal.id);
+                setSymbol(signal.symbol);
+              }}
+            />
+          </div>
+        ) : null}
       </section>
     </main>
   );
 }
 
-
-function WorkspaceFloatingActions({
+function ProductIntroScreen({
   isDarkTheme,
-  notification,
-  onNotificationDismiss,
+  onEnter,
+  onTelegramLogin,
 }: {
   isDarkTheme: boolean;
+  onEnter: () => void;
+  onTelegramLogin: () => void;
+}) {
+  const containerClassName = isDarkTheme
+    ? "fixed inset-0 z-[80] flex items-center justify-center bg-slate-950 px-4 text-slate-100"
+    : "fixed inset-0 z-[80] flex items-center justify-center bg-[#f5f7fb] px-4 text-slate-950";
+  const cardClassName = isDarkTheme
+    ? "intro-card-rise w-[min(980px,100%)] overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900 shadow-2xl"
+    : "intro-card-rise w-[min(980px,100%)] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl";
+  const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
+  const stepClassName = isDarkTheme
+    ? "rounded-2xl border border-slate-800 bg-slate-950/70 p-4"
+    : "rounded-2xl border border-slate-200 bg-slate-50 p-4";
+
+  return (
+    <div className={containerClassName}>
+      <div className={cardClassName}>
+        <div className="h-1 bg-slate-200">
+          <div className="intro-step-progress h-full bg-cyan-500" />
+        </div>
+        <div className="grid gap-8 p-6 md:grid-cols-[1.05fr_0.95fr] md:p-8">
+          <div className="flex min-h-[420px] flex-col justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-cyan-500/12 px-3 py-1 text-xs font-black text-cyan-500">
+                <span className="grid h-5 w-5 place-items-center rounded-full bg-cyan-500 text-white">K</span>
+                K线情报局
+              </div>
+              <h1 className="mt-5 max-w-xl text-4xl font-black tracking-tight md:text-6xl">
+                100+ 顶尖交易员陪你盯盘
+              </h1>
+              <p className={`mt-5 max-w-xl text-base leading-7 md:text-lg ${mutedClassName}`}>
+                把 Telegram 群消息变成可验证的交易信号，不错过关键点位、止盈止损和多源共振。
+              </p>
+            </div>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <button
+                className="rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/25 transition hover:bg-cyan-400"
+                type="button"
+                onClick={onEnter}
+              >
+                进入工作台
+              </button>
+              <button
+                className={isDarkTheme ? "rounded-full border border-slate-700 bg-slate-950 px-5 py-3 text-sm font-black text-slate-100 transition hover:border-cyan-500 hover:text-cyan-300" : "rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700"}
+                type="button"
+                onClick={onTelegramLogin}
+              >
+                Telegram 入群登录
+              </button>
+            </div>
+          </div>
+          <div className={isDarkTheme ? "rounded-[1.5rem] bg-slate-950 p-4" : "rounded-[1.5rem] bg-slate-100 p-4"}>
+            <div className="grid gap-3">
+              {[
+                ["1", "接入交易员信号", "从 Telegram 群和 KOL 信源抓取原始消息。"],
+                ["2", "AI 结构化成交易计划", "自动识别币种、多空、入场、止损、止盈。"],
+                ["3", "在 K线上验证", "标记 B/S 点位、风险收益区和多源共振。"],
+                ["4", "状态变化提醒你", "入场、止盈、止损和失效状态统一追踪。"],
+              ].map(([index, title, description]) => (
+                <div key={index} className={stepClassName}>
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-cyan-500 text-sm font-black text-white">{index}</span>
+                    <div>
+                      <div className="text-sm font-black">{title}</div>
+                      <div className={`mt-1 text-xs leading-5 ${mutedClassName}`}>{description}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className={isDarkTheme ? "mt-4 rounded-2xl border border-slate-800 bg-slate-900 p-4" : "mt-4 rounded-2xl border border-slate-200 bg-white p-4"}>
+              <div className="text-sm font-black">Demo 重点</div>
+              <div className={`mt-2 text-xs leading-5 ${mutedClassName}`}>
+                信号源可信感 → 结构化信号卡 → K线风险收益可视化 → 原始社群消息可追溯 → Telegram/登录转化
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function WorkspaceAccountActions({
+  isMyPanelOpen,
+  isLoggedIn,
+  isDarkTheme,
+  layout,
+  notification,
+  onMyPanelClose,
+  onMyPanelToggle,
+  onTelegramLogin,
+  onNotificationDismiss,
+}: {
+  isMyPanelOpen: boolean;
+  isLoggedIn: boolean;
+  isDarkTheme: boolean;
+  layout: "floating" | "rail";
   notification: MockSignalNotification | null;
+  onMyPanelClose: () => void;
+  onMyPanelToggle: () => void;
+  onTelegramLogin: () => void;
   onNotificationDismiss: () => void;
 }) {
+  const containerClassName = layout === "floating"
+    ? "pointer-events-none fixed right-4 top-4 z-50 flex w-[min(430px,calc(100vw-2rem))] flex-col items-end gap-3"
+    : "flex w-full shrink-0 flex-col gap-3";
+  const actionRowClassName = layout === "floating"
+    ? "pointer-events-auto flex flex-wrap items-center justify-end gap-2"
+    : isDarkTheme
+      ? "flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/88 p-3 shadow-sm"
+      : "flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm";
+
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col items-end gap-3">
-      <TelegramCommunityButton isDarkTheme={isDarkTheme} />
+    <div className={containerClassName}>
+      <div className={actionRowClassName}>
+        <BrandLogo isDarkTheme={isDarkTheme} />
+        <MyLoginButton isDarkTheme={isDarkTheme} isLoggedIn={isLoggedIn} onClick={onMyPanelToggle} />
+        <TelegramCommunityButton isDarkTheme={isDarkTheme} onTelegramLogin={onTelegramLogin} />
+      </div>
+      {isMyPanelOpen ? (
+        <MyStatusPanel
+          isDarkTheme={isDarkTheme}
+          isLoggedIn={isLoggedIn}
+          onClose={onMyPanelClose}
+          onTelegramLogin={onTelegramLogin}
+        />
+      ) : null}
       {notification ? (
         <MockSignalNotificationBanner
           isDarkTheme={isDarkTheme}
@@ -195,13 +410,167 @@ function WorkspaceFloatingActions({
   );
 }
 
-function TelegramCommunityButton({ isDarkTheme }: { isDarkTheme: boolean }) {
+function BrandLogo({ isDarkTheme }: { isDarkTheme: boolean }) {
+  return (
+    <div className={isDarkTheme ? "inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/92 px-4 py-2 text-sm font-black text-slate-50 shadow-lg shadow-black/20 backdrop-blur" : "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/92 px-4 py-2 text-sm font-black text-slate-950 shadow-lg shadow-slate-200/70 backdrop-blur"}>
+      <span className="grid h-6 w-6 place-items-center rounded-full bg-cyan-500 text-xs font-black text-white">K</span>
+      K线情报局
+    </div>
+  );
+}
+
+function MyLoginButton({
+  isDarkTheme,
+  isLoggedIn,
+  onClick,
+}: {
+  isDarkTheme: boolean;
+  isLoggedIn: boolean;
+  onClick: () => void;
+}) {
+  const className = isLoggedIn
+    ? isDarkTheme
+      ? "inline-flex items-center gap-2 rounded-full border border-emerald-700 bg-emerald-950/75 px-4 py-2 text-xs font-bold text-emerald-300 shadow-lg shadow-black/20 backdrop-blur"
+      : "inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 shadow-lg shadow-emerald-100"
+    : isDarkTheme
+      ? "inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/92 px-4 py-2 text-xs font-bold text-slate-200 shadow-lg shadow-black/20 transition hover:border-cyan-500 hover:text-cyan-300 backdrop-blur"
+      : "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/92 px-4 py-2 text-xs font-bold text-slate-700 shadow-lg shadow-slate-200/70 transition hover:border-cyan-300 hover:text-cyan-700 backdrop-blur";
+
+  return (
+    <button className={className} type="button" onClick={onClick}>
+      <span aria-hidden="true">{isLoggedIn ? "✓" : "👤"}</span>
+      {isLoggedIn ? "我的 · 已接入" : "我的 · TG登录"}
+    </button>
+  );
+}
+
+function MyStatusPanel({
+  isDarkTheme,
+  isLoggedIn,
+  onClose,
+  onTelegramLogin,
+}: {
+  isDarkTheme: boolean;
+  isLoggedIn: boolean;
+  onClose: () => void;
+  onTelegramLogin: () => void;
+}) {
+  const panelClassName = isDarkTheme
+    ? "pointer-events-auto w-full rounded-3xl border border-slate-700 bg-slate-950/96 p-4 text-slate-100 shadow-2xl shadow-black/30 backdrop-blur"
+    : "pointer-events-auto w-full rounded-3xl border border-slate-200 bg-white/96 p-4 text-slate-950 shadow-2xl shadow-slate-300/50 backdrop-blur";
+  const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
+
+  return (
+    <div className={panelClassName}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className={isDarkTheme ? "text-sm font-black text-slate-50" : "text-sm font-black text-slate-950"}>我的情报工作台</div>
+          <p className={`mt-1 text-xs leading-5 ${mutedClassName}`}>
+            {isLoggedIn ? "Telegram Demo 已接入，可继续绑定群、信号源和通知权限。" : "使用 Telegram 入群登录后解锁最新情报。"}
+          </p>
+        </div>
+        <button
+          className={isDarkTheme ? "rounded-full px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-800 hover:text-slate-200" : "rounded-full px-2 py-1 text-xs text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"}
+          type="button"
+          onClick={onClose}
+        >
+          关闭
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        <MyBindingRow
+          actionLabel="打开 Telegram"
+          description="入群后用于绑定官方社群、接收产品更新和通知授权。"
+          isDarkTheme={isDarkTheme}
+          status={isLoggedIn ? "已接入" : "待登录"}
+          title="TG 群绑定"
+          tone={isLoggedIn ? "positive" : "pending"}
+          onAction={onTelegramLogin}
+        />
+        <MyBindingRow
+          actionLabel="管理"
+          description="当前 Demo 已接入 mock KOL 信号源，后续可在这里绑定自有群。"
+          isDarkTheme={isDarkTheme}
+          status={isLoggedIn ? "12 个信源" : "登录后可用"}
+          title="信号源"
+          tone={isLoggedIn ? "positive" : "pending"}
+          onAction={onTelegramLogin}
+        />
+        <MyBindingRow
+          actionLabel="授权通知"
+          description="命中入场、止盈、止损和多源共振时推送提醒。"
+          isDarkTheme={isDarkTheme}
+          status={isLoggedIn ? "Demo 已授权" : "待授权"}
+          title="通知权限"
+          tone={isLoggedIn ? "positive" : "pending"}
+          onAction={onTelegramLogin}
+        />
+      </div>
+
+      <div className={isDarkTheme ? "mt-4 rounded-2xl bg-slate-900 p-3 text-[11px] leading-5 text-slate-400" : "mt-4 rounded-2xl bg-slate-50 p-3 text-[11px] leading-5 text-slate-500"}>
+        Telegram 群链接可通过 <span className="font-bold">NEXT_PUBLIC_TELEGRAM_GROUP_URL</span> 配置；当前为 Demo 前端登录状态。
+      </div>
+    </div>
+  );
+}
+
+function MyBindingRow({
+  actionLabel,
+  description,
+  isDarkTheme,
+  status,
+  title,
+  tone,
+  onAction,
+}: {
+  actionLabel: string;
+  description: string;
+  isDarkTheme: boolean;
+  status: string;
+  title: string;
+  tone: "pending" | "positive";
+  onAction: () => void;
+}) {
+  const rowClassName = isDarkTheme
+    ? "rounded-2xl border border-slate-800 bg-slate-900/80 p-3"
+    : "rounded-2xl border border-slate-200 bg-slate-50 p-3";
+  const statusClassName = tone === "positive"
+    ? isDarkTheme ? "rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700"
+    : isDarkTheme ? "rounded-full bg-amber-500/15 px-2 py-1 text-[10px] font-black text-amber-300" : "rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700";
+  const actionClassName = isDarkTheme
+    ? "rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-[11px] font-bold text-slate-200 transition hover:border-cyan-500 hover:text-cyan-300"
+    : "rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600 transition hover:border-cyan-300 hover:text-cyan-700";
+
+  return (
+    <div className={rowClassName}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className={isDarkTheme ? "text-xs font-black text-slate-100" : "text-xs font-black text-slate-900"}>{title}</div>
+          <div className={isDarkTheme ? "mt-1 text-[11px] leading-5 text-slate-400" : "mt-1 text-[11px] leading-5 text-slate-500"}>{description}</div>
+        </div>
+        <span className={statusClassName}>{status}</span>
+      </div>
+      <button className={`${actionClassName} mt-3`} type="button" onClick={onAction}>
+        {actionLabel}
+      </button>
+    </div>
+  );
+}
+
+function TelegramCommunityButton({
+  isDarkTheme,
+  onTelegramLogin,
+}: {
+  isDarkTheme: boolean;
+  onTelegramLogin: () => void;
+}) {
   const className = isDarkTheme
     ? "pointer-events-auto inline-flex items-center gap-2 rounded-full border border-sky-500/40 bg-sky-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-950/30 transition hover:bg-sky-400"
     : "pointer-events-auto inline-flex items-center gap-2 rounded-full border border-sky-300 bg-sky-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-200/70 transition hover:bg-sky-600";
 
   return (
-    <button className={className} type="button">
+    <button className={className} type="button" onClick={onTelegramLogin}>
       <span className="grid h-5 w-5 place-items-center rounded-full bg-white/20" aria-hidden="true">
         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M21.7 3.4 18.3 20c-.2 1-1.1 1.3-1.9.8l-5.2-3.9-2.5 2.4c-.3.3-.5.5-1 .5l.4-5.4 9.8-8.9c.4-.4-.1-.6-.7-.2L5.1 13 0 11.4c-1.1-.3-1.1-1.1.2-1.6L20.3 2c.9-.3 1.7.2 1.4 1.4Z" />
@@ -251,6 +620,158 @@ function MockSignalNotificationBanner({
       </div>
     </div>
   );
+}
+
+function WorkspaceSettingsDock({
+  isDarkTheme,
+  language,
+  onLanguageChange,
+  onThemeToggle,
+}: {
+  isDarkTheme: boolean;
+  language: WorkspaceLanguage;
+  onLanguageChange: (language: WorkspaceLanguage) => void;
+  onThemeToggle: () => void;
+}) {
+  const containerClassName = isDarkTheme
+    ? "fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/90 p-2 shadow-2xl shadow-black/25 backdrop-blur"
+    : "fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-2xl shadow-slate-300/45 backdrop-blur";
+  const selectClassName = isDarkTheme
+    ? "h-9 rounded-xl border border-slate-700 bg-slate-900 px-2 text-xs font-bold text-slate-200 outline-none"
+    : "h-9 rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs font-bold text-slate-700 outline-none";
+
+  return (
+    <div className={containerClassName}>
+      <AnimatedThemeToggler isDarkTheme={isDarkTheme} onThemeToggle={onThemeToggle} />
+      <label className="sr-only" htmlFor="workspace-language">语言</label>
+      <select
+        className={selectClassName}
+        id="workspace-language"
+        value={language}
+        onChange={(event) => onLanguageChange(event.target.value as WorkspaceLanguage)}
+      >
+        <option value="zh-CN">中文</option>
+        <option value="en-US">English</option>
+      </select>
+      <span className={isDarkTheme ? "hidden text-[11px] font-semibold text-slate-500 sm:inline" : "hidden text-[11px] font-semibold text-slate-400 sm:inline"}>
+        设置
+      </span>
+    </div>
+  );
+}
+
+function AnimatedThemeToggler({
+  isDarkTheme,
+  onThemeToggle,
+}: {
+  isDarkTheme: boolean;
+  onThemeToggle: () => void;
+}) {
+  const className = isDarkTheme
+    ? "grid h-9 w-9 place-items-center rounded-xl border border-slate-700 bg-slate-900 text-slate-100 transition hover:bg-slate-800"
+    : "grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50";
+
+  return (
+    <button
+      aria-label={isDarkTheme ? "Switch to light mode" : "Switch to dark mode"}
+      className={className}
+      type="button"
+      onClick={(event) => {
+        const originX = event.clientX;
+        const originY = event.clientY;
+
+        if (!document.startViewTransition) {
+          onThemeToggle();
+          return;
+        }
+
+        const transition = document.startViewTransition(() => {
+          flushSync(onThemeToggle);
+        });
+
+        void transition.ready.then(() => {
+          const endRadius = Math.hypot(
+            Math.max(originX, window.innerWidth - originX),
+            Math.max(originY, window.innerHeight - originY),
+          );
+
+          document.documentElement.animate(
+            {
+              clipPath: [
+                `circle(0px at ${originX}px ${originY}px)`,
+                `circle(${endRadius}px at ${originX}px ${originY}px)`,
+              ],
+            },
+            {
+              duration: 820,
+              easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+              pseudoElement: "::view-transition-new(root)",
+            },
+          );
+
+          document.documentElement.animate(
+            { opacity: [1, 0.82, 0] },
+            {
+              duration: 820,
+              easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+              pseudoElement: "::view-transition-old(root)",
+            },
+          );
+        });
+      }}
+    >
+      {themeToggleIcon(isDarkTheme)}
+    </button>
+  );
+}
+
+function themeToggleIcon(isDarkTheme: boolean) {
+  return isDarkTheme ? (
+    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+      <path d="M12 3v2.25M12 18.75V21M4.22 4.22l1.59 1.59M18.19 18.19l1.59 1.59M3 12h2.25M18.75 12H21M4.22 19.78l1.59-1.59M18.19 5.81l1.59-1.59" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="4.2" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  ) : (
+    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+      <path d="M20.5 14.3A8.2 8.2 0 0 1 9.7 3.5 8.2 8.2 0 1 0 20.5 14.3Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function SidebarCollapseButton({
+  isCollapsed,
+  isDarkTheme,
+  onToggle,
+}: {
+  isCollapsed: boolean;
+  isDarkTheme: boolean;
+  onToggle: () => void;
+}) {
+  const className = isDarkTheme
+    ? "hidden lg:grid absolute top-1/2 z-40 h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-slate-700 bg-slate-950 text-slate-200 shadow-xl transition hover:border-cyan-500 hover:text-cyan-300"
+    : "hidden lg:grid absolute top-1/2 z-40 h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-xl transition hover:border-cyan-300 hover:text-cyan-700";
+  const positionClassName = isCollapsed ? "right-4" : "right-[374px] xl:right-[404px]";
+
+  return (
+    <button
+      aria-label={isCollapsed ? "Expand intelligence panel" : "Collapse intelligence panel"}
+      className={`${className} ${positionClassName}`}
+      type="button"
+      onClick={onToggle}
+    >
+      <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+        <path d={isCollapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
+      </svg>
+    </button>
+  );
+}
+
+function openTelegramCommunityLink() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.open(TELEGRAM_COMMUNITY_URL, "_blank", "noopener,noreferrer");
 }
 
 function dedupeStructuredSignalsByPosition(signals: readonly StructuredSignal[]): StructuredSignal[] {

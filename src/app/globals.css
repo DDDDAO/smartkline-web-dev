@@ -33,3 +33,85 @@ input {
 button {
   cursor: pointer;
 }
+
+.signal-card-scene {
+  perspective: 1200px;
+}
+
+.signal-card-flipper {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.signal-card-flipper.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.signal-card-face {
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+.signal-card-back {
+  inset: 0;
+  overflow: hidden;
+  position: absolute;
+  transform: rotateY(180deg);
+}
+
+@keyframes signal-resonance-pulse {
+  0% {
+    opacity: 0.56;
+    transform: scale(0.76);
+  }
+  72% {
+    opacity: 0;
+    transform: scale(1.84);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.84);
+  }
+}
+
+.signal-resonance-ring {
+  animation: signal-resonance-pulse 1.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.signal-resonance-ring:nth-child(2) {
+  animation-delay: 0.36s;
+}
+
+.signal-resonance-ring:nth-child(3) {
+  animation-delay: 0.72s;
+}
+
+@keyframes intro-card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes intro-step-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.intro-card-rise {
+  animation: intro-card-rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.intro-step-progress {
+  animation: intro-step-progress 5.8s linear both;
+  transform-origin: left;
+}
