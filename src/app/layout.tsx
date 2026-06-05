@@ -3,8 +3,8 @@ import "./globals.css";
 
 
 export const metadata: Metadata = {
-  title: "smartkline",
-  description: "K线情报局",
+  title: "K线情报局",
+  description: "面向 Crypto 交易社群的 KOL 信号情报工具",
 };
 
 export default function RootLayout({

@@ -1,4 +1,5 @@
 import type { StructuredSignal } from "@/app/_types/signal";
+import { TelegramSignalMessage } from "./card-ui";
 
 export function RawSignalDialog({
   isDarkTheme,
@@ -32,7 +33,7 @@ export function RawSignalDialog({
         <div className={isDarkTheme ? "flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4" : "flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4"}>
           <div className="min-w-0">
             <h3 id="raw-signal-dialog-title" className={isDarkTheme ? "truncate text-base font-semibold text-slate-50" : "truncate text-base font-semibold text-slate-950"}>
-              原始信息
+              情报源
             </h3>
             <p className={isDarkTheme ? "mt-1 text-xs text-slate-400" : "mt-1 text-xs text-slate-500"}>
               {signal.source_name} · {signal.created_at.replace("T", " ").slice(0, 16)}
@@ -43,12 +44,9 @@ export function RawSignalDialog({
           </button>
         </div>
         <div className="max-h-[calc(72vh-82px)] overflow-y-auto px-5 py-4">
-          <p className={isDarkTheme ? "whitespace-pre-wrap text-sm leading-6 text-slate-300" : "whitespace-pre-wrap text-sm leading-6 text-slate-700"}>
-            {signal.raw_text}
-          </p>
+          <TelegramSignalMessage isDarkTheme={isDarkTheme} signal={signal} />
         </div>
       </div>
     </div>
   );
 }
-

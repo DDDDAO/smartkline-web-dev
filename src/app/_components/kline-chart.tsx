@@ -13,12 +13,15 @@ import {
   type LogicalRange,
 } from "lightweight-charts";
 import { useEffect, useRef } from "react";
+import { AiSignalSummaryOverlay } from "./kline-chart/ai-signal-summary-overlay";
 import { ChartPaperPositionOverlay } from "./kline-chart/paper-position-overlay";
+import { renderPaperPositionLifecycleLabels } from "./kline-chart/paper-position-lifecycle-labels";
 import { createChartPalette } from "./kline-chart/palette";
 import { createSignalPriceLines, toVolumeData } from "./kline-chart/series-data";
 import { createSignalEventRenderKey, renderSignalEventLabels } from "./kline-chart/signal-event-labels";
 import { SignalPriceRayPrimitive } from "./kline-chart/signal-price-ray-primitive";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
+import type { SignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import type { MarketCandle } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 
@@ -27,6 +30,7 @@ export type ChartTheme = "light" | "dark";
 type KlineChartProps = {
   activePaperPosition: PaperPositionRecord | null;
   activeSignal: StructuredSignal | null;
+  aiSummary: SignalAiSummary | null;
   candles: readonly MarketCandle[];
   canLoadOlderHistory: boolean;
   eventSignals: readonly StructuredSignal[];
@@ -41,6 +45,7 @@ const LEFT_EDGE_HISTORY_THRESHOLD_BARS = 80;
 export function KlineChart({
   activePaperPosition,
   activeSignal,
+  aiSummary,
   candles,
   canLoadOlderHistory,
   eventSignals,
@@ -51,6 +56,7 @@ export function KlineChart({
 }: KlineChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelOverlayRef = useRef<HTMLDivElement | null>(null);
+  const lifecycleOverlayRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
@@ -62,6 +68,7 @@ export function KlineChart({
   const onLoadOlderHistoryRef = useRef(onLoadOlderHistory);
   const eventSignalsRef = useRef(eventSignals);
   const candlesRef = useRef(candles);
+  const activePaperPositionRef = useRef(activePaperPosition);
   const themeRef = useRef(theme);
   const onEventSignalSelectRef = useRef(onEventSignalSelect);
   const eventLabelRenderKey = createSignalEventRenderKey(candles, eventSignals, theme);
@@ -72,9 +79,10 @@ export function KlineChart({
     onLoadOlderHistoryRef.current = onLoadOlderHistory;
     eventSignalsRef.current = eventSignals;
     candlesRef.current = candles;
+    activePaperPositionRef.current = activePaperPosition;
     themeRef.current = theme;
     onEventSignalSelectRef.current = onEventSignalSelect;
-  }, [canLoadOlderHistory, candles, eventSignals, isLoadingOlderHistory, onEventSignalSelect, onLoadOlderHistory, theme]);
+  }, [activePaperPosition, canLoadOlderHistory, candles, eventSignals, isLoadingOlderHistory, onEventSignalSelect, onLoadOlderHistory, theme]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -137,6 +145,14 @@ export function KlineChart({
         overlay: labelOverlayRef.current,
         signals: eventSignalsRef.current,
         onSignalSelect: onEventSignalSelectRef.current,
+        theme: themeRef.current,
+      });
+      renderPaperPositionLifecycleLabels({
+        candles: candlesRef.current,
+        chart,
+        overlay: lifecycleOverlayRef.current,
+        paperPosition: activePaperPositionRef.current,
+        series: candleSeries,
         theme: themeRef.current,
       });
 
@@ -226,8 +242,9 @@ export function KlineChart({
     if (candles.length === 0) {
       candleSeriesRef.current.setData([]);
       volumeSeriesRef.current.setData([]);
-      signalRayPrimitiveRef.current?.applyOptions({ candles, paperPosition: null, signal: null, theme });
+      signalRayPrimitiveRef.current?.applyOptions({ candles, paperPosition: null, signal: null, signalAiSummary: null, theme });
       labelOverlayRef.current?.replaceChildren();
+      lifecycleOverlayRef.current?.replaceChildren();
       hasFittedContentRef.current = false;
       return;
     }
@@ -270,14 +287,25 @@ export function KlineChart({
       candles,
       paperPosition: activePaperPosition,
       signal: activeSignal,
+      signalAiSummary: aiSummary,
       theme,
     });
-  }, [activePaperPosition, activeSignal, candles, theme]);
+    renderPaperPositionLifecycleLabels({
+      candles,
+      chart: chartRef.current,
+      overlay: lifecycleOverlayRef.current,
+      paperPosition: activePaperPosition,
+      series,
+      theme,
+    });
+  }, [activePaperPosition, activeSignal, aiSummary, candles, theme]);
 
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="absolute inset-0" />
       <div ref={labelOverlayRef} className="pointer-events-none absolute inset-0 z-20 overflow-hidden" />
+      <div ref={lifecycleOverlayRef} className="pointer-events-none absolute inset-0 z-30 overflow-hidden" />
+      <AiSignalSummaryOverlay summary={aiSummary} theme={theme} />
       {candles.length > 0 && activePaperPosition ? (
         <ChartPaperPositionOverlay
           paperPosition={activePaperPosition}

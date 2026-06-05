@@ -1,4 +1,5 @@
 import type { KolSignalSourceStatus } from "./types";
+import type { StructuredSignal } from "@/app/_types/signal";
 
 export function SourceAvatar({
   isDarkTheme,
@@ -22,6 +23,49 @@ export function SourceAvatar({
     >
       {url ? null : fallbackLabel}
     </span>
+  );
+}
+
+export function TelegramSignalMessage({
+  isDarkTheme,
+  signal,
+}: {
+  isDarkTheme: boolean;
+  signal: StructuredSignal;
+}) {
+  const shellClassName = isDarkTheme
+    ? "rounded-2xl border border-slate-800 bg-slate-950/92 p-3"
+    : "rounded-2xl border border-slate-200 bg-slate-50 p-3";
+  const bubbleClassName = isDarkTheme
+    ? "relative mt-3 rounded-2xl rounded-tl-md border border-slate-800 bg-slate-900 px-3 py-3 text-slate-200 shadow-sm"
+    : "relative mt-3 rounded-2xl rounded-tl-md border border-sky-100 bg-white px-3 py-3 text-slate-800 shadow-sm";
+  const metaClassName = isDarkTheme ? "text-[11px] text-slate-500" : "text-[11px] text-slate-400";
+  const sourceTypeClassName = isDarkTheme
+    ? "rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-300"
+    : "rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700";
+
+  return (
+    <div className={shellClassName}>
+      <div className="flex items-center gap-3">
+        <SourceAvatar isDarkTheme={isDarkTheme} name={signal.source_name} url={signal.source_avatar_url} />
+        <div className="min-w-0 flex-1">
+          <div className={isDarkTheme ? "truncate text-sm font-bold text-slate-50" : "truncate text-sm font-bold text-slate-950"}>
+            {signal.source_name}
+          </div>
+          <div className={metaClassName}>Telegram 群消息 · {signal.created_at.replace("T", " ").slice(0, 16)}</div>
+        </div>
+        <span className={sourceTypeClassName}>{signal.source_type}</span>
+      </div>
+      <div className={bubbleClassName}>
+        <div className="whitespace-pre-wrap text-xs leading-5">{signal.raw_text}</div>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <span className={metaClassName}>原始信源 · 可追溯</span>
+          <span className="text-[11px] font-bold text-sky-500" aria-label="Telegram message delivered">
+            ✓✓
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -73,4 +117,3 @@ export function SignalField({ isDarkTheme, label, value }: { isDarkTheme: boolea
     </div>
   );
 }
-

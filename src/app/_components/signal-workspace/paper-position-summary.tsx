@@ -175,7 +175,7 @@ export function formatSignalPaperPositionStatus(record: PaperPositionRecord | nu
   }
 
   if (record.status === "invalid") {
-    return "无法计算";
+    return "已失效";
   }
 
   return formatPaperPositionStatus(record);
@@ -187,10 +187,10 @@ function formatPaperPositionStatus(record: PaperPositionRecord): string {
   }
 
   if (record.status === "entered") {
-    return "已入场";
+    return "持仓中";
   }
 
-  return record.exitReason === "stop-loss" ? "已离场 · 止损" : "已离场 · 止盈";
+  return record.exitReason === "stop-loss" ? "已止损" : "已止盈";
 }
 
 function formatPaperPrice(value: number | null): string {

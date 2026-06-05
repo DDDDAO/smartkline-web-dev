@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import { intervals } from "@/app/_lib/demo-data";
+import { createSignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import {
   HISTORICAL_CANDLE_LIMIT,
   fetchHistoricalCandles,
@@ -23,7 +23,6 @@ export function RealtimeKlinePanel({
   onIntervalChange,
   onSymbolChange,
   onSignalSelect,
-  onThemeToggle,
 }: {
   activePaperPosition: PaperPositionRecord | null;
   activeSignal: StructuredSignal | null;
@@ -35,7 +34,6 @@ export function RealtimeKlinePanel({
   onIntervalChange: (interval: KlineInterval) => void;
   onSymbolChange: (symbol: MarketSymbol) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
-  onThemeToggle: () => void;
 }) {
   const [candles, setCandles] = useState<MarketCandle[]>([]);
   const [canLoadOlderHistory, setCanLoadOlderHistory] = useState(true);
@@ -45,6 +43,7 @@ export function RealtimeKlinePanel({
   const isLoadingOlderHistoryRef = useRef(false);
   const isDarkTheme = theme === "dark";
   const chartEventSignals = useMemo(() => signals.filter((signal) => signal.symbol === symbol), [signals, symbol]);
+  const aiSummary = useMemo(() => createSignalAiSummary(chartEventSignals), [chartEventSignals]);
 
   useEffect(() => {
     candlesRef.current = candles;
@@ -137,13 +136,13 @@ export function RealtimeKlinePanel({
               </button>
             ))}
           </div>
-          <AnimatedThemeToggler isDarkTheme={isDarkTheme} onThemeToggle={onThemeToggle} />
         </div>
       </div>
       <div className="relative min-h-0 flex-1">
         <KlineChart
           activePaperPosition={activePaperPosition}
           activeSignal={activeSignal}
+          aiSummary={aiSummary}
           candles={candles}
           canLoadOlderHistory={canLoadOlderHistory}
           eventSignals={chartEventSignals}
@@ -152,9 +151,11 @@ export function RealtimeKlinePanel({
           onEventSignalSelect={onSignalSelect}
           onLoadOlderHistory={loadOlderHistory}
         />
-        {loadError ? (
-          <div className="pointer-events-none absolute left-4 top-4 max-w-md rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 shadow-sm">
-            {loadError}
+        {loadError && candles.length === 0 ? (
+          <MarketEnvironmentGuide error={loadError} isDarkTheme={isDarkTheme} />
+        ) : loadError ? (
+          <div className={isDarkTheme ? "pointer-events-none absolute right-4 top-4 z-40 max-w-md rounded-xl border border-rose-900/70 bg-rose-950/80 px-3 py-2 text-xs text-rose-200 shadow-sm backdrop-blur" : "pointer-events-none absolute right-4 top-4 z-40 max-w-md rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 shadow-sm"}>
+            行情连接异常：{loadError}
           </div>
         ) : null}
       </div>
@@ -162,76 +163,20 @@ export function RealtimeKlinePanel({
   );
 }
 
-function AnimatedThemeToggler({
-  isDarkTheme,
-  onThemeToggle,
-}: {
-  isDarkTheme: boolean;
-  onThemeToggle: () => void;
-}) {
-  const className = isDarkTheme
-    ? "grid h-9 w-9 place-items-center rounded-xl border border-slate-700 bg-slate-950 text-slate-100 transition hover:bg-slate-800"
-    : "grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50";
-
+function MarketEnvironmentGuide({ error, isDarkTheme }: { error: string; isDarkTheme: boolean }) {
   return (
-    <button
-      aria-label={isDarkTheme ? "Switch to light mode" : "Switch to dark mode"}
-      className={className}
-      type="button"
-      onClick={(event) => {
-        const originX = event.clientX;
-        const originY = event.clientY;
-
-        if (!document.startViewTransition) {
-          onThemeToggle();
-          return;
-        }
-
-        const transition = document.startViewTransition(() => {
-          flushSync(onThemeToggle);
-        });
-
-        void transition.ready.then(() => {
-          const endRadius = Math.hypot(
-            Math.max(originX, window.innerWidth - originX),
-            Math.max(originY, window.innerHeight - originY),
-          );
-
-          document.documentElement.animate(
-            {
-              clipPath: [
-                `circle(0px at ${originX}px ${originY}px)`,
-                `circle(${endRadius}px at ${originX}px ${originY}px)`,
-              ],
-            },
-            {
-              duration: 820,
-              easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-              pseudoElement: "::view-transition-new(root)",
-            },
-          );
-
-          document.documentElement.animate(
-            { opacity: [1, 0.82, 0] },
-            {
-              duration: 820,
-              easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-              pseudoElement: "::view-transition-old(root)",
-            },
-          );
-        });
-      }}
-    >
-      {isDarkTheme ? (
-        <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
-          <path d="M12 3v2.25M12 18.75V21M4.22 4.22l1.59 1.59M18.19 18.19l1.59 1.59M3 12h2.25M18.75 12H21M4.22 19.78l1.59-1.59M18.19 5.81l1.59-1.59" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
-          <circle cx="12" cy="12" r="4.2" stroke="currentColor" strokeWidth="1.8" />
-        </svg>
-      ) : (
-        <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
-          <path d="M20.5 14.3A8.2 8.2 0 0 1 9.7 3.5 8.2 8.2 0 1 0 20.5 14.3Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
-        </svg>
-      )}
-    </button>
+    <div className="absolute inset-0 z-40 grid place-items-center px-6">
+      <div className={isDarkTheme ? "max-w-lg rounded-3xl border border-slate-700 bg-slate-950/92 p-6 text-slate-100 shadow-2xl backdrop-blur" : "max-w-lg rounded-3xl border border-slate-200 bg-white/94 p-6 text-slate-950 shadow-2xl backdrop-blur"}>
+        <div className={isDarkTheme ? "text-sm font-bold text-cyan-300" : "text-sm font-bold text-cyan-700"}>行情图加载失败</div>
+        <h3 className="mt-2 text-xl font-black">请检查地区网络环境</h3>
+        <p className={isDarkTheme ? "mt-3 text-sm leading-6 text-slate-300" : "mt-3 text-sm leading-6 text-slate-600"}>
+          当前行情图加载失败，可能与地区网络环境有关。请切换网络地区或开启可访问 Binance 行情源的网络环境后重试。
+        </p>
+        <div className={isDarkTheme ? "mt-4 rounded-2xl bg-slate-900 p-3 text-xs leading-5 text-slate-400" : "mt-4 rounded-2xl bg-slate-50 p-3 text-xs leading-5 text-slate-500"}>
+          <div>建议环境：可访问 Binance USDⓈ-M Futures REST 行情源。</div>
+          <div>当前错误：{error}</div>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,11 +1,13 @@
 import type { IChartApi, ISeriesApi, LineStyle, LineWidth } from "lightweight-charts";
 import type { MarketCandle } from "@/app/_types/market";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
+import type { SignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type { ChartTheme } from "@/app/_components/kline-chart";
 
 export type SignalPriceRayPrimitiveOptions = {
   candles: readonly MarketCandle[];
+  signalAiSummary: SignalAiSummary | null;
   paperPosition: PaperPositionRecord | null;
   signal: StructuredSignal | null;
   theme: ChartTheme;
@@ -22,6 +24,7 @@ export type SignalPriceRangeSource = {
   fillColor: string;
   maxPrice: number;
   minPrice: number;
+  startTimeMs?: number;
 };
 
 export type SignalPriceRayDrawing = {
@@ -46,4 +49,3 @@ export type SignalPriceRayDrawingState = {
 
 export type SignalPriceRayChartApi = Pick<IChartApi, "timeScale">;
 export type SignalPriceRaySeriesApi = Pick<ISeriesApi<"Candlestick">, "priceToCoordinate">;
-

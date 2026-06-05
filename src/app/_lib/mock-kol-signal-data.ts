@@ -25,8 +25,6 @@ export type MockSignalScenario = {
   volatility: number;
 };
 
-const SOURCE_AVATAR_URL: string | null = null;
-
 export const mockKolSignalScenarios: MockSignalScenario[] = [
   {
     kind: "not-entered-short-range",
@@ -285,12 +283,28 @@ const duplicateParsedPositionSignal: StructuredSignal = {
   ...mockKolSignalScenarios[0].signal,
   id: "mock-btc-short-range-duplicate-later-message",
   created_at: "2026-06-04T00:08:00+08:00",
-  raw_text: "重复转发：67000附近直接空市价，再挂 68588，止损 70000，止盈 1 66188 / 止盈 2 65388 / 止盈 3 63888。",
+  raw_text: "重复转发：67000附近直接空市价，再挂 68588，止损 70000，止盈1 66188 / 止盈2 65388 / 止盈3 63888。",
   summary: "Duplicate parsed BTC/USDT:USDT short signal retained only if dedupe fails.",
 };
 
+const fallbackResonanceSignals: StructuredSignal[] = [
+  createFallbackResonanceSignal({
+    basisPointShift: -0.0012,
+    createdAt: "2026-06-03T23:24:00+08:00",
+    id: "mock-btc-short-resonance-whale-club",
+    sourceName: "Crypto Whale Club",
+  }),
+  createFallbackResonanceSignal({
+    basisPointShift: 0.001,
+    createdAt: "2026-06-03T23:25:00+08:00",
+    id: "mock-btc-short-resonance-north-star",
+    sourceName: "North Star Signals",
+  }),
+];
+
 export const mockKolSignals: StructuredSignal[] = [
   ...mockKolSignalScenarios.map((scenario) => scenario.signal),
+  ...fallbackResonanceSignals,
   duplicateParsedPositionSignal,
 ];
 
@@ -319,7 +333,7 @@ function createSignal(input: {
   return {
     id: input.id,
     source_name: input.sourceName,
-    source_avatar_url: SOURCE_AVATAR_URL,
+    source_avatar_url: createSourceAvatarUrl(input.sourceName),
     source_level: "S",
     source_type: "开仓信号",
     symbol: input.symbol,
@@ -341,6 +355,76 @@ function createSignal(input: {
   };
 }
 
+function createFallbackResonanceSignal(input: {
+  basisPointShift: number;
+  createdAt: string;
+  id: string;
+  sourceName: string;
+}): StructuredSignal {
+  const baseSignal = mockKolSignalScenarios[0].signal;
+  const shiftedSignal: StructuredSignal = {
+    ...baseSignal,
+    id: input.id,
+    source_name: input.sourceName,
+    source_avatar_url: createSourceAvatarUrl(input.sourceName),
+    source_type: "共振信号",
+    created_at: input.createdAt,
+    entry_min: shiftPrice(baseSignal.entry_min, input.basisPointShift),
+    entry_max: shiftPrice(baseSignal.entry_max, input.basisPointShift),
+    stop_loss: shiftPrice(baseSignal.stop_loss, input.basisPointShift),
+    take_profit: baseSignal.take_profit.map((price) => shiftPrice(price, input.basisPointShift)).filter((price): price is number => price !== null),
+    confirmation: "BTC 空头区域出现多源共振，用于展示 KOL 头像叠加与辐射效果。",
+  };
+  const shiftedInput = {
+    entryMax: shiftedSignal.entry_max,
+    entryMin: shiftedSignal.entry_min,
+    stopLoss: shiftedSignal.stop_loss,
+    takeProfit: shiftedSignal.take_profit,
+    triggerPrice: shiftedSignal.trigger_price,
+  };
+
+  return {
+    ...shiftedSignal,
+    raw_text: `${input.sourceName}: BTC/USDT 空，入场/触发 ${formatEntryText(shiftedInput)}，止损 ${formatPrice(shiftedSignal.stop_loss)}，${formatTakeProfitText(shiftedSignal.take_profit)}。多位交易员在同一压力区给出空头计划，形成 3 源共振。`,
+    risk_tags: createRiskTags(shiftedInput),
+    summary: `BTC/USDT 空头共振：入场 ${formatEntryText(shiftedInput)}，止损 ${formatPrice(shiftedSignal.stop_loss)}，${formatTakeProfitText(shiftedSignal.take_profit)}`,
+  };
+}
+
+function shiftPrice(value: number | null, ratio: number): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  return Number((value * (1 + ratio)).toFixed(value >= 1_000 ? 1 : 4));
+}
+
+function createSourceAvatarUrl(sourceName: string): string {
+  const label = sourceName.trim().slice(0, 2).toUpperCase() || "K";
+  const hue = [...sourceName].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 360;
+  const svg = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">`,
+    `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">`,
+    `<stop offset="0%" stop-color="hsl(${hue} 84% 58%)"/>`,
+    `<stop offset="100%" stop-color="hsl(${(hue + 52) % 360} 92% 42%)"/>`,
+    `</linearGradient></defs>`,
+    `<rect width="96" height="96" rx="48" fill="url(#g)"/>`,
+    `<circle cx="70" cy="24" r="16" fill="rgba(255,255,255,.18)"/>`,
+    `<text x="48" y="57" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="800">${escapeSvgText(label)}</text>`,
+    `</svg>`,
+  ].join("");
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function escapeSvgText(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 function createRiskTags(input: { entryMax: number | null; entryMin: number | null; stopLoss: number | null; takeProfit: number[]; triggerPrice: number | null }): string[] {
   return [
     input.entryMin !== null && input.entryMax !== null ? "区间入场" : input.triggerPrice !== null ? "触发入场" : "市价入场",
@@ -351,7 +435,7 @@ function createRiskTags(input: { entryMax: number | null; entryMin: number | nul
 
 function formatTakeProfitText(takeProfit: readonly number[]): string {
   return takeProfit.length > 0
-    ? takeProfit.map((price, index) => `止盈 ${index + 1} ${formatPrice(price)}`).join(" / ")
+    ? takeProfit.map((price, index) => `止盈${index + 1} ${formatPrice(price)}`).join(" / ")
     : "止盈 --";
 }
 
