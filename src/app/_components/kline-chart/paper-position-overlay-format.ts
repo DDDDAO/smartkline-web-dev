@@ -85,14 +85,14 @@ export function formatChartPaperPositionStatus(record: PaperPositionRecord | nul
   }
 
   if (record.status === "entered") {
-    return "已入场";
+    return "持仓中";
   }
 
   if (record.status === "exited") {
-    return record.exitReason === "stop-loss" ? "已离场 · 止损" : "已离场 · 止盈";
+    return record.exitReason === "stop-loss" ? "已止损" : "已止盈";
   }
 
-  return "无法计算";
+  return "已失效";
 }
 
 export function getChartPaperPositionValueClass(isDarkTheme: boolean, tone: ChartPaperPositionField["tone"] = "default"): string {
@@ -138,4 +138,3 @@ function formatChartSignedPercent(value: number | null): string {
 
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
-
