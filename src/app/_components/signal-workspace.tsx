@@ -421,13 +421,7 @@ function ProductIntroScreen({
               >
                 进入工作台
               </button>
-              <button
-                className={isDarkTheme ? "rounded-full border border-slate-700 bg-slate-950 px-5 py-3 text-sm font-black text-slate-100 transition hover:border-cyan-500 hover:text-cyan-300" : "rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700"}
-                type="button"
-                onClick={onTelegramDiscussionJoin}
-              >
-                加入 TG 群讨论
-              </button>
+              <TelegramDiscussionButton isDarkTheme={isDarkTheme} size="hero" onClick={onTelegramDiscussionJoin} />
             </div>
           </div>
           <div className={isDarkTheme ? "rounded-[1.5rem] bg-slate-950 p-4" : "rounded-[1.5rem] bg-slate-100 p-4"}>
@@ -527,17 +521,25 @@ function BrandLogo({ isDarkTheme }: { isDarkTheme: boolean }) {
 function TelegramDiscussionButton({
   isDarkTheme,
   onClick,
+  size = "compact",
 }: {
   isDarkTheme: boolean;
   onClick: () => void;
+  size?: "compact" | "hero";
 }) {
+  const sizeClassName = size === "hero"
+    ? "px-5 py-3 text-sm font-black"
+    : "px-4 py-2 text-xs font-bold";
   const className = isDarkTheme
-    ? "pointer-events-auto inline-flex items-center gap-2 rounded-full border border-sky-500/40 bg-sky-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-950/30 transition hover:bg-sky-400"
-    : "pointer-events-auto inline-flex items-center gap-2 rounded-full border border-sky-300 bg-sky-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-200/70 transition hover:bg-sky-600";
+    ? `pointer-events-auto inline-flex items-center gap-2 rounded-full border border-cyan-300/35 bg-cyan-400/12 ${sizeClassName} text-cyan-50 shadow-lg shadow-cyan-950/30 ring-1 ring-cyan-300/15 backdrop-blur transition hover:border-cyan-200/60 hover:bg-cyan-400/20 hover:text-white hover:shadow-cyan-500/15`
+    : `pointer-events-auto inline-flex items-center gap-2 rounded-full border border-sky-300 bg-sky-500 ${sizeClassName} text-white shadow-lg shadow-sky-200/70 transition hover:bg-sky-600`;
+  const iconClassName = isDarkTheme
+    ? "grid h-5 w-5 place-items-center rounded-full bg-cyan-300/18 text-cyan-100 ring-1 ring-cyan-200/20"
+    : "grid h-5 w-5 place-items-center rounded-full bg-white/20";
 
   return (
     <button className={className} type="button" onClick={onClick}>
-      <span className="grid h-5 w-5 place-items-center rounded-full bg-white/20" aria-hidden="true">
+      <span className={iconClassName} aria-hidden="true">
         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M21.7 3.4 18.3 20c-.2 1-1.1 1.3-1.9.8l-5.2-3.9-2.5 2.4c-.3.3-.5.5-1 .5l.4-5.4 9.8-8.9c.4-.4-.1-.6-.7-.2L5.1 13 0 11.4c-1.1-.3-1.1-1.1.2-1.6L20.3 2c.9-.3 1.7.2 1.4 1.4Z" />
         </svg>
