@@ -113,7 +113,13 @@ export function computePaperPositionRecord(
 
   const entryCandles = trackingCandles.slice(entryFill.candleIndex);
   const entryRange = summarizeCandles(entryCandles);
-  const exitFill = findExitFill({ direction: signal.direction, entryPrice: entryFill.price, signal, candles: entryCandles });
+  /**
+   * A single OHLC candle cannot tell whether entry or exit happened first inside
+   * that minute. Start exit checks from the next 1m candle so the simulated
+   * lifecycle never creates an impossible entry and exit on the same candle.
+   */
+  const exitCandles = trackingCandles.slice(entryFill.candleIndex + 1);
+  const exitFill = findExitFill({ direction: signal.direction, entryPrice: entryFill.price, signal, candles: exitCandles });
 
   if (exitFill !== null) {
     return {
