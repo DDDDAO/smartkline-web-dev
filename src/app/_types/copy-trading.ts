@@ -11,6 +11,10 @@ export type CopyTradingTrader = {
   platform: string;
   avatar: string;
   followers: number;
+  margin_balance: number | null;
+  positions_synced_at: string | null;
+  source_url: string | null;
+  status: string;
   watch_status: CopyTradingWatchStatus;
   monthly_return: number;
   win_rate: number;
@@ -23,9 +27,12 @@ export type CopyTradingPosition = {
   trader_id: string;
   symbol: string;
   direction: CopyTradingDirection;
+  quantity: number;
   entry_price: number;
   current_price: number;
   leverage: number;
+  margin_snapshot: number | null;
+  notional_value: number;
   position_size_ratio: number;
   unrealized_pnl: number;
   open_time: string;

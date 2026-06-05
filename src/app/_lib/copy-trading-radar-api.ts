@@ -137,6 +137,17 @@ type TradesResponse = {
   trades?: SignalCenterTradeEvent[] | null;
 };
 
+type SignalCenterRadarSourceRuntime = {
+  positions?: SignalCenterPositionSnapshot[] | null;
+  source?: SignalCenterSignalSource | null;
+  trades?: SignalCenterTradeEvent[] | null;
+};
+
+type SignalCenterRadarSnapshotResponse = {
+  sources?: SignalCenterRadarSourceRuntime[] | null;
+  updatedAt?: string | null;
+};
+
 type SourceRuntimeData = {
   positions: SignalCenterPositionSnapshot[];
   source: SignalCenterSignalSource;
@@ -173,6 +184,20 @@ type MockTradeBlueprint = {
 };
 
 export async function fetchCopyTradingRadarSnapshot(): Promise<CopyTradingRadarSnapshot> {
+  try {
+    const radarResponse = await requestSignalCenterJson<SignalCenterRadarSnapshotResponse>(`/v1/copy-trading-radar?signalType=${encodeURIComponent(SMART_MONEY_SIGNAL_TYPE)}&sourceLimit=12&tradeLimit=100`);
+    const runtimeData = normalizeRadarRuntimeData(radarResponse.sources ?? []);
+    if (runtimeData.length > 0) {
+      return adaptSignalCenterRuntimeData(runtimeData, radarResponse.updatedAt ?? undefined);
+    }
+  } catch {
+    /**
+     * Older Signal Center deployments do not expose the aggregated radar
+     * endpoint. The legacy per-source path keeps the frontend deployable while
+     * the backend rollout catches up.
+     */
+  }
+
   const sourcesResponse = await requestSignalCenterJson<SignalSourcesResponse>(`/v1/signal-sources?signalType=${encodeURIComponent(SMART_MONEY_SIGNAL_TYPE)}`);
   const sources = (sourcesResponse.sources ?? []).filter((source) => source.signalType === SMART_MONEY_SIGNAL_TYPE || source.signalType.toLowerCase() === SMART_MONEY_SIGNAL_TYPE.toLowerCase());
 
@@ -180,7 +205,10 @@ export async function fetchCopyTradingRadarSnapshot(): Promise<CopyTradingRadarS
     throw new Error("Signal Center did not return Binance Smart Money sources.");
   }
 
-  const runtimeData = await Promise.all(sources.slice(0, 12).map(loadSourceRuntimeData));
+  const runtimeData = await loadLegacySourceRuntimeData(sources.slice(0, 12));
+  if (runtimeData.length === 0) {
+    throw new Error("Signal Center returned sources, but no positions or trades could be loaded.");
+  }
   return adaptSignalCenterRuntimeData(runtimeData);
 }
 
@@ -466,8 +494,28 @@ async function loadSourceRuntimeData(source: SignalCenterSignalSource): Promise<
   };
 }
 
-function adaptSignalCenterRuntimeData(runtimeData: SourceRuntimeData[], now = new Date()): CopyTradingRadarSnapshot {
-  const updatedAt = formatDateTimeWithUtc8Offset(now);
+async function loadLegacySourceRuntimeData(sources: readonly SignalCenterSignalSource[]): Promise<SourceRuntimeData[]> {
+  const results = await Promise.allSettled(sources.map(loadSourceRuntimeData));
+  return results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+}
+
+function normalizeRadarRuntimeData(runtimeSources: readonly SignalCenterRadarSourceRuntime[]): SourceRuntimeData[] {
+  return runtimeSources.flatMap((runtimeSource) => {
+    if (!runtimeSource.source) {
+      return [];
+    }
+    return [{
+      source: runtimeSource.source,
+      positions: runtimeSource.positions ?? [],
+      trades: runtimeSource.trades ?? [],
+    }];
+  });
+}
+
+function adaptSignalCenterRuntimeData(runtimeData: SourceRuntimeData[], updatedAtSource: Date | string = new Date()): CopyTradingRadarSnapshot {
+  const updatedAtDate = updatedAtSource instanceof Date ? updatedAtSource : new Date(updatedAtSource);
+  const safeUpdatedAtDate = Number.isFinite(updatedAtDate.getTime()) ? updatedAtDate : new Date();
+  const updatedAt = normalizeTimestamp(safeUpdatedAtDate.toISOString());
   const traders = runtimeData.map(({ positions, source, trades }, index) => adaptSignalCenterTrader(source, positions, trades, index));
   const positions = runtimeData.flatMap(({ positions: snapshots, source }) => adaptSignalCenterPositions(source, snapshots));
   const positionsBySourceAndSymbol = createPositionLookup(positions);
@@ -477,7 +525,7 @@ function adaptSignalCenterRuntimeData(runtimeData: SourceRuntimeData[], now = ne
     traders,
     positions,
     events: events.sort((left, right) => Date.parse(right.occurred_at) - Date.parse(left.occurred_at)),
-    equity_etf_signals: createMockEquityEtfSignals(now),
+    equity_etf_signals: createMockEquityEtfSignals(safeUpdatedAtDate),
     updated_at: updatedAt,
   };
 }
@@ -491,17 +539,24 @@ function adaptSignalCenterTrader(
   const seed = stableSeed(source.id || source.name || String(index));
   const pnlValues = positions.map((position) => parseNumber(position.unPnl ?? position.unrealizedPnl)).filter(isFiniteNumber);
   const aggregatePnl = pnlValues.reduce((sum, value) => sum + value, 0);
-  const riskLevel = source.status.toUpperCase() !== "ACTIVE" ? "high" : positions.length >= 4 ? "high" : positions.length >= 2 ? "medium" : "low";
+  const sourceStatus = source.status.toUpperCase();
+  const visiblePositionCount = positions.filter((position) => Math.abs(parseNumber(position.qty) ?? 0) > 0).length;
+  const riskLevel = sourceStatus !== "ACTIVE" ? "high" : visiblePositionCount >= 4 ? "high" : visiblePositionCount >= 2 ? "medium" : "low";
+  const marginBalance = parseNumber(source.margin);
 
   return {
     trader_id: source.id,
     name: source.name || source.id,
     platform: source.signalType === SMART_MONEY_SIGNAL_TYPE ? DEFAULT_TRADER_PLATFORM : source.signalType || "Signal Center",
     avatar: source.avatarUrl ?? createAvatarDataUrl(source.name || source.id, seed % 360),
-    followers: 3200 + (seed % 42000),
+    followers: 0,
+    margin_balance: marginBalance,
+    positions_synced_at: source.positionsSyncedTime ? normalizeTimestamp(source.positionsSyncedTime) : null,
+    source_url: source.url ?? null,
+    status: sourceStatus || "UNKNOWN",
     watch_status: index < 2 ? "pinned" : "watching",
-    monthly_return: clampPercent((aggregatePnl / Math.max(1, parseNumber(source.margin) ?? 1)) + 0.18 + (seed % 22) / 100),
-    win_rate: clampPercent(0.46 + (seed % 28) / 100),
+    monthly_return: clampSignedRatio(aggregatePnl / Math.max(1, Math.abs(marginBalance ?? 1))),
+    win_rate: clampPercent(trades.length === 0 ? 0 : trades.filter((trade) => !isLossTrade(trade)).length / trades.length),
     max_drawdown: clampPercent(0.08 + (trades.filter((trade) => isLossTrade(trade)).length % 18) / 100),
     risk_level: riskLevel,
   };
@@ -509,7 +564,7 @@ function adaptSignalCenterTrader(
 
 function adaptSignalCenterPositions(source: SignalCenterSignalSource, snapshots: readonly SignalCenterPositionSnapshot[]): CopyTradingPosition[] {
   const nonZeroSnapshots = snapshots.filter((snapshot) => Math.abs(parseNumber(snapshot.qty) ?? 0) > 0);
-  const totalNotional = nonZeroSnapshots.reduce((sum, snapshot) => sum + Math.abs(parseNumber(snapshot.notionalValue) ?? 0), 0);
+  const totalNotional = nonZeroSnapshots.reduce((sum, snapshot) => sum + estimatePositionNotional(snapshot), 0);
 
   return nonZeroSnapshots.map((snapshot) => {
     const qty = Math.abs(parseNumber(snapshot.qty) ?? 0);
@@ -518,22 +573,38 @@ function adaptSignalCenterPositions(source: SignalCenterSignalSource, snapshots:
     const currentPrice = parseNumber(snapshot.markPrice) ?? entryPrice;
     const marginSnapshot = Math.abs(parseNumber(snapshot.marginSnapshot) ?? 0);
     const unrealizedPnl = parseNumber(snapshot.unPnl ?? snapshot.unrealizedPnl) ?? 0;
-    const pnlBase = marginSnapshot > 0 ? marginSnapshot : notional > 0 && snapshot.leverage ? notional / snapshot.leverage : Math.max(1, entryPrice * qty);
+    const effectiveNotional = notional > 0 ? notional : currentPrice > 0 ? currentPrice * qty : entryPrice * qty;
+    const pnlBase = marginSnapshot > 0 ? marginSnapshot : effectiveNotional > 0 && snapshot.leverage ? effectiveNotional / snapshot.leverage : Math.max(1, entryPrice * qty);
 
     return {
       position_id: `${source.id}:${snapshot.key.symbol}:${snapshot.key.side}`,
       trader_id: source.id,
       symbol: snapshot.key.symbol,
       direction: normalizeCopyTradingDirection(snapshot.key.side),
+      quantity: qty,
       entry_price: entryPrice,
       current_price: currentPrice,
       leverage: snapshot.leverage ?? 1,
-      position_size_ratio: totalNotional > 0 ? clampPercent(notional / totalNotional) : 0,
+      margin_snapshot: marginSnapshot || null,
+      notional_value: effectiveNotional,
+      position_size_ratio: totalNotional > 0 ? clampPercent(effectiveNotional / totalNotional) : 0,
       unrealized_pnl: clampSignedRatio(pnlBase > 0 ? unrealizedPnl / pnlBase : 0),
       open_time: normalizeTimestamp(snapshot.sourceUpdatedAt ?? snapshot.updatedAt ?? source.positionsSyncedTime ?? FALLBACK_UPDATED_AT),
       status: "holding",
     };
   });
+}
+
+function estimatePositionNotional(snapshot: SignalCenterPositionSnapshot): number {
+  const notional = Math.abs(parseNumber(snapshot.notionalValue) ?? 0);
+  if (notional > 0) {
+    return notional;
+  }
+
+  const qty = Math.abs(parseNumber(snapshot.qty) ?? 0);
+  const markPrice = Math.abs(parseNumber(snapshot.markPrice) ?? 0);
+  const entryPrice = Math.abs(parseNumber(snapshot.entryPrice) ?? 0);
+  return qty * (markPrice > 0 ? markPrice : entryPrice);
 }
 
 function adaptSignalCenterTrades(

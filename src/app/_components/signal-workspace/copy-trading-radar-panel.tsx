@@ -52,6 +52,8 @@ export function CopyTradingRadarPanel({
   const filteredEvents = selectedTraderEvents.filter((event) => eventFilter === ALL_EVENT_FILTER || event.event_type === eventFilter);
   const monitoredEventTypes = getCopyTradingRequiredEventTypes();
   const activeEvent = snapshot.events.find((event) => event.event_id === activeEventId) ?? null;
+  const activeTraderCount = snapshot.traders.filter((trader) => trader.status === "ACTIVE").length;
+  const totalMarginBalance = snapshot.traders.reduce((sum, trader) => sum + (trader.margin_balance ?? 0), 0);
 
   const panelClassName = isDarkTheme
     ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm"
@@ -87,8 +89,8 @@ export function CopyTradingRadarPanel({
           </span>
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <RadarMetric isDarkTheme={isDarkTheme} label="带单员" value={String(snapshot.traders.length)} />
-          <RadarMetric isDarkTheme={isDarkTheme} label="当前仓位" value={String(snapshot.positions.length)} />
+          <RadarMetric isDarkTheme={isDarkTheme} label="带单员" value={`${activeTraderCount}/${snapshot.traders.length}`} />
+          <RadarMetric isDarkTheme={isDarkTheme} label="保证金" value={formatCurrency(totalMarginBalance)} />
           <RadarMetric isDarkTheme={isDarkTheme} label="事件" value={String(snapshot.events.length)} />
         </div>
       </div>
@@ -328,13 +330,22 @@ function TraderCard({
             <div className={isDarkTheme ? "truncate text-sm font-black text-slate-50" : "truncate text-sm font-black text-slate-950"}>{trader.name}</div>
             <span className={getRiskBadgeClassName(isDarkTheme, trader.risk_level)}>{formatRiskLevel(trader.risk_level)}</span>
           </div>
-          <div className={isDarkTheme ? "mt-1 truncate text-[11px] text-slate-500" : "mt-1 truncate text-[11px] text-slate-500"}>{trader.platform} · {trader.followers.toLocaleString("en-US")} followers</div>
+          <div className={isDarkTheme ? "mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500" : "mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500"}>
+            <span>{trader.platform}</span>
+            <span>·</span>
+            <span>{formatSourceStatus(trader.status)}</span>
+            <span>·</span>
+            <span>保证金 {formatCurrency(trader.margin_balance)}</span>
+          </div>
           <div className="mt-2 grid grid-cols-3 gap-1.5">
-            <MiniMetric isDarkTheme={isDarkTheme} label="月收益" value={formatSignedPercent(trader.monthly_return)} />
+            <MiniMetric isDarkTheme={isDarkTheme} label="浮盈亏率" value={formatSignedPercent(trader.monthly_return)} />
             <MiniMetric isDarkTheme={isDarkTheme} label="胜率" value={formatPercent(trader.win_rate)} />
             <MiniMetric isDarkTheme={isDarkTheme} label="仓位" value={String(positions.length)} />
           </div>
-          <div className={isDarkTheme ? "mt-2 text-[11px] font-bold text-slate-400" : "mt-2 text-[11px] font-bold text-slate-600"}>当前组合浮盈亏 {formatSignedPercent(pnl)}</div>
+          <div className={isDarkTheme ? "mt-2 text-[11px] font-bold text-slate-400" : "mt-2 text-[11px] font-bold text-slate-600"}>
+            当前组合浮盈亏 {formatSignedPercent(pnl)}
+            {trader.positions_synced_at ? ` · 同步 ${formatDisplayTime(trader.positions_synced_at)}` : ""}
+          </div>
         </div>
         <button
           className={isPinned ? getPinnedButtonClassName(isDarkTheme, true) : getPinnedButtonClassName(isDarkTheme, false)}
@@ -436,6 +447,9 @@ function PositionRow({ isDarkTheme, position, onSymbolSelect }: { isDarkTheme: b
         <div>
           <div className={isDarkTheme ? "text-sm font-black text-slate-50" : "text-sm font-black text-slate-950"}>{position.symbol}</div>
           <div className={isDarkTheme ? "mt-1 text-[11px] text-slate-500" : "mt-1 text-[11px] text-slate-500"}>入场 {formatPrice(position.entry_price)} · 当前 {formatPrice(position.current_price)}</div>
+          <div className={isDarkTheme ? "mt-1 text-[10px] font-bold text-slate-500" : "mt-1 text-[10px] font-bold text-slate-400"}>
+            数量 {formatQuantity(position.quantity)} · 名义 {formatCurrency(position.notional_value)}
+          </div>
         </div>
         <div className="text-right">
           <span className={directionClassName}>{position.direction === "long" ? "多" : "空"} {position.leverage}x</span>
@@ -445,7 +459,12 @@ function PositionRow({ isDarkTheme, position, onSymbolSelect }: { isDarkTheme: b
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/70">
         <div className={position.position_size_ratio >= 0.35 ? "h-full rounded-full bg-rose-500" : "h-full rounded-full bg-cyan-500"} style={{ width: `${Math.max(4, Math.min(100, position.position_size_ratio * 100))}%` }} />
       </div>
-      <div className={isDarkTheme ? "mt-1 text-[10px] text-slate-500" : "mt-1 text-[10px] text-slate-400"}>仓位占比 {formatPercent(position.position_size_ratio)} · {formatDisplayTime(position.open_time)}</div>
+      <div className={isDarkTheme ? "mt-1 text-[10px] text-slate-500" : "mt-1 text-[10px] text-slate-400"}>
+        仓位占比 {formatPercent(position.position_size_ratio)}
+        {position.margin_snapshot ? ` · 保证金 ${formatCurrency(position.margin_snapshot)}` : ""}
+        {" · "}
+        {formatDisplayTime(position.open_time)}
+      </div>
     </button>
   );
 }
@@ -654,8 +673,34 @@ function formatEquityStatus(status: EquityEtfSignalStatus): string {
   return "观察中";
 }
 
+function formatSourceStatus(status: string): string {
+  if (status === "ACTIVE") return "活跃";
+  if (status === "INACTIVE") return "未开放仓位";
+  if (status === "INVALID") return "失效";
+  return status || "未知";
+}
+
+function formatCurrency(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  const absValue = Math.abs(value);
+  if (absValue >= 1_000_000) {
+    return `$${(value / 1_000_000).toFixed(2)}M`;
+  }
+  if (absValue >= 1_000) {
+    return `$${(value / 1_000).toFixed(1)}K`;
+  }
+  return `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+}
+
 function formatPrice(value: number): string {
   return value.toLocaleString("en-US", { maximumFractionDigits: Math.abs(value) >= 1000 ? 1 : 4 });
+}
+
+function formatQuantity(value: number): string {
+  return value.toLocaleString("en-US", { maximumFractionDigits: Math.abs(value) >= 100 ? 2 : 6 });
 }
 
 function formatPercent(value: number): string {
