@@ -38,6 +38,10 @@ export function AiSignalSummaryOverlay({
         <span className="text-rose-500">空 {summary.shortPercent}%</span>
       </div>
 
+      <div className={isDarkTheme ? "mt-2 rounded-xl border border-slate-800 bg-slate-900/70 px-2.5 py-2 text-[11px] text-slate-400" : "mt-2 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 py-2 text-[11px] text-slate-500"}>
+        图上斜纹区是窗口统计，实心色块是当前信号计划。
+      </div>
+
       {summary.highlights.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {summary.highlights.slice(0, 3).map((range) => (

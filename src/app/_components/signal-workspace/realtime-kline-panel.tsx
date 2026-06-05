@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { intervals } from "@/app/_lib/demo-data";
 import { createSignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import {
-  HISTORICAL_CANDLE_LIMIT,
+  CHART_CANDLE_PAGE_LIMIT,
   fetchHistoricalCandles,
   prependHistoricalCandles,
   subscribeToBinanceKlines,
@@ -11,6 +11,7 @@ import {
 } from "@/app/_lib/binance-market-data";
 import { KlineChart, type ChartTheme } from "@/app/_components/kline-chart";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
+import type { CopyTradingTradeMarker } from "@/app/_types/copy-trading";
 import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 import { SymbolSearchInput } from "./symbol-search-input";
@@ -21,11 +22,13 @@ const LATEST_CANDLE_BACKFILL_LIMIT = 3;
 export function RealtimeKlinePanel({
   activePaperPosition,
   activeSignal,
+  focusSignalRequestKey,
   interval,
   marketOptions,
   symbol,
   signals,
   theme,
+  tradeMarkers,
   onIntervalChange,
   onSymbolChange,
   onSignalSelect,
@@ -33,11 +36,13 @@ export function RealtimeKlinePanel({
 }: {
   activePaperPosition: PaperPositionRecord | null;
   activeSignal: StructuredSignal | null;
+  focusSignalRequestKey: string | null;
   interval: KlineInterval;
   marketOptions: readonly MarketSymbol[];
   symbol: MarketSymbol;
   signals: readonly StructuredSignal[];
   theme: ChartTheme;
+  tradeMarkers: readonly CopyTradingTradeMarker[];
   onIntervalChange: (interval: KlineInterval) => void;
   onSymbolChange: (symbol: MarketSymbol) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
@@ -51,6 +56,7 @@ export function RealtimeKlinePanel({
   const isLoadingOlderHistoryRef = useRef(false);
   const isDarkTheme = theme === "dark";
   const chartEventSignals = useMemo(() => signals.filter((signal) => signal.symbol === symbol), [signals, symbol]);
+  const chartTradeMarkers = useMemo(() => tradeMarkers.filter((marker) => marker.symbol === symbol), [symbol, tradeMarkers]);
   const aiSummary = useMemo(() => createSignalAiSummary(chartEventSignals), [chartEventSignals]);
 
   useEffect(() => {
@@ -91,7 +97,7 @@ export function RealtimeKlinePanel({
     };
 
     fetchHistoricalCandles(symbol, interval, {
-      limit: HISTORICAL_CANDLE_LIMIT,
+      limit: CHART_CANDLE_PAGE_LIMIT,
       signal: abortController.signal,
     })
       .then((historicalCandles) => {
@@ -100,7 +106,7 @@ export function RealtimeKlinePanel({
         }
 
         setCandles(historicalCandles);
-        setCanLoadOlderHistory(historicalCandles.length >= HISTORICAL_CANDLE_LIMIT);
+        setCanLoadOlderHistory(historicalCandles.length >= CHART_CANDLE_PAGE_LIMIT);
         setLoadError(null);
         unsubscribe = subscribeToBinanceKlines(symbol, interval, {
           onOpen: () => {
@@ -155,7 +161,7 @@ export function RealtimeKlinePanel({
 
     try {
       const olderCandles = await fetchHistoricalCandles(symbol, interval, {
-        limit: HISTORICAL_CANDLE_LIMIT,
+        limit: CHART_CANDLE_PAGE_LIMIT,
         untilMs: oldestLoadedCandle.sourceTimeMs,
       });
 
@@ -165,7 +171,7 @@ export function RealtimeKlinePanel({
       }
 
       setCandles((currentCandles) => prependHistoricalCandles(currentCandles, olderCandles));
-      setCanLoadOlderHistory(olderCandles.length >= HISTORICAL_CANDLE_LIMIT);
+      setCanLoadOlderHistory(olderCandles.length >= CHART_CANDLE_PAGE_LIMIT);
       setLoadError(null);
     } catch (error: unknown) {
       setLoadError(error instanceof Error ? error.message : String(error));
@@ -210,8 +216,10 @@ export function RealtimeKlinePanel({
           candles={candles}
           canLoadOlderHistory={canLoadOlderHistory}
           eventSignals={chartEventSignals}
+          focusSignalRequestKey={focusSignalRequestKey}
           isLoadingOlderHistory={isLoadingOlderHistory}
           theme={theme}
+          tradeMarkers={chartTradeMarkers}
           onEventSignalSelect={onSignalSelect}
           onLoadOlderHistory={loadOlderHistory}
         />
