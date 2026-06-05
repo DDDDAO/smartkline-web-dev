@@ -154,16 +154,16 @@ Telegram OIDC login
 The workspace now has a right-panel module switcher:
 
 - `KOL 信源`: structured KOL messages and paper-position tracking.
-- `带单雷达`: Binance Smart Money traders, current positions, trade events, and the US stock / ETF signal area.
+- `带单雷达`: Signal Center signal sources, current positions, trade events, and the US stock / ETF signal area.
 
 The copy-trading radar reads Signal Center through a server-side BFF route so the
 `x-token` credential is never exposed to browser JavaScript:
 
 ```text
-GET /api/signal-center/v1/signal-sources?signalType=BinanceSmartMoney
+GET /api/signal-center/v1/signal-sources
 GET /api/signal-center/v1/signal-sources/{id}/positions
 GET /api/signal-center/v1/signal-sources/{id}/trades?limit=100
-GET /api/signal-center/v1/copy-trading-radar?signalType=BinanceSmartMoney&sourceLimit=12&tradeLimit=100
+GET /api/signal-center/v1/copy-trading-radar?sourceLimit=50&tradeLimit=100
 ```
 
 Configure these Vercel Environment Variables without the `NEXT_PUBLIC_` prefix:

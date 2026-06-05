@@ -185,7 +185,7 @@ type MockTradeBlueprint = {
 
 export async function fetchCopyTradingRadarSnapshot(): Promise<CopyTradingRadarSnapshot> {
   try {
-    const radarResponse = await requestSignalCenterJson<SignalCenterRadarSnapshotResponse>(`/v1/copy-trading-radar?signalType=${encodeURIComponent(SMART_MONEY_SIGNAL_TYPE)}&sourceLimit=12&tradeLimit=100`);
+    const radarResponse = await requestSignalCenterJson<SignalCenterRadarSnapshotResponse>("/v1/copy-trading-radar?sourceLimit=50&tradeLimit=100");
     const runtimeData = normalizeRadarRuntimeData(radarResponse.sources ?? []);
     if (runtimeData.length > 0) {
       return adaptSignalCenterRuntimeData(runtimeData, radarResponse.updatedAt ?? undefined);
@@ -198,14 +198,14 @@ export async function fetchCopyTradingRadarSnapshot(): Promise<CopyTradingRadarS
      */
   }
 
-  const sourcesResponse = await requestSignalCenterJson<SignalSourcesResponse>(`/v1/signal-sources?signalType=${encodeURIComponent(SMART_MONEY_SIGNAL_TYPE)}`);
-  const sources = (sourcesResponse.sources ?? []).filter((source) => source.signalType === SMART_MONEY_SIGNAL_TYPE || source.signalType.toLowerCase() === SMART_MONEY_SIGNAL_TYPE.toLowerCase());
+  const sourcesResponse = await requestSignalCenterJson<SignalSourcesResponse>("/v1/signal-sources");
+  const sources = sourcesResponse.sources ?? [];
 
   if (sources.length === 0) {
-    throw new Error("Signal Center did not return Binance Smart Money sources.");
+    throw new Error("Signal Center did not return signal sources.");
   }
 
-  const runtimeData = await loadLegacySourceRuntimeData(sources.slice(0, 12));
+  const runtimeData = await loadLegacySourceRuntimeData(sources.slice(0, 50));
   if (runtimeData.length === 0) {
     throw new Error("Signal Center returned sources, but no positions or trades could be loaded.");
   }
