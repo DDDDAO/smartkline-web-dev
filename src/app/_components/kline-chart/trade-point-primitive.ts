@@ -206,13 +206,13 @@ function createTradePointDrawingState(input: {
   const stackIndexes = new Map<string, number>();
 
   const items = markers.flatMap((marker) => {
-    const nearestCandle = findNearestCandle(candles, marker.sourceTimeMs);
-    if (!nearestCandle) {
+    const anchorCandle = findContainingCandle(candles, marker.sourceTimeMs);
+    if (!anchorCandle) {
       return [];
     }
 
-    const x = context.chart.timeScale().timeToCoordinate(nearestCandle.time);
-    const boundaryPrice = marker.side === "buy" ? nearestCandle.low : nearestCandle.high;
+    const x = resolveEventTimeCoordinate(context.chart, candles, marker.sourceTimeMs);
+    const boundaryPrice = marker.side === "buy" ? anchorCandle.low : anchorCandle.high;
     const candleBoundaryY = context.series.priceToCoordinate(boundaryPrice);
     if (x === null || candleBoundaryY === null) {
       return [];
@@ -223,7 +223,7 @@ function createTradePointDrawingState(input: {
       return [];
     }
 
-    const stackKey = `${nearestCandle.sourceTimeMs}:${marker.side}`;
+    const stackKey = `${Math.round(normalizedX)}:${marker.side}`;
     const stackIndex = stackIndexes.get(stackKey) ?? 0;
     stackIndexes.set(stackKey, stackIndex + 1);
     const isActive = marker.signalId === activeSignalId;
@@ -347,7 +347,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: n
   ctx.quadraticCurveTo(x, y, x + radius, y);
 }
 
-function findNearestCandle(candles: readonly MarketCandle[], sourceTimeMs: number): MarketCandle | null {
+function findContainingCandle(candles: readonly MarketCandle[], sourceTimeMs: number): MarketCandle | null {
   if (!Number.isFinite(sourceTimeMs) || candles.length === 0) {
     return null;
   }
@@ -369,16 +369,85 @@ function findNearestCandle(candles: readonly MarketCandle[], sourceTimeMs: numbe
     }
   }
 
-  const left = candles[Math.max(0, high)];
-  const right = candles[Math.min(candles.length - 1, low)];
-  if (!left) {
-    return right ?? null;
-  }
-  if (!right) {
-    return left;
+  return candles[Math.max(0, high)] ?? candles[0] ?? null;
+}
+
+function resolveEventTimeCoordinate(context: IChartApi, candles: readonly MarketCandle[], sourceTimeMs: number): number | null {
+  if (!Number.isFinite(sourceTimeMs) || candles.length === 0) {
+    return null;
   }
 
-  return Math.abs(left.sourceTimeMs - sourceTimeMs) <= Math.abs(right.sourceTimeMs - sourceTimeMs) ? left : right;
+  const firstCandle = candles[0];
+  const lastCandle = candles.at(-1);
+  if (!firstCandle || !lastCandle) {
+    return null;
+  }
+
+  if (sourceTimeMs <= firstCandle.sourceTimeMs) {
+    return toNumberCoordinate(context.timeScale().timeToCoordinate(firstCandle.time));
+  }
+
+  const firstIndexAtOrAfter = findFirstCandleIndexAtOrAfter(candles, sourceTimeMs);
+  const rightCandle = candles[firstIndexAtOrAfter];
+  const leftCandle = rightCandle && rightCandle.sourceTimeMs >= sourceTimeMs
+    ? candles[firstIndexAtOrAfter - 1]
+    : lastCandle;
+
+  if (!leftCandle) {
+    return toNumberCoordinate(context.timeScale().timeToCoordinate(rightCandle?.time ?? firstCandle.time));
+  }
+
+  const leftCoordinate = toNumberCoordinate(context.timeScale().timeToCoordinate(leftCandle.time));
+  if (leftCoordinate === null) {
+    return null;
+  }
+
+  if (!rightCandle || rightCandle.sourceTimeMs < sourceTimeMs) {
+    const previousCandle = candles[candles.length - 2];
+    const previousCoordinate = previousCandle ? toNumberCoordinate(context.timeScale().timeToCoordinate(previousCandle.time)) : null;
+    if (!previousCandle || previousCoordinate === null) {
+      return leftCoordinate;
+    }
+
+    const timeSpanMs = leftCandle.sourceTimeMs - previousCandle.sourceTimeMs;
+    if (timeSpanMs <= 0) {
+      return leftCoordinate;
+    }
+
+    return leftCoordinate + (leftCoordinate - previousCoordinate) * ((sourceTimeMs - leftCandle.sourceTimeMs) / timeSpanMs);
+  }
+
+  const rightCoordinate = toNumberCoordinate(context.timeScale().timeToCoordinate(rightCandle.time));
+  if (rightCoordinate === null) {
+    return null;
+  }
+
+  const timeSpanMs = rightCandle.sourceTimeMs - leftCandle.sourceTimeMs;
+  if (timeSpanMs <= 0) {
+    return leftCoordinate;
+  }
+
+  return leftCoordinate + (rightCoordinate - leftCoordinate) * ((sourceTimeMs - leftCandle.sourceTimeMs) / timeSpanMs);
+}
+
+function findFirstCandleIndexAtOrAfter(candles: readonly MarketCandle[], sourceTimeMs: number): number {
+  let low = 0;
+  let high = candles.length - 1;
+
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (candles[middle].sourceTimeMs < sourceTimeMs) {
+      low = middle + 1;
+    } else {
+      high = middle;
+    }
+  }
+
+  return low;
+}
+
+function toNumberCoordinate(coordinate: number | null): number | null {
+  return coordinate === null ? null : Number(coordinate);
 }
 
 function createStackOffset(side: "buy" | "sell", stackIndex: number, markerHeight: number): number {

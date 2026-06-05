@@ -23,7 +23,7 @@ import { createSignalPriceLines, KLINE_PRICE_FORMAT, toVolumeData } from "./klin
 import { createSignalEventRenderKey, renderSignalEventLabels } from "./kline-chart/signal-event-labels";
 import { SignalPriceRayPrimitive } from "./kline-chart/signal-price-ray-primitive";
 import { readTradePointMarkerId, TradePointPrimitive, type KlineTradePointMarker } from "./kline-chart/trade-point-primitive";
-import { computePaperPositionRecord, type PaperPositionRecord } from "@/app/_lib/paper-position";
+import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { SignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import type { MarketCandle } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
@@ -86,11 +86,7 @@ export function KlineChart({
   const onEventSignalSelectRef = useRef(onEventSignalSelect);
   const handledFocusSignalRequestKeyRef = useRef<string | null>(null);
   const eventLabelRenderKey = createSignalEventRenderKey(candles, eventSignals, theme);
-  const chartPaperPosition = useMemo(
-    () => activeSignal ? computePaperPositionRecord(activeSignal, candles, { currentPriceOverride: candles.at(-1)?.close ?? null }) : null,
-    [activeSignal, candles],
-  );
-  const paperTradeMarkers = useMemo(() => createPaperPositionTradeMarkers(chartPaperPosition, activeSignal), [chartPaperPosition, activeSignal]);
+  const paperTradeMarkers = useMemo(() => createPaperPositionTradeMarkers(activePaperPosition, activeSignal), [activePaperPosition, activeSignal]);
   const renderedTradeMarkers = useMemo(
     () => paperTradeMarkers.length > 0 ? [...tradeMarkers, ...paperTradeMarkers] : tradeMarkers,
     [paperTradeMarkers, tradeMarkers],
@@ -336,11 +332,11 @@ export function KlineChart({
       series.removePriceLine(priceLine);
     }
 
-    priceLineRefs.current = createSignalPriceLines(activeSignal, chartPaperPosition, candles.at(-1)?.close).map((line) => series.createPriceLine(line));
+    priceLineRefs.current = createSignalPriceLines(activeSignal, activePaperPosition, candles.at(-1)?.close).map((line) => series.createPriceLine(line));
 
     signalRayPrimitiveRef.current?.applyOptions({
       candles,
-      paperPosition: chartPaperPosition,
+      paperPosition: activePaperPosition,
       signal: activeSignal,
       theme,
     });
@@ -350,7 +346,7 @@ export function KlineChart({
       markers: renderedTradeMarkers,
       theme,
     });
-  }, [activeSignal, aiSummary, candles, chartPaperPosition, renderedTradeMarkers, theme]);
+  }, [activePaperPosition, activeSignal, aiSummary, candles, renderedTradeMarkers, theme]);
 
   useEffect(() => {
     const chart = chartRef.current;

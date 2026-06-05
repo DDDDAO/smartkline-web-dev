@@ -2,15 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import {
   HISTORICAL_CANDLE_LIMIT,
   fetchHistoricalCandles,
+  subscribeToBinanceKlines,
+  upsertCandle,
 } from "@/app/_lib/binance-market-data";
 import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 
-const PAPER_POSITION_INTERVAL: KlineInterval = "15m";
+const PAPER_POSITION_INTERVAL: KlineInterval = "1m";
+const PAPER_POSITION_MAX_CANDLE_PAGES = 15;
 
 type SignalCoverageGroup = {
   earliestSignalTimeMs: number | null;
-  newestSignalTimeMs: number | null;
   symbol: MarketSymbol;
 };
 
@@ -29,8 +31,9 @@ export function usePaperPositionCandles(
   latestPricesBySymbol: Record<string, number>;
 } {
   /**
-   * Paper-position state is confirmed from a fixed 15m history window. Chart
-   * markers are recalculated separately from the currently visible interval.
+   * Paper-position lifecycle is confirmed from a fixed 1m stream. Larger chart
+   * intervals lose the intrabar order, so they should only display these events
+   * instead of recomputing entry/exit from their own OHLC range.
    */
   const [candlesBySymbol, setCandlesBySymbol] = useState<Record<string, MarketCandle[]>>({});
   const [errorsBySymbol, setErrorsBySymbol] = useState<Record<string, string>>({});
@@ -47,11 +50,13 @@ export function usePaperPositionCandles(
   useEffect(() => {
     let isActive = true;
     const abortController = new AbortController();
+    const unsubscribeList: Array<() => void> = [];
 
     for (const group of signalGroups) {
       fetchPaperPositionCandles(
         group.symbol,
         PAPER_POSITION_INTERVAL,
+        group.earliestSignalTimeMs,
         abortController.signal,
       )
         .then((historicalCandles) => {
@@ -64,6 +69,33 @@ export function usePaperPositionCandles(
             [group.symbol]: historicalCandles,
           }));
           setErrorsBySymbol((currentErrorsBySymbol) => removeRecordKey(currentErrorsBySymbol, group.symbol));
+
+          const unsubscribe = subscribeToBinanceKlines(group.symbol, PAPER_POSITION_INTERVAL, {
+            onOpen: () => {
+              if (isActive) {
+                setErrorsBySymbol((currentErrorsBySymbol) => removeRecordKey(currentErrorsBySymbol, group.symbol));
+              }
+            },
+            onError: (error) => {
+              if (isActive) {
+                setErrorsBySymbol((currentErrorsBySymbol) => ({
+                  ...currentErrorsBySymbol,
+                  [group.symbol]: error.message,
+                }));
+              }
+            },
+            onCandle: (nextCandle) => {
+              if (!isActive) {
+                return;
+              }
+
+              setCandlesBySymbol((currentCandlesBySymbol) => ({
+                ...currentCandlesBySymbol,
+                [group.symbol]: upsertCandle(currentCandlesBySymbol[group.symbol] ?? [], nextCandle),
+              }));
+            },
+          });
+          unsubscribeList.push(unsubscribe);
         })
         .catch((error: unknown) => {
           if (isActive && !isAbortError(error)) {
@@ -78,6 +110,9 @@ export function usePaperPositionCandles(
     return () => {
       isActive = false;
       abortController.abort();
+      for (const unsubscribe of unsubscribeList) {
+        unsubscribe();
+      }
     };
   }, [signalGroups]);
 
@@ -106,20 +141,19 @@ function createLatestPriceRecord(
 
 function createSignalCoverageKey(signals: readonly StructuredSignal[]): string {
   const signalGroups = createSignalCoverageGroups(signals);
-  return JSON.stringify(signalGroups.map((group) => [group.symbol, group.earliestSignalTimeMs, group.newestSignalTimeMs]));
+  return JSON.stringify(signalGroups.map((group) => [group.symbol, group.earliestSignalTimeMs]));
 }
 
 function parseSignalCoverageKey(signalCoverageKey: string): SignalCoverageGroup[] {
-  const serializedGroups = JSON.parse(signalCoverageKey) as [MarketSymbol, number | null, number | null][];
-  return serializedGroups.map(([symbol, earliestSignalTimeMs, newestSignalTimeMs]) => ({
+  const serializedGroups = JSON.parse(signalCoverageKey) as [MarketSymbol, number | null][];
+  return serializedGroups.map(([symbol, earliestSignalTimeMs]) => ({
     earliestSignalTimeMs,
-    newestSignalTimeMs,
     symbol,
   }));
 }
 
 function createSignalCoverageGroups(signals: readonly StructuredSignal[]): SignalCoverageGroup[] {
-  const signalTimeRangeBySymbol = new Map<MarketSymbol, { earliestSignalTimeMs: number | null; newestSignalTimeMs: number | null }>();
+  const signalTimeRangeBySymbol = new Map<MarketSymbol, { earliestSignalTimeMs: number | null }>();
 
   for (const signal of signals) {
     const signalTimeMs = getSignalTimeMs(signal);
@@ -128,7 +162,6 @@ function createSignalCoverageGroups(signals: readonly StructuredSignal[]): Signa
     if (!currentRange) {
       signalTimeRangeBySymbol.set(signal.symbol, {
         earliestSignalTimeMs: signalTimeMs,
-        newestSignalTimeMs: signalTimeMs,
       });
       continue;
     }
@@ -139,10 +172,6 @@ function createSignalCoverageGroups(signals: readonly StructuredSignal[]): Signa
 
     if (currentRange.earliestSignalTimeMs === null || signalTimeMs < currentRange.earliestSignalTimeMs) {
       currentRange.earliestSignalTimeMs = signalTimeMs;
-    }
-
-    if (currentRange.newestSignalTimeMs === null || signalTimeMs > currentRange.newestSignalTimeMs) {
-      currentRange.newestSignalTimeMs = signalTimeMs;
     }
   }
 
@@ -166,12 +195,49 @@ function removeRecordKey<T>(record: Record<string, T>, keyToRemove: string): Rec
 async function fetchPaperPositionCandles(
   symbol: MarketSymbol,
   interval: KlineInterval,
+  earliestSignalTimeMs: number | null,
   signal?: AbortSignal,
 ): Promise<MarketCandle[]> {
-  return fetchHistoricalCandles(symbol, interval, {
+  let candles = await fetchHistoricalCandles(symbol, interval, {
     limit: HISTORICAL_CANDLE_LIMIT,
     signal,
   });
+
+  if (earliestSignalTimeMs === null) {
+    return candles;
+  }
+
+  for (let pageIndex = 1; pageIndex < PAPER_POSITION_MAX_CANDLE_PAGES; pageIndex += 1) {
+    const oldestCandle = candles[0];
+    if (!oldestCandle || oldestCandle.sourceTimeMs <= earliestSignalTimeMs) {
+      break;
+    }
+
+    const olderCandles = await fetchHistoricalCandles(symbol, interval, {
+      limit: HISTORICAL_CANDLE_LIMIT,
+      signal,
+      untilMs: oldestCandle.sourceTimeMs,
+    });
+    if (olderCandles.length === 0) {
+      break;
+    }
+
+    candles = mergeCandles(olderCandles, candles);
+  }
+
+  return candles;
+}
+
+function mergeCandles(leftCandles: readonly MarketCandle[], rightCandles: readonly MarketCandle[]): MarketCandle[] {
+  const candlesByTime = new Map<number, MarketCandle>();
+  for (const candle of leftCandles) {
+    candlesByTime.set(candle.sourceTimeMs, candle);
+  }
+  for (const candle of rightCandles) {
+    candlesByTime.set(candle.sourceTimeMs, candle);
+  }
+
+  return Array.from(candlesByTime.values()).sort((left, right) => left.sourceTimeMs - right.sourceTimeMs);
 }
 
 function getSignalTimeMs(signal: StructuredSignal): number | null {
