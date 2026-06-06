@@ -23,7 +23,7 @@ import { createSignalPriceLines, KLINE_PRICE_FORMAT, toVolumeData } from "./klin
 import { createSignalEventRenderKey, renderSignalEventLabels } from "./kline-chart/signal-event-labels";
 import { SignalPriceRayPrimitive } from "./kline-chart/signal-price-ray-primitive";
 import { readTradePointMarkerId, TradePointPrimitive, type KlineTradePointMarker } from "./kline-chart/trade-point-primitive";
-import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { SignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import type { KlineInterval, MarketCandle } from "@/app/_types/market";
@@ -54,6 +54,8 @@ const LEFT_EDGE_HISTORY_THRESHOLD_BARS = 80;
 const INITIAL_VISIBLE_CANDLE_COUNT = 240;
 const RIGHT_EDGE_FOLLOW_THRESHOLD_BARS = 2;
 const CANDLE_COUNTDOWN_UPDATE_MS = 1_000;
+const RIGHT_PRICE_SCALE_WIDTH = 132;
+const CURRENT_PRICE_TAG_HEIGHT = 74;
 const KLINE_INTERVAL_MS_BY_INTERVAL: Record<KlineInterval, number> = {
   "1d": 86_400_000,
   "1h": 3_600_000,
@@ -83,7 +85,7 @@ export function KlineChart({
 }: KlineChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hiddenSignalHintRef = useRef<HTMLDivElement | null>(null);
-  const currentPriceCountdownRef = useRef<HTMLDivElement | null>(null);
+  const currentPriceTagRef = useRef<HTMLDivElement | null>(null);
   const labelOverlayRef = useRef<HTMLDivElement | null>(null);
   const lifecycleOverlayRef = useRef<HTMLDivElement | null>(null);
   const signalDataGuideTargetRef = useRef<HTMLDivElement | null>(null);
@@ -163,7 +165,7 @@ export function KlineChart({
       },
       rightPriceScale: {
         borderColor: palette.border,
-        minimumWidth: 118,
+        minimumWidth: RIGHT_PRICE_SCALE_WIDTH,
         tickMarkDensity: 4.5,
       },
       timeScale: {
@@ -236,13 +238,11 @@ export function KlineChart({
         series: candleSeries,
         signal: drawableSignal,
       });
-      renderCurrentPriceCountdown({
+      renderCurrentPriceTag({
+        candle: candlesRef.current.at(-1) ?? null,
         countdownText: currentCandleCountdownTextRef.current,
-        currentPrice: candlesRef.current.at(-1)?.close ?? null,
-        element: currentPriceCountdownRef.current,
-        language: languageRef.current,
+        element: currentPriceTagRef.current,
         series: candleSeries,
-        theme: themeRef.current,
       });
       renderHiddenSignalHint({
         element: hiddenSignalHintRef.current,
@@ -325,7 +325,7 @@ export function KlineChart({
       },
       rightPriceScale: {
         borderColor: palette.border,
-        minimumWidth: 118,
+        minimumWidth: RIGHT_PRICE_SCALE_WIDTH,
         tickMarkDensity: 4.5,
       },
       timeScale: {
@@ -366,13 +366,11 @@ export function KlineChart({
       lifecycleOverlayRef.current?.replaceChildren();
       labelOverlayRef.current?.removeAttribute("data-signal-event-hidden-right");
       lifecycleOverlayRef.current?.removeAttribute("data-lifecycle-hidden-right");
-      renderCurrentPriceCountdown({
+      renderCurrentPriceTag({
+        candle: null,
         countdownText: "",
-        currentPrice: null,
-        element: currentPriceCountdownRef.current,
-        language,
+        element: currentPriceTagRef.current,
         series: candleSeriesRef.current,
-        theme,
       });
       renderHiddenSignalHint({ element: hiddenSignalHintRef.current, isDarkTheme: theme === "dark", isVisible: false });
       hasFittedContentRef.current = false;
@@ -406,15 +404,13 @@ export function KlineChart({
   }, [candles, language, theme]);
 
   useEffect(() => {
-    renderCurrentPriceCountdown({
+    renderCurrentPriceTag({
+      candle: candles.at(-1) ?? null,
       countdownText: currentCandleCountdownText,
-      currentPrice: candles.at(-1)?.close ?? null,
-      element: currentPriceCountdownRef.current,
-      language,
+      element: currentPriceTagRef.current,
       series: candleSeriesRef.current,
-      theme,
     });
-  }, [candles, currentCandleCountdownText, language, theme]);
+  }, [candles, currentCandleCountdownText]);
 
   useEffect(() => {
     const drawableSignal = activeSignalDrawingReadyRef.current
@@ -466,7 +462,7 @@ export function KlineChart({
     priceLineRefs.current = createSignalPriceLines(
       drawableSignal,
       drawablePaperPosition,
-      candles.at(-1)?.close,
+      candles.at(-1),
       language,
     ).map((line) => series.createPriceLine(line));
 
@@ -546,14 +542,12 @@ export function KlineChart({
     <div className="relative h-full w-full">
       <div ref={containerRef} className="absolute inset-0" />
       <div ref={signalDataGuideTargetRef} data-guide-target="kline-signal-data" aria-hidden="true" className="pointer-events-none absolute z-10" />
-      <div data-guide-target="kline-kol-avatars" aria-hidden="true" className="pointer-events-none absolute bottom-2 left-4 right-[124px] z-10 h-28" />
+      <div data-guide-target="kline-kol-avatars" aria-hidden="true" className="pointer-events-none absolute bottom-2 left-4 right-[138px] z-10 h-28" />
       <div ref={hiddenSignalHintRef} aria-hidden="true" className="hidden" />
       <div
-        ref={currentPriceCountdownRef}
+        ref={currentPriceTagRef}
         aria-hidden="true"
-        className={theme === "dark"
-          ? "pointer-events-none absolute z-40 rounded-full border border-white/[0.10] bg-[#181A20]/96 px-2 py-1 text-[10px] font-bold leading-none text-sky-200 opacity-0 shadow-[0_8px_22px_rgba(0,0,0,0.30)] backdrop-blur"
-          : "pointer-events-none absolute z-40 rounded-full border border-[#B7E8FC] bg-white/96 px-2 py-1 text-[10px] font-bold leading-none text-[#007DB8] opacity-0 shadow-[0_8px_22px_rgba(15,23,42,0.12)] backdrop-blur"}
+        className="pointer-events-none absolute z-40 opacity-0"
       />
       <div ref={labelOverlayRef} className="pointer-events-none absolute inset-0 z-20 overflow-hidden" />
       <div ref={lifecycleOverlayRef} className="pointer-events-none absolute inset-0 z-30 overflow-hidden" />
@@ -603,47 +597,81 @@ function formatKlineCandleCountdown(candle: MarketCandle | null, interval: Kline
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
 
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function renderCurrentPriceCountdown(input: {
+function renderCurrentPriceTag(input: {
+  candle: MarketCandle | null;
   countdownText: string;
-  currentPrice: number | null;
   element: HTMLDivElement | null;
-  language: WorkspaceLanguage;
   series: ISeriesApi<"Candlestick"> | null;
-  theme: ChartTheme;
 }): void {
-  const { countdownText, currentPrice, element, language, series, theme } = input;
+  const { candle, countdownText, element, series } = input;
   const container = element?.parentElement;
-  if (!element || !container || !series || currentPrice === null || !countdownText) {
-    hideCurrentPriceCountdown(element);
+  if (!element || !container || !series || !candle || !countdownText) {
+    hideCurrentPriceTag(element);
     return;
   }
 
-  const coordinate = series.priceToCoordinate(currentPrice);
+  const coordinate = series.priceToCoordinate(candle.close);
   if (coordinate === null || !Number.isFinite(coordinate)) {
-    hideCurrentPriceCountdown(element);
+    hideCurrentPriceTag(element);
     return;
   }
 
+  const tagColor = getCurrentCandleColor(candle);
   const containerHeight = container.clientHeight;
-  const top = clampNumber(coordinate + 18, 42, Math.max(42, containerHeight - 34));
-  const copy = getWorkspaceCopy(language);
+  const top = clampNumber(
+    coordinate - CURRENT_PRICE_TAG_HEIGHT / 2,
+    4,
+    Math.max(4, containerHeight - CURRENT_PRICE_TAG_HEIGHT - 4),
+  );
+  const priceText = document.createElement("span");
+  const countdown = document.createElement("span");
 
-  element.textContent = copy.kline.candleCountdown(countdownText);
-  element.style.right = "76px";
+  priceText.textContent = KLINE_PRICE_FORMAT.formatter(candle.close);
+  priceText.style.fontSize = "20px";
+  priceText.style.lineHeight = "22px";
+
+  countdown.textContent = countdownText;
+  countdown.style.fontSize = "20px";
+  countdown.style.lineHeight = "22px";
+  countdown.style.opacity = "0.96";
+
+  element.replaceChildren(priceText, countdown);
+  element.style.alignItems = "center";
+  element.style.background = tagColor;
+  element.style.borderRadius = "8px";
+  element.style.boxShadow = "0 10px 22px rgba(15, 23, 42, 0.14)";
+  element.style.color = "#FFFFFF";
+  element.style.display = "flex";
+  element.style.flexDirection = "column";
+  element.style.fontVariantNumeric = "tabular-nums";
+  element.style.fontWeight = "700";
+  element.style.gap = "4px";
+  element.style.justifyContent = "center";
+  element.style.letterSpacing = "-0.02em";
+  element.style.minHeight = `${CURRENT_PRICE_TAG_HEIGHT}px`;
+  element.style.overflow = "hidden";
+  element.style.padding = "8px 12px";
+  element.style.right = "0px";
+  element.style.textAlign = "center";
   element.style.top = `${Math.round(top)}px`;
+  element.style.whiteSpace = "nowrap";
+  element.style.width = `${RIGHT_PRICE_SCALE_WIDTH}px`;
   element.style.opacity = "1";
-  element.style.color = theme === "dark" ? "#BAE6FD" : "#007DB8";
 }
 
-function hideCurrentPriceCountdown(element: HTMLDivElement | null): void {
+function hideCurrentPriceTag(element: HTMLDivElement | null): void {
   if (!element) {
     return;
   }
 
   element.style.opacity = "0";
+}
+
+function getCurrentCandleColor(candle: MarketCandle): string {
+  return candle.close >= candle.open ? "#2FBD85" : "#F6465D";
 }
 
 function clampNumber(value: number, min: number, max: number): number {

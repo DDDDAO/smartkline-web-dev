@@ -38,7 +38,7 @@ function formatKlinePriceAxisValue(priceValue: number): string {
 export function createSignalPriceLines(
   signal: StructuredSignal | null,
   paperPosition: PaperPositionRecord | null,
-  currentPrice: number | undefined,
+  currentCandle: MarketCandle | undefined,
   language: WorkspaceLanguage = "zh-CN",
 ): CreatePriceLineOptions[] {
   const copy = getWorkspaceCopy(language);
@@ -63,8 +63,15 @@ export function createSignalPriceLines(
     }
   }
 
-  if (currentPrice !== undefined) {
-    lines.push({ price: currentPrice, color: "#00A6F4", lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: copy.kline.currentPrice });
+  if (currentCandle !== undefined) {
+    lines.push({
+      price: currentCandle.close,
+      color: currentCandle.close >= currentCandle.open ? "#2FBD85" : "#F6465D",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: false,
+      title: copy.kline.currentPrice,
+    });
   }
 
   return lines;
