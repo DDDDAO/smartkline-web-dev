@@ -1,3 +1,4 @@
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { StructuredSignal } from "@/app/_types/signal";
 
 export type SignalAiHighlightTone = "long" | "short" | "disagreement" | "risk" | "target";
@@ -21,7 +22,8 @@ export type SignalAiSummary = {
   totalCount: number;
 };
 
-export function createSignalAiSummary(signals: readonly StructuredSignal[]): SignalAiSummary {
+export function createSignalAiSummary(signals: readonly StructuredSignal[], language: WorkspaceLanguage = "zh-CN"): SignalAiSummary {
+  const copy = getWorkspaceCopy(language);
   const totalCount = signals.length;
   const longCount = signals.filter((signal) => signal.direction === "long").length;
   const shortCount = totalCount - longCount;
@@ -32,24 +34,24 @@ export function createSignalAiSummary(signals: readonly StructuredSignal[]): Sig
   const stopLossRange = createPriceClusterRange(signals.flatMap((signal) => signal.stop_loss === null ? [] : [signal.stop_loss]));
   const takeProfitRange = createPriceClusterRange(signals.flatMap((signal) => signal.take_profit));
   const highlights: SignalAiHighlightRange[] = [
-    ...longEntries.map((range) => ({ ...range, label: "多头密集入场区", tone: "long" as const })),
-    ...shortEntries.map((range) => ({ ...range, label: "空头密集入场区", tone: "short" as const })),
+    ...longEntries.map((range) => ({ ...range, label: copy.ai.highlightLabels.long, tone: "long" as const })),
+    ...shortEntries.map((range) => ({ ...range, label: copy.ai.highlightLabels.short, tone: "short" as const })),
   ];
 
   const disagreementRange = createDisagreementRange(longEntries[0] ?? null, shortEntries[0] ?? null);
   if (disagreementRange) {
-    highlights.push({ ...disagreementRange, label: "多空分歧区", tone: "disagreement" });
+    highlights.push({ ...disagreementRange, label: copy.ai.highlightLabels.disagreement, tone: "disagreement" });
   }
 
   if (stopLossRange) {
-    highlights.push({ ...stopLossRange, label: "止损密集区", tone: "risk" });
+    highlights.push({ ...stopLossRange, label: copy.ai.highlightLabels.risk, tone: "risk" });
   }
 
   if (takeProfitRange) {
-    highlights.push({ ...takeProfitRange, label: "止盈密集区", tone: "target" });
+    highlights.push({ ...takeProfitRange, label: copy.ai.highlightLabels.target, tone: "target" });
   }
 
-  const dominantSideText = longPercent === shortPercent ? "多空接近均衡" : longPercent > shortPercent ? "多头占优" : "空头占优";
+  const dominantSideText = longPercent === shortPercent ? copy.ai.dominantBalanced : longPercent > shortPercent ? copy.ai.dominantLong : copy.ai.dominantShort;
   const resonanceCount = countResonanceGroups(signals);
 
   return {
@@ -61,8 +63,8 @@ export function createSignalAiSummary(signals: readonly StructuredSignal[]): Sig
     shortCount,
     shortPercent,
     summaryText: totalCount > 0
-      ? `${dominantSideText}，当前窗口识别 ${totalCount} 条情报，${resonanceCount} 组价格共振。`
-      : "当前窗口暂无可统计情报。",
+      ? copy.ai.summary(dominantSideText, totalCount, resonanceCount)
+      : copy.ai.noStats,
     totalCount,
   };
 }

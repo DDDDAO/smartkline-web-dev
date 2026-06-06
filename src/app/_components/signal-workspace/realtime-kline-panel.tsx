@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { intervals } from "@/app/_lib/demo-data";
 import { createSignalAiSummary } from "@/app/_lib/signal-ai-summary";
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
 import {
   CHART_CANDLE_PAGE_LIMIT,
   fetchHistoricalCandles,
@@ -23,7 +24,9 @@ export function RealtimeKlinePanel({
   activePaperPosition,
   activeSignal,
   focusSignalRequestKey,
+  isActivePaperPositionReady,
   interval,
+  language,
   marketOptions,
   symbol,
   signals,
@@ -38,7 +41,9 @@ export function RealtimeKlinePanel({
   activePaperPosition: PaperPositionRecord | null;
   activeSignal: StructuredSignal | null;
   focusSignalRequestKey: string | null;
+  isActivePaperPositionReady: boolean;
   interval: KlineInterval;
+  language: WorkspaceLanguage;
   marketOptions: readonly MarketSymbol[];
   symbol: MarketSymbol;
   signals: readonly StructuredSignal[];
@@ -57,9 +62,11 @@ export function RealtimeKlinePanel({
   const candlesRef = useRef<readonly MarketCandle[]>([]);
   const isLoadingOlderHistoryRef = useRef(false);
   const isDarkTheme = theme === "dark";
+  const copy = getWorkspaceCopy(language);
+  const isInitialLoading = candles.length === 0 && !loadError;
   const chartEventSignals = useMemo(() => signals.filter((signal) => signal.symbol === symbol), [signals, symbol]);
   const chartTradeMarkers = useMemo(() => tradeMarkers.filter((marker) => marker.symbol === symbol), [symbol, tradeMarkers]);
-  const aiSummary = useMemo(() => createSignalAiSummary(chartEventSignals), [chartEventSignals]);
+  const aiSummary = useMemo(() => createSignalAiSummary(chartEventSignals, language), [chartEventSignals, language]);
 
   useEffect(() => {
     candlesRef.current = candles;
@@ -184,24 +191,25 @@ export function RealtimeKlinePanel({
   }, [canLoadOlderHistory, interval, symbol]);
 
   return (
-    <section className={isDarkTheme ? "flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm" : "flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"}>
-      <div className={isDarkTheme ? "flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-4 py-3" : "flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3"}>
+    <section className={isDarkTheme ? "flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#181A20]" : "flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]"}>
+      <div className={isDarkTheme ? "flex min-h-[48px] flex-wrap items-center justify-between gap-3 border-b border-white/[0.075] bg-white/[0.055] px-5 py-1.5" : "flex min-h-[48px] flex-wrap items-center justify-between gap-3 border-b border-[#E5EAF0] bg-white px-5 py-1.5"}>
         <div>
-          <h1 className={isDarkTheme ? "text-base font-semibold text-slate-50" : "text-base font-semibold text-slate-950"}>K线看盘区</h1>
+          <h1 className={isDarkTheme ? "text-base font-semibold tracking-tight text-slate-50" : "text-base font-semibold tracking-tight text-slate-950"}>{copy.realtime.title}</h1>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <SymbolSearchInput
             key={symbol}
             isDarkTheme={isDarkTheme}
+            language={language}
             marketOptions={marketOptions}
             symbol={symbol}
             onSymbolChange={onSymbolChange}
           />
-          <div className={isDarkTheme ? "flex gap-1 rounded-xl border border-slate-700 bg-slate-950 p-1" : "flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1"}>
+          <div className={isDarkTheme ? "flex h-[30px] items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5" : "flex h-[30px] items-center gap-1 rounded-full border border-[#E5EAF0] bg-[#F8FAFC] p-0.5"}>
             {intervals.map((item) => (
               <button
                 key={item}
-                className={item === interval ? "rounded-lg bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-white" : isDarkTheme ? "rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-100" : "rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-white hover:text-slate-950"}
+                className={item === interval ? "h-6 rounded-full bg-[#00A6F4] px-3 text-xs font-semibold text-white" : isDarkTheme ? "h-6 rounded-full px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.08] hover:text-slate-100" : "h-6 rounded-full px-3 text-xs font-medium text-slate-500 hover:bg-white hover:text-slate-950"}
                 onClick={() => onIntervalChange(item)}
               >
                 {item}
@@ -213,8 +221,10 @@ export function RealtimeKlinePanel({
       <div className="relative min-h-0 flex-1">
         <KlineChart
           activePaperPosition={activePaperPosition}
+          activeSignalDrawingReady={isActivePaperPositionReady}
           activeSignal={activeSignal}
           aiSummary={aiSummary}
+          language={language}
           candles={candles}
           canLoadOlderHistory={canLoadOlderHistory}
           eventSignals={chartEventSignals}
@@ -226,11 +236,12 @@ export function RealtimeKlinePanel({
           onFocusSignalRequestHandled={onFocusSignalRequestHandled}
           onLoadOlderHistory={loadOlderHistory}
         />
+        {isInitialLoading ? <KlineLoadingOverlay isDarkTheme={isDarkTheme} /> : null}
         {loadError && candles.length === 0 ? (
-          <MarketEnvironmentGuide error={loadError} isDarkTheme={isDarkTheme} />
+          <MarketEnvironmentGuide copy={copy} error={loadError} isDarkTheme={isDarkTheme} />
         ) : loadError ? (
-          <div className={isDarkTheme ? "pointer-events-none absolute right-4 top-4 z-40 max-w-md rounded-xl border border-rose-900/70 bg-rose-950/80 px-3 py-2 text-xs text-rose-200 shadow-sm backdrop-blur" : "pointer-events-none absolute right-4 top-4 z-40 max-w-md rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 shadow-sm"}>
-            行情连接异常：{loadError}
+          <div className={isDarkTheme ? "pointer-events-none absolute right-4 top-4 z-40 max-w-md rounded-2xl border border-amber-500/20 bg-[#181A20]/94 px-3 py-2 text-xs text-amber-100 shadow-[0_12px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl" : "pointer-events-none absolute right-4 top-4 z-40 max-w-md rounded-2xl border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs text-amber-800 shadow-[0_10px_28px_rgba(15,23,42,0.08)] backdrop-blur-xl"}>
+            {copy.realtime.errorInline(loadError)}
           </div>
         ) : null}
       </div>
@@ -238,22 +249,41 @@ export function RealtimeKlinePanel({
   );
 }
 
+function KlineLoadingOverlay({ isDarkTheme }: { isDarkTheme: boolean }) {
+  const shellClassName = isDarkTheme
+    ? "pointer-events-none absolute inset-0 z-30 bg-[#181A20]/88"
+    : "pointer-events-none absolute inset-0 z-30 bg-white/86";
+  const barClassName = "kline-loading-bar rounded-[1px] bg-[#00A6F4]";
+
+  return (
+    <div className={`${shellClassName} flex items-center justify-center`}>
+      <div className="flex items-end justify-center gap-[5px]">
+        <div className={`${barClassName} h-[8px] w-[4px]`} style={{ animationDelay: "-0.32s" }} />
+        <div className={`${barClassName} h-[8px] w-[4px]`} style={{ animationDelay: "-0.24s" }} />
+        <div className={`${barClassName} h-[8px] w-[4px]`} style={{ animationDelay: "-0.16s" }} />
+        <div className={`${barClassName} h-[14px] w-[4px]`} style={{ animationDelay: "-0.08s" }} />
+        <div className={`${barClassName} h-[20px] w-[4px]`} style={{ animationDelay: "0s" }} />
+      </div>
+    </div>
+  );
+}
+
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-function MarketEnvironmentGuide({ error, isDarkTheme }: { error: string; isDarkTheme: boolean }) {
+function MarketEnvironmentGuide({ copy, error, isDarkTheme }: { copy: ReturnType<typeof getWorkspaceCopy>; error: string; isDarkTheme: boolean }) {
   return (
     <div className="absolute inset-0 z-40 grid place-items-center px-6">
       <div className={isDarkTheme ? "max-w-lg rounded-3xl border border-slate-700 bg-slate-950/92 p-6 text-slate-100 shadow-2xl backdrop-blur" : "max-w-lg rounded-3xl border border-slate-200 bg-white/94 p-6 text-slate-950 shadow-2xl backdrop-blur"}>
-        <div className={isDarkTheme ? "text-sm font-bold text-cyan-300" : "text-sm font-bold text-cyan-700"}>行情图加载失败</div>
-        <h3 className="mt-2 text-xl font-black">请检查地区网络环境</h3>
+        <div className={isDarkTheme ? "text-sm font-bold text-cyan-300" : "text-sm font-bold text-cyan-700"}>{copy.realtime.guideEyebrow}</div>
+        <h3 className="mt-2 text-xl font-black">{copy.realtime.guideTitle}</h3>
         <p className={isDarkTheme ? "mt-3 text-sm leading-6 text-slate-300" : "mt-3 text-sm leading-6 text-slate-600"}>
-          当前行情图加载失败，可能与地区网络环境有关。请切换网络地区或开启可访问 Binance 行情源的网络环境后重试。
+          {copy.realtime.guideDescription}
         </p>
         <div className={isDarkTheme ? "mt-4 rounded-2xl bg-slate-900 p-3 text-xs leading-5 text-slate-400" : "mt-4 rounded-2xl bg-slate-50 p-3 text-xs leading-5 text-slate-500"}>
-          <div>建议环境：可正常访问 Binance 行情数据。</div>
-          <div>当前错误：{error}</div>
+          <div>{copy.realtime.guideEnvironment}</div>
+          <div>{copy.realtime.guideCurrentError(error)}</div>
         </div>
       </div>
     </div>

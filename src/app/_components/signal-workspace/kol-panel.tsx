@@ -1,29 +1,53 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { fetchBinanceAssetIconMap } from "@/app/_lib/binance-asset-icons";
+import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type { KolSignalSourceStatus } from "./types";
-import { KolSignalSourceNotice, SignalField, SourceAvatar, TelegramSignalMessage } from "./card-ui";
-import { PaperPositionSummary, formatSignalPaperPositionStatus, getSignalDirectionBadgeClass, getSignalPaperPositionBadgeClass } from "./paper-position-summary";
-import { RawSignalDialog } from "./raw-signal-dialog";
+import {
+  formatKolSourceType,
+  getSymbolBaseAsset,
+  SignalField,
+  SourceAvatar,
+  SymbolIcon,
+  TelegramSignalMessage,
+} from "./card-ui";
+import {
+  PaperPositionSummary,
+  getPaperPositionBadgeClass,
+  formatSignalPaperPositionStatus,
+  getSignalDirectionBadgeClass,
+  getSignalPaperPositionBadgeClass,
+} from "./paper-position-summary";
 
-const ALL_SYMBOL_FILTER = "全部币种";
-const ALL_DIRECTION_FILTER = "全部多空";
-const ALL_KOL_FILTER = "全部KOL";
-
+const ALL_SYMBOL_FILTER = "__all_symbols__";
+const ALL_DIRECTION_FILTER = "__all_directions__";
+const ALL_KOL_FILTER = "__all_kols__";
 export function KolPanel({
   activeSignal,
+  copy,
   isDarkTheme,
   paperPositionErrorsBySymbol,
   paperPositionsBySignalId,
+  headerAction,
   sourceStatus,
   signals,
   onSignalSelect,
 }: {
   activeSignal: StructuredSignal | null;
+  copy: WorkspaceCopy;
   isDarkTheme: boolean;
   paperPositionErrorsBySymbol: Readonly<Record<string, string>>;
   paperPositionsBySignalId: Readonly<Record<string, PaperPositionRecord>>;
+  headerAction?: ReactNode;
   sourceStatus: KolSignalSourceStatus;
   signals: readonly StructuredSignal[];
   onSignalSelect: (signal: StructuredSignal) => void;
@@ -32,28 +56,61 @@ export function KolPanel({
   const cardRefs = useRef(new Map<string, HTMLDivElement>());
   const previousCardRectsRef = useRef(new Map<string, DOMRect>());
   const previousSignalIdsRef = useRef(new Set<string>());
-  const [rawSignalDialogSignal, setRawSignalDialogSignal] = useState<StructuredSignal | null>(null);
-  const [flippedSignalIds, setFlippedSignalIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [flippedSignalIds, setFlippedSignalIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [symbolFilter, setSymbolFilter] = useState<string>(ALL_SYMBOL_FILTER);
-  const [directionFilter, setDirectionFilter] = useState<string>(ALL_DIRECTION_FILTER);
+  const [directionFilter, setDirectionFilter] =
+    useState<string>(ALL_DIRECTION_FILTER);
   const [kolFilter, setKolFilter] = useState<string>(ALL_KOL_FILTER);
-  const symbolOptions = useMemo(() => createUniqueOptions(signals.map((signal) => signal.symbol)), [signals]);
-  const directionOptions = useMemo(() => createUniqueOptions(signals.map((signal) => signal.direction)), [signals]);
-  const kolOptions = useMemo(() => createUniqueOptions(signals.map((signal) => signal.source_name)), [signals]);
-  const effectiveSymbolFilter = symbolFilter !== ALL_SYMBOL_FILTER && symbolOptions.includes(symbolFilter) ? symbolFilter : ALL_SYMBOL_FILTER;
-  const effectiveDirectionFilter = directionFilter !== ALL_DIRECTION_FILTER && directionOptions.includes(directionFilter as StructuredSignal["direction"]) ? directionFilter : ALL_DIRECTION_FILTER;
-  const effectiveKolFilter = kolFilter !== ALL_KOL_FILTER && kolOptions.includes(kolFilter) ? kolFilter : ALL_KOL_FILTER;
-  const visibleSignals = useMemo(() => signals.filter((signal) => {
-    const matchesSymbol = effectiveSymbolFilter === ALL_SYMBOL_FILTER || signal.symbol === effectiveSymbolFilter;
-    const matchesDirection = effectiveDirectionFilter === ALL_DIRECTION_FILTER || signal.direction === effectiveDirectionFilter;
-    const matchesKol = effectiveKolFilter === ALL_KOL_FILTER || signal.source_name === effectiveKolFilter;
+  const [symbolIconUrlsByAsset, setSymbolIconUrlsByAsset] = useState<Readonly<Record<string, string>>>({});
+  const symbolOptions = useMemo(
+    () => createUniqueOptions(signals.map((signal) => signal.symbol)),
+    [signals],
+  );
+  const directionOptions = useMemo(
+    () => createUniqueOptions(signals.map((signal) => signal.direction)),
+    [signals],
+  );
+  const kolOptions = useMemo(
+    () => createUniqueOptions(signals.map((signal) => signal.source_name)),
+    [signals],
+  );
+  const effectiveSymbolFilter =
+    symbolFilter !== ALL_SYMBOL_FILTER && symbolOptions.includes(symbolFilter)
+      ? symbolFilter
+      : ALL_SYMBOL_FILTER;
+  const effectiveDirectionFilter =
+    directionFilter !== ALL_DIRECTION_FILTER &&
+    directionOptions.includes(directionFilter as StructuredSignal["direction"])
+      ? directionFilter
+      : ALL_DIRECTION_FILTER;
+  const effectiveKolFilter =
+    kolFilter !== ALL_KOL_FILTER && kolOptions.includes(kolFilter)
+      ? kolFilter
+      : ALL_KOL_FILTER;
+  const visibleSignals = useMemo(
+    () =>
+      signals.filter((signal) => {
+        const matchesSymbol =
+          effectiveSymbolFilter === ALL_SYMBOL_FILTER ||
+          signal.symbol === effectiveSymbolFilter;
+        const matchesDirection =
+          effectiveDirectionFilter === ALL_DIRECTION_FILTER ||
+          signal.direction === effectiveDirectionFilter;
+        const matchesKol =
+          effectiveKolFilter === ALL_KOL_FILTER ||
+          signal.source_name === effectiveKolFilter;
 
-    return matchesSymbol && matchesDirection && matchesKol;
-  }), [effectiveDirectionFilter, effectiveKolFilter, effectiveSymbolFilter, signals]);
-  const headerStatusClassName = isDarkTheme
-    ? "shrink-0 rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-black text-emerald-300"
-    : "shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700";
-
+        return matchesSymbol && matchesDirection && matchesKol;
+      }),
+    [
+      effectiveDirectionFilter,
+      effectiveKolFilter,
+      effectiveSymbolFilter,
+      signals,
+    ],
+  );
   useLayoutEffect(() => {
     const previousRects = previousCardRectsRef.current;
     const previousSignalIds = previousSignalIdsRef.current;
@@ -95,44 +152,65 @@ export function KolPanel({
     }
 
     previousCardRectsRef.current = currentRects;
-    previousSignalIdsRef.current = new Set(visibleSignals.map((signal) => signal.id));
+    previousSignalIdsRef.current = new Set(
+      visibleSignals.map((signal) => signal.id),
+    );
   }, [visibleSignals]);
 
   useEffect(() => {
-    activeCardRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    activeCardRef.current?.scrollIntoView({
+      block: "center",
+      behavior: "smooth",
+    });
   }, [activeSignal?.id]);
 
   useEffect(() => {
-    if (!rawSignalDialogSignal) {
-      return;
-    }
+    let isActive = true;
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setRawSignalDialogSignal(null);
-      }
+    fetchBinanceAssetIconMap()
+      .then((iconUrlsByAsset) => {
+        if (isActive) {
+          setSymbolIconUrlsByAsset(iconUrlsByAsset);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setSymbolIconUrlsByAsset({});
+        }
+      });
+
+    return () => {
+      isActive = false;
     };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [rawSignalDialogSignal]);
+  }, []);
 
   return (
-    <aside className={isDarkTheme ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm" : "flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"}>
-      <div className={isDarkTheme ? "border-b border-slate-800 px-4 py-3" : "border-b border-slate-200 px-4 py-3"}>
-        <div className="flex flex-col gap-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className={isDarkTheme ? "text-base font-semibold text-slate-50" : "text-base font-semibold text-slate-950"}>KOL 信息区</h2>
-              <p className={isDarkTheme ? "mt-1 text-[11px] leading-4 text-slate-500" : "mt-1 text-[11px] leading-4 text-slate-400"}>
-                最新结构化情报与筛选器集中在这里。
-              </p>
-            </div>
-            <span className={headerStatusClassName}>
-              实时接入
-            </span>
-          </div>
+    <aside
+      className={
+        isDarkTheme
+          ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#181A20]"
+          : "flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]"
+      }
+    >
+      <div
+        className={
+          isDarkTheme
+            ? "flex min-h-[48px] items-center justify-between gap-3 border-b border-white/[0.075] bg-white/[0.055] px-5 py-1.5"
+            : "flex min-h-[48px] items-center justify-between gap-3 border-b border-[#E5EAF0] bg-white px-5 py-1.5"
+        }
+      >
+        <div className="min-w-0">
+          <h2
+            className={
+              isDarkTheme
+                ? "text-base font-semibold tracking-tight text-slate-50"
+                : "text-base font-semibold tracking-tight text-slate-950"
+            }
+          >
+            {copy.kol.title}
+          </h2>
         </div>
+        {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
       </div>
       <KolPanelFilters
         isDarkTheme={isDarkTheme}
@@ -141,28 +219,66 @@ export function KolPanel({
         directionFilter={effectiveDirectionFilter}
         directionOptions={directionOptions}
         symbolFilter={effectiveSymbolFilter}
+        symbolIconUrlsByAsset={symbolIconUrlsByAsset}
         symbolOptions={symbolOptions}
+        copy={copy}
         onKolFilterChange={setKolFilter}
         onDirectionFilterChange={setDirectionFilter}
         onSymbolFilterChange={setSymbolFilter}
       />
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-        <KolSignalSourceNotice isDarkTheme={isDarkTheme} signalCount={signals.length} status={sourceStatus} />
-        {visibleSignals.length === 0 && signals.length > 0 ? (
-          <FilterEmptyState isDarkTheme={isDarkTheme} />
+      <div
+        className={
+          isDarkTheme
+            ? "kol-scroll-area kol-scroll-area-dark mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#12161D] pb-3 pl-3 pr-1 pt-2"
+            : "kol-scroll-area mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#FAFBFD] pb-3 pl-3 pr-1 pt-2"
+        }
+      >
+        {sourceStatus.isLoading && signals.length === 0 ? (
+          <KolPanelLoadingState copy={copy} isDarkTheme={isDarkTheme} />
         ) : null}
-        {visibleSignals.map((signal) => {
-          const entryText = formatKolEntryText(signal);
-          const paperPositionError = paperPositionErrorsBySymbol[signal.symbol] ?? null;
-          const paperPositionRecord = paperPositionsBySignalId[signal.id] ?? null;
-          const takeProfitText = formatTakeProfitText(signal.take_profit);
+        {sourceStatus.error ? (
+          <KolPanelSourceState
+            isDarkTheme={isDarkTheme}
+            sourceTitle={copy.kol.sourceTitle}
+            message={
+              signals.length > 0
+                ? copy.kol.sourceErrorWithCache
+                : copy.kol.sourceErrorWithoutCache
+            }
+            statusText={`${copy.common.errorPrefix}：${sourceStatus.error}`}
+            tone="risk"
+          />
+        ) : null}
+        {!sourceStatus.isLoading && !sourceStatus.error && signals.length === 0 ? (
+          <KolPanelSourceState
+            isDarkTheme={isDarkTheme}
+            sourceTitle={copy.kol.sourceTitle}
+            message={copy.kol.noSignalsMessage}
+            statusText={copy.kol.noSignalsStatus}
+            tone="pending"
+          />
+        ) : null}
+        {visibleSignals.length === 0 && signals.length > 0 ? (
+          <FilterEmptyState copy={copy} isDarkTheme={isDarkTheme} />
+        ) : null}
+        {visibleSignals.map((signal, index) => {
+          const entryText = formatKolEntryText(signal, copy);
+          const paperPositionError =
+            paperPositionErrorsBySymbol[signal.symbol] ?? null;
+          const paperPositionRecord =
+            paperPositionsBySignalId[signal.id] ?? null;
+          const takeProfitText = formatTakeProfitText(signal.take_profit, copy);
           const isActive = signal.id === activeSignal?.id;
           const isFlipped = flippedSignalIds.has(signal.id);
-          const cardClassName = getSignalCardClassName({ isActive, isDarkTheme, record: paperPositionRecord });
-          const backCardClassName = getSignalCardBackClassName(isDarkTheme, paperPositionRecord);
+          const cardClassName = getSignalCardClassName({
+            isActive,
+            isDarkTheme,
+            paperPositionRecord,
+          });
+          const backCardClassName = getSignalCardBackClassName(isDarkTheme);
           const rawButtonClassName = isDarkTheme
-            ? "shrink-0 rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-slate-300 transition hover:border-cyan-500 hover:text-cyan-300"
-            : "shrink-0 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-cyan-300 hover:text-cyan-700";
+            ? "motion-fx-3-raw-button inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-slate-400 transition hover:bg-white/[0.08] hover:text-sky-300"
+            : "motion-fx-3-raw-button inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-slate-400 transition hover:bg-[#EAF8FE] hover:text-[#008DCC]";
           const handleSelect = () => {
             onSignalSelect(signal);
           };
@@ -197,11 +313,14 @@ export function KolPanel({
             <div
               key={signal.id}
               ref={setCardRef}
-              className="signal-card-scene [perspective:1200px]"
+              className="signal-card-scene will-change-transform"
+              data-guide-target={index === 0 ? "kol-first-card" : undefined}
             >
-              <div className={`signal-card-flipper relative [transform-style:preserve-3d] transition-transform duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-reduce:transition-none ${isFlipped ? "is-flipped [transform:rotateY(180deg)]" : ""}`}>
+              <div
+                className={`signal-card-flipper ${isFlipped ? "is-flipped" : ""}`}
+              >
                 <div
-                  className={`${cardClassName} signal-card-face [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform-style:preserve-3d]`}
+                  className={`${cardClassName} motion-fx-3-card-face-front signal-card-face`}
                   role="button"
                   tabIndex={0}
                   onClick={handleSelect}
@@ -212,15 +331,33 @@ export function KolPanel({
                     }
                   }}
                 >
-                  <div className="flex min-w-0 items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <SourceAvatar isDarkTheme={isDarkTheme} name={signal.source_name} url={signal.source_avatar_url} />
-                      <div className="min-w-0">
-                        <div className={isDarkTheme ? "truncate text-sm font-semibold text-slate-50" : "truncate text-sm font-semibold text-slate-950"}>{signal.source_name}</div>
-                        <div className={isDarkTheme ? "mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-400" : "mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500"}>
-                          <span>{signal.source_type} · {formatSignalDisplayTime(signal)}</span>
-                          <span className={isDarkTheme ? "rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black text-emerald-700"}>
-                            实时信源
+                  <div className="motion-fx-3-front-panel flex min-w-0 items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <SourceAvatar
+                        isDarkTheme={isDarkTheme}
+                        name={signal.source_name}
+                        url={signal.source_avatar_url}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className={
+                            isDarkTheme
+                              ? "truncate text-sm font-semibold text-slate-50"
+                              : "truncate text-sm font-semibold text-slate-950"
+                          }
+                        >
+                          {signal.source_name}
+                        </div>
+                        <div
+                          className={
+                            isDarkTheme
+                              ? "mt-1 flex min-w-0 items-center gap-1.5 text-xs text-slate-400"
+                              : "mt-1 flex min-w-0 items-center gap-1.5 text-xs text-slate-500"
+                          }
+                        >
+                          <span className="min-w-0 truncate whitespace-nowrap">
+                            {formatKolSourceType(signal.source_type, copy.kol)} ·{" "}
+                            {formatSignalDisplayTime(signal)}
                           </span>
                         </div>
                       </div>
@@ -232,62 +369,113 @@ export function KolPanel({
                         event.stopPropagation();
                         toggleFlip();
                       }}
+                      onKeyDown={(event) => event.stopPropagation()}
                     >
-                      查看情报源
+                      <span>{copy.kol.viewSource}</span>
+                      <ChevronRightIcon />
                     </button>
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                    <span className={isDarkTheme ? "rounded-full bg-slate-800 px-2 py-1 text-slate-200" : "rounded-full bg-slate-100 px-2 py-1 text-slate-700"}>{formatSymbolLabel(signal.symbol)}</span>
-                    <span className={getSignalDirectionBadgeClass(isDarkTheme, signal.direction)}>{signal.direction === "long" ? "多" : "空"}</span>
-                    <span className={getSignalPaperPositionBadgeClass(isDarkTheme, paperPositionRecord)}>
-                      {formatSignalPaperPositionStatus(paperPositionRecord, paperPositionError)}
+                    <span
+                      className={
+                        isDarkTheme
+                          ? "inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-1 text-slate-200"
+                          : "inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700"
+                      }
+                    >
+                      <SymbolIcon
+                        iconUrl={resolveSymbolIconUrl(signal.symbol, symbolIconUrlsByAsset)}
+                        symbol={signal.symbol}
+                      />
+                      {formatSymbolLabel(signal.symbol)}
+                    </span>
+                    <span
+                      className={getSignalDirectionBadgeClass(
+                        isDarkTheme,
+                        signal.direction,
+                      )}
+                    >
+                      {copy.kol.directionShort[signal.direction]}
+                    </span>
+                    <span
+                      className={getSignalPaperPositionBadgeClass(
+                        isDarkTheme,
+                        paperPositionRecord,
+                      )}
+                    >
+                      {formatSignalPaperPositionStatus(
+                        paperPositionRecord,
+                        paperPositionError,
+                        copy.paper,
+                      )}
                     </span>
                   </div>
 
-
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                    <SignalField isDarkTheme={isDarkTheme} label="入场/触发" value={entryText} />
-                    <SignalField isDarkTheme={isDarkTheme} label="止损" value={signal.stop_loss?.toLocaleString("en-US") ?? "--"} />
-                    <SignalField isDarkTheme={isDarkTheme} label="止盈" value={takeProfitText} />
-                    <SignalField isDarkTheme={isDarkTheme} label="条件" value={signal.confirmation ?? "结构化喊单"} />
+                  <div className="signal-card-field-layer mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <SignalField
+                      isDarkTheme={isDarkTheme}
+                      label={copy.kol.entry}
+                      value={entryText}
+                    />
+                    <SignalField
+                      isDarkTheme={isDarkTheme}
+                      label={copy.kol.stopLoss}
+                      value={signal.stop_loss?.toLocaleString("en-US") ?? "--"}
+                    />
+                    <SignalField
+                      isDarkTheme={isDarkTheme}
+                      label={copy.kol.takeProfit}
+                      value={takeProfitText}
+                    />
+                    <SignalField
+                      isDarkTheme={isDarkTheme}
+                      label={copy.kol.condition}
+                      value={signal.confirmation ?? copy.kol.conditionFallback}
+                    />
                   </div>
 
                   <PaperPositionSummary
+                    copy={copy.paper}
                     error={paperPositionError}
+                    isActive={isActive}
                     isDarkTheme={isDarkTheme}
                     record={paperPositionRecord}
                   />
                 </div>
-                <div className={`${backCardClassName} signal-card-face signal-card-back absolute inset-0 overflow-hidden [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)] [transform-style:preserve-3d]`}>
-                  <div className="flex h-full min-h-0 flex-col">
+                <div
+                  className={`${backCardClassName} motion-fx-3-card-face-back signal-card-face signal-card-back`}
+                >
+                  <div className="motion-fx-3-back-panel flex h-full min-h-0 flex-col">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                      <div className={isDarkTheme ? "text-sm font-bold text-slate-50" : "text-sm font-bold text-slate-950"}>情报源回放</div>
-                      <div className="flex gap-2">
-                        <button
-                          className={rawButtonClassName}
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setRawSignalDialogSignal(signal);
-                          }}
-                        >
-                          放大
-                        </button>
-                        <button
-                          className={rawButtonClassName}
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            toggleFlip();
-                          }}
-                        >
-                          返回
-                        </button>
+                      <div
+                        className={
+                          isDarkTheme
+                            ? "text-sm font-bold text-slate-50"
+                            : "text-sm font-bold text-slate-950"
+                        }
+                      >
+                        {copy.kol.replayTitle}
                       </div>
+                      <button
+                        className={rawButtonClassName}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleFlip();
+                        }}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
+                        <span>{copy.kol.back}</span>
+                        <ChevronRightIcon />
+                      </button>
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto">
-                      <TelegramSignalMessage isDarkTheme={isDarkTheme} signal={signal} />
+                      <TelegramSignalMessage
+                        copy={copy.kol}
+                        isDarkTheme={isDarkTheme}
+                        signal={signal}
+                      />
                     </div>
                   </div>
                 </div>
@@ -296,72 +484,99 @@ export function KolPanel({
           );
         })}
       </div>
-      {rawSignalDialogSignal ? (
-        <RawSignalDialog
-          isDarkTheme={isDarkTheme}
-          signal={rawSignalDialogSignal}
-          onClose={() => setRawSignalDialogSignal(null)}
-        />
-      ) : null}
     </aside>
   );
 }
 
 function KolPanelFilters({
+  copy,
   directionFilter,
   directionOptions,
   isDarkTheme,
   kolFilter,
   kolOptions,
   symbolFilter,
+  symbolIconUrlsByAsset,
   symbolOptions,
   onDirectionFilterChange,
   onKolFilterChange,
   onSymbolFilterChange,
 }: {
+  copy: WorkspaceCopy;
   directionFilter: string;
   directionOptions: readonly StructuredSignal["direction"][];
   isDarkTheme: boolean;
   kolFilter: string;
   kolOptions: readonly string[];
   symbolFilter: string;
+  symbolIconUrlsByAsset: Readonly<Record<string, string>>;
   symbolOptions: readonly MarketSymbol[];
   onDirectionFilterChange: (value: string) => void;
   onKolFilterChange: (value: string) => void;
   onSymbolFilterChange: (value: string) => void;
 }) {
-  const containerClassName = isDarkTheme ? "border-b border-slate-800 bg-slate-900/95 px-3 py-3" : "border-b border-slate-200 bg-white px-3 py-3";
+  const containerClassName = isDarkTheme
+    ? "bg-[#12161D] px-3 pb-2 pt-3"
+    : "bg-[#FAFBFD] px-3 pb-2 pt-3";
+  const [openFilter, setOpenFilter] = useState<
+    "kol" | "direction" | "symbol" | null
+  >(null);
 
   return (
     <div className={containerClassName}>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-        <FilterSelect
+      <div className="grid grid-cols-3 gap-1.5">
+        <FilterDropdown
           id="kol-source-filter"
           allLabel={ALL_KOL_FILTER}
+          allText={copy.common.all}
+          isOpen={openFilter === "kol"}
           isDarkTheme={isDarkTheme}
-          label="KOL"
+          label={copy.kol.filters.kol}
           options={kolOptions}
           value={kolFilter}
+          onOpenChange={(isOpen) => setOpenFilter(isOpen ? "kol" : null)}
           onChange={onKolFilterChange}
         />
-        <FilterSelect
+        <FilterDropdown
           id="kol-direction-filter"
           allLabel={ALL_DIRECTION_FILTER}
+          allText={copy.common.all}
+          isOpen={openFilter === "direction"}
           isDarkTheme={isDarkTheme}
-          label="多空"
+          label={copy.kol.direction}
           options={directionOptions}
           value={directionFilter}
-          optionLabel={formatDirectionLabel}
+          optionLabel={(direction) => formatDirectionLabel(direction, copy)}
+          renderIcon={(option) =>
+            option === ALL_DIRECTION_FILTER ? null : (
+              <DirectionFilterDot
+                direction={option as StructuredSignal["direction"]}
+              />
+            )
+          }
+          onOpenChange={(isOpen) => setOpenFilter(isOpen ? "direction" : null)}
           onChange={onDirectionFilterChange}
         />
-        <FilterSelect
+        <FilterDropdown
           id="kol-symbol-filter"
           allLabel={ALL_SYMBOL_FILTER}
+          allText={copy.common.all}
+          isOpen={openFilter === "symbol"}
           isDarkTheme={isDarkTheme}
-          label="币种"
+          label={copy.kol.filters.symbol}
           options={symbolOptions}
           value={symbolFilter}
-          optionLabel={formatSymbolLabel}
+          optionLabel={formatSymbolFilterLabel}
+          renderIcon={(option) =>
+            option === ALL_SYMBOL_FILTER ? null : (
+              <SymbolIcon
+                iconUrl={resolveSymbolIconUrl(option, symbolIconUrlsByAsset)}
+                size="md"
+                symbol={option}
+              />
+            )
+          }
+          onOpenChange={(isOpen) => setOpenFilter(isOpen ? "symbol" : null)}
           onChange={onSymbolFilterChange}
         />
       </div>
@@ -369,114 +584,371 @@ function KolPanelFilters({
   );
 }
 
-function FilterSelect<T extends string>({
+function FilterDropdown<T extends string>({
   allLabel,
+  allText,
   id,
+  isOpen,
   isDarkTheme,
   label,
   optionLabel = (value) => value,
   options,
+  renderIcon,
   value,
+  onOpenChange,
   onChange,
 }: {
   allLabel: string;
+  allText: string;
   id: string;
+  isOpen: boolean;
   isDarkTheme: boolean;
   label: string;
   optionLabel?: (value: T) => string;
   options: readonly T[];
+  renderIcon?: (value: string) => ReactNode;
   value: string;
+  onOpenChange: (isOpen: boolean) => void;
   onChange: (value: string) => void;
 }) {
-  const labelClassName = isDarkTheme ? "mb-1 block text-[11px] font-semibold text-slate-500" : "mb-1 block text-[11px] font-semibold text-slate-400";
-  const selectClassName = isDarkTheme
-    ? "h-9 w-full rounded-xl border border-slate-700 bg-slate-950 px-2.5 text-xs font-medium text-slate-200 outline-none transition focus:border-cyan-500"
-    : "h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-700 outline-none transition focus:border-cyan-400";
+  const buttonClassName = isDarkTheme
+    ? "inline-flex h-7 w-full min-w-0 items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-2 text-xs font-medium text-slate-200 outline-none transition hover:border-sky-500/40 hover:bg-white/[0.08] focus-visible:border-[#00A6F4]"
+    : "inline-flex h-7 w-full min-w-0 items-center gap-1 rounded-full border border-[#E5EAF0] bg-white px-2 text-xs font-medium text-slate-700 outline-none transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE] focus-visible:border-[#00A6F4]";
+  const menuClassName = isDarkTheme
+    ? "motion-fx-9-surface absolute left-0 top-9 z-50 min-w-[150px] max-w-[260px] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#181A20] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.28)]"
+    : "motion-fx-9-surface absolute left-0 top-9 z-50 min-w-[150px] max-w-[260px] overflow-hidden rounded-2xl border border-[#E5EAF0] bg-white p-1.5 shadow-[0_18px_48px_rgba(15,23,42,0.12)]";
+  const optionClassName = (isSelected: boolean) =>
+    isSelected
+      ? isDarkTheme
+        ? "flex h-8 w-full items-center gap-2 rounded-xl bg-[#00A6F4]/15 px-2 text-left text-[11px] font-semibold text-sky-200"
+        : "flex h-8 w-full items-center gap-2 rounded-xl bg-[#EAF8FE] px-2 text-left text-[11px] font-semibold text-[#007DB8]"
+      : isDarkTheme
+        ? "flex h-8 w-full items-center gap-2 rounded-xl px-2 text-left text-[11px] font-medium text-slate-300 transition hover:bg-white/[0.08]"
+        : "flex h-8 w-full items-center gap-2 rounded-xl px-2 text-left text-[11px] font-medium text-slate-600 transition hover:bg-slate-50";
+  const selectedText = value === allLabel ? allText : optionLabel(value as T);
+  const allOptions = [allLabel, ...options];
 
   return (
-    <label>
-      <span className={labelClassName}>{label}</span>
-      <select className={selectClassName} id={id} name={id} value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value={allLabel}>{allLabel}</option>
-        {options.map((option) => (
-          <option key={option} value={option}>{optionLabel(option)}</option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function FilterEmptyState({ isDarkTheme }: { isDarkTheme: boolean }) {
-  return (
-    <div className={isDarkTheme ? "rounded-2xl border border-slate-800 bg-slate-950 p-4 text-xs leading-5 text-slate-400" : "rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-500"}>
-      当前筛选条件下没有 KOL 信号。
+    <div
+      className="relative min-w-0"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          onOpenChange(false);
+        }
+      }}
+    >
+      <button
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        className={buttonClassName}
+        id={id}
+        type="button"
+        onClick={() => onOpenChange(!isOpen)}
+      >
+        <span
+          className={
+            isDarkTheme ? "shrink-0 text-slate-500" : "shrink-0 text-slate-400"
+          }
+        >
+          {label}
+        </span>
+        {renderIcon?.(value)}
+        <span className="min-w-0 flex-1 truncate text-left whitespace-nowrap">
+          {selectedText}
+        </span>
+        <svg
+          aria-hidden="true"
+          className={`h-3 w-3 shrink-0 transition ${isOpen ? "rotate-180" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="m7 10 5 5 5-5"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+          />
+        </svg>
+      </button>
+      {isOpen ? (
+        <div
+          aria-labelledby={id}
+          className={menuClassName}
+          role="listbox"
+          tabIndex={-1}
+        >
+          {allOptions.map((option) => {
+            const isSelected = option === value;
+            return (
+              <button
+                key={option}
+                aria-selected={isSelected}
+                className={optionClassName(isSelected)}
+                role="option"
+                type="button"
+                onClick={() => {
+                  onChange(option);
+                  onOpenChange(false);
+                }}
+              >
+                {renderIcon?.(option)}
+                <span className="min-w-0 truncate">
+                  {option === allLabel ? allText : optionLabel(option as T)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
 
+function DirectionFilterDot({
+  direction,
+}: {
+  direction: StructuredSignal["direction"];
+}) {
+  return (
+    <span
+      className={
+        direction === "long"
+          ? "h-2 w-2 shrink-0 rounded-full bg-[#72D4B0]"
+          : "h-2 w-2 shrink-0 rounded-full bg-[#F08A92]"
+      }
+    />
+  );
+}
+
+function FilterEmptyState({ copy, isDarkTheme }: { copy: WorkspaceCopy; isDarkTheme: boolean }) {
+  return (
+    <KolPanelSourceState
+      isDarkTheme={isDarkTheme}
+      sourceTitle={copy.kol.sourceTitle}
+      message={copy.kol.emptyMessage}
+      statusText={copy.kol.emptyStatus}
+      tone="pending"
+    />
+  );
+}
+
+function KolPanelLoadingState({ copy, isDarkTheme }: { copy: WorkspaceCopy; isDarkTheme: boolean }) {
+  const avatarClassName = isDarkTheme
+    ? "h-10 w-10 shrink-0 rounded-full border-2 border-[#181A20] bg-white/[0.08]"
+    : "h-10 w-10 shrink-0 rounded-full border-2 border-white bg-slate-200";
+  const lineClassName = isDarkTheme
+    ? "rounded-full bg-white/[0.08]"
+    : "rounded-full bg-slate-200/90";
+  const mutedLineClassName = isDarkTheme
+    ? "rounded-full bg-white/[0.055]"
+    : "rounded-full bg-slate-100";
+
+  return (
+    <div aria-label={copy.kol.loadingAria} className="space-y-3">
+      {Array.from({ length: 3 }, (_, index) => (
+        <div key={index} className="signal-card-scene">
+          <div
+            className={`${getKolPanelStateCardClassName(isDarkTheme, "loading")} motion-fx-3-card-face-front signal-card-face`}
+          >
+            <div className="motion-fx-3-front-panel animate-pulse">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <span className={avatarClassName} />
+                  <div className="min-w-0 flex-1">
+                    <div className={`${lineClassName} h-3.5 w-28`} />
+                    <div className={`${mutedLineClassName} mt-2 h-2.5 w-40`} />
+                  </div>
+                </div>
+                <div className={`${mutedLineClassName} h-8 w-24 rounded-full`} />
+              </div>
+
+              <div className="mt-3 flex gap-2">
+                <div className={`${lineClassName} h-6 w-20 rounded-full`} />
+                <div className={`${mutedLineClassName} h-6 w-12 rounded-full`} />
+                <div className={`${mutedLineClassName} h-6 w-16 rounded-full`} />
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className={`${mutedLineClassName} h-12 rounded-2xl`} />
+                <div className={`${mutedLineClassName} h-12 rounded-2xl`} />
+                <div className={`${mutedLineClassName} h-12 rounded-2xl`} />
+                <div className={`${mutedLineClassName} h-12 rounded-2xl`} />
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function KolPanelSourceState({
+  isDarkTheme,
+  message,
+  sourceTitle = "KOL Source",
+  statusText,
+  tone,
+}: {
+  isDarkTheme: boolean;
+  message: string;
+  sourceTitle?: string;
+  statusText: string;
+  tone: "loading" | "pending" | "risk";
+}) {
+  const titleClassName = isDarkTheme
+    ? "text-sm font-semibold text-slate-50"
+    : "text-sm font-semibold text-slate-950";
+  const messageClassName = isDarkTheme
+    ? "mt-2 text-xs leading-5 text-slate-400"
+    : "mt-2 text-xs leading-5 text-slate-500";
+  const statusClassName =
+    tone === "risk"
+      ? getPaperPositionBadgeClass(isDarkTheme, "exited", null, "stop-loss")
+      : tone === "loading"
+        ? `kol-signal-pill kol-status-badge${isDarkTheme ? " kol-signal-pill-dark" : ""} kol-status-live`
+        : getPaperPositionBadgeClass(isDarkTheme, "not-entered");
+
+  return (
+    <div className="signal-card-scene">
+      <div
+        className={`${getKolPanelStateCardClassName(isDarkTheme, tone)} motion-fx-3-card-face-front signal-card-face`}
+      >
+        <div className="motion-fx-3-front-panel">
+          <div className="flex items-center justify-between gap-3">
+            <span className={titleClassName}>{sourceTitle}</span>
+            <span className={statusClassName}>{statusText}</span>
+          </div>
+          <p className={messageClassName}>{message}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getKolPanelStateCardClassName(
+  isDarkTheme: boolean,
+  tone: "loading" | "pending" | "risk",
+): string {
+  const baseClassName =
+    "signal-card-left-status relative w-full overflow-hidden rounded-[18px] border p-3.5 text-left";
+  const themeClassName = isDarkTheme
+    ? "signal-card-surface-dark border-white/[0.075] bg-white/[0.035]"
+    : "signal-card-surface-light border-[#E5EAF0] bg-white";
+  const toneClassName =
+    tone === "risk"
+      ? "signal-card-left-risk"
+      : tone === "loading"
+        ? "signal-card-left-loading"
+        : "signal-card-left-pending";
+
+  return `${baseClassName} ${themeClassName} ${toneClassName}`;
+}
+
 function createUniqueOptions<T extends string>(values: readonly T[]): T[] {
-  return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right));
+  return Array.from(new Set(values)).sort((left, right) =>
+    left.localeCompare(right),
+  );
+}
+
+function getSignalCardClassName({
+  isActive,
+  isDarkTheme,
+  paperPositionRecord,
+}: {
+  isActive: boolean;
+  isDarkTheme: boolean;
+  paperPositionRecord: PaperPositionRecord | null;
+}): string {
+  const baseClassName =
+    "relative w-full cursor-pointer overflow-hidden rounded-[18px] border p-3.5 text-left transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5";
+  const themeSurfaceClassName = isDarkTheme
+    ? "signal-card-surface-dark"
+    : "signal-card-surface-light";
+  const statusVisualClassName = getSignalCardStatusVisualClassName({
+    isActive,
+    paperPositionRecord,
+  });
+
+  if (isActive) {
+    const activeClassName = isDarkTheme
+      ? "border-white/[0.12] bg-white/[0.055] shadow-[0_5px_14px_rgba(0,0,0,0.14)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.18)]"
+      : "border-[#D8E0E8] bg-white shadow-[0_4px_12px_rgba(15,23,42,0.05)] hover:shadow-[0_5px_14px_rgba(15,23,42,0.07)]";
+    return `${baseClassName} ${themeSurfaceClassName} ${activeClassName} ${statusVisualClassName}`;
+  }
+
+  const defaultClassName = isDarkTheme
+    ? "border-white/[0.075] bg-white/[0.035] hover:border-white/[0.12] hover:shadow-[0_5px_14px_rgba(0,0,0,0.18)]"
+    : "border-[#E5EAF0] bg-white hover:border-[#D8E0E8] hover:shadow-[0_5px_14px_rgba(15,23,42,0.07)]";
+  return `${baseClassName} ${themeSurfaceClassName} ${defaultClassName} ${statusVisualClassName}`;
+}
+
+function getSignalCardStatusVisualClassName({
+  isActive,
+  paperPositionRecord,
+}: {
+  isActive: boolean;
+  paperPositionRecord: PaperPositionRecord | null;
+}): string {
+  const activeClassName = isActive ? " signal-card-left-active" : "";
+
+  if (!paperPositionRecord) {
+    return `signal-card-left-status signal-card-left-loading${activeClassName}`;
+  }
+
+  if (paperPositionRecord.status === "entered") {
+    return `signal-card-left-status signal-card-left-live${activeClassName}`;
+  }
+
+  if (paperPositionRecord.status === "not-entered") {
+    return `signal-card-left-status signal-card-left-pending${activeClassName}`;
+  }
+
+  if (paperPositionRecord.status !== "exited") {
+    return `signal-card-left-status signal-card-left-muted${activeClassName}`;
+  }
+
+  if (paperPositionRecord.exitReason === "stop-loss") {
+    return `signal-card-left-status signal-card-left-risk${activeClassName}`;
+  }
+
+  if (paperPositionRecord.exitReason === "take-profit") {
+    return `signal-card-left-status signal-card-left-target${activeClassName}`;
+  }
+
+  return `signal-card-left-status signal-card-left-muted${activeClassName}`;
+}
+
+function getSignalCardBackClassName(isDarkTheme: boolean): string {
+  const baseClassName = "w-full rounded-[18px] border p-3.5";
+  return isDarkTheme
+    ? `${baseClassName} border-white/[0.075] bg-[#181A20]`
+    : `${baseClassName} border-[#E5EAF0] bg-white`;
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg aria-hidden="true" className="h-3 w-3" fill="none" viewBox="0 0 24 24">
+      <path
+        d="m9 6 6 6-6 6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.4"
+      />
+    </svg>
+  );
+}
+
+function formatSymbolFilterLabel(symbol: MarketSymbol): string {
+  return formatSymbolLabel(symbol);
 }
 
 function formatSignalDisplayTime(signal: StructuredSignal): string {
   return signal.created_at.replace("T", " ").slice(0, 16);
 }
 
-function getSignalCardClassName({
-  isActive,
-  isDarkTheme,
-  record,
-}: {
-  isActive: boolean;
-  isDarkTheme: boolean;
-  record: PaperPositionRecord | null;
-}): string {
-  const baseClassName = "relative w-full cursor-pointer overflow-hidden rounded-2xl border p-3 text-left shadow-sm transition";
-  const activeClassName = isActive ? " ring-2 ring-cyan-400/65" : "";
-
-  if (record?.status === "entered") {
-    const isNegative = record.pnlPercent !== null && record.pnlPercent < 0;
-    const toneClassName = isDarkTheme
-      ? isNegative ? "border-rose-800/70 bg-rose-950/28 hover:border-rose-600" : "border-emerald-800/70 bg-emerald-950/28 hover:border-emerald-600"
-      : isNegative ? "border-rose-200 bg-rose-50/86 hover:border-rose-300" : "border-emerald-200 bg-emerald-50/86 hover:border-emerald-300";
-    return `${baseClassName} ${toneClassName}${activeClassName}`;
-  }
-
-  if (record?.status === "exited") {
-    const isStopLoss = record.exitReason === "stop-loss";
-    const toneClassName = isDarkTheme
-      ? isStopLoss ? "border-rose-900/70 bg-slate-950 hover:border-rose-700" : "border-emerald-900/70 bg-slate-950 hover:border-emerald-700"
-      : isStopLoss ? "border-rose-200 bg-white hover:bg-rose-50/70" : "border-emerald-200 bg-white hover:bg-emerald-50/70";
-    return `${baseClassName} ${toneClassName}${activeClassName}`;
-  }
-
-  if (record?.status === "not-entered") {
-    const toneClassName = isDarkTheme
-      ? "border-amber-800/70 bg-amber-950/24 hover:border-amber-600"
-      : "border-amber-200 bg-amber-50/78 hover:border-amber-300";
-    return `${baseClassName} ${toneClassName}${activeClassName}`;
-  }
-
-  const defaultClassName = isDarkTheme
-    ? "border-slate-800 bg-slate-950 hover:border-slate-700"
-    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50";
-  return `${baseClassName} ${defaultClassName}${activeClassName}`;
-}
-
-function getSignalCardBackClassName(isDarkTheme: boolean, record: PaperPositionRecord | null): string {
-  const baseClassName = "w-full rounded-2xl border p-3 shadow-sm";
-  if (record?.status === "entered") {
-    return isDarkTheme
-      ? `${baseClassName} border-cyan-800/70 bg-slate-950`
-      : `${baseClassName} border-cyan-200 bg-white`;
-  }
-
-  return isDarkTheme
-    ? `${baseClassName} border-slate-800 bg-slate-950`
-    : `${baseClassName} border-slate-200 bg-white`;
-}
-
-function formatKolEntryText(signal: StructuredSignal): string {
+function formatKolEntryText(signal: StructuredSignal, copy: WorkspaceCopy): string {
   if (signal.entry_min !== null && signal.entry_max !== null) {
     return `${signal.entry_min.toLocaleString("en-US")}-${signal.entry_max.toLocaleString("en-US")}`;
   }
@@ -485,12 +957,17 @@ function formatKolEntryText(signal: StructuredSignal): string {
     return signal.trigger_price.toLocaleString("en-US");
   }
 
-  return "市价";
+  return copy.kol.marketPrice;
 }
 
-function formatTakeProfitText(takeProfits: readonly number[]): string {
+function formatTakeProfitText(takeProfits: readonly number[], copy: WorkspaceCopy): string {
   return takeProfits.length > 0
-    ? takeProfits.map((price, index) => `止盈${index + 1}: ${price.toLocaleString("en-US")}`).join(" / ")
+    ? takeProfits
+        .map(
+          (price, index) =>
+            `${copy.kol.takeProfitLevel(index + 1)}: ${price.toLocaleString("en-US")}`,
+        )
+        .join(" / ")
     : "--";
 }
 
@@ -498,6 +975,13 @@ function formatSymbolLabel(symbol: string): string {
   return symbol.replace("/USDT:USDT", "");
 }
 
-function formatDirectionLabel(direction: StructuredSignal["direction"]): string {
-  return direction === "long" ? "多头" : "空头";
+function resolveSymbolIconUrl(symbol: string, symbolIconUrlsByAsset: Readonly<Record<string, string>>): string | null {
+  return symbolIconUrlsByAsset[getSymbolBaseAsset(symbol)] ?? null;
+}
+
+function formatDirectionLabel(
+  direction: StructuredSignal["direction"],
+  copy: WorkspaceCopy,
+): string {
+  return copy.kol.directionFull[direction];
 }

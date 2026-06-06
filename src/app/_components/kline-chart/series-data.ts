@@ -1,4 +1,5 @@
 import { LineStyle, type CreatePriceLineOptions, type HistogramData, type PriceFormat } from "lightweight-charts";
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { MarketCandle } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
@@ -21,8 +22,8 @@ export function toVolumeData(candle: MarketCandle, theme: ChartTheme): Histogram
     time: candle.time,
     value: candle.volume,
     color: candle.close >= candle.open
-      ? theme === "light" ? "rgba(22, 163, 74, 0.22)" : "rgba(34, 197, 94, 0.34)"
-      : theme === "light" ? "rgba(220, 38, 38, 0.22)" : "rgba(239, 68, 68, 0.34)",
+      ? theme === "light" ? "rgba(47, 189, 133, 0.22)" : "rgba(47, 189, 133, 0.34)"
+      : theme === "light" ? "rgba(246, 70, 93, 0.22)" : "rgba(246, 70, 93, 0.34)",
   };
 }
 
@@ -38,30 +39,32 @@ export function createSignalPriceLines(
   signal: StructuredSignal | null,
   paperPosition: PaperPositionRecord | null,
   currentPrice: number | undefined,
+  language: WorkspaceLanguage = "zh-CN",
 ): CreatePriceLineOptions[] {
+  const copy = getWorkspaceCopy(language);
   const lines: CreatePriceLineOptions[] = [];
 
   if (signal && paperPosition?.status !== "exited") {
     if (signal.entry_min !== null && signal.entry_max !== null) {
-      lines.push(createAxisOnlySignalPriceLine({ price: signal.entry_max, color: "#0891b2", title: "入场上沿" }));
-      lines.push(createAxisOnlySignalPriceLine({ price: signal.entry_min, color: "#0891b2", title: "入场下沿" }));
+      lines.push(createAxisOnlySignalPriceLine({ price: signal.entry_max, color: "#0891b2", title: copy.kline.entryUpper }));
+      lines.push(createAxisOnlySignalPriceLine({ price: signal.entry_min, color: "#0891b2", title: copy.kline.entryLower }));
     }
 
     if (signal.trigger_price !== null) {
-      lines.push(createAxisOnlySignalPriceLine({ price: signal.trigger_price, color: "#0891b2", title: "入场价" }));
+      lines.push(createAxisOnlySignalPriceLine({ price: signal.trigger_price, color: "#0891b2", title: copy.kline.entryPrice }));
     }
 
     if (signal.stop_loss !== null) {
-      lines.push(createAxisOnlySignalPriceLine({ price: signal.stop_loss, color: "#dc2626", title: "止损" }));
+      lines.push(createAxisOnlySignalPriceLine({ price: signal.stop_loss, color: "#F6465D", title: copy.kline.stopLoss }));
     }
 
     for (const [index, price] of signal.take_profit.entries()) {
-      lines.push(createAxisOnlySignalPriceLine({ price, color: "#16a34a", title: `止盈${index + 1}` }));
+      lines.push(createAxisOnlySignalPriceLine({ price, color: "#2FBD85", title: copy.kline.takeProfit(index + 1) }));
     }
   }
 
   if (currentPrice !== undefined) {
-    lines.push({ price: currentPrice, color: "#7c3aed", lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: "当前价" });
+    lines.push({ price: currentPrice, color: "#00A6F4", lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: copy.kline.currentPrice });
   }
 
   return lines;

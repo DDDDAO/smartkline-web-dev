@@ -19,14 +19,14 @@ import type {
 } from "./signal-price-ray-types";
 
 /**
- * Lightweight Charts price lines always span the full pane, so signal levels are
- * drawn as a primitive while hidden price lines keep stable price-axis labels.
+ * Signal price levels live in one drawing primitive so the chart never mixes
+ * native price-line styling with the custom SmartKLine visual language.
  */
 export class SignalPriceRayPrimitive implements ISeriesPrimitive<Time> {
   private readonly paneView = new SignalPriceRayPaneView();
   private readonly paneViewList: readonly IPrimitivePaneView[] = [this.paneView];
   private chart: SignalPriceRayChartApi | null = null;
-  private options: SignalPriceRayPrimitiveOptions = { candles: [], paperPosition: null, signal: null, theme: "light" };
+  private options: SignalPriceRayPrimitiveOptions = { candles: [], language: "zh-CN", paperPosition: null, signal: null, theme: "light" };
   private requestUpdate: (() => void) | null = null;
   private series: SignalPriceRaySeriesApi | null = null;
 
@@ -54,6 +54,7 @@ export class SignalPriceRayPrimitive implements ISeriesPrimitive<Time> {
       candles: this.options.candles,
       chart: this.chart,
       series: this.series,
+      language: this.options.language,
       paperPosition: this.options.paperPosition,
       signal: this.options.signal,
       theme: this.options.theme,
@@ -112,6 +113,7 @@ function createSignalPriceRayDrawingState(input: {
   candles: readonly MarketCandle[];
   chart: SignalPriceRayChartApi | null;
   series: SignalPriceRaySeriesApi | null;
+  language: import("@/app/_lib/i18n").WorkspaceLanguage;
   paperPosition: PaperPositionRecord | null;
   signal: StructuredSignal | null;
   theme: ChartTheme;
@@ -120,8 +122,8 @@ function createSignalPriceRayDrawingState(input: {
     return { ranges: [], rays: [] };
   }
 
-  const { candles, chart, paperPosition, series, signal, theme } = input;
-  const sourceState = signal ? createSignalPriceRaySourceState(signal, paperPosition, theme) : null;
+  const { candles, chart, language, paperPosition, series, signal, theme } = input;
+  const sourceState = signal ? createSignalPriceRaySourceState(signal, paperPosition, theme, language) : null;
   if (!sourceState) {
     return { ranges: [], rays: [] };
   }
