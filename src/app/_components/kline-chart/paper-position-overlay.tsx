@@ -61,14 +61,14 @@ export function ChartPaperPositionOverlay({
   }
 
   const isDarkTheme = theme === "dark";
-  const baseContainerClassName = "pointer-events-auto absolute z-30 w-72 max-w-[calc(100%-2rem)] touch-none select-none rounded-2xl p-3 backdrop-blur-md";
+  const baseContainerClassName = "pointer-events-auto absolute z-30 w-72 max-w-[calc(100%-2rem)] touch-none select-none rounded-lg p-3 ";
   const defaultPositionClassName = position ? "" : "right-4 top-4 lg:right-32";
   const interactionClassName = isDragging
-    ? "scale-[1.015] ring-2 ring-cyan-400/80"
-    : isPressing ? "ring-2 ring-cyan-400/45" : "";
+    ? "scale-[1.015] ring-2 ring-slate-400/60"
+    : isPressing ? "ring-2 ring-slate-400/35" : "";
   const themeContainerClassName = isDarkTheme
-    ? "border border-slate-700/80 bg-slate-950/86 text-slate-100 shadow-2xl"
-    : "border border-slate-200/90 bg-white/88 text-slate-950 shadow-xl";
+    ? "border border-[#343946] bg-[#0B0E11] text-slate-100"
+    : "border border-slate-200 bg-white text-slate-950";
   const containerClassName = `${baseContainerClassName} ${defaultPositionClassName} ${themeContainerClassName} ${interactionClassName}`;
   const containerStyle = position ? { left: `${position.x}px`, top: `${position.y}px` } : undefined;
   const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
@@ -139,7 +139,7 @@ export function ChartPaperPositionOverlay({
             {createChartPaperPositionFields(paperPosition).map((field) => (
               <div
                 key={field.label}
-                className={isDarkTheme ? "rounded-xl bg-slate-900/82 px-2 py-2" : "rounded-xl bg-slate-50/92 px-2 py-2"}
+                className={isDarkTheme ? "rounded-lg border border-[#2A2E38] bg-[#181A20] px-2 py-2" : "rounded-lg border border-slate-200 bg-slate-50 px-2 py-2"}
               >
                 <div className={isDarkTheme ? "text-[10px] text-slate-500" : "text-[10px] text-slate-400"}>{field.label}</div>
                 <div className={getChartPaperPositionValueClass(isDarkTheme, field.tone)}>{field.value}</div>
@@ -153,4 +153,5 @@ export function ChartPaperPositionOverlay({
     </div>
   );
 }
+
 

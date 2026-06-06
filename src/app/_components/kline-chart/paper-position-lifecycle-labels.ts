@@ -1,7 +1,21 @@
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { MarketCandle } from "@/app/_types/market";
+import type { StructuredSignal } from "@/app/_types/signal";
 import type { ChartTheme } from "@/app/_components/kline-chart";
+
+const LIFECYCLE_BADGE_RADIUS = 14;
+const RIGHT_PRICE_SCALE_RESERVED_WIDTH = 118;
+const HOLDING_RECTANGLE_MIN_HEIGHT = 28;
+const HOLDING_RECTANGLE_VERTICAL_PADDING = 8;
+
+type LifecycleTradeSide = "buy" | "sell";
+
+type LifecyclePoint = {
+  markerPoint: { x: number; y: number };
+  pricePoint: { x: number; y: number };
+  side: LifecycleTradeSide;
+};
 
 export function renderPaperPositionLifecycleLabels(input: {
   candles: readonly MarketCandle[];
@@ -9,50 +23,140 @@ export function renderPaperPositionLifecycleLabels(input: {
   overlay: HTMLDivElement | null;
   paperPosition: PaperPositionRecord | null;
   series: ISeriesApi<"Candlestick"> | null;
+  signal: StructuredSignal | null;
   theme: ChartTheme;
-}) {
-  const { candles, chart, overlay, paperPosition, series, theme } = input;
+}): boolean {
+  const { candles, chart, overlay, paperPosition, series, signal, theme } = input;
   if (!chart || !overlay || !paperPosition || !series || candles.length === 0) {
     overlay?.replaceChildren();
-    return;
+    return false;
+  }
+
+  if (signal && paperPosition.signalId !== signal.id) {
+    overlay.replaceChildren();
+    return false;
   }
 
   overlay.replaceChildren();
+  let hasHiddenRightLifecyclePoint = false;
 
-  if (paperPosition.entryPrice !== null && paperPosition.entryTimeMs !== null) {
-    const point = resolveChartPoint({ candles, chart, price: paperPosition.entryPrice, series, sourceTimeMs: paperPosition.entryTimeMs });
-    if (point) {
-      overlay.appendChild(createLifecycleBadge({ label: "B", point, theme, tone: "entry", title: "入场点位" }));
+  const entryPoint = createEntryLifecyclePoint({ candles, chart, paperPosition, series });
+  const exitPoint = createExitLifecyclePoint({ candles, chart, paperPosition, series });
+
+  if (paperPosition.status === "exited" && entryPoint && exitPoint && isExitAfterEntry(paperPosition)) {
+    overlay.appendChild(createHoldingRangeElement({ endPoint: exitPoint.pricePoint, overlay, startPoint: entryPoint.pricePoint, theme }));
+  }
+
+  for (const lifecyclePoint of [entryPoint, exitPoint]) {
+    if (!lifecyclePoint) {
+      continue;
+    }
+
+    if (isLifecyclePointInsideChartPane(lifecyclePoint.markerPoint, overlay)) {
+      overlay.appendChild(createLifecycleBadge({ point: lifecyclePoint.markerPoint, side: lifecyclePoint.side, theme }));
+    } else if (isLifecyclePointPastRightEdge(lifecyclePoint.markerPoint, overlay)) {
+      hasHiddenRightLifecyclePoint = true;
     }
   }
 
-  if (paperPosition.exitPrice !== null && paperPosition.exitTimeMs !== null) {
-    const point = resolveChartPoint({ candles, chart, price: paperPosition.exitPrice, series, sourceTimeMs: paperPosition.exitTimeMs });
-    if (point) {
-      overlay.appendChild(createLifecycleBadge({ label: "S", point, theme, tone: paperPosition.exitReason === "stop-loss" ? "risk" : "target", title: "出场点位" }));
-    }
-  }
+  return hasHiddenRightLifecyclePoint;
 }
 
-function resolveChartPoint(input: {
+function createEntryLifecyclePoint(input: {
+  candles: readonly MarketCandle[];
+  chart: IChartApi;
+  paperPosition: PaperPositionRecord;
+  series: ISeriesApi<"Candlestick">;
+}): LifecyclePoint | null {
+  const { candles, chart, paperPosition, series } = input;
+  if (paperPosition.entryPrice === null || paperPosition.entryTimeMs === null) {
+    return null;
+  }
+
+  const anchor = resolveChartAnchor({ candles, chart, price: paperPosition.entryPrice, series, sourceTimeMs: paperPosition.entryTimeMs });
+  if (!anchor) {
+    return null;
+  }
+
+  const side = resolveEntryLifecycleSide();
+  return { markerPoint: createMarkerPoint(anchor, side), pricePoint: anchor.pricePoint, side };
+}
+
+function createExitLifecyclePoint(input: {
+  candles: readonly MarketCandle[];
+  chart: IChartApi;
+  paperPosition: PaperPositionRecord;
+  series: ISeriesApi<"Candlestick">;
+}): LifecyclePoint | null {
+  const { candles, chart, paperPosition, series } = input;
+  const exitPrice = paperPosition.exitPrice;
+  const exitTimeMs = paperPosition.exitTimeMs;
+
+  if (paperPosition.status !== "exited" || paperPosition.entryTimeMs === null || exitPrice === null || exitTimeMs === null) {
+    return null;
+  }
+
+  const anchor = resolveChartAnchor({ candles, chart, price: exitPrice, series, sourceTimeMs: exitTimeMs });
+  if (!anchor) {
+    return null;
+  }
+
+  const side = "sell";
+  return { markerPoint: createMarkerPoint(anchor, side), pricePoint: anchor.pricePoint, side };
+}
+
+function resolveEntryLifecycleSide(): LifecycleTradeSide {
+  return "buy";
+}
+
+function isExitAfterEntry(paperPosition: PaperPositionRecord): boolean {
+  return paperPosition.entryTimeMs !== null && paperPosition.exitTimeMs !== null && paperPosition.exitTimeMs > paperPosition.entryTimeMs;
+}
+
+function isLifecyclePointInsideChartPane(point: { x: number; y: number }, overlay: HTMLDivElement): boolean {
+  const minX = LIFECYCLE_BADGE_RADIUS;
+  const maxX = Math.max(minX, overlay.clientWidth - RIGHT_PRICE_SCALE_RESERVED_WIDTH - LIFECYCLE_BADGE_RADIUS);
+  return point.x >= minX && point.x <= maxX;
+}
+
+function isLifecyclePointPastRightEdge(point: { x: number; y: number }, overlay: HTMLDivElement): boolean {
+  const maxX = Math.max(LIFECYCLE_BADGE_RADIUS, overlay.clientWidth - RIGHT_PRICE_SCALE_RESERVED_WIDTH - LIFECYCLE_BADGE_RADIUS);
+  return point.x > maxX;
+}
+
+function resolveChartAnchor(input: {
   candles: readonly MarketCandle[];
   chart: IChartApi;
   price: number;
   series: ISeriesApi<"Candlestick">;
   sourceTimeMs: number;
-}): { x: number; y: number } | null {
+}): { candleHighPoint: { x: number; y: number }; candleLowPoint: { x: number; y: number }; pricePoint: { x: number; y: number } } | null {
   const nearestCandle = findNearestCandle(input.candles, input.sourceTimeMs);
   if (!nearestCandle) {
     return null;
   }
 
   const x = input.chart.timeScale().timeToCoordinate(nearestCandle.time);
-  const y = input.series.priceToCoordinate(input.price);
-  if (x === null || y === null) {
+  const priceY = input.series.priceToCoordinate(input.price);
+  const highY = input.series.priceToCoordinate(nearestCandle.high);
+  const lowY = input.series.priceToCoordinate(nearestCandle.low);
+  if (x === null || priceY === null || highY === null || lowY === null) {
     return null;
   }
 
-  return { x: Number(x), y: Number(y) };
+  const numericX = Number(x);
+  return {
+    candleHighPoint: { x: numericX, y: Number(highY) },
+    candleLowPoint: { x: numericX, y: Number(lowY) },
+    pricePoint: { x: numericX, y: Number(priceY) },
+  };
+}
+
+function createMarkerPoint(
+  anchor: { candleHighPoint: { x: number; y: number }; candleLowPoint: { x: number; y: number } },
+  side: LifecycleTradeSide,
+): { x: number; y: number } {
+  return side === "buy" ? anchor.candleLowPoint : anchor.candleHighPoint;
 }
 
 function findNearestCandle(candles: readonly MarketCandle[], sourceTimeMs: number): MarketCandle | null {
@@ -74,60 +178,93 @@ function findNearestCandle(candles: readonly MarketCandle[], sourceTimeMs: numbe
   return nearestCandle;
 }
 
-function createLifecycleBadge(input: {
-  label: "B" | "S";
-  point: { x: number; y: number };
+function createHoldingRangeElement(input: {
+  endPoint: { x: number; y: number };
+  overlay: HTMLDivElement;
+  startPoint: { x: number; y: number };
   theme: ChartTheme;
-  title: string;
-  tone: "entry" | "risk" | "target";
 }): HTMLDivElement {
+  const { endPoint, overlay, startPoint, theme } = input;
+  const maxX = Math.max(0, overlay.clientWidth - RIGHT_PRICE_SCALE_RESERVED_WIDTH);
+  const left = Math.max(0, Math.min(startPoint.x, endPoint.x));
+  const right = Math.min(maxX, Math.max(startPoint.x, endPoint.x));
+  const centerY = (startPoint.y + endPoint.y) / 2;
+  const rawTop = Math.min(startPoint.y, endPoint.y) - HOLDING_RECTANGLE_VERTICAL_PADDING;
+  const rawBottom = Math.max(startPoint.y, endPoint.y) + HOLDING_RECTANGLE_VERTICAL_PADDING;
+  const height = Math.max(HOLDING_RECTANGLE_MIN_HEIGHT, rawBottom - rawTop);
+  const top = Math.max(12, centerY - height / 2);
   const element = document.createElement("div");
-  const color = createLifecycleColor(input.theme, input.tone);
-  element.textContent = input.label;
-  element.title = input.title;
+
+  element.setAttribute("aria-hidden", "true");
+  element.dataset.guideAnnotation = "kline-signal";
   element.style.position = "absolute";
-  element.style.left = `${input.point.x}px`;
-  element.style.top = `${input.point.y}px`;
-  element.style.transform = "translate(-50%, -50%)";
-  element.style.display = "grid";
-  element.style.placeItems = "center";
-  element.style.width = "24px";
-  element.style.height = "24px";
-  element.style.borderRadius = "999px";
-  element.style.border = `2px solid ${color.border}`;
-  element.style.background = color.background;
-  element.style.boxShadow = color.shadow;
-  element.style.color = color.text;
-  element.style.fontSize = "12px";
-  element.style.fontWeight = "900";
+  element.style.left = `${left}px`;
+  element.style.top = `${top}px`;
+  element.style.width = `${Math.max(8, right - left)}px`;
+  element.style.height = `${height}px`;
+  element.style.background = theme === "dark" ? "rgba(0, 166, 244, 0.14)" : "rgba(0, 166, 244, 0.12)";
   element.style.pointerEvents = "none";
-  element.style.zIndex = "34";
+  element.style.zIndex = "24";
   return element;
 }
 
-function createLifecycleColor(theme: ChartTheme, tone: "entry" | "risk" | "target"): { background: string; border: string; shadow: string; text: string } {
-  if (tone === "risk") {
-    return {
-      background: theme === "dark" ? "rgba(127, 29, 29, 0.94)" : "rgba(254, 242, 242, 0.98)",
-      border: "#ef4444",
-      shadow: "0 8px 20px rgba(239, 68, 68, 0.28)",
-      text: theme === "dark" ? "#fecaca" : "#b91c1c",
-    };
+function createLifecycleBadge(input: {
+  point: { x: number; y: number };
+  side: LifecycleTradeSide;
+  theme: ChartTheme;
+}): HTMLDivElement {
+  const wrapper = document.createElement("div");
+  const badge = document.createElement("div");
+  const arrow = document.createElement("div");
+  const isBuy = input.side === "buy";
+  const isSell = input.side === "sell";
+  const color = isBuy ? "#2FBD85" : "#F6465D";
+  const isBelow = isBuy;
+
+  wrapper.title = isSell ? "Sell" : "Buy";
+  wrapper.dataset.guideAnnotation = "kline-signal";
+  wrapper.style.position = "absolute";
+  wrapper.style.left = `${input.point.x}px`;
+  wrapper.style.top = `${input.point.y + (isBelow ? 9 : -9)}px`;
+  wrapper.style.transform = isBelow ? "translateX(-50%)" : "translate(-50%, -100%)";
+  wrapper.style.display = "flex";
+  wrapper.style.flexDirection = isBelow ? "column" : "column-reverse";
+  wrapper.style.alignItems = "center";
+  wrapper.style.gap = "3px";
+  wrapper.style.pointerEvents = "none";
+  wrapper.style.zIndex = "36";
+
+  arrow.style.width = "0";
+  arrow.style.height = "0";
+  arrow.style.borderLeft = "5px solid transparent";
+  arrow.style.borderRight = "5px solid transparent";
+  if (isBelow) {
+    arrow.style.borderBottom = `6px solid ${color}`;
+  } else {
+    arrow.style.borderTop = `6px solid ${color}`;
   }
 
-  if (tone === "target") {
-    return {
-      background: theme === "dark" ? "rgba(6, 78, 59, 0.94)" : "rgba(236, 253, 245, 0.98)",
-      border: "#22c55e",
-      shadow: "0 8px 20px rgba(34, 197, 94, 0.28)",
-      text: theme === "dark" ? "#bbf7d0" : "#15803d",
-    };
-  }
+  badge.textContent = isBuy ? "B" : "S";
+  badge.style.display = "grid";
+  badge.style.placeItems = "center";
+  badge.style.width = "24px";
+  badge.style.height = "24px";
+  badge.style.borderRadius = "999px";
+  badge.style.border = "none";
+  badge.style.background = color;
+  badge.style.boxShadow = input.theme === "dark" ? `0 8px 20px ${hexToRgba(color, 0.30)}` : `0 8px 18px ${hexToRgba(color, 0.24)}`;
+  badge.style.color = "#ffffff";
+  badge.style.fontSize = "11px";
+  badge.style.fontWeight = "900";
+  badge.style.lineHeight = "1";
 
-  return {
-    background: theme === "dark" ? "rgba(8, 47, 73, 0.94)" : "rgba(236, 254, 255, 0.98)",
-    border: "#06b6d4",
-    shadow: "0 8px 20px rgba(6, 182, 212, 0.26)",
-    text: theme === "dark" ? "#a5f3fc" : "#0e7490",
-  };
+  wrapper.append(arrow, badge);
+  return wrapper;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const red = Number.parseInt(hex.slice(1, 3), 16);
+  const green = Number.parseInt(hex.slice(3, 5), 16);
+  const blue = Number.parseInt(hex.slice(5, 7), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }

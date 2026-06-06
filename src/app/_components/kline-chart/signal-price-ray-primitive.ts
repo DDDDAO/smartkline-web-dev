@@ -26,7 +26,7 @@ export class SignalPriceRayPrimitive implements ISeriesPrimitive<Time> {
   private readonly paneView = new SignalPriceRayPaneView();
   private readonly paneViewList: readonly IPrimitivePaneView[] = [this.paneView];
   private chart: SignalPriceRayChartApi | null = null;
-  private options: SignalPriceRayPrimitiveOptions = { candles: [], paperPosition: null, signal: null, theme: "light" };
+  private options: SignalPriceRayPrimitiveOptions = { candles: [], paperPosition: null, signal: null, signalAiSummary: null, theme: "light" };
   private requestUpdate: (() => void) | null = null;
   private series: SignalPriceRaySeriesApi | null = null;
 
@@ -56,6 +56,7 @@ export class SignalPriceRayPrimitive implements ISeriesPrimitive<Time> {
       series: this.series,
       paperPosition: this.options.paperPosition,
       signal: this.options.signal,
+      signalAiSummary: this.options.signalAiSummary,
       theme: this.options.theme,
     }));
   }
@@ -114,14 +115,15 @@ function createSignalPriceRayDrawingState(input: {
   series: SignalPriceRaySeriesApi | null;
   paperPosition: PaperPositionRecord | null;
   signal: StructuredSignal | null;
+  signalAiSummary: SignalPriceRayPrimitiveOptions["signalAiSummary"];
   theme: ChartTheme;
 }): SignalPriceRayDrawingState {
   if (!input.chart || !input.series || input.candles.length === 0) {
     return { ranges: [], rays: [] };
   }
 
-  const { candles, chart, paperPosition, series, signal, theme } = input;
-  const sourceState = signal ? createSignalPriceRaySourceState(signal, paperPosition, theme) : null;
+  const { candles, chart, paperPosition, series, signal, signalAiSummary, theme } = input;
+  const sourceState = signal ? createSignalPriceRaySourceState(signal, paperPosition, signalAiSummary, theme) : null;
   if (!sourceState) {
     return { ranges: [], rays: [] };
   }
@@ -145,13 +147,7 @@ function createSignalPriceRayDrawingState(input: {
       return [];
     }
 
-    const rangeEndCoordinate = range.endTimeMs === undefined ? null : resolveSignalTimeCoordinate(chart, candles, range.endTimeMs);
-    if (range.endTimeMs !== undefined && rangeEndCoordinate === null) {
-      return [];
-    }
-
     return [{
-      endCoordinate: rangeEndCoordinate,
       fillColor: range.fillColor,
       maxCoordinate: Number(maxCoordinate),
       minCoordinate: Number(minCoordinate),
@@ -165,15 +161,8 @@ function createSignalPriceRayDrawingState(input: {
       return [];
     }
 
-    const endCoordinate = ray.endTimeMs === undefined ? null : resolveSignalTimeCoordinate(chart, candles, ray.endTimeMs);
-    if (ray.endTimeMs !== undefined && endCoordinate === null) {
-      return [];
-    }
-
     return [{
       color: ray.color,
-      endCoordinate,
-      label: ray.label,
       lineStyle: ray.lineStyle,
       lineWidth: ray.lineWidth,
       priceCoordinate: Number(priceCoordinate),

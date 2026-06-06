@@ -10,19 +10,15 @@ import {
   type IChartApi,
   type IPriceLine,
   type ISeriesApi,
-  type Logical,
   type LogicalRange,
-  type MouseEventParams,
-  type Time,
 } from "lightweight-charts";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { AiSignalSummaryOverlay } from "./kline-chart/ai-signal-summary-overlay";
-import { ChartPaperPositionOverlay } from "./kline-chart/paper-position-overlay";
+import { renderPaperPositionLifecycleLabels } from "./kline-chart/paper-position-lifecycle-labels";
 import { createChartPalette } from "./kline-chart/palette";
-import { createSignalPriceLines, KLINE_PRICE_FORMAT, toVolumeData } from "./kline-chart/series-data";
+import { createSignalPriceLines, toVolumeData } from "./kline-chart/series-data";
 import { createSignalEventRenderKey, renderSignalEventLabels } from "./kline-chart/signal-event-labels";
 import { SignalPriceRayPrimitive } from "./kline-chart/signal-price-ray-primitive";
-import { readTradePointMarkerId, TradePointPrimitive, type KlineTradePointMarker } from "./kline-chart/trade-point-primitive";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { SignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import type { MarketCandle } from "@/app/_types/market";
@@ -37,18 +33,13 @@ type KlineChartProps = {
   candles: readonly MarketCandle[];
   canLoadOlderHistory: boolean;
   eventSignals: readonly StructuredSignal[];
-  focusSignalRequestKey: string | null;
   isLoadingOlderHistory: boolean;
   theme: ChartTheme;
-  tradeMarkers: readonly KlineTradePointMarker[];
   onEventSignalSelect: (signal: StructuredSignal) => void;
-  onFocusSignalRequestHandled: () => void;
   onLoadOlderHistory: () => void;
 };
 
 const LEFT_EDGE_HISTORY_THRESHOLD_BARS = 80;
-const INITIAL_VISIBLE_CANDLE_COUNT = 240;
-const RIGHT_EDGE_FOLLOW_THRESHOLD_BARS = 2;
 
 export function KlineChart({
   activePaperPosition,
@@ -57,52 +48,44 @@ export function KlineChart({
   candles,
   canLoadOlderHistory,
   eventSignals,
-  focusSignalRequestKey,
   isLoadingOlderHistory,
   theme,
-  tradeMarkers,
   onLoadOlderHistory,
   onEventSignalSelect,
-  onFocusSignalRequestHandled,
 }: KlineChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const hiddenSignalHintRef = useRef<HTMLDivElement | null>(null);
   const labelOverlayRef = useRef<HTMLDivElement | null>(null);
+  const lifecycleOverlayRef = useRef<HTMLDivElement | null>(null);
+  const signalDataGuideTargetRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const priceLineRefs = useRef<IPriceLine[]>([]);
   const signalRayPrimitiveRef = useRef<SignalPriceRayPrimitive | null>(null);
-  const tradePointPrimitiveRef = useRef<TradePointPrimitive | null>(null);
   const hasFittedContentRef = useRef(false);
   const canLoadOlderHistoryRef = useRef(canLoadOlderHistory);
   const isLoadingOlderHistoryRef = useRef(isLoadingOlderHistory);
   const onLoadOlderHistoryRef = useRef(onLoadOlderHistory);
   const eventSignalsRef = useRef(eventSignals);
-  const tradeMarkersRef = useRef(tradeMarkers);
   const candlesRef = useRef(candles);
-  const renderedCandlesRef = useRef<readonly MarketCandle[]>([]);
+  const activePaperPositionRef = useRef(activePaperPosition);
   const activeSignalRef = useRef(activeSignal);
   const themeRef = useRef(theme);
   const onEventSignalSelectRef = useRef(onEventSignalSelect);
-  const handledFocusSignalRequestKeyRef = useRef<string | null>(null);
-  const eventLabelRenderKey = createSignalEventRenderKey(candles, eventSignals, theme);
-  const paperTradeMarkers = useMemo(() => createPaperPositionTradeMarkers(activePaperPosition, activeSignal), [activePaperPosition, activeSignal]);
-  const renderedTradeMarkers = useMemo(
-    () => paperTradeMarkers.length > 0 ? [...tradeMarkers, ...paperTradeMarkers] : tradeMarkers,
-    [paperTradeMarkers, tradeMarkers],
-  );
+  const eventLabelRenderKey = createSignalEventRenderKey(candles, eventSignals, theme, activeSignal?.id ?? null);
 
   useEffect(() => {
     canLoadOlderHistoryRef.current = canLoadOlderHistory;
     isLoadingOlderHistoryRef.current = isLoadingOlderHistory;
     onLoadOlderHistoryRef.current = onLoadOlderHistory;
     eventSignalsRef.current = eventSignals;
-    tradeMarkersRef.current = renderedTradeMarkers;
     candlesRef.current = candles;
+    activePaperPositionRef.current = activePaperPosition;
     activeSignalRef.current = activeSignal;
     themeRef.current = theme;
     onEventSignalSelectRef.current = onEventSignalSelect;
-  }, [activeSignal, canLoadOlderHistory, candles, eventSignals, isLoadingOlderHistory, onEventSignalSelect, onLoadOlderHistory, renderedTradeMarkers, theme]);
+  }, [activePaperPosition, activeSignal, canLoadOlderHistory, candles, eventSignals, isLoadingOlderHistory, onEventSignalSelect, onLoadOlderHistory, theme]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -115,6 +98,7 @@ export function KlineChart({
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: palette.background },
+        fontSize: 11,
         textColor: palette.text,
         attributionLogo: false,
       },
@@ -144,7 +128,6 @@ export function KlineChart({
       downColor: palette.down,
       borderVisible: false,
       lastValueVisible: false,
-      priceFormat: KLINE_PRICE_FORMAT,
       priceLineVisible: false,
       wickUpColor: palette.up,
       wickDownColor: palette.down,
@@ -160,13 +143,39 @@ export function KlineChart({
     volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
     const handleVisibleLogicalRangeChange = (logicalRange: LogicalRange | null) => {
-      renderSignalEventLabels({
+      const hasHiddenEventSignals = renderSignalEventLabels({
+        activeSignal: activeSignalRef.current,
         candles: candlesRef.current,
         chart,
         overlay: labelOverlayRef.current,
         signals: eventSignalsRef.current,
         onSignalSelect: onEventSignalSelectRef.current,
         theme: themeRef.current,
+      });
+      const hasHiddenLifecycleSignals = renderPaperPositionLifecycleLabels({
+        candles: candlesRef.current,
+        chart,
+        overlay: lifecycleOverlayRef.current,
+        paperPosition: activePaperPositionRef.current,
+        series: candleSeries,
+        signal: activeSignalRef.current,
+        theme: themeRef.current,
+      });
+      if (lifecycleOverlayRef.current) {
+        lifecycleOverlayRef.current.dataset.lifecycleHiddenRight = String(hasHiddenLifecycleSignals);
+      }
+      updateSignalDataGuideTarget({
+        annotationOverlay: lifecycleOverlayRef.current,
+        candles: candlesRef.current,
+        element: signalDataGuideTargetRef.current,
+        paperPosition: activePaperPositionRef.current,
+        series: candleSeries,
+        signal: activeSignalRef.current,
+      });
+      renderHiddenSignalHint({
+        element: hiddenSignalHintRef.current,
+        isDarkTheme: themeRef.current === "dark",
+        isVisible: hasHiddenEventSignals || hasHiddenLifecycleSignals,
       });
 
       if (!logicalRange || !canLoadOlderHistoryRef.current || isLoadingOlderHistoryRef.current) {
@@ -179,44 +188,22 @@ export function KlineChart({
     };
 
     const signalRayPrimitive = new SignalPriceRayPrimitive();
-    const tradePointPrimitive = new TradePointPrimitive();
     candleSeries.attachPrimitive(signalRayPrimitive);
-    candleSeries.attachPrimitive(tradePointPrimitive);
-
-    const handleChartClick = (param: MouseEventParams<Time>) => {
-      const markerId = readTradePointMarkerId(param.hoveredObjectId);
-      if (!markerId) {
-        return;
-      }
-
-      const marker = tradeMarkersRef.current.find((item) => item.id === markerId);
-      const signal = marker
-        ? eventSignalsRef.current.find((item) => item.id === marker.signalId) ?? (activeSignalRef.current?.id === marker.signalId ? activeSignalRef.current : null)
-        : null;
-      if (signal) {
-        onEventSignalSelectRef.current(signal);
-      }
-    };
 
     chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
-    chart.subscribeClick(handleChartClick);
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
     signalRayPrimitiveRef.current = signalRayPrimitive;
-    tradePointPrimitiveRef.current = tradePointPrimitive;
 
     return () => {
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
-      chart.unsubscribeClick(handleChartClick);
       candleSeries.detachPrimitive(signalRayPrimitive);
-      candleSeries.detachPrimitive(tradePointPrimitive);
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
       volumeSeriesRef.current = null;
       signalRayPrimitiveRef.current = null;
-      tradePointPrimitiveRef.current = null;
       priceLineRefs.current = [];
       hasFittedContentRef.current = false;
     };
@@ -234,6 +221,7 @@ export function KlineChart({
     chart.applyOptions({
       layout: {
         background: { type: ColorType.Solid, color: palette.background },
+        fontSize: 11,
         textColor: palette.text,
         attributionLogo: false,
       },
@@ -263,7 +251,6 @@ export function KlineChart({
       downColor: palette.down,
       borderVisible: false,
       lastValueVisible: false,
-      priceFormat: KLINE_PRICE_FORMAT,
       priceLineVisible: false,
       wickUpColor: palette.up,
       wickDownColor: palette.down,
@@ -278,47 +265,47 @@ export function KlineChart({
     if (candles.length === 0) {
       candleSeriesRef.current.setData([]);
       volumeSeriesRef.current.setData([]);
-      signalRayPrimitiveRef.current?.applyOptions({ candles, paperPosition: null, signal: null, theme });
-      tradePointPrimitiveRef.current?.applyOptions({ activeSignalId: null, candles, markers: [], theme });
+      signalRayPrimitiveRef.current?.applyOptions({ candles, paperPosition: null, signal: null, signalAiSummary: null, theme });
       labelOverlayRef.current?.replaceChildren();
+      lifecycleOverlayRef.current?.replaceChildren();
+      labelOverlayRef.current?.removeAttribute("data-signal-event-hidden-right");
+      lifecycleOverlayRef.current?.removeAttribute("data-lifecycle-hidden-right");
+      renderHiddenSignalHint({ element: hiddenSignalHintRef.current, isDarkTheme: theme === "dark", isVisible: false });
       hasFittedContentRef.current = false;
-      renderedCandlesRef.current = [];
       return;
     }
-
-    const previousCandles = renderedCandlesRef.current;
-    const previousVisibleRange = chartRef.current?.timeScale().getVisibleLogicalRange() ?? null;
-    const preservedVisibleRange = resolveVisibleLogicalRangeAfterCandlesChange({
-      nextCandles: candles,
-      previousCandles,
-      previousVisibleRange,
-    });
 
     candleSeriesRef.current.setData([...candles]);
     volumeSeriesRef.current.setData(candles.map((candle) => toVolumeData(candle, theme)));
 
     if (!hasFittedContentRef.current) {
-      const lastCandleIndex = candles.length - 1;
-      chartRef.current?.timeScale().setVisibleLogicalRange({
-        from: Math.max(0, lastCandleIndex - INITIAL_VISIBLE_CANDLE_COUNT + 1),
-        to: lastCandleIndex,
-      });
+      chartRef.current?.timeScale().fitContent();
       hasFittedContentRef.current = true;
-    } else if (preservedVisibleRange) {
-      chartRef.current?.timeScale().setVisibleLogicalRange(preservedVisibleRange);
     }
-
-    renderedCandlesRef.current = candles;
   }, [candles, theme]);
 
   useEffect(() => {
-    renderSignalEventLabels({
+    const hasHiddenEventSignals = renderSignalEventLabels({
+      activeSignal: activeSignalRef.current,
       candles: candlesRef.current,
       chart: chartRef.current,
       overlay: labelOverlayRef.current,
       signals: eventSignalsRef.current,
       onSignalSelect: onEventSignalSelectRef.current,
       theme: themeRef.current,
+    });
+    renderHiddenSignalHint({
+      element: hiddenSignalHintRef.current,
+      isDarkTheme: themeRef.current === "dark",
+      isVisible: hasHiddenEventSignals || lifecycleOverlayRef.current?.dataset.lifecycleHiddenRight === "true",
+    });
+    updateSignalDataGuideTarget({
+      annotationOverlay: lifecycleOverlayRef.current,
+      candles: candlesRef.current,
+      element: signalDataGuideTargetRef.current,
+      paperPosition: activePaperPositionRef.current,
+      series: candleSeriesRef.current,
+      signal: activeSignalRef.current,
     });
   }, [eventLabelRenderKey]);
 
@@ -332,185 +319,212 @@ export function KlineChart({
       series.removePriceLine(priceLine);
     }
 
-    priceLineRefs.current = createSignalPriceLines(activeSignal, activePaperPosition, candles.at(-1)?.close).map((line) => series.createPriceLine(line));
+    priceLineRefs.current = activeSignal
+      ? createSignalPriceLines(activeSignal, candles.at(-1)?.close, theme).map((line) => series.createPriceLine(line))
+      : [];
 
     signalRayPrimitiveRef.current?.applyOptions({
       candles,
       paperPosition: activePaperPosition,
       signal: activeSignal,
+      signalAiSummary: aiSummary,
       theme,
     });
-    tradePointPrimitiveRef.current?.applyOptions({
-      activeSignalId: activeSignal?.id ?? null,
+    const hasHiddenLifecycleSignals = renderPaperPositionLifecycleLabels({
       candles,
-      markers: renderedTradeMarkers,
+      chart: chartRef.current,
+      overlay: lifecycleOverlayRef.current,
+      paperPosition: activePaperPosition,
+      series,
+      signal: activeSignal,
       theme,
     });
-  }, [activePaperPosition, activeSignal, aiSummary, candles, renderedTradeMarkers, theme]);
-
-  useEffect(() => {
-    const chart = chartRef.current;
-    if (!chart || !activeSignal || !focusSignalRequestKey || candles.length === 0) {
-      return;
+    if (lifecycleOverlayRef.current) {
+      lifecycleOverlayRef.current.dataset.lifecycleHiddenRight = String(hasHiddenLifecycleSignals);
     }
-
-    if (focusSignalRequestKey !== createSignalFocusRequestKey(activeSignal)) {
-      return;
-    }
-
-    if (handledFocusSignalRequestKeyRef.current === focusSignalRequestKey) {
-      return;
-    }
-
-    const targetIndex = findNearestCandleIndex(candles, Date.parse(activeSignal.created_at));
-    if (targetIndex === -1) {
-      return;
-    }
-
-    /**
-     * Focus is intentionally command-driven. Same-symbol signal selection only
-     * redraws overlays; cross-symbol signal selection sends a one-shot request
-     * so the newly loaded market opens around the selected event.
-     */
-    chart.timeScale().setVisibleLogicalRange({
-      from: Math.max(0, targetIndex - 52),
-      to: Math.min(candles.length - 1, targetIndex + 52),
+    renderHiddenSignalHint({
+      element: hiddenSignalHintRef.current,
+      isDarkTheme: theme === "dark",
+      isVisible: hasHiddenLifecycleSignals || labelOverlayRef.current?.dataset.signalEventHiddenRight === "true",
     });
-    handledFocusSignalRequestKeyRef.current = focusSignalRequestKey;
-    onFocusSignalRequestHandled();
-  }, [activeSignal, candles, focusSignalRequestKey, onFocusSignalRequestHandled]);
+    updateSignalDataGuideTarget({
+      annotationOverlay: lifecycleOverlayRef.current,
+      candles,
+      element: signalDataGuideTargetRef.current,
+      paperPosition: activePaperPosition,
+      series,
+      signal: activeSignal,
+    });
+  }, [activePaperPosition, activeSignal, aiSummary, candles, theme]);
 
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="absolute inset-0" />
+      <div ref={signalDataGuideTargetRef} data-guide-target="kline-signal-data" aria-hidden="true" className="pointer-events-none absolute z-10" />
+      <div data-guide-target="kline-kol-avatars" aria-hidden="true" className="pointer-events-none absolute bottom-2 left-4 right-[124px] z-10 h-28" />
+      <div ref={hiddenSignalHintRef} aria-hidden="true" className="hidden" />
       <div ref={labelOverlayRef} className="pointer-events-none absolute inset-0 z-20 overflow-hidden" />
+      <div ref={lifecycleOverlayRef} className="pointer-events-none absolute inset-0 z-30 overflow-hidden" />
       <AiSignalSummaryOverlay summary={aiSummary} theme={theme} />
-      {candles.length > 0 && activePaperPosition ? (
-        <ChartPaperPositionOverlay
-          paperPosition={activePaperPosition}
-          signal={activeSignal}
-          theme={theme}
-        />
-      ) : null}
     </div>
   );
 }
 
-function findNearestCandleIndex(candles: readonly MarketCandle[], sourceTimeMs: number): number {
-  if (!Number.isFinite(sourceTimeMs) || candles.length === 0) {
-    return -1;
+function updateSignalDataGuideTarget(input: {
+  annotationOverlay: HTMLDivElement | null;
+  candles: readonly MarketCandle[];
+  element: HTMLDivElement | null;
+  paperPosition: PaperPositionRecord | null;
+  series: ISeriesApi<"Candlestick"> | null;
+  signal: StructuredSignal | null;
+}): void {
+  const { annotationOverlay, candles, element, paperPosition, series, signal } = input;
+  const container = element?.parentElement;
+  if (!element || !container) {
+    return;
   }
 
-  let nearestIndex = 0;
-  let nearestDistance = Math.abs(candles[0].sourceTimeMs - sourceTimeMs);
+  const containerWidth = container.clientWidth;
+  const containerHeight = container.clientHeight;
+  if (containerWidth <= 0 || containerHeight <= 0) {
+    return;
+  }
 
-  for (let index = 1; index < candles.length; index += 1) {
-    const distance = Math.abs(candles[index].sourceTimeMs - sourceTimeMs);
-    if (distance < nearestDistance) {
-      nearestIndex = index;
-      nearestDistance = distance;
+  const fallbackLeft = 24;
+  const fallbackTop = Math.round(containerHeight * 0.26);
+  const fallbackWidth = Math.max(180, containerWidth - fallbackLeft - 4);
+  const fallbackHeight = Math.max(180, Math.round(containerHeight * 0.42));
+
+  if (!series || !signal) {
+    applyGuideTargetStyle(element, {
+      height: fallbackHeight,
+      left: fallbackLeft,
+      top: fallbackTop,
+      width: fallbackWidth,
+    });
+    return;
+  }
+
+  const priceCoordinates = collectSignalGuidePrices(signal, paperPosition, candles)
+    .flatMap((price) => {
+      const coordinate = series.priceToCoordinate(price);
+      const numericCoordinate = coordinate === null ? null : Number(coordinate);
+      return numericCoordinate !== null && Number.isFinite(numericCoordinate) ? [numericCoordinate] : [];
+    });
+
+  if (priceCoordinates.length === 0) {
+    applyGuideTargetStyle(element, {
+      height: fallbackHeight,
+      left: fallbackLeft,
+      top: fallbackTop,
+      width: fallbackWidth,
+    });
+    return;
+  }
+
+  const annotationRect = collectSignalAnnotationRect(container, annotationOverlay);
+  const verticalCoordinates = annotationRect
+    ? [...priceCoordinates, annotationRect.top, annotationRect.bottom]
+    : priceCoordinates;
+  const minY = Math.min(...verticalCoordinates);
+  const maxY = Math.max(...verticalCoordinates);
+  const verticalPadding = 58;
+  const minHeight = 172;
+  const rawTop = minY - verticalPadding;
+  const rawBottom = maxY + verticalPadding;
+  const height = Math.min(Math.max(rawBottom - rawTop, minHeight), Math.max(180, containerHeight - 110));
+  const centerY = (minY + maxY) / 2;
+  const top = clamp(centerY - height / 2, 54, Math.max(54, containerHeight - height - 40));
+  const rightEdge = containerWidth - 4;
+  const annotationLeft = annotationRect ? Math.max(0, annotationRect.left - 88) : Math.round(containerWidth * 0.06);
+  const left = clamp(Math.min(24, annotationLeft), 0, Math.max(0, rightEdge - 300));
+  const width = Math.max(180, rightEdge - left);
+
+  applyGuideTargetStyle(element, { height, left, top, width });
+}
+
+function collectSignalAnnotationRect(
+  container: HTMLElement,
+  overlay: HTMLDivElement | null,
+): { bottom: number; left: number; right: number; top: number } | null {
+  if (!overlay) {
+    return null;
+  }
+
+  const containerRect = container.getBoundingClientRect();
+  let bottom = Number.NEGATIVE_INFINITY;
+  let left = Number.POSITIVE_INFINITY;
+  let right = Number.NEGATIVE_INFINITY;
+  let top = Number.POSITIVE_INFINITY;
+
+  for (const element of overlay.querySelectorAll<HTMLElement>('[data-guide-annotation="kline-signal"]')) {
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      continue;
     }
+
+    bottom = Math.max(bottom, rect.bottom - containerRect.top);
+    left = Math.min(left, rect.left - containerRect.left);
+    right = Math.max(right, rect.right - containerRect.left);
+    top = Math.min(top, rect.top - containerRect.top);
   }
 
-  return nearestIndex;
-}
-
-export function createSignalFocusRequestKey(signal: StructuredSignal): string {
-  return `${signal.id}:${signal.symbol}:${signal.created_at}`;
-}
-
-function resolveVisibleLogicalRangeAfterCandlesChange({
-  nextCandles,
-  previousCandles,
-  previousVisibleRange,
-}: {
-  nextCandles: readonly MarketCandle[];
-  previousCandles: readonly MarketCandle[];
-  previousVisibleRange: LogicalRange | null;
-}): LogicalRange | null {
-  if (!previousVisibleRange || previousCandles.length === 0 || nextCandles.length === 0) {
+  if (!Number.isFinite(left) || !Number.isFinite(right) || !Number.isFinite(top) || !Number.isFinite(bottom)) {
     return null;
   }
 
-  const prependedCandleCount = resolvePrependedCandleCount(previousCandles, nextCandles);
-  if (prependedCandleCount > 0) {
-    return {
-      from: (previousVisibleRange.from + prependedCandleCount) as Logical,
-      to: (previousVisibleRange.to + prependedCandleCount) as Logical,
-    };
-  }
-
-  const previousLastCandle = previousCandles.at(-1);
-  const nextLastCandle = nextCandles.at(-1);
-  if (!previousLastCandle || !nextLastCandle) {
-    return null;
-  }
-
-  const didAppendNewerCandles = nextLastCandle.sourceTimeMs > previousLastCandle.sourceTimeMs;
-  if (!didAppendNewerCandles) {
-    return previousVisibleRange;
-  }
-
-  return isViewingLatestCandle(previousVisibleRange, previousCandles.length)
-    ? null
-    : previousVisibleRange;
+  return {
+    bottom: clamp(bottom, 0, container.clientHeight),
+    left: clamp(left, 0, container.clientWidth),
+    right: clamp(right, 0, container.clientWidth),
+    top: clamp(top, 0, container.clientHeight),
+  };
 }
 
-function resolvePrependedCandleCount(previousCandles: readonly MarketCandle[], nextCandles: readonly MarketCandle[]): number {
-  const previousFirstCandle = previousCandles[0];
-  if (!previousFirstCandle) {
-    return 0;
-  }
-
-  const previousFirstIndexInNextCandles = nextCandles.findIndex((candle) => candle.sourceTimeMs === previousFirstCandle.sourceTimeMs);
-  return previousFirstIndexInNextCandles > 0 ? previousFirstIndexInNextCandles : 0;
-}
-
-function isViewingLatestCandle(visibleRange: LogicalRange, candleCount: number): boolean {
-  return visibleRange.to >= candleCount - 1 - RIGHT_EDGE_FOLLOW_THRESHOLD_BARS;
-}
-
-function createPaperPositionTradeMarkers(
+function collectSignalGuidePrices(
+  signal: StructuredSignal,
   paperPosition: PaperPositionRecord | null,
-  signal: StructuredSignal | null,
-): KlineTradePointMarker[] {
-  if (!paperPosition || !signal) {
-    return [];
-  }
+  candles: readonly MarketCandle[],
+): number[] {
+  const prices = [
+    signal.entry_min,
+    signal.entry_max,
+    signal.trigger_price,
+    signal.stop_loss,
+    ...signal.take_profit,
+    paperPosition?.entryPrice ?? null,
+    paperPosition?.exitPrice ?? null,
+    paperPosition?.currentPrice ?? null,
+    candles.at(-1)?.close ?? null,
+  ];
 
-  const markers: KlineTradePointMarker[] = [];
-
-  if (paperPosition.entryPrice !== null && paperPosition.entryTimeMs !== null) {
-    const side = signal.direction === "long" ? "buy" : "sell";
-    markers.push({
-      id: `paper-trade-point:${signal.id}:entry`,
-      label: side === "buy" ? "B" : "S",
-      price: paperPosition.entryPrice,
-      side,
-      signalId: signal.id,
-      sourceTimeMs: paperPosition.entryTimeMs,
-      title: `${signal.source_name} ${side === "buy" ? "买入" : "卖出"} ${signal.symbol} @ ${formatTradePointPrice(paperPosition.entryPrice)}`,
-    });
-  }
-
-  if (paperPosition.exitPrice !== null && paperPosition.exitTimeMs !== null) {
-    const side = signal.direction === "long" ? "sell" : "buy";
-    markers.push({
-      id: `paper-trade-point:${signal.id}:exit`,
-      label: side === "buy" ? "B" : "S",
-      price: paperPosition.exitPrice,
-      side,
-      signalId: signal.id,
-      sourceTimeMs: paperPosition.exitTimeMs,
-      title: `${signal.source_name} ${side === "buy" ? "买入平仓" : "卖出平仓"} ${signal.symbol} @ ${formatTradePointPrice(paperPosition.exitPrice)}`,
-    });
-  }
-
-  return markers;
+  return prices.filter((price): price is number => price !== null && Number.isFinite(price) && price > 0);
 }
 
-function formatTradePointPrice(value: number): string {
-  return value.toLocaleString("en-US", {
-    maximumFractionDigits: Math.abs(value) >= 1_000 ? 2 : 6,
-  });
+function applyGuideTargetStyle(
+  element: HTMLDivElement,
+  rect: { height: number; left: number; top: number; width: number },
+): void {
+  element.style.left = `${rect.left}px`;
+  element.style.top = `${rect.top}px`;
+  element.style.width = `${rect.width}px`;
+  element.style.height = `${rect.height}px`;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function renderHiddenSignalHint(input: {
+  element: HTMLDivElement | null;
+  isDarkTheme: boolean;
+  isVisible: boolean | undefined;
+}) {
+  const { element, isDarkTheme, isVisible } = input;
+  if (!element) {
+    return;
+  }
+
+  element.classList.toggle("hidden", !isVisible);
+  element.style.color = isDarkTheme ? "rgba(148, 163, 184, 0.96)" : "rgba(51, 65, 85, 0.92)";
 }

@@ -1,11 +1,13 @@
 import type { IChartApi, ISeriesApi, LineStyle, LineWidth } from "lightweight-charts";
 import type { MarketCandle } from "@/app/_types/market";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
+import type { SignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type { ChartTheme } from "@/app/_components/kline-chart";
 
 export type SignalPriceRayPrimitiveOptions = {
   candles: readonly MarketCandle[];
+  signalAiSummary: SignalAiSummary | null;
   paperPosition: PaperPositionRecord | null;
   signal: StructuredSignal | null;
   theme: ChartTheme;
@@ -13,15 +15,12 @@ export type SignalPriceRayPrimitiveOptions = {
 
 export type SignalPriceRaySource = {
   color: string;
-  endTimeMs?: number;
-  label?: string;
   lineStyle: LineStyle;
   lineWidth: LineWidth;
   price: number;
 };
 
 export type SignalPriceRangeSource = {
-  endTimeMs?: number;
   fillColor: string;
   maxPrice: number;
   minPrice: number;
@@ -30,8 +29,6 @@ export type SignalPriceRangeSource = {
 
 export type SignalPriceRayDrawing = {
   color: string;
-  endCoordinate: number | null;
-  label?: string;
   lineStyle: LineStyle;
   lineWidth: LineWidth;
   priceCoordinate: number;
@@ -39,7 +36,6 @@ export type SignalPriceRayDrawing = {
 };
 
 export type SignalPriceRangeDrawing = {
-  endCoordinate: number | null;
   fillColor: string;
   maxCoordinate: number;
   minCoordinate: number;

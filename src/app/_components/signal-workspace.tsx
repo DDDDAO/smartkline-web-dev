@@ -1,196 +1,122 @@
 "use client";
 
+import { ChevronLeft, Languages, Moon, PanelRightClose, PanelRightOpen, Sun } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { markets } from "@/app/_lib/demo-data";
 import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
-import { createStructuredSignalPositionKey, fetchKolSignals, fetchKolSignalsAfter } from "@/app/_lib/kol-signal-api";
+import { createStructuredSignalPositionKey, fetchKolSignals, subscribeToKolSignals } from "@/app/_lib/kol-signal-api";
 import { computePaperPositionRecord, type PaperPositionRecord } from "@/app/_lib/paper-position";
 import { KolPanel } from "./signal-workspace/kol-panel";
+import { OnboardingGuide } from "./signal-workspace/onboarding-guide";
 import { RealtimeKlinePanel } from "./signal-workspace/realtime-kline-panel";
 import { formatKolSignalSourceError, type KolSignalSourceStatus } from "./signal-workspace/types";
-import { type PaperPositionMarketCandleUpdate, usePaperPositionCandles } from "./signal-workspace/use-paper-position-candles";
-import { createSignalFocusRequestKey, type ChartTheme } from "@/app/_components/kline-chart";
+import { usePaperPositionCandles } from "./signal-workspace/use-paper-position-candles";
+import type { ChartTheme } from "@/app/_components/kline-chart";
 import type { KlineInterval, MarketSymbol } from "@/app/_types/market";
-import type { CopyTradingTradeMarker } from "@/app/_types/copy-trading";
 import type { StructuredSignal } from "@/app/_types/signal";
 
 const MAX_VISIBLE_KOL_SIGNALS = 50;
-const NOTIFICATION_DISMISS_MS = 6_500;
-const INTRO_AUTO_DISMISS_MS = 5_800;
-const KOL_SIGNAL_POLL_INTERVAL_MS = 30_000;
-const TELEGRAM_DISCUSSION_GROUP_URL = process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
-const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
+const TELEGRAM_COMMUNITY_URL = process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
+const DEMO_USER_PROFILE = {
+  name: "Alphafox",
+  email: "alphafox@smartkline.ai",
+  initials: "AF",
+};
 
 type WorkspaceLanguage = "zh-CN" | "en-US";
-
-type WorkspaceNotification = {
-  id: string;
-  message: string;
-  meta: string;
-  title: string;
-};
-
-type TelegramAuthUser = {
-  avatarUrl?: string;
-  id: string;
-  name?: string;
-  telegramId?: string;
-  username?: string;
-};
-
-type TelegramAuthStatus = {
-  botBinding: "unbound" | "bound";
-  communityBinding: "unverified" | "pending" | "joined" | "left" | "kicked";
-  isLoggedIn: boolean;
-  notificationPermission: "none" | "granted";
-  sourceBindingCount: number;
-  telegramUser: TelegramAuthUser | null;
-};
-
-const DEFAULT_TELEGRAM_AUTH_STATUS: TelegramAuthStatus = {
-  botBinding: "unbound",
-  communityBinding: "unverified",
-  isLoggedIn: false,
-  notificationPermission: "none",
-  sourceBindingCount: 0,
-  telegramUser: null,
-};
 
 export function SignalWorkspace() {
   const [symbol, setSymbol] = useState<MarketSymbol>("BTC/USDT:USDT");
   const [interval, setInterval] = useState<KlineInterval>("15m");
   const [activeSignalId, setActiveSignalId] = useState("");
-  const [chartFocusSignalRequestKey, setChartFocusSignalRequestKey] = useState<string | null>(null);
   const [theme, setTheme] = useState<ChartTheme>("light");
   const [language, setLanguage] = useState<WorkspaceLanguage>("zh-CN");
-  const [authStatus, setAuthStatus] = useState<TelegramAuthStatus>(DEFAULT_TELEGRAM_AUTH_STATUS);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMyPanelOpen, setIsMyPanelOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
-  const [showIntro, setShowIntro] = useState(true);
+  const [isRightPanelExiting, setIsRightPanelExiting] = useState(false);
+  const [isWorkspaceMotionVisible, setIsWorkspaceMotionVisible] = useState(false);
   const [marketOptions, setMarketOptions] = useState<MarketSymbol[]>(markets);
   const [signals, setSignals] = useState<StructuredSignal[]>([]);
-  const [latestMarketCandleUpdate, setLatestMarketCandleUpdate] = useState<PaperPositionMarketCandleUpdate | null>(null);
-  const [workspaceNotification, setWorkspaceNotification] = useState<WorkspaceNotification | null>(null);
   const [kolSignalSourceStatus, setKolSignalSourceStatus] = useState<KolSignalSourceStatus>({
     error: null,
     isLoading: true,
   });
-  const latestKolSignalCreatedAtRef = useRef<string | null>(null);
 
-  const activeKolSignal = signals.find((signal) => signal.id === activeSignalId) ?? signals[0] ?? null;
+  const activeSignal = signals.find((signal) => signal.id === activeSignalId) ?? signals[0] ?? null;
   const kolSignals = useMemo(() => sortSignalsForKolPanel(signals), [signals]);
   const {
     candlesBySymbol: paperPositionCandlesBySymbol,
     errorsBySymbol: paperPositionErrorsBySymbol,
-    latestPricesBySymbol: paperPositionLatestPricesBySymbol,
-  } = usePaperPositionCandles(signals, latestMarketCandleUpdate);
+  } = usePaperPositionCandles(signals);
   const paperPositionsBySignalId = useMemo(() => {
     const recordsBySignalId: Record<string, PaperPositionRecord> = {};
 
     for (const signal of signals) {
       const candles = paperPositionCandlesBySymbol[signal.symbol];
       if (candles && candles.length > 0) {
-        recordsBySignalId[signal.id] = computePaperPositionRecord(signal, candles, {
-          currentPriceOverride: paperPositionLatestPricesBySymbol[signal.symbol] ?? null,
-        });
+        recordsBySignalId[signal.id] = computePaperPositionRecord(signal, candles);
       }
     }
 
     return recordsBySignalId;
-  }, [paperPositionCandlesBySymbol, paperPositionLatestPricesBySymbol, signals]);
-  const activeChartPaperPosition = activeKolSignal ? paperPositionsBySignalId[activeKolSignal.id] ?? null : null;
+  }, [paperPositionCandlesBySymbol, signals]);
   const isDarkTheme = theme === "dark";
-  const isLoggedIn = authStatus.isLoggedIn;
-  const pageClassName = isDarkTheme ? "h-screen w-screen overflow-hidden bg-slate-950 text-slate-100" : "h-screen w-screen overflow-hidden bg-[#f5f7fb] text-slate-900";
+  const rightPanelExitTimeoutRef = useRef<number | null>(null);
+  const pageClassName = isDarkTheme ? "flex h-screen w-screen flex-col overflow-hidden bg-[#0B0E11] text-slate-100" : "flex h-screen w-screen flex-col overflow-hidden bg-[#F1F4F8] text-slate-900";
   const workspaceGridClassName = isRightPanelCollapsed
-    ? "relative grid h-full min-h-0 gap-3 p-3 lg:grid-cols-[minmax(0,1fr)]"
-    : "relative grid h-full min-h-0 gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]";
+    ? "motion-fx-7-workspace-grid relative grid h-full min-h-0 gap-3 p-4 lg:grid-cols-[minmax(0,1fr)]"
+    : "motion-fx-7-workspace-grid relative grid h-full min-h-0 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]";
 
-  const handleTelegramLogin = () => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    if (isLoggedIn) {
-      setIsMyPanelOpen(true);
-      return;
-    }
-
-    const redirectPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.assign(`/api/auth/telegram/start?redirect=${encodeURIComponent(redirectPath)}`);
+  const startOnboardingGuide = () => {
+    setIsRightPanelCollapsed(false);
+    window.setTimeout(() => setIsOnboardingOpen(true), 180);
   };
 
-  const handleTelegramDiscussionJoin = () => {
-    openExternalTelegramUrl(TELEGRAM_DISCUSSION_GROUP_URL);
+  const handleTelegramLogin = ({ openCommunity = false }: { openCommunity?: boolean } = {}) => {
+    if (openCommunity) {
+      openTelegramCommunityLink();
+    }
+
+    const shouldStartFirstLoginGuide = !isLoggedIn && shouldShowFirstLoginOnboardingGuide();
+    setIsLoggedIn(true);
+    setIsMyPanelOpen(false);
+
+    if (shouldStartFirstLoginGuide) {
+      startOnboardingGuide();
+    }
+  };
+
+  const handleMyPanelToggle = () => {
+    if (isLoggedIn) {
+      setIsMyPanelOpen(false);
+      return;
+    }
+
+    handleTelegramLogin({ openCommunity: false });
   };
 
   const toggleTheme = () => setTheme((currentTheme) => currentTheme === "light" ? "dark" : "light");
+  const toggleLanguage = () => setLanguage((currentLanguage) => currentLanguage === "zh-CN" ? "en-US" : "zh-CN");
 
   useEffect(() => {
-    let isActive = true;
-    const authResult = readTelegramAuthResultFromUrl();
+    const frameId = window.requestAnimationFrame(() => {
+      setIsWorkspaceMotionVisible(true);
+    });
 
-    fetchTelegramAuthStatus()
-      .then((normalizedAuthStatus) => {
-        if (!isActive) {
-          return;
-        }
-
-        setAuthStatus(normalizedAuthStatus);
-
-        if (authResult === "success" && normalizedAuthStatus.isLoggedIn) {
-          setIsMyPanelOpen(true);
-          setWorkspaceNotification({
-            id: "telegram-login",
-            title: "Telegram 已验证",
-            message: `${formatTelegramDisplayName(normalizedAuthStatus.telegramUser)} 已完成登录验证，可继续查看实时信号。`,
-            meta: "K线情报局 · Telegram OIDC",
-          });
-        } else if (authResult === "error") {
-          setWorkspaceNotification({
-            id: "telegram-login-error",
-            title: "Telegram 登录失败",
-            message: "授权回调未通过验证，请重新发起 Telegram 登录。",
-            meta: "K线情报局 · Telegram OIDC",
-          });
-        }
-
-        clearTelegramAuthQueryFromUrl();
-      })
-      .catch(() => {
-        if (!isActive) {
-          return;
-        }
-
-        setAuthStatus(DEFAULT_TELEGRAM_AUTH_STATUS);
-        if (authResult === "error") {
-          clearTelegramAuthQueryFromUrl();
-        }
-      });
-
-    return () => {
-      isActive = false;
-    };
+    return () => window.cancelAnimationFrame(frameId);
   }, []);
 
   useEffect(() => {
-    if (!workspaceNotification) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => setWorkspaceNotification(null), NOTIFICATION_DISMISS_MS);
-    return () => window.clearTimeout(timeout);
-  }, [workspaceNotification]);
-
-  useEffect(() => {
-    if (!showIntro) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => setShowIntro(false), INTRO_AUTO_DISMISS_MS);
-    return () => window.clearTimeout(timeout);
-  }, [showIntro]);
+    return () => {
+      if (rightPanelExitTimeoutRef.current !== null) {
+        window.clearTimeout(rightPanelExitTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -217,29 +143,12 @@ export function SignalWorkspace() {
 
   useEffect(() => {
     let isActive = true;
-    let isPolling = false;
-    let pollingIntervalId: number | null = null;
-
-    const rememberLatestSignalCreatedAt = (nextSignals: readonly StructuredSignal[]) => {
-      const latestCreatedAt = getLatestStructuredSignalCreatedAt(nextSignals);
-      if (!latestCreatedAt) {
-        return;
-      }
-
-      const currentTimestamp = Date.parse(latestKolSignalCreatedAtRef.current ?? "");
-      const nextTimestamp = Date.parse(latestCreatedAt);
-      if (!latestKolSignalCreatedAtRef.current || !Number.isFinite(currentTimestamp) || nextTimestamp > currentTimestamp) {
-        latestKolSignalCreatedAtRef.current = latestCreatedAt;
-      }
-    };
-
     const applyInitialSignals = (loadedSignals: StructuredSignal[]) => {
       if (!isActive) {
         return;
       }
 
       const sortedSignals = dedupeStructuredSignalsByPosition(loadedSignals);
-      rememberLatestSignalCreatedAt(sortedSignals);
       setSignals(sortedSignals);
       setKolSignalSourceStatus({ error: null, isLoading: false });
       setActiveSignalId((currentActiveSignalId) => (
@@ -247,64 +156,10 @@ export function SignalWorkspace() {
       ));
     };
 
-    const applyIncomingSignals = (incomingSignals: StructuredSignal[]) => {
-      if (!isActive || incomingSignals.length === 0) {
-        return;
-      }
 
-      setSignals((currentSignals) => {
-        const mergedSignals = mergeIncomingSignals(incomingSignals, currentSignals);
-        rememberLatestSignalCreatedAt(mergedSignals);
-        return mergedSignals;
-      });
-      setKolSignalSourceStatus({ error: null, isLoading: false });
-      setActiveSignalId((currentActiveSignalId) => currentActiveSignalId || incomingSignals[0]?.id || "");
-      setWorkspaceNotification({
-        id: `kol-signal-poll-${Date.now()}`,
-        title: "KOL 信源更新",
-        message: `已加载 ${incomingSignals.length} 条新情报。`,
-        meta: "K线情报局 · 最新信号",
-      });
-    };
-
-    const pollIncomingSignals = async () => {
-      const latestCreatedAt = latestKolSignalCreatedAtRef.current;
-      if (!isActive || isPolling || !latestCreatedAt) {
-        return;
-      }
-
-      isPolling = true;
-      try {
-        const incomingSignals = await fetchKolSignalsAfter(latestCreatedAt);
-        if (incomingSignals.length > 0) {
-          applyIncomingSignals(incomingSignals);
-        } else if (isActive) {
-          setKolSignalSourceStatus({ error: null, isLoading: false });
-        }
-      } catch (error: unknown) {
-        if (isActive) {
-          setKolSignalSourceStatus({ error: formatKolSignalSourceError(error), isLoading: false });
-        }
-      } finally {
-        isPolling = false;
-      }
-    };
-
-    const startPolling = () => {
-      if (pollingIntervalId !== null) {
-        return;
-      }
-
-      pollingIntervalId = window.setInterval(() => {
-        void pollIncomingSignals();
-      }, KOL_SIGNAL_POLL_INTERVAL_MS);
-    };
 
     fetchKolSignals()
-      .then((loadedSignals) => {
-        applyInitialSignals(loadedSignals);
-        startPolling();
-      })
+      .then(applyInitialSignals)
       .catch((error: unknown) => {
         if (isActive) {
           setSignals([]);
@@ -313,509 +168,300 @@ export function SignalWorkspace() {
         }
       });
 
+    const unsubscribe = subscribeToKolSignals();
+
     return () => {
       isActive = false;
-      if (pollingIntervalId !== null) {
-        window.clearInterval(pollingIntervalId);
-      }
+      unsubscribe();
     };
   }, []);
 
-  return (
-    <main className={pageClassName}>
-      {showIntro ? (
-        <ProductIntroScreen
-          isDarkTheme={isDarkTheme}
-          onEnter={() => setShowIntro(false)}
-          onTelegramDiscussionJoin={() => {
-            handleTelegramDiscussionJoin();
-            setShowIntro(false);
-          }}
-        />
-      ) : null}
-      {isRightPanelCollapsed ? (
-        <WorkspaceAccountActions
-          authStatus={authStatus}
-          isMyPanelOpen={isMyPanelOpen}
-          isLoggedIn={isLoggedIn}
-          isDarkTheme={isDarkTheme}
-          layout="floating"
-          notification={workspaceNotification}
-          onTelegramLogin={handleTelegramLogin}
-          onTelegramDiscussionJoin={handleTelegramDiscussionJoin}
-          onMyPanelClose={() => setIsMyPanelOpen(false)}
-          onNotificationDismiss={() => setWorkspaceNotification(null)}
-        />
-      ) : null}
-      <WorkspaceSettingsDock
-        isDarkTheme={isDarkTheme}
-        language={language}
-        onLanguageChange={setLanguage}
-        onThemeToggle={toggleTheme}
-      />
-      <section className={workspaceGridClassName}>
-        <RealtimeKlinePanel
-          key={`${symbol}-${interval}`}
-          activePaperPosition={activeChartPaperPosition}
-          activeSignal={activeKolSignal}
-          focusSignalRequestKey={chartFocusSignalRequestKey}
-          interval={interval}
-          marketOptions={marketOptions}
-          symbol={symbol}
-          signals={signals}
-          theme={theme}
-          tradeMarkers={EMPTY_COPY_TRADING_TRADE_MARKERS}
-          onIntervalChange={(nextInterval) => {
-            setChartFocusSignalRequestKey(null);
-            setInterval(nextInterval);
-          }}
-          onSymbolChange={(nextSymbol) => {
-            const nextSignal = signals.find((signal) => signal.symbol === nextSymbol);
-            setChartFocusSignalRequestKey(null);
-            setSymbol(nextSymbol);
-            setActiveSignalId(nextSignal?.id ?? "");
-          }}
-          onSignalSelect={(signal) => {
-            if (signal.symbol !== symbol) {
-              setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
-            } else {
-              setChartFocusSignalRequestKey(null);
-            }
-            setActiveSignalId(signal.id);
-            setSymbol(signal.symbol);
-          }}
-          onFocusSignalRequestHandled={() => setChartFocusSignalRequestKey(null)}
-          onMarketCandleUpdate={setLatestMarketCandleUpdate}
-        />
+  const toggleRightPanel = () => {
+    if (isRightPanelExiting) {
+      return;
+    }
 
-        <SidebarCollapseButton
-          isCollapsed={isRightPanelCollapsed}
+    if (isRightPanelCollapsed) {
+      setIsRightPanelCollapsed(false);
+      return;
+    }
+
+    setIsRightPanelExiting(true);
+    rightPanelExitTimeoutRef.current = window.setTimeout(() => {
+      setIsRightPanelCollapsed(true);
+      setIsRightPanelExiting(false);
+      rightPanelExitTimeoutRef.current = null;
+    }, 220);
+  };
+
+  return (
+    <main className={pageClassName} data-compact-ui>
+      <div className={`motion-fx-10-delay-0 motion-fx-10-reveal ${isWorkspaceMotionVisible ? "is-visible" : ""}`}>
+        <WorkspaceTopNavigation
           isDarkTheme={isDarkTheme}
-          onToggle={() => setIsRightPanelCollapsed((currentValue) => !currentValue)}
+          isLoggedIn={isLoggedIn}
+          isMyPanelOpen={isMyPanelOpen}
+          language={language}
+          onCommunityOpen={openTelegramCommunityLink}
+          onGuideOpen={startOnboardingGuide}
+          onLanguageToggle={toggleLanguage}
+          onMyPanelClose={() => setIsMyPanelOpen(false)}
+          onMyPanelToggle={handleMyPanelToggle}
+          onThemeToggle={toggleTheme}
         />
-        {!isRightPanelCollapsed ? (
-          <div className="flex min-h-0 flex-col gap-3">
-            <WorkspaceAccountActions
-              authStatus={authStatus}
-              isMyPanelOpen={isMyPanelOpen}
-              isLoggedIn={isLoggedIn}
-              isDarkTheme={isDarkTheme}
-              layout="rail"
-              notification={workspaceNotification}
-              onTelegramLogin={handleTelegramLogin}
-              onTelegramDiscussionJoin={handleTelegramDiscussionJoin}
-              onMyPanelClose={() => setIsMyPanelOpen(false)}
-              onNotificationDismiss={() => setWorkspaceNotification(null)}
-            />
-            <KolPanel
-              activeSignal={activeKolSignal}
-              isDarkTheme={isDarkTheme}
-              paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
-              paperPositionsBySignalId={paperPositionsBySignalId}
-              sourceStatus={kolSignalSourceStatus}
-              signals={kolSignals}
+      </div>
+      <div className="min-h-0 min-w-0 flex-1">
+        <section className={workspaceGridClassName} data-right-panel-collapsed={String(isRightPanelCollapsed)}>
+          <div className={`motion-fx-10-delay-1 motion-fx-10-reveal motion-fx-7-primary-panel flex h-full min-h-0 min-w-0 w-full ${isWorkspaceMotionVisible ? "is-visible" : ""}`}>
+            <RealtimeKlinePanel
+              key={`${symbol}-${interval}`}
+              activePaperPosition={activeSignal ? paperPositionsBySignalId[activeSignal.id] ?? null : null}
+              activeSignal={activeSignal}
+              interval={interval}
+              marketOptions={marketOptions}
+              symbol={symbol}
+              signals={signals}
+              theme={theme}
+              onIntervalChange={setInterval}
+              onSymbolChange={(nextSymbol) => {
+                const nextSignal = signals.find((signal) => signal.symbol === nextSymbol);
+                setSymbol(nextSymbol);
+                setActiveSignalId(nextSignal?.id ?? "");
+              }}
               onSignalSelect={(signal) => {
-                if (signal.symbol !== symbol) {
-                  setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
-                } else {
-                  setChartFocusSignalRequestKey(null);
-                }
                 setActiveSignalId(signal.id);
                 setSymbol(signal.symbol);
               }}
             />
           </div>
-        ) : null}
-      </section>
+
+          {!isRightPanelCollapsed || isRightPanelExiting ? (
+            <div className={`kol-panel-shell motion-fx-10-delay-2 motion-fx-10-reveal motion-fx-7-secondary-panel relative flex min-h-0 min-w-0 flex-col gap-3 ${isWorkspaceMotionVisible ? "is-visible" : ""} ${isRightPanelExiting ? "is-exiting" : ""}`}>
+              <KolPanel
+                activeSignal={activeSignal}
+                headerAction={(
+                  <SidebarCollapseButton
+                    isCollapsed={isRightPanelCollapsed}
+                    isDarkTheme={isDarkTheme}
+                    variant="header"
+                    onToggle={toggleRightPanel}
+                  />
+                )}
+                isDarkTheme={isDarkTheme}
+                isLoggedIn={isLoggedIn}
+                onTelegramLogin={handleTelegramLogin}
+                paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
+                paperPositionsBySignalId={paperPositionsBySignalId}
+                sourceStatus={kolSignalSourceStatus}
+                signals={kolSignals}
+                onSignalSelect={(signal) => {
+                  setActiveSignalId(signal.id);
+                  setSymbol(signal.symbol);
+                }}
+              />
+            </div>
+          ) : (
+            <SidebarCollapseButton
+              isCollapsed={isRightPanelCollapsed}
+              isDarkTheme={isDarkTheme}
+              variant="edge-tab"
+              onToggle={toggleRightPanel}
+            />
+          )}
+        </section>
+      </div>
+      <OnboardingGuide
+        isDarkTheme={isDarkTheme}
+        isOpen={isOnboardingOpen}
+        onComplete={() => setIsOnboardingOpen(false)}
+      />
     </main>
   );
 }
 
-function ProductIntroScreen({
+function WorkspaceTopNavigation({
   isDarkTheme,
-  onEnter,
-  onTelegramDiscussionJoin,
-}: {
-  isDarkTheme: boolean;
-  onEnter: () => void;
-  onTelegramDiscussionJoin: () => void;
-}) {
-  const containerClassName = isDarkTheme
-    ? "fixed inset-0 z-[80] flex items-center justify-center bg-slate-950 px-4 text-slate-100"
-    : "fixed inset-0 z-[80] flex items-center justify-center bg-[#f5f7fb] px-4 text-slate-950";
-  const cardClassName = isDarkTheme
-    ? "intro-card-rise w-[min(980px,100%)] overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900 shadow-2xl"
-    : "intro-card-rise w-[min(980px,100%)] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl";
-  const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
-  const stepClassName = isDarkTheme
-    ? "rounded-2xl border border-slate-800 bg-slate-950/70 p-4"
-    : "rounded-2xl border border-slate-200 bg-slate-50 p-4";
-
-  return (
-    <div className={containerClassName}>
-      <div className={cardClassName}>
-        <div className="h-1 bg-slate-200">
-          <div className="intro-step-progress h-full bg-cyan-500" />
-        </div>
-        <div className="grid gap-8 p-6 md:grid-cols-[1.05fr_0.95fr] md:p-8">
-          <div className="flex min-h-[420px] flex-col justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-cyan-500/12 px-3 py-1 text-xs font-black text-cyan-500">
-                <span className="grid h-5 w-5 place-items-center rounded-full bg-cyan-500 text-white">K</span>
-                K线情报局
-              </div>
-              <h1 className="mt-5 max-w-xl text-4xl font-black tracking-tight md:text-6xl">
-                100+ 顶尖交易员陪你盯盘
-              </h1>
-              <p className={`mt-5 max-w-xl text-base leading-7 md:text-lg ${mutedClassName}`}>
-                把 Telegram 群消息变成可验证的交易信号，不错过关键点位、止盈止损和多源共振。
-              </p>
-            </div>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <button
-                className="rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/25 transition hover:bg-cyan-400"
-                type="button"
-                onClick={onEnter}
-              >
-                进入工作台
-              </button>
-              <TelegramDiscussionButton isDarkTheme={isDarkTheme} size="hero" onClick={onTelegramDiscussionJoin} />
-            </div>
-          </div>
-          <div className={isDarkTheme ? "rounded-[1.5rem] bg-slate-950 p-4" : "rounded-[1.5rem] bg-slate-100 p-4"}>
-            <div className="grid gap-3">
-              {[
-                ["1", "接入交易员信号", "从 Telegram 群和 KOL 信源抓取原始消息。"],
-                ["2", "AI 结构化成交易计划", "自动识别币种、多空、入场、止损、止盈。"],
-                ["3", "在 K线上验证", "标记 B/S 点位、风险收益区和多源共振。"],
-                ["4", "状态变化提醒你", "入场、止盈、止损和失效状态统一追踪。"],
-              ].map(([index, title, description]) => (
-                <div key={index} className={stepClassName}>
-                  <div className="flex items-start gap-3">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-cyan-500 text-sm font-black text-white">{index}</span>
-                    <div>
-                      <div className="text-sm font-black">{title}</div>
-                      <div className={`mt-1 text-xs leading-5 ${mutedClassName}`}>{description}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceAccountActions({
-  authStatus,
-  isMyPanelOpen,
   isLoggedIn,
-  isDarkTheme,
-  layout,
-  notification,
+  isMyPanelOpen,
+  language,
+  onCommunityOpen,
+  onGuideOpen,
+  onLanguageToggle,
   onMyPanelClose,
-  onTelegramLogin,
-  onTelegramDiscussionJoin,
-  onNotificationDismiss,
+  onMyPanelToggle,
+  onThemeToggle,
 }: {
-  authStatus: TelegramAuthStatus;
-  isMyPanelOpen: boolean;
+  isDarkTheme: boolean;
   isLoggedIn: boolean;
-  isDarkTheme: boolean;
-  layout: "floating" | "rail";
-  notification: WorkspaceNotification | null;
+  isMyPanelOpen: boolean;
+  language: WorkspaceLanguage;
+  onCommunityOpen: () => void;
+  onGuideOpen: () => void;
+  onLanguageToggle: () => void;
   onMyPanelClose: () => void;
-  onTelegramLogin: () => void;
-  onTelegramDiscussionJoin: () => void;
-  onNotificationDismiss: () => void;
+  onMyPanelToggle: () => void;
+  onThemeToggle: () => void;
 }) {
-  const containerClassName = layout === "floating"
-    ? "pointer-events-none fixed right-4 top-4 z-50 flex w-[min(430px,calc(100vw-2rem))] flex-col items-end gap-3"
-    : "flex w-full shrink-0 flex-col gap-3";
-  const actionRowClassName = layout === "floating"
-    ? "pointer-events-auto flex flex-wrap items-center justify-end gap-2"
-    : isDarkTheme
-      ? "flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/88 p-3 shadow-sm"
-      : "flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm";
+  const headerClassName = isDarkTheme
+    ? "relative z-50 flex h-16 shrink-0 items-center justify-between border-b border-white/[0.075] bg-[#0B0E11]/95 px-5 backdrop-blur-xl"
+    : "relative z-50 flex h-16 shrink-0 items-center justify-between border-b border-[#E5EAF0] bg-white/95 px-5 backdrop-blur-xl";
+  const headerLinkClassName = isDarkTheme
+    ? "motion-fx-1-nav-button px-2 py-2 text-sm font-semibold text-slate-400 transition-colors hover:text-[#69D4FF]"
+    : "motion-fx-1-nav-button px-2 py-2 text-sm font-semibold text-slate-500 transition-colors hover:text-[#008DCC]";
+  const loginButtonClassName = "motion-fx-1-nav-button h-10 rounded-full bg-[#00A6F4] px-5 text-sm font-semibold text-white transition hover:bg-[#0097DD]";
+  const accountButtonClassName = isDarkTheme
+    ? "motion-fx-1-nav-button group flex h-10 max-w-[180px] items-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.035] py-1 pl-1 pr-3 text-left transition hover:border-white/[0.11] hover:bg-white/[0.08]"
+    : "motion-fx-1-nav-button group flex h-10 max-w-[180px] items-center gap-2 rounded-full border border-[#E5EAF0] bg-white py-1 pl-1 pr-3 text-left transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70";
+  const avatarClassName = isDarkTheme
+    ? "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#00A6F4] text-[11px] font-black text-white ring-2 ring-[#0B0E11]"
+    : "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#00A6F4] text-[11px] font-black text-white ring-2 ring-white";
+  const accountNameClassName = isDarkTheme ? "truncate text-xs font-bold leading-4 text-slate-100" : "truncate text-xs font-bold leading-4 text-slate-900";
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isFollowHintVisible, setIsFollowHintVisible] = useState(false);
+
+  useEffect(() => {
+    if (!isMyPanelOpen || !isLoggedIn) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (!accountMenuRef.current?.contains(target)) {
+        onMyPanelClose();
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [isLoggedIn, isMyPanelOpen, onMyPanelClose]);
 
   return (
-    <div className={containerClassName}>
-      <div className={actionRowClassName}>
-        <BrandLogo isDarkTheme={isDarkTheme} />
-        <TelegramDiscussionButton isDarkTheme={isDarkTheme} onClick={onTelegramDiscussionJoin} />
+    <header className={headerClassName}>
+      <div className="flex min-w-0 items-center gap-5">
+        <BrandLogo isDarkTheme={isDarkTheme} language={language} />
+        <nav aria-label="Primary navigation" className="hidden items-center gap-1 md:flex">
+          <button className={headerLinkClassName} type="button" onClick={onGuideOpen}>
+            新手引导
+          </button>
+          <button
+            className={headerLinkClassName}
+            type="button"
+            onBlur={() => setIsFollowHintVisible(false)}
+            onClick={() => setIsFollowHintVisible(true)}
+            onMouseLeave={() => setIsFollowHintVisible(false)}
+          >
+            {isFollowHintVisible ? "敬请期待" : "一键跟单"}
+          </button>
+          <button className={headerLinkClassName} type="button" onClick={onCommunityOpen}>
+            加入TG社群
+          </button>
+        </nav>
       </div>
-      {isMyPanelOpen ? (
-        <MyStatusPanel
-          authStatus={authStatus}
+      <div ref={accountMenuRef} className="relative flex items-center gap-2">
+        <AnimatedThemeToggler isCollapsed isDarkTheme={isDarkTheme} onThemeToggle={onThemeToggle} />
+        <LanguageToggleButton
           isDarkTheme={isDarkTheme}
-          isLoggedIn={isLoggedIn}
-          onClose={onMyPanelClose}
-          onTelegramLogin={onTelegramLogin}
+          language={language}
+          onLanguageToggle={onLanguageToggle}
         />
-      ) : null}
-      {notification ? (
-        <WorkspaceNotificationBanner
-          isDarkTheme={isDarkTheme}
-          notification={notification}
-          onDismiss={onNotificationDismiss}
-        />
-      ) : null}
-    </div>
+        {isLoggedIn ? (
+          <button
+            aria-label={`Account: ${DEMO_USER_PROFILE.name}`}
+            className={accountButtonClassName}
+            type="button"
+            onClick={onMyPanelToggle}
+          >
+            <span className={avatarClassName}>{DEMO_USER_PROFILE.initials}</span>
+            <span className="hidden min-w-0 sm:block">
+              <span className={accountNameClassName}>{DEMO_USER_PROFILE.name}</span>
+            </span>
+          </button>
+        ) : (
+          <button className={loginButtonClassName} type="button" onClick={onMyPanelToggle}>
+            登录
+          </button>
+        )}
+      </div>
+    </header>
   );
 }
 
-function BrandLogo({ isDarkTheme }: { isDarkTheme: boolean }) {
+function BrandLogo({ isDarkTheme, language }: { isDarkTheme: boolean; language: WorkspaceLanguage }) {
+  void isDarkTheme;
+  const wrapperClassName = "motion-fx-1-brand flex h-[54px] shrink-0 items-center gap-[7px] overflow-hidden rounded-xl px-0 py-1";
+  const isEnglish = language === "en-US";
+  const logoAlt = isEnglish ? "SmartKline Intel" : "K线情报局";
+  const wordmarkSrc = isEnglish
+    ? isDarkTheme ? "/logo-wordmark-en-dark.svg" : "/logo-wordmark-en-light.svg"
+    : isDarkTheme ? "/logo-wordmark-zh-dark.svg" : "/logo-wordmark-zh-light.svg";
+
   return (
-    <div className={isDarkTheme ? "inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/92 px-4 py-2 text-sm font-black text-slate-50 shadow-lg shadow-black/20 backdrop-blur" : "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/92 px-4 py-2 text-sm font-black text-slate-950 shadow-lg shadow-slate-200/70 backdrop-blur"}>
-      <span className="grid h-6 w-6 place-items-center rounded-full bg-cyan-500 text-xs font-black text-white">K</span>
-      K线情报局
+    <div aria-label={logoAlt} className={wrapperClassName}>
+      <Image
+        priority
+        unoptimized
+        alt=""
+        aria-hidden="true"
+        className="h-[39.6px] w-[39.6px] shrink-0 object-contain"
+        height={64}
+        src="/logo-mark.svg"
+        width={64}
+      />
+      <Image
+        priority
+        unoptimized
+        alt={logoAlt}
+        className="h-[39.6px] w-auto object-contain object-left"
+        height={64}
+        src={wordmarkSrc}
+        width={isEnglish ? 240 : 160}
+      />
     </div>
   );
 }
 
-
-function TelegramDiscussionButton({
+function LanguageToggleButton({
   isDarkTheme,
-  onClick,
-  size = "compact",
+  language,
+  onLanguageToggle,
 }: {
   isDarkTheme: boolean;
-  onClick: () => void;
-  size?: "compact" | "hero";
+  language: WorkspaceLanguage;
+  onLanguageToggle: () => void;
 }) {
-  const sizeClassName = size === "hero"
-    ? "px-5 py-3 text-sm font-black"
-    : "px-4 py-2 text-xs font-bold";
   const className = isDarkTheme
-    ? `pointer-events-auto inline-flex items-center gap-2 rounded-full border border-cyan-300/35 bg-cyan-400/12 ${sizeClassName} text-cyan-50 shadow-lg shadow-cyan-950/30 ring-1 ring-cyan-300/15 backdrop-blur transition hover:border-cyan-200/60 hover:bg-cyan-400/20 hover:text-white hover:shadow-cyan-500/15`
-    : `pointer-events-auto inline-flex items-center gap-2 rounded-full border border-sky-300 bg-sky-500 ${sizeClassName} text-white shadow-lg shadow-sky-200/70 transition hover:bg-sky-600`;
-  const iconClassName = isDarkTheme
-    ? "grid h-5 w-5 place-items-center rounded-full bg-cyan-300/18 text-cyan-100 ring-1 ring-cyan-200/20"
-    : "grid h-5 w-5 place-items-center rounded-full bg-white/20";
+    ? "motion-fx-1-nav-button flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/[0.075] bg-white/[0.035] text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50"
+    : "motion-fx-1-nav-button flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[#E5EAF0] bg-white text-slate-600 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:text-[#007DB8]";
 
   return (
-    <button className={className} type="button" onClick={onClick}>
-      <span className={iconClassName} aria-hidden="true">
-        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M21.7 3.4 18.3 20c-.2 1-1.1 1.3-1.9.8l-5.2-3.9-2.5 2.4c-.3.3-.5.5-1 .5l.4-5.4 9.8-8.9c.4-.4-.1-.6-.7-.2L5.1 13 0 11.4c-1.1-.3-1.1-1.1.2-1.6L20.3 2c.9-.3 1.7.2 1.4 1.4Z" />
-        </svg>
-      </span>
-      加入 TG 群讨论
+    <button
+      aria-label={language === "zh-CN" ? "Switch to English" : "Switch to Chinese"}
+      className={className}
+      title={language === "zh-CN" ? "Switch to English" : "Switch to Chinese"}
+      type="button"
+      onClick={onLanguageToggle}
+    >
+      <Languages aria-hidden="true" className="h-4 w-4" strokeWidth={1.9} />
     </button>
   );
 }
 
-function MyStatusPanel({
-  authStatus,
-  isDarkTheme,
-  isLoggedIn,
-  onClose,
-  onTelegramLogin,
-}: {
-  authStatus: TelegramAuthStatus;
-  isDarkTheme: boolean;
-  isLoggedIn: boolean;
-  onClose: () => void;
-  onTelegramLogin: () => void;
-}) {
-  const panelClassName = isDarkTheme
-    ? "pointer-events-auto w-full rounded-3xl border border-slate-700 bg-slate-950/96 p-4 text-slate-100 shadow-2xl shadow-black/30 backdrop-blur"
-    : "pointer-events-auto w-full rounded-3xl border border-slate-200 bg-white/96 p-4 text-slate-950 shadow-2xl shadow-slate-300/50 backdrop-blur";
-  const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
-  const telegramDisplayName = formatTelegramDisplayName(authStatus.telegramUser);
-  const loginStatus = isLoggedIn ? "已验证" : "待登录";
-  const sourceBindingStatus = authStatus.sourceBindingCount > 0 ? `${authStatus.sourceBindingCount} 个信源` : "实时公开";
-  const notificationStatus = authStatus.notificationPermission === "granted" ? "已授权" : "待授权";
-
-  return (
-    <div className={panelClassName}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className={isDarkTheme ? "text-sm font-black text-slate-50" : "text-sm font-black text-slate-950"}>我的情报工作台</div>
-          <p className={`mt-1 text-xs leading-5 ${mutedClassName}`}>
-            {isLoggedIn ? `${telegramDisplayName} 已通过 Telegram 登录验证。` : "KOL 实时信号当前公开展示；登录作为后续个性化能力入口。"}
-          </p>
-        </div>
-        <button
-          className={isDarkTheme ? "rounded-full px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-800 hover:text-slate-200" : "rounded-full px-2 py-1 text-xs text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"}
-          type="button"
-          onClick={onClose}
-        >
-          关闭
-        </button>
-      </div>
-
-      <div className="mt-4 grid gap-2">
-        <MyBindingRow
-          actionLabel={isLoggedIn ? "已完成" : "TG 登录"}
-          description="登录不再作为查看 KOL 实时信号的前置条件，后续用于个性化提醒和自选源管理。"
-          isDarkTheme={isDarkTheme}
-          status={loginStatus}
-          title="Telegram 登录验证"
-          tone={isLoggedIn ? "positive" : "pending"}
-          onAction={onTelegramLogin}
-        />
-        <MyBindingRow
-          actionLabel="管理"
-          description="KOL 信号源当前实时公开展示，后续可在这里管理自选来源。"
-          isDarkTheme={isDarkTheme}
-          status={sourceBindingStatus}
-          title="信号源"
-          tone={isLoggedIn ? "positive" : "pending"}
-          onAction={onTelegramLogin}
-        />
-        <MyBindingRow
-          actionLabel="授权通知"
-          description="命中入场、止盈、止损和多源共振时推送提醒。"
-          isDarkTheme={isDarkTheme}
-          status={notificationStatus}
-          title="通知权限"
-          tone={authStatus.notificationPermission === "granted" ? "positive" : "pending"}
-          onAction={onTelegramLogin}
-        />
-      </div>
-
-      <div className={isDarkTheme ? "mt-4 rounded-2xl bg-slate-900 p-3 text-[11px] leading-5 text-slate-400" : "mt-4 rounded-2xl bg-slate-50 p-3 text-[11px] leading-5 text-slate-500"}>
-        当前 KOL 实时信源先公开展示；Telegram 登录和 TG 群讨论作为后续转化入口保留。
-      </div>
-    </div>
-  );
-}
-
-function MyBindingRow({
-  actionLabel,
-  description,
-  isDarkTheme,
-  status,
-  title,
-  tone,
-  onAction,
-}: {
-  actionLabel: string;
-  description: string;
-  isDarkTheme: boolean;
-  status: string;
-  title: string;
-  tone: "pending" | "positive";
-  onAction: () => void;
-}) {
-  const rowClassName = isDarkTheme
-    ? "rounded-2xl border border-slate-800 bg-slate-900/80 p-3"
-    : "rounded-2xl border border-slate-200 bg-slate-50 p-3";
-  const statusClassName = tone === "positive"
-    ? isDarkTheme ? "rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700"
-    : isDarkTheme ? "rounded-full bg-amber-500/15 px-2 py-1 text-[10px] font-black text-amber-300" : "rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700";
-  const actionClassName = isDarkTheme
-    ? "rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-[11px] font-bold text-slate-200 transition hover:border-cyan-500 hover:text-cyan-300"
-    : "rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600 transition hover:border-cyan-300 hover:text-cyan-700";
-
-  return (
-    <div className={rowClassName}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className={isDarkTheme ? "text-xs font-black text-slate-100" : "text-xs font-black text-slate-900"}>{title}</div>
-          <div className={isDarkTheme ? "mt-1 text-[11px] leading-5 text-slate-400" : "mt-1 text-[11px] leading-5 text-slate-500"}>{description}</div>
-        </div>
-        <span className={statusClassName}>{status}</span>
-      </div>
-      <button className={`${actionClassName} mt-3`} type="button" onClick={onAction}>
-        {actionLabel}
-      </button>
-    </div>
-  );
-}
-
-function WorkspaceNotificationBanner({
-  isDarkTheme,
-  notification,
-  onDismiss,
-}: {
-  isDarkTheme: boolean;
-  notification: WorkspaceNotification;
-  onDismiss: () => void;
-}) {
-  const className = isDarkTheme
-    ? "pointer-events-auto w-full overflow-hidden rounded-2xl border border-slate-700 bg-slate-950/96 shadow-2xl shadow-black/30 backdrop-blur"
-    : "pointer-events-auto w-full overflow-hidden rounded-2xl border border-slate-200 bg-white/96 shadow-2xl shadow-slate-300/50 backdrop-blur";
-
-  return (
-    <div className={className} role="status">
-      <div className={isDarkTheme ? "border-b border-slate-800 bg-slate-900/80 px-4 py-2" : "border-b border-slate-100 bg-slate-50/90 px-4 py-2"}>
-        <div className="flex items-center justify-between gap-3">
-          <span className={isDarkTheme ? "text-[11px] font-bold text-cyan-300" : "text-[11px] font-bold text-cyan-700"}>浏览器通知</span>
-          <button
-            className={isDarkTheme ? "rounded-full px-2 py-0.5 text-xs text-slate-500 transition hover:bg-slate-800 hover:text-slate-200" : "rounded-full px-2 py-0.5 text-xs text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"}
-            type="button"
-            onClick={onDismiss}
-          >
-            关闭
-          </button>
-        </div>
-      </div>
-      <div className="flex gap-3 px-4 py-3">
-        <div className={isDarkTheme ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-cyan-500/15 text-cyan-300" : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-cyan-50 text-cyan-600"}>
-          <span aria-hidden="true">🔔</span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className={isDarkTheme ? "truncate text-sm font-bold text-slate-50" : "truncate text-sm font-bold text-slate-950"}>{notification.title}</div>
-          <div className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-300" : "mt-1 text-xs leading-5 text-slate-600"}>{notification.message}</div>
-          <div className={isDarkTheme ? "mt-2 text-[11px] text-slate-500" : "mt-2 text-[11px] text-slate-400"}>{notification.meta}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceSettingsDock({
-  isDarkTheme,
-  language,
-  onLanguageChange,
-  onThemeToggle,
-}: {
-  isDarkTheme: boolean;
-  language: WorkspaceLanguage;
-  onLanguageChange: (language: WorkspaceLanguage) => void;
-  onThemeToggle: () => void;
-}) {
-  const containerClassName = isDarkTheme
-    ? "fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/90 p-2 shadow-2xl shadow-black/25 backdrop-blur"
-    : "fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-2xl shadow-slate-300/45 backdrop-blur";
-  const selectClassName = isDarkTheme
-    ? "h-9 rounded-xl border border-slate-700 bg-slate-900 px-2 text-xs font-bold text-slate-200 outline-none"
-    : "h-9 rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs font-bold text-slate-700 outline-none";
-
-  return (
-    <div className={containerClassName}>
-      <AnimatedThemeToggler isDarkTheme={isDarkTheme} onThemeToggle={onThemeToggle} />
-      <label className="sr-only" htmlFor="workspace-language">语言</label>
-      <select
-        className={selectClassName}
-        id="workspace-language"
-        value={language}
-        onChange={(event) => onLanguageChange(event.target.value as WorkspaceLanguage)}
-      >
-        <option value="zh-CN">中文</option>
-        <option value="en-US">English</option>
-      </select>
-      <span className={isDarkTheme ? "hidden text-[11px] font-semibold text-slate-500 sm:inline" : "hidden text-[11px] font-semibold text-slate-400 sm:inline"}>
-        设置
-      </span>
-    </div>
-  );
-}
-
 function AnimatedThemeToggler({
+  isCollapsed,
   isDarkTheme,
   onThemeToggle,
 }: {
+  isCollapsed: boolean;
   isDarkTheme: boolean;
   onThemeToggle: () => void;
 }) {
   const className = isDarkTheme
-    ? "grid h-9 w-9 place-items-center rounded-xl border border-slate-700 bg-slate-900 text-slate-100 transition hover:bg-slate-800"
-    : "grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50";
+    ? `motion-fx-1-nav-button ${isCollapsed ? "grid h-10 w-10 place-items-center" : "flex h-10 w-full items-center gap-3 px-2.5"} rounded-full border border-white/[0.075] bg-white/[0.035] text-sm font-medium text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50`
+    : `motion-fx-1-nav-button ${isCollapsed ? "grid h-10 w-10 place-items-center" : "flex h-10 w-full items-center gap-3 px-2.5"} rounded-full border border-[#E5EAF0] bg-white text-sm font-medium text-slate-500 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:text-slate-950`;
 
   return (
     <button
@@ -866,143 +512,94 @@ function AnimatedThemeToggler({
         });
       }}
     >
-      {themeToggleIcon(isDarkTheme)}
+      <ThemeToggleIcon isDarkTheme={isDarkTheme} />
+      {!isCollapsed ? <span>{isDarkTheme ? "娴呰壊妯″紡" : "娣辫壊妯″紡"}</span> : null}
     </button>
   );
 }
 
-function themeToggleIcon(isDarkTheme: boolean) {
-  return isDarkTheme ? (
-    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
-      <path d="M12 3v2.25M12 18.75V21M4.22 4.22l1.59 1.59M18.19 18.19l1.59 1.59M3 12h2.25M18.75 12H21M4.22 19.78l1.59-1.59M18.19 5.81l1.59-1.59" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
-      <circle cx="12" cy="12" r="4.2" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  ) : (
-    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
-      <path d="M20.5 14.3A8.2 8.2 0 0 1 9.7 3.5 8.2 8.2 0 1 0 20.5 14.3Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
-    </svg>
-  );
+function ThemeToggleIcon({ isDarkTheme }: { isDarkTheme: boolean }) {
+  const Icon = isDarkTheme ? Sun : Moon;
+  return <Icon aria-hidden="true" className="h-4 w-4" strokeWidth={1.9} />;
 }
 
 function SidebarCollapseButton({
   isCollapsed,
   isDarkTheme,
+  variant = "header",
   onToggle,
 }: {
   isCollapsed: boolean;
   isDarkTheme: boolean;
+  variant?: "header" | "edge-tab";
   onToggle: () => void;
 }) {
+  const label = isCollapsed ? "KOL\u4fe1\u606f" : "\u6298\u53e0";
+  const edgeLabel = "\u5c55\u5f00 KOL\u4fe1\u606f";
+  const Icon = isCollapsed ? PanelRightOpen : PanelRightClose;
+
+  if (variant === "edge-tab") {
+    const className = isDarkTheme
+      ? "kol-edge-tab group fixed right-0 top-1/2 z-[60] hidden h-14 w-8 -translate-y-1/2 overflow-hidden rounded-l-2xl border border-r-0 border-white/[0.075] bg-[#181A20]/96 text-slate-200 backdrop-blur-xl transition-[width,transform,background-color,border-color,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:w-[116px] hover:-translate-x-0.5 hover:border-white/[0.12] hover:bg-white/[0.06] hover:text-slate-50 active:scale-[0.98] lg:flex"
+      : "kol-edge-tab group fixed right-0 top-1/2 z-[60] hidden h-14 w-8 -translate-y-1/2 overflow-hidden rounded-l-2xl border border-r-0 border-[#BFE7FB] bg-[#F4FBFF] text-slate-700 backdrop-blur-xl transition-[width,transform,background-color,border-color,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:w-[116px] hover:-translate-x-0.5 hover:border-[#A7DDF7] hover:bg-[#ECF8FE] hover:text-slate-900 active:scale-[0.98] lg:flex";
+
+    return (
+      <button
+        aria-label={edgeLabel}
+        className={className}
+        type="button"
+        onClick={onToggle}
+      >
+        <span className="pointer-events-none absolute inset-y-0 left-0 flex w-full items-center justify-center transition-all duration-200 ease-out group-hover:w-8 group-hover:justify-start group-hover:px-2.5">
+          <ChevronLeft aria-hidden="true" className="motion-fx-7-collapse-icon h-4 w-4" strokeWidth={2.6} />
+        </span>
+        <span className="pointer-events-none absolute left-8 top-1/2 max-w-0 -translate-y-1/2 overflow-hidden whitespace-nowrap text-[13px] font-normal leading-none opacity-0 transition-[max-width,opacity] duration-200 ease-out group-hover:max-w-20 group-hover:opacity-100">
+          KOL {"\u4fe1\u606f"}
+        </span>
+      </button>
+    );
+  }
+
   const className = isDarkTheme
-    ? "hidden lg:grid absolute top-1/2 z-40 h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-slate-700 bg-slate-950 text-slate-200 shadow-xl transition hover:border-cyan-500 hover:text-cyan-300"
-    : "hidden lg:grid absolute top-1/2 z-40 h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-xl transition hover:border-cyan-300 hover:text-cyan-700";
-  const positionClassName = isCollapsed ? "right-4" : "right-[374px] xl:right-[404px]";
+    ? "group hidden h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/[0.075] bg-white/[0.035] px-0 text-slate-300 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out hover:w-[74px] hover:border-white/[0.11] hover:bg-white/[0.08] hover:px-3 hover:text-slate-50 active:scale-[0.98] focus-visible:w-[74px] focus-visible:px-3 lg:flex"
+    : "group hidden h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[#BFE7FB] bg-[#F4FBFF] px-0 text-slate-700 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out hover:w-[74px] hover:border-[#A7DDF7] hover:bg-[#ECF8FE] hover:px-3 hover:text-slate-900 active:scale-[0.98] focus-visible:w-[74px] focus-visible:px-3 lg:flex";
 
   return (
     <button
-      aria-label={isCollapsed ? "Expand intelligence panel" : "Collapse intelligence panel"}
-      className={`${className} ${positionClassName}`}
+      aria-label={label}
+      className={className}
+      title={label}
       type="button"
       onClick={onToggle}
     >
-      <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
-        <path d={isCollapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
-      </svg>
+      <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-normal opacity-0 transition-[max-width,opacity,margin] duration-200 ease-out group-hover:mr-2 group-hover:max-w-10 group-hover:opacity-100 group-focus-visible:mr-2 group-focus-visible:max-w-10 group-focus-visible:opacity-100">
+        {label}
+      </span>
+      <span className="grid h-4 w-4 shrink-0 place-items-center">
+        <Icon aria-hidden="true" className={`motion-fx-7-collapse-icon h-4 w-4 ${isCollapsed ? "is-collapsed" : ""}`} strokeWidth={1.9} />
+      </span>
     </button>
   );
 }
 
-function openExternalTelegramUrl(url: string) {
+function openTelegramCommunityLink() {
   if (typeof window === "undefined") {
     return;
   }
 
-  window.open(url, "_blank", "noopener,noreferrer");
+  window.open(TELEGRAM_COMMUNITY_URL, "_blank", "noopener,noreferrer");
 }
 
-function readTelegramAuthResultFromUrl(): "success" | "error" | null {
+function shouldShowFirstLoginOnboardingGuide(): boolean {
   if (typeof window === "undefined") {
-    return null;
-  }
-
-  const authResult = new URLSearchParams(window.location.search).get("telegram_auth");
-  return authResult === "success" || authResult === "error" ? authResult : null;
-}
-
-function clearTelegramAuthQueryFromUrl() {
-  if (
-    typeof window === "undefined"
-    || (!window.location.search.includes("telegram_auth=") && !window.location.search.includes("join_community="))
-  ) {
-    return;
-  }
-
-  const searchParams = new URLSearchParams(window.location.search);
-  searchParams.delete("telegram_auth");
-  searchParams.delete("join_community");
-  const nextSearch = searchParams.toString();
-  const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
-  window.history.replaceState(null, "", nextUrl);
-}
-
-function normalizeTelegramAuthStatus(authStatus: TelegramAuthStatus): TelegramAuthStatus {
-  return {
-    botBinding: authStatus.botBinding === "bound" ? "bound" : "unbound",
-    communityBinding: normalizeTelegramCommunityBinding(authStatus.communityBinding),
-    isLoggedIn: Boolean(authStatus.isLoggedIn && authStatus.telegramUser),
-    notificationPermission: authStatus.notificationPermission === "granted" ? "granted" : "none",
-    sourceBindingCount: Number.isFinite(authStatus.sourceBindingCount) ? Math.max(0, authStatus.sourceBindingCount) : 0,
-    telegramUser: authStatus.telegramUser,
-  };
-}
-
-async function fetchTelegramAuthStatus(): Promise<TelegramAuthStatus> {
-  const response = await fetch("/api/auth/me", { credentials: "same-origin" });
-  const nextAuthStatus = response.ok ? await response.json() as TelegramAuthStatus : DEFAULT_TELEGRAM_AUTH_STATUS;
-  return normalizeTelegramAuthStatus(nextAuthStatus);
-}
-
-function normalizeTelegramCommunityBinding(communityBinding: TelegramAuthStatus["communityBinding"]): TelegramAuthStatus["communityBinding"] {
-  return ["pending", "joined", "left", "kicked"].includes(communityBinding) ? communityBinding : "unverified";
-}
-
-function formatTelegramDisplayName(telegramUser: TelegramAuthUser | null): string {
-  if (!telegramUser) {
-    return "Telegram 用户";
-  }
-
-  if (telegramUser.username) {
-    return `@${telegramUser.username}`;
-  }
-
-  return telegramUser.name || "Telegram 用户";
-}
-
-function mergeIncomingSignals(
-  incomingSignals: readonly StructuredSignal[],
-  currentSignals: StructuredSignal[],
-): StructuredSignal[] {
-  const mergedSignals = dedupeStructuredSignalsByPosition([...currentSignals, ...incomingSignals]);
-  return areStructuredSignalListsEqual(currentSignals, mergedSignals) ? currentSignals : mergedSignals;
-}
-
-function areStructuredSignalListsEqual(
-  leftSignals: readonly StructuredSignal[],
-  rightSignals: readonly StructuredSignal[],
-): boolean {
-  if (leftSignals.length !== rightSignals.length) {
     return false;
   }
 
-  return leftSignals.every((leftSignal, index) => {
-    const rightSignal = rightSignals[index];
-    return Boolean(
-      rightSignal
-      && leftSignal.id === rightSignal.id
-      && leftSignal.created_at === rightSignal.created_at
-      && createStructuredSignalPositionKey(leftSignal) === createStructuredSignalPositionKey(rightSignal),
-    );
-  });
+  try {
+    return window.localStorage.getItem("smartkline:onboarding-guide-seen") !== "true";
+  } catch {
+    return true;
+  }
 }
 
 function dedupeStructuredSignalsByPosition(signals: readonly StructuredSignal[]): StructuredSignal[] {
@@ -1026,21 +623,6 @@ function compareStructuredSignalCreatedAt(left: StructuredSignal, right: Structu
 function getStructuredSignalCreatedAtTimestamp(signal: StructuredSignal): number {
   const timestamp = Date.parse(signal.created_at);
   return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
-}
-
-function getLatestStructuredSignalCreatedAt(signals: readonly StructuredSignal[]): string | null {
-  let latestSignal: StructuredSignal | null = null;
-  let latestTimestamp = Number.NEGATIVE_INFINITY;
-
-  for (const signal of signals) {
-    const timestamp = Date.parse(signal.created_at);
-    if (Number.isFinite(timestamp) && timestamp > latestTimestamp) {
-      latestSignal = signal;
-      latestTimestamp = timestamp;
-    }
-  }
-
-  return latestSignal?.created_at ?? null;
 }
 
 function sortSignalsForKolPanel(signals: readonly StructuredSignal[]): StructuredSignal[] {

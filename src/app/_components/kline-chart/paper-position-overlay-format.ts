@@ -58,7 +58,7 @@ export function getChartPaperPositionBadgeClass(isDarkTheme: boolean, record: Pa
       : `${baseClassName} border-amber-100 bg-amber-50 text-amber-700`;
   }
 
-  return isDarkTheme ? `${baseClassName} border-slate-700 bg-slate-800 text-slate-300` : `${baseClassName} border-slate-200 bg-slate-100 text-slate-600`;
+  return isDarkTheme ? `${baseClassName} border-[#343946] bg-[#1F222A] text-slate-300` : `${baseClassName} border-slate-200 bg-slate-100 text-slate-600`;
 }
 
 export function getChartDirectionBadgeClass(isDarkTheme: boolean, direction: StructuredSignal["direction"]): string {

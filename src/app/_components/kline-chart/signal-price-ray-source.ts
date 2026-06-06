@@ -1,6 +1,7 @@
 import { LineStyle } from "lightweight-charts";
 import type { MarketCandle } from "@/app/_types/market";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
+import type { SignalAiHighlightTone, SignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type { ChartTheme } from "@/app/_components/kline-chart";
 import type { SignalPriceRangeSource, SignalPriceRayChartApi, SignalPriceRaySource } from "./signal-price-ray-types";
@@ -8,6 +9,7 @@ import type { SignalPriceRangeSource, SignalPriceRayChartApi, SignalPriceRaySour
 export function createSignalPriceRaySourceState(
   signal: StructuredSignal,
   paperPosition: PaperPositionRecord | null,
+  signalAiSummary: SignalAiSummary | null,
   theme: ChartTheme,
 ): { ranges: SignalPriceRangeSource[]; rays: SignalPriceRaySource[]; startTimeMs: number } | null {
   const startTimeMs = Date.parse(signal.created_at);
@@ -18,10 +20,7 @@ export function createSignalPriceRaySourceState(
   const ranges: SignalPriceRangeSource[] = [];
   const rays: SignalPriceRaySource[] = [];
   const style = createSignalDrawingStyle(theme, paperPosition);
-  const isExited = paperPosition?.status === "exited";
-  const endTimeMs = isExited ? paperPosition.exitTimeMs ?? undefined : undefined;
-
-  ranges.push(...createSignalRiskRewardRanges(signal, paperPosition, style, endTimeMs));
+  ranges.push(...createSignalRiskRewardRanges(signal, paperPosition, style));
 
   if (signal.entry_min !== null && signal.entry_max !== null) {
     const minPrice = Math.min(signal.entry_min, signal.entry_max);
@@ -29,7 +28,6 @@ export function createSignalPriceRaySourceState(
 
     if (minPrice !== maxPrice) {
       ranges.push({
-        endTimeMs,
         fillColor: style.entryRangeFillColor,
         maxPrice,
         minPrice,
@@ -37,21 +35,30 @@ export function createSignalPriceRaySourceState(
     }
 
     rays.push(
-      { label: isExited ? "入场上沿" : undefined, price: signal.entry_max, endTimeMs, ...style.entryRay },
-      { label: isExited ? "入场下沿" : undefined, price: signal.entry_min, endTimeMs, ...style.entryRay },
+      { price: signal.entry_max, ...style.entryRay },
+      { price: signal.entry_min, ...style.entryRay },
     );
   }
 
   if (signal.trigger_price !== null) {
-    rays.push({ label: isExited ? "入场" : undefined, price: signal.trigger_price, endTimeMs, ...style.entryRay });
+    rays.push({ price: signal.trigger_price, ...style.entryRay });
   }
 
   if (signal.stop_loss !== null) {
-    rays.push({ label: isExited ? "止损" : undefined, price: signal.stop_loss, endTimeMs, ...style.stopLossRay });
+    rays.push({ price: signal.stop_loss, ...style.stopLossRay });
   }
 
-  for (const [index, price] of signal.take_profit.entries()) {
-    rays.push({ label: isExited ? `止盈${index + 1}` : undefined, price, endTimeMs, ...style.takeProfitRay });
+  for (const price of signal.take_profit) {
+    rays.push({ price, ...style.takeProfitRay });
+  }
+
+  if (signalAiSummary) {
+    ranges.push(...signalAiSummary.highlights.map((range) => ({
+      fillColor: createAiHighlightFillColor(theme, range.tone),
+      maxPrice: range.maxPrice,
+      minPrice: range.minPrice,
+      startTimeMs: 0,
+    })));
   }
 
   return { ranges, rays, startTimeMs };
@@ -62,20 +69,20 @@ function createSignalDrawingStyle(
   paperPosition: PaperPositionRecord | null,
 ): {
   entryRangeFillColor: string;
-  entryRay: Omit<SignalPriceRaySource, "endTimeMs" | "label" | "price">;
+  entryRay: Omit<SignalPriceRaySource, "price">;
   riskRangeFillColor: string;
   rewardRangeFillColor: string;
-  stopLossRay: Omit<SignalPriceRaySource, "endTimeMs" | "label" | "price">;
-  takeProfitRay: Omit<SignalPriceRaySource, "endTimeMs" | "label" | "price">;
+  stopLossRay: Omit<SignalPriceRaySource, "price">;
+  takeProfitRay: Omit<SignalPriceRaySource, "price">;
 } {
   if (paperPosition?.status === "not-entered") {
     return {
       entryRangeFillColor: theme === "light" ? "rgba(8, 145, 178, 0.32)" : "rgba(34, 211, 238, 0.36)",
       entryRay: { color: "#0891b2", lineStyle: LineStyle.Solid, lineWidth: 3 },
-      riskRangeFillColor: theme === "light" ? "rgba(239, 68, 68, 0.12)" : "rgba(248, 113, 113, 0.16)",
-      rewardRangeFillColor: theme === "light" ? "rgba(34, 197, 94, 0.12)" : "rgba(74, 222, 128, 0.16)",
-      stopLossRay: { color: "rgba(220, 38, 38, 0.62)", lineStyle: LineStyle.Dashed, lineWidth: 1 },
-      takeProfitRay: { color: "rgba(22, 163, 74, 0.62)", lineStyle: LineStyle.Dashed, lineWidth: 1 },
+      riskRangeFillColor: theme === "light" ? "rgba(246, 70, 93, 0.12)" : "rgba(246, 70, 93, 0.16)",
+      rewardRangeFillColor: createTakeProfitFillColor(theme, 0.12, 0.16),
+      stopLossRay: { color: "#F6465D", lineStyle: LineStyle.Dashed, lineWidth: 1 },
+      takeProfitRay: { color: createTakeProfitFillColor(theme, 0.62, 0.62), lineStyle: LineStyle.Dashed, lineWidth: 1 },
     };
   }
 
@@ -83,98 +90,77 @@ function createSignalDrawingStyle(
     return {
       entryRangeFillColor: theme === "light" ? "rgba(8, 145, 178, 0.08)" : "rgba(34, 211, 238, 0.10)",
       entryRay: { color: "rgba(8, 145, 178, 0.52)", lineStyle: LineStyle.Dashed, lineWidth: 1 },
-      riskRangeFillColor: theme === "light" ? "rgba(239, 68, 68, 0.20)" : "rgba(248, 113, 113, 0.22)",
-      rewardRangeFillColor: theme === "light" ? "rgba(34, 197, 94, 0.20)" : "rgba(74, 222, 128, 0.22)",
-      stopLossRay: { color: "#dc2626", lineStyle: LineStyle.Solid, lineWidth: 3 },
-      takeProfitRay: { color: "#16a34a", lineStyle: LineStyle.Solid, lineWidth: 3 },
+      riskRangeFillColor: theme === "light" ? "rgba(246, 70, 93, 0.08)" : "rgba(246, 70, 93, 0.10)",
+      rewardRangeFillColor: createTakeProfitFillColor(theme, 0.08, 0.10),
+      stopLossRay: { color: "#F6465D", lineStyle: LineStyle.Solid, lineWidth: 3 },
+      takeProfitRay: { color: createTakeProfitLineColor(theme), lineStyle: LineStyle.Solid, lineWidth: 3 },
     };
   }
 
   if (paperPosition?.status === "exited") {
-    const secondaryEntryColor = theme === "light" ? "rgba(8, 145, 178, 0.54)" : "rgba(34, 211, 238, 0.60)";
-    const secondaryStopColor = theme === "light" ? "rgba(220, 38, 38, 0.58)" : "rgba(248, 113, 113, 0.64)";
-    const secondaryTargetColor = theme === "light" ? "rgba(22, 163, 74, 0.58)" : "rgba(74, 222, 128, 0.64)";
-    const exitedStopColor = paperPosition.exitReason === "stop-loss" ? "#dc2626" : secondaryStopColor;
-    const exitedTargetColor = paperPosition.exitReason === "take-profit" ? "#16a34a" : secondaryTargetColor;
-
     return {
       entryRangeFillColor: theme === "light" ? "rgba(8, 145, 178, 0.05)" : "rgba(34, 211, 238, 0.06)",
-      entryRay: { color: secondaryEntryColor, lineStyle: LineStyle.Solid, lineWidth: 1 },
-      riskRangeFillColor: theme === "light" ? "rgba(239, 68, 68, 0.08)" : "rgba(248, 113, 113, 0.10)",
-      rewardRangeFillColor: theme === "light" ? "rgba(34, 197, 94, 0.08)" : "rgba(74, 222, 128, 0.10)",
-      stopLossRay: { color: exitedStopColor, lineStyle: LineStyle.Solid, lineWidth: paperPosition.exitReason === "stop-loss" ? 2 : 1 },
-      takeProfitRay: { color: exitedTargetColor, lineStyle: LineStyle.Solid, lineWidth: paperPosition.exitReason === "take-profit" ? 2 : 1 },
+      entryRay: { color: "rgba(8, 145, 178, 0.40)", lineStyle: LineStyle.Dashed, lineWidth: 1 },
+      riskRangeFillColor: theme === "light" ? "rgba(246, 70, 93, 0.08)" : "rgba(246, 70, 93, 0.10)",
+      rewardRangeFillColor: createTakeProfitFillColor(theme, 0.08, 0.10),
+      stopLossRay: { color: "#F6465D", lineStyle: LineStyle.Dashed, lineWidth: 1 },
+      takeProfitRay: { color: createTakeProfitFillColor(theme, 0.44, 0.44), lineStyle: LineStyle.Dashed, lineWidth: 1 },
     };
   }
 
   return {
     entryRangeFillColor: theme === "light" ? "rgba(8, 145, 178, 0.22)" : "rgba(34, 211, 238, 0.26)",
     entryRay: { color: "#0891b2", lineStyle: LineStyle.Solid, lineWidth: 2 },
-    riskRangeFillColor: theme === "light" ? "rgba(239, 68, 68, 0.14)" : "rgba(248, 113, 113, 0.18)",
-    rewardRangeFillColor: theme === "light" ? "rgba(34, 197, 94, 0.14)" : "rgba(74, 222, 128, 0.18)",
-    stopLossRay: { color: "#dc2626", lineStyle: LineStyle.Solid, lineWidth: 2 },
-    takeProfitRay: { color: "#16a34a", lineStyle: LineStyle.Solid, lineWidth: 2 },
+    riskRangeFillColor: theme === "light" ? "rgba(246, 70, 93, 0.07)" : "rgba(246, 70, 93, 0.09)",
+    rewardRangeFillColor: createTakeProfitFillColor(theme, 0.07, 0.09),
+    stopLossRay: { color: "#F6465D", lineStyle: LineStyle.Solid, lineWidth: 2 },
+    takeProfitRay: { color: createTakeProfitLineColor(theme), lineStyle: LineStyle.Solid, lineWidth: 2 },
   };
+}
+
+function createTakeProfitLineColor(theme: ChartTheme): string {
+  return theme === "light" ? "#2FBD85" : "#2FBD85";
+}
+
+function createTakeProfitFillColor(theme: ChartTheme, lightOpacity: number, darkOpacity: number): string {
+  if (theme === "light") {
+    return `rgba(47, 189, 133, ${lightOpacity})`;
+  }
+
+  return `rgba(47, 189, 133, ${darkOpacity})`;
 }
 
 function createSignalRiskRewardRanges(
   signal: StructuredSignal,
   paperPosition: PaperPositionRecord | null,
   style: Pick<ReturnType<typeof createSignalDrawingStyle>, "riskRangeFillColor" | "rewardRangeFillColor">,
-  endTimeMs: number | undefined,
 ): SignalPriceRangeSource[] {
-  const anchors = resolveRiskRewardAnchors(signal, paperPosition);
-  if (!anchors) {
+  const entryPrice = resolveSignalEntryReferencePrice(signal, paperPosition);
+  if (entryPrice === null) {
     return [];
   }
 
   const ranges: SignalPriceRangeSource[] = [];
   const stopLoss = normalizePositivePrice(signal.stop_loss);
-  const takeProfit = resolveRewardRangeTakeProfit(signal, anchors.rewardAnchorPrice);
+  const takeProfit = resolvePrimaryTakeProfit(signal);
 
-  if (stopLoss !== null && isStopLossValid(signal.direction, anchors.riskAnchorPrice, stopLoss)) {
+  if (stopLoss !== null && isStopLossValid(signal.direction, entryPrice, stopLoss)) {
     ranges.push({
-      endTimeMs,
       fillColor: style.riskRangeFillColor,
-      maxPrice: Math.max(anchors.riskAnchorPrice, stopLoss),
-      minPrice: Math.min(anchors.riskAnchorPrice, stopLoss),
+      maxPrice: Math.max(entryPrice, stopLoss),
+      minPrice: Math.min(entryPrice, stopLoss),
     });
   }
 
   if (takeProfit !== null) {
     ranges.push({
-      endTimeMs,
       fillColor: style.rewardRangeFillColor,
-      maxPrice: Math.max(anchors.rewardAnchorPrice, takeProfit),
-      minPrice: Math.min(anchors.rewardAnchorPrice, takeProfit),
+      maxPrice: Math.max(entryPrice, takeProfit),
+      minPrice: Math.min(entryPrice, takeProfit),
     });
   }
 
   return ranges;
-}
-
-function resolveRiskRewardAnchors(
-  signal: StructuredSignal,
-  paperPosition: PaperPositionRecord | null,
-): { rewardAnchorPrice: number; riskAnchorPrice: number } | null {
-  const entryMin = normalizePositivePrice(signal.entry_min);
-  const entryMax = normalizePositivePrice(signal.entry_max);
-  if (entryMin !== null && entryMax !== null) {
-    const lowerEntryBoundary = Math.min(entryMin, entryMax);
-    const upperEntryBoundary = Math.max(entryMin, entryMax);
-
-    /**
-     * Range entries have their own blue zone. Risk/reward fills start from the
-     * range edge that faces the stop/target so the red and green areas do not
-     * overlap the entry zone.
-     */
-    return signal.direction === "long"
-      ? { riskAnchorPrice: lowerEntryBoundary, rewardAnchorPrice: upperEntryBoundary }
-      : { riskAnchorPrice: upperEntryBoundary, rewardAnchorPrice: lowerEntryBoundary };
-  }
-
-  const entryPrice = resolveSignalEntryReferencePrice(signal, paperPosition);
-  return entryPrice === null ? null : { riskAnchorPrice: entryPrice, rewardAnchorPrice: entryPrice };
 }
 
 function resolveSignalEntryReferencePrice(signal: StructuredSignal, paperPosition: PaperPositionRecord | null): number | null {
@@ -197,22 +183,24 @@ function resolveSignalEntryReferencePrice(signal: StructuredSignal, paperPositio
   return null;
 }
 
-function resolveRewardRangeTakeProfit(signal: StructuredSignal, anchorPrice: number): number | null {
+function resolvePrimaryTakeProfit(signal: StructuredSignal): number | null {
+  const entryPrice = resolveSignalEntryReferencePrice(signal, null);
   const validTakeProfits = signal.take_profit
     .map(normalizePositivePrice)
     .filter((price): price is number => price !== null)
-    .filter((price) => signal.direction === "long" ? price > anchorPrice : price < anchorPrice);
+    .filter((price) => {
+      if (entryPrice === null) {
+        return true;
+      }
+
+      return signal.direction === "long" ? price > entryPrice : price < entryPrice;
+    });
 
   if (validTakeProfits.length === 0) {
     return null;
   }
 
-  /**
-   * The green plan zone should communicate the full intended reward envelope,
-   * not just TP1. Keep the API/display order semantics: TP3 is the third valid
-   * take-profit level, falling back to the last available TP when fewer exist.
-   */
-  return validTakeProfits[Math.min(2, validTakeProfits.length - 1)];
+  return signal.direction === "long" ? Math.min(...validTakeProfits) : Math.max(...validTakeProfits);
 }
 
 function isStopLossValid(direction: StructuredSignal["direction"], entryPrice: number, stopLoss: number): boolean {
@@ -221,6 +209,18 @@ function isStopLossValid(direction: StructuredSignal["direction"], entryPrice: n
 
 function normalizePositivePrice(value: number | null): number | null {
   return value !== null && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function createAiHighlightFillColor(theme: ChartTheme, tone: SignalAiHighlightTone): string {
+  const colors: Record<SignalAiHighlightTone, { dark: string; light: string }> = {
+    disagreement: { dark: "rgba(168, 85, 247, 0.10)", light: "rgba(168, 85, 247, 0.08)" },
+    long: { dark: "rgba(47, 189, 133, 0.10)", light: "rgba(47, 189, 133, 0.08)" },
+    risk: { dark: "rgba(244, 63, 94, 0.10)", light: "rgba(244, 63, 94, 0.08)" },
+    short: { dark: "rgba(246, 70, 93, 0.10)", light: "rgba(246, 70, 93, 0.08)" },
+    target: { dark: "rgba(47, 189, 133, 0.10)", light: "rgba(47, 189, 133, 0.08)" },
+  };
+
+  return theme === "dark" ? colors[tone].dark : colors[tone].light;
 }
 
 export function resolveSignalTimeCoordinate(

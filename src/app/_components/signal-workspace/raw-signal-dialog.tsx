@@ -11,15 +11,15 @@ export function RawSignalDialog({
   onClose: () => void;
 }) {
   const dialogClassName = isDarkTheme
-    ? "relative max-h-[72vh] w-[min(92vw,560px)] overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl"
-    : "relative max-h-[72vh] w-[min(92vw,560px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl";
+    ? "relative max-h-[72vh] w-[min(92vw,560px)] overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#181A20] shadow-[0_24px_80px_rgba(0,0,0,0.35)]"
+    : "relative max-h-[72vh] w-[min(92vw,560px)] overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.16)]";
   const closeButtonClassName = isDarkTheme
-    ? "rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-cyan-500 hover:text-cyan-300"
-    : "rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-cyan-300 hover:text-cyan-700";
+    ? "rounded-full border border-white/[0.075] bg-white/[0.035] px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08] hover:text-slate-50"
+    : "rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-sky-200 hover:bg-sky-50 hover:text-slate-950";
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B0E11]/55 px-4 "
       role="presentation"
       onClick={onClose}
     >
@@ -30,7 +30,7 @@ export function RawSignalDialog({
         role="dialog"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className={isDarkTheme ? "flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4" : "flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4"}>
+        <div className={isDarkTheme ? "flex items-start justify-between gap-4 border-b border-white/[0.075] px-5 py-4" : "flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4"}>
           <div className="min-w-0">
             <h3 id="raw-signal-dialog-title" className={isDarkTheme ? "truncate text-base font-semibold text-slate-50" : "truncate text-base font-semibold text-slate-950"}>
               情报源
@@ -50,3 +50,4 @@ export function RawSignalDialog({
     </div>
   );
 }
+
