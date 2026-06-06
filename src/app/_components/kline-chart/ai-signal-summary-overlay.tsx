@@ -1,38 +1,47 @@
+import { useState } from "react";
 import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { ChartTheme } from "@/app/_components/kline-chart";
 import type { SignalAiHighlightTone, SignalAiSummary } from "@/app/_lib/signal-ai-summary";
 
 export function AiSignalSummaryOverlay({
+  isCompactLayout = false,
   language,
   summary,
   theme,
 }: {
+  isCompactLayout?: boolean;
   language: WorkspaceLanguage;
   summary: SignalAiSummary | null;
   theme: ChartTheme;
 }) {
+  const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
+
   if (!summary || summary.totalCount === 0) {
     return null;
   }
 
   const isDarkTheme = theme === "dark";
   const copy = getWorkspaceCopy(language);
-  const wrapperClassName = "group pointer-events-auto absolute left-4 top-4 z-30";
+  const wrapperClassName = "group pointer-events-auto absolute left-3 top-3 z-30 lg:left-4 lg:top-4";
   const triggerClassName = isDarkTheme
-    ? "motion-fx-9-surface inline-flex h-10 items-center rounded-full border border-white/[0.075] bg-[#161B24]/92 px-4 text-xs font-medium text-slate-200 shadow-[0_12px_30px_rgba(0,0,0,0.24)] outline-none backdrop-blur-xl hover:-translate-y-0.5 hover:border-white/[0.12] hover:bg-[#1B2230] focus-visible:border-sky-500/40"
-    : "motion-fx-9-surface inline-flex h-10 items-center rounded-full border border-slate-200/90 bg-white/98 px-4 text-xs font-medium text-slate-700 shadow-[0_10px_28px_rgba(15,23,42,0.08)] outline-none backdrop-blur-xl hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white focus-visible:border-sky-200";
+    ? "motion-fx-9-surface inline-flex h-9 items-center rounded-full border border-white/[0.075] bg-[#161B24]/92 px-3 text-xs font-medium text-slate-200 shadow-[0_12px_30px_rgba(0,0,0,0.24)] outline-none backdrop-blur-xl hover:-translate-y-0.5 hover:border-white/[0.12] hover:bg-[#1B2230] focus-visible:border-sky-500/40 lg:h-10 lg:px-4"
+    : "motion-fx-9-surface inline-flex h-9 items-center rounded-full border border-slate-200/90 bg-white/98 px-3 text-xs font-medium text-slate-700 shadow-[0_10px_28px_rgba(15,23,42,0.08)] outline-none backdrop-blur-xl hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white focus-visible:border-sky-200 lg:h-10 lg:px-4";
   const panelBaseClassName = isDarkTheme
-    ? "motion-fx-9-surface absolute left-0 top-12 w-[min(420px,calc(100vw-2rem))] rounded-[24px] border border-white/[0.075] bg-[#161B24]/96 p-5 text-slate-100 shadow-[0_24px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl"
-    : "motion-fx-9-surface absolute left-0 top-12 w-[min(420px,calc(100vw-2rem))] rounded-[24px] border border-slate-200/90 bg-white/98 p-5 text-slate-950 shadow-[0_20px_52px_rgba(15,23,42,0.10)] backdrop-blur-xl";
-  const panelVisibilityClassName = "pointer-events-none translate-y-1 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100";
+    ? "motion-fx-9-surface absolute left-0 top-11 max-h-[min(54dvh,420px)] w-[min(340px,calc(100vw-1.5rem))] overflow-y-auto rounded-[22px] border border-white/[0.075] bg-[#161B24]/96 p-3.5 text-slate-100 shadow-[0_24px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl lg:top-12 lg:max-h-none lg:w-[min(420px,calc(100vw-2rem))] lg:overflow-visible lg:rounded-[24px] lg:p-5"
+    : "motion-fx-9-surface absolute left-0 top-11 max-h-[min(54dvh,420px)] w-[min(340px,calc(100vw-1.5rem))] overflow-y-auto rounded-[22px] border border-slate-200/90 bg-white/98 p-3.5 text-slate-950 shadow-[0_20px_52px_rgba(15,23,42,0.10)] backdrop-blur-xl lg:top-12 lg:max-h-none lg:w-[min(420px,calc(100vw-2rem))] lg:overflow-visible lg:rounded-[24px] lg:p-5";
+  const panelVisibilityClassName = isCompactLayout
+    ? isMobilePanelOpen
+      ? "pointer-events-auto translate-y-0 opacity-100"
+      : "pointer-events-none translate-y-1 opacity-0"
+    : "pointer-events-none translate-y-1 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100";
   const panelClassName = `${panelBaseClassName} ${panelVisibilityClassName}`;
   const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
   const countClassName = isDarkTheme
     ? "rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-[11px] font-semibold text-slate-200"
     : "rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700";
   const metricCardClassName = isDarkTheme
-    ? "rounded-[20px] border border-white/[0.075] bg-white/[0.035] px-4 py-3"
-    : "rounded-[20px] border border-slate-200/90 bg-slate-50/80 px-4 py-3";
+    ? "rounded-[18px] border border-white/[0.075] bg-white/[0.035] px-3 py-2.5 lg:rounded-[20px] lg:px-4 lg:py-3"
+    : "rounded-[18px] border border-slate-200/90 bg-slate-50/80 px-3 py-2.5 lg:rounded-[20px] lg:px-4 lg:py-3";
   const metricLabelClassName = isDarkTheme ? "text-[11px] font-medium text-slate-500" : "text-[11px] font-medium text-slate-400";
   const frequencyBlockClassName = isDarkTheme
     ? "mt-4 rounded-[20px] border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[12px] leading-6 text-slate-400"
@@ -42,26 +51,44 @@ export function AiSignalSummaryOverlay({
 
   return (
     <div className={wrapperClassName}>
-      <div
+      <button
         aria-describedby="ai-signal-summary-panel"
+        aria-expanded={isCompactLayout ? isMobilePanelOpen : undefined}
         aria-label={copy.ai.ariaLabel}
         className={triggerClassName}
         data-guide-target="ai-summary-button"
-        role="note"
         title={copy.ai.title}
+        type="button"
+        onClick={() => {
+          if (isCompactLayout) {
+            setIsMobilePanelOpen((isOpen) => !isOpen);
+          }
+        }}
       >
         <span>{copy.ai.label}</span>
-      </div>
+      </button>
 
       <div className={panelClassName} id="ai-signal-summary-panel">
         <div className="flex items-start justify-between gap-4">
           <p className={`min-w-0 flex-1 text-[13px] leading-6 ${mutedClassName}`}>
             {summary.summaryText}
           </p>
-          <span className={countClassName}>{copy.ai.count(summary.totalCount)}</span>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className={countClassName}>{copy.ai.count(summary.totalCount)}</span>
+            {isCompactLayout ? (
+              <button
+                className={isDarkTheme ? "grid h-7 w-7 place-items-center rounded-full bg-white/[0.06] text-slate-400" : "grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-slate-500"}
+                type="button"
+                onClick={() => setIsMobilePanelOpen(false)}
+              >
+                <span className="sr-only">{copy.common.close}</span>
+                <span aria-hidden="true">×</span>
+              </button>
+            ) : null}
+          </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="mt-4 grid grid-cols-3 gap-2 lg:gap-3">
           <div className={metricCardClassName}>
             <div className={metricLabelClassName}>{copy.ai.long}</div>
             <div className="mt-2 text-[15px] font-semibold text-emerald-500">{summary.longPercent}%</div>

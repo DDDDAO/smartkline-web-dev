@@ -4,7 +4,7 @@ export const WORKSPACE_LANGUAGE_STORAGE_KEY = "smartkline:workspace-language";
 
 const zh = {
   ai: {
-    ariaLabel: "AI 情报总结，悬浮查看详情",
+    ariaLabel: "AI 情报总结，点击或悬浮查看详情",
     count: (count: number) => `${count}条`,
     dominantBalanced: "多空接近均衡",
     dominantLong: "多头占优",
@@ -24,7 +24,7 @@ const zh = {
     short: "空头",
     summary: (dominantSideText: string, totalCount: number, resonanceCount: number) =>
       `${dominantSideText}，当前窗口识别 ${totalCount} 条情报，${resonanceCount} 组价格共振。`,
-    title: "悬浮查看",
+    title: "查看详情",
   },
   common: {
     all: "全部",
@@ -167,7 +167,7 @@ export type WorkspaceCopy = Widen<typeof zh>;
 
 const en: WorkspaceCopy = {
   ai: {
-    ariaLabel: "AI market brief, hover for details",
+    ariaLabel: "AI market brief, click or hover for details",
     count: (count) => `${count} signals`,
     dominantBalanced: "Long/short balanced",
     dominantLong: "Long bias",
@@ -187,7 +187,7 @@ const en: WorkspaceCopy = {
     short: "Short",
     summary: (dominantSideText, totalCount, resonanceCount) =>
       `${dominantSideText}. ${totalCount} signals found in this window, with ${resonanceCount} price resonance groups.`,
-    title: "Hover to view",
+    title: "View details",
   },
   common: {
     all: "All",
