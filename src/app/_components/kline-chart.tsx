@@ -15,7 +15,7 @@ import {
   type MouseEventParams,
   type Time,
 } from "lightweight-charts";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AiSignalSummaryOverlay } from "./kline-chart/ai-signal-summary-overlay";
 import { renderPaperPositionLifecycleLabels } from "./kline-chart/paper-position-lifecycle-labels";
 import { createChartPalette } from "./kline-chart/palette";
@@ -23,10 +23,10 @@ import { createSignalPriceLines, KLINE_PRICE_FORMAT, toVolumeData } from "./klin
 import { createSignalEventRenderKey, renderSignalEventLabels } from "./kline-chart/signal-event-labels";
 import { SignalPriceRayPrimitive } from "./kline-chart/signal-price-ray-primitive";
 import { readTradePointMarkerId, TradePointPrimitive, type KlineTradePointMarker } from "./kline-chart/trade-point-primitive";
-import type { WorkspaceLanguage } from "@/app/_lib/i18n";
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { SignalAiSummary } from "@/app/_lib/signal-ai-summary";
-import type { MarketCandle } from "@/app/_types/market";
+import type { KlineInterval, MarketCandle } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 
 export type ChartTheme = "light" | "dark";
@@ -40,6 +40,7 @@ type KlineChartProps = {
   canLoadOlderHistory: boolean;
   eventSignals: readonly StructuredSignal[];
   focusSignalRequestKey: string | null;
+  interval: KlineInterval;
   isLoadingOlderHistory: boolean;
   language: WorkspaceLanguage;
   theme: ChartTheme;
@@ -52,6 +53,15 @@ type KlineChartProps = {
 const LEFT_EDGE_HISTORY_THRESHOLD_BARS = 80;
 const INITIAL_VISIBLE_CANDLE_COUNT = 240;
 const RIGHT_EDGE_FOLLOW_THRESHOLD_BARS = 2;
+const CANDLE_COUNTDOWN_UPDATE_MS = 1_000;
+const KLINE_INTERVAL_MS_BY_INTERVAL: Record<KlineInterval, number> = {
+  "1d": 86_400_000,
+  "1h": 3_600_000,
+  "1m": 60_000,
+  "4h": 14_400_000,
+  "5m": 300_000,
+  "15m": 900_000,
+};
 
 export function KlineChart({
   activePaperPosition,
@@ -62,6 +72,7 @@ export function KlineChart({
   canLoadOlderHistory,
   eventSignals,
   focusSignalRequestKey,
+  interval,
   isLoadingOlderHistory,
   language,
   theme,
@@ -72,6 +83,7 @@ export function KlineChart({
 }: KlineChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hiddenSignalHintRef = useRef<HTMLDivElement | null>(null);
+  const currentPriceCountdownRef = useRef<HTMLDivElement | null>(null);
   const labelOverlayRef = useRef<HTMLDivElement | null>(null);
   const lifecycleOverlayRef = useRef<HTMLDivElement | null>(null);
   const signalDataGuideTargetRef = useRef<HTMLDivElement | null>(null);
@@ -94,7 +106,9 @@ export function KlineChart({
   const activeSignalDrawingReadyRef = useRef(activeSignalDrawingReady);
   const themeRef = useRef(theme);
   const languageRef = useRef(language);
+  const currentCandleCountdownTextRef = useRef("");
   const onEventSignalSelectRef = useRef(onEventSignalSelect);
+  const [currentCandleCountdownText, setCurrentCandleCountdownText] = useState("");
   const handledFocusSignalRequestKeyRef = useRef<string | null>(null);
   const eventLabelRenderKey = createSignalEventRenderKey(candles, eventSignals, theme, language, activeSignal?.id ?? null);
 
@@ -112,6 +126,21 @@ export function KlineChart({
     languageRef.current = language;
     onEventSignalSelectRef.current = onEventSignalSelect;
   }, [activePaperPosition, activeSignal, activeSignalDrawingReady, canLoadOlderHistory, candles, eventSignals, isLoadingOlderHistory, language, onEventSignalSelect, onLoadOlderHistory, theme, tradeMarkers]);
+
+  useEffect(() => {
+    currentCandleCountdownTextRef.current = currentCandleCountdownText;
+  }, [currentCandleCountdownText]);
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      setCurrentCandleCountdownText(formatKlineCandleCountdown(candles.at(-1) ?? null, interval));
+    };
+
+    updateCountdown();
+    const intervalId = window.setInterval(updateCountdown, CANDLE_COUNTDOWN_UPDATE_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [candles, interval]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -206,6 +235,14 @@ export function KlineChart({
         paperPosition: drawablePaperPosition,
         series: candleSeries,
         signal: drawableSignal,
+      });
+      renderCurrentPriceCountdown({
+        countdownText: currentCandleCountdownTextRef.current,
+        currentPrice: candlesRef.current.at(-1)?.close ?? null,
+        element: currentPriceCountdownRef.current,
+        language: languageRef.current,
+        series: candleSeries,
+        theme: themeRef.current,
       });
       renderHiddenSignalHint({
         element: hiddenSignalHintRef.current,
@@ -329,6 +366,14 @@ export function KlineChart({
       lifecycleOverlayRef.current?.replaceChildren();
       labelOverlayRef.current?.removeAttribute("data-signal-event-hidden-right");
       lifecycleOverlayRef.current?.removeAttribute("data-lifecycle-hidden-right");
+      renderCurrentPriceCountdown({
+        countdownText: "",
+        currentPrice: null,
+        element: currentPriceCountdownRef.current,
+        language,
+        series: candleSeriesRef.current,
+        theme,
+      });
       renderHiddenSignalHint({ element: hiddenSignalHintRef.current, isDarkTheme: theme === "dark", isVisible: false });
       hasFittedContentRef.current = false;
       renderedCandlesRef.current = [];
@@ -359,6 +404,17 @@ export function KlineChart({
 
     renderedCandlesRef.current = candles;
   }, [candles, language, theme]);
+
+  useEffect(() => {
+    renderCurrentPriceCountdown({
+      countdownText: currentCandleCountdownText,
+      currentPrice: candles.at(-1)?.close ?? null,
+      element: currentPriceCountdownRef.current,
+      language,
+      series: candleSeriesRef.current,
+      theme,
+    });
+  }, [candles, currentCandleCountdownText, language, theme]);
 
   useEffect(() => {
     const drawableSignal = activeSignalDrawingReadyRef.current
@@ -492,6 +548,13 @@ export function KlineChart({
       <div ref={signalDataGuideTargetRef} data-guide-target="kline-signal-data" aria-hidden="true" className="pointer-events-none absolute z-10" />
       <div data-guide-target="kline-kol-avatars" aria-hidden="true" className="pointer-events-none absolute bottom-2 left-4 right-[124px] z-10 h-28" />
       <div ref={hiddenSignalHintRef} aria-hidden="true" className="hidden" />
+      <div
+        ref={currentPriceCountdownRef}
+        aria-hidden="true"
+        className={theme === "dark"
+          ? "pointer-events-none absolute z-40 rounded-full border border-white/[0.10] bg-[#181A20]/96 px-2 py-1 text-[10px] font-bold leading-none text-sky-200 opacity-0 shadow-[0_8px_22px_rgba(0,0,0,0.30)] backdrop-blur"
+          : "pointer-events-none absolute z-40 rounded-full border border-[#B7E8FC] bg-white/96 px-2 py-1 text-[10px] font-bold leading-none text-[#007DB8] opacity-0 shadow-[0_8px_22px_rgba(15,23,42,0.12)] backdrop-blur"}
+      />
       <div ref={labelOverlayRef} className="pointer-events-none absolute inset-0 z-20 overflow-hidden" />
       <div ref={lifecycleOverlayRef} className="pointer-events-none absolute inset-0 z-30 overflow-hidden" />
       <AiSignalSummaryOverlay language={language} summary={aiSummary} theme={theme} />
@@ -520,6 +583,71 @@ function findNearestCandleIndex(candles: readonly MarketCandle[], sourceTimeMs: 
 
 export function createSignalFocusRequestKey(signal: StructuredSignal): string {
   return `${signal.id}:${signal.symbol}:${signal.created_at}`;
+}
+
+function formatKlineCandleCountdown(candle: MarketCandle | null, interval: KlineInterval): string {
+  if (!candle || !Number.isFinite(candle.sourceTimeMs)) {
+    return "";
+  }
+
+  const intervalMs = KLINE_INTERVAL_MS_BY_INTERVAL[interval];
+  const remainingSeconds = Math.max(
+    0,
+    Math.ceil((candle.sourceTimeMs + intervalMs - Date.now()) / 1_000),
+  );
+  const hours = Math.floor(remainingSeconds / 3_600);
+  const minutes = Math.floor((remainingSeconds % 3_600) / 60);
+  const seconds = remainingSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function renderCurrentPriceCountdown(input: {
+  countdownText: string;
+  currentPrice: number | null;
+  element: HTMLDivElement | null;
+  language: WorkspaceLanguage;
+  series: ISeriesApi<"Candlestick"> | null;
+  theme: ChartTheme;
+}): void {
+  const { countdownText, currentPrice, element, language, series, theme } = input;
+  const container = element?.parentElement;
+  if (!element || !container || !series || currentPrice === null || !countdownText) {
+    hideCurrentPriceCountdown(element);
+    return;
+  }
+
+  const coordinate = series.priceToCoordinate(currentPrice);
+  if (coordinate === null || !Number.isFinite(coordinate)) {
+    hideCurrentPriceCountdown(element);
+    return;
+  }
+
+  const containerHeight = container.clientHeight;
+  const top = clampNumber(coordinate + 18, 42, Math.max(42, containerHeight - 34));
+  const copy = getWorkspaceCopy(language);
+
+  element.textContent = copy.kline.candleCountdown(countdownText);
+  element.style.right = "76px";
+  element.style.top = `${Math.round(top)}px`;
+  element.style.opacity = "1";
+  element.style.color = theme === "dark" ? "#BAE6FD" : "#007DB8";
+}
+
+function hideCurrentPriceCountdown(element: HTMLDivElement | null): void {
+  if (!element) {
+    return;
+  }
+
+  element.style.opacity = "0";
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
 function resolveVisibleLogicalRangeAfterCandlesChange({

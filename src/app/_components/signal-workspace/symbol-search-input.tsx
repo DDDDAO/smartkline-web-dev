@@ -21,14 +21,12 @@ export function SymbolSearchInput({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const normalizedQuery = query.trim().toUpperCase();
   const matchedMarkets = useMemo(() => {
-    const normalizedMarkets = normalizedQuery.length === 0
+    return normalizedQuery.length === 0
       ? marketOptions
       : marketOptions.filter((market) => {
         const compactSymbol = market.replace("/USDT:USDT", "USDT").toUpperCase();
         return market.toUpperCase().includes(normalizedQuery) || compactSymbol.includes(normalizedQuery);
       });
-
-    return normalizedMarkets.slice(0, 16);
   }, [marketOptions, normalizedQuery]);
   const inputClassName = isDarkTheme
     ? `h-[30px] w-[220px] rounded-full border border-white/[0.075] bg-white/[0.035] py-0 pr-4 text-xs font-medium text-slate-100 outline-none placeholder:text-slate-500 transition-[border-color,background-color,padding] focus:border-[#00A6F4] ${isOpen ? "pl-9" : "pl-4"}`
@@ -60,9 +58,10 @@ export function SymbolSearchInput({
           setIsOpen(true);
           setHighlightedIndex(0);
         }}
-        onFocus={(event) => {
-          event.currentTarget.select();
+        onFocus={() => {
+          setQuery("");
           setIsOpen(true);
+          setHighlightedIndex(0);
         }}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {

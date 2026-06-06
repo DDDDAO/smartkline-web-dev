@@ -229,6 +229,7 @@ export function RealtimeKlinePanel({
           canLoadOlderHistory={canLoadOlderHistory}
           eventSignals={chartEventSignals}
           focusSignalRequestKey={focusSignalRequestKey}
+          interval={interval}
           isLoadingOlderHistory={isLoadingOlderHistory}
           theme={theme}
           tradeMarkers={chartTradeMarkers}

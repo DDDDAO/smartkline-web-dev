@@ -32,6 +32,7 @@ const zh = {
     errorPrefix: "错误",
   },
   kline: {
+    candleCountdown: (remainingTime: string) => `K线 ${remainingTime}`,
     currentPrice: "当前价",
     entry: "入场",
     entryLower: "入场下沿",
@@ -195,6 +196,7 @@ const en: WorkspaceCopy = {
     errorPrefix: "Error",
   },
   kline: {
+    candleCountdown: (remainingTime) => `Candle ${remainingTime}`,
     currentPrice: "Current",
     entry: "Entry",
     entryLower: "Entry low",
