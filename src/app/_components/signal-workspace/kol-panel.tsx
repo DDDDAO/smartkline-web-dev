@@ -6,7 +6,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { fetchBinanceAssetIconMap } from "@/app/_lib/binance-asset-icons";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { MarketSymbol } from "@/app/_types/market";
@@ -14,7 +13,6 @@ import type { StructuredSignal } from "@/app/_types/signal";
 import type { KolSignalSourceStatus } from "./types";
 import {
   formatKolSourceType,
-  getSymbolBaseAsset,
   SignalField,
   SourceAvatar,
   SymbolIcon,
@@ -63,7 +61,6 @@ export function KolPanel({
   const [directionFilter, setDirectionFilter] =
     useState<string>(ALL_DIRECTION_FILTER);
   const [kolFilter, setKolFilter] = useState<string>(ALL_KOL_FILTER);
-  const [symbolIconUrlsByAsset, setSymbolIconUrlsByAsset] = useState<Readonly<Record<string, string>>>({});
   const symbolOptions = useMemo(
     () => createUniqueOptions(signals.map((signal) => signal.symbol)),
     [signals],
@@ -164,26 +161,6 @@ export function KolPanel({
     });
   }, [activeSignal?.id]);
 
-  useEffect(() => {
-    let isActive = true;
-
-    fetchBinanceAssetIconMap()
-      .then((iconUrlsByAsset) => {
-        if (isActive) {
-          setSymbolIconUrlsByAsset(iconUrlsByAsset);
-        }
-      })
-      .catch(() => {
-        if (isActive) {
-          setSymbolIconUrlsByAsset({});
-        }
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, []);
-
   return (
     <aside
       className={
@@ -219,7 +196,6 @@ export function KolPanel({
         directionFilter={effectiveDirectionFilter}
         directionOptions={directionOptions}
         symbolFilter={effectiveSymbolFilter}
-        symbolIconUrlsByAsset={symbolIconUrlsByAsset}
         symbolOptions={symbolOptions}
         copy={copy}
         onKolFilterChange={setKolFilter}
@@ -384,10 +360,7 @@ export function KolPanel({
                           : "inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700"
                       }
                     >
-                      <SymbolIcon
-                        iconUrl={resolveSymbolIconUrl(signal.symbol, symbolIconUrlsByAsset)}
-                        symbol={signal.symbol}
-                      />
+                      <SymbolIcon symbol={signal.symbol} />
                       {formatSymbolLabel(signal.symbol)}
                     </span>
                     <span
@@ -496,7 +469,6 @@ function KolPanelFilters({
   kolFilter,
   kolOptions,
   symbolFilter,
-  symbolIconUrlsByAsset,
   symbolOptions,
   onDirectionFilterChange,
   onKolFilterChange,
@@ -509,7 +481,6 @@ function KolPanelFilters({
   kolFilter: string;
   kolOptions: readonly string[];
   symbolFilter: string;
-  symbolIconUrlsByAsset: Readonly<Record<string, string>>;
   symbolOptions: readonly MarketSymbol[];
   onDirectionFilterChange: (value: string) => void;
   onKolFilterChange: (value: string) => void;
@@ -569,11 +540,7 @@ function KolPanelFilters({
           optionLabel={formatSymbolFilterLabel}
           renderIcon={(option) =>
             option === ALL_SYMBOL_FILTER ? null : (
-              <SymbolIcon
-                iconUrl={resolveSymbolIconUrl(option, symbolIconUrlsByAsset)}
-                size="md"
-                symbol={option}
-              />
+              <SymbolIcon size="md" symbol={option} />
             )
           }
           onOpenChange={(isOpen) => setOpenFilter(isOpen ? "symbol" : null)}
@@ -973,10 +940,6 @@ function formatTakeProfitText(takeProfits: readonly number[], copy: WorkspaceCop
 
 function formatSymbolLabel(symbol: string): string {
   return symbol.replace("/USDT:USDT", "");
-}
-
-function resolveSymbolIconUrl(symbol: string, symbolIconUrlsByAsset: Readonly<Record<string, string>>): string | null {
-  return symbolIconUrlsByAsset[getSymbolBaseAsset(symbol)] ?? null;
 }
 
 function formatDirectionLabel(
