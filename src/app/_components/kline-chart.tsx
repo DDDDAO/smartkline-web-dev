@@ -631,16 +631,22 @@ function renderCurrentPriceTag(input: {
   const countdown = document.createElement("span");
 
   priceText.textContent = KLINE_PRICE_FORMAT.formatter(candle.close);
+  priceText.style.display = "block";
+  priceText.style.fontFeatureSettings = "\"tnum\" 1, \"lnum\" 1";
   priceText.style.fontSize = "13px";
   priceText.style.lineHeight = "15px";
+  priceText.style.width = "100%";
 
   countdown.textContent = countdownText;
+  countdown.style.display = "block";
+  countdown.style.fontFeatureSettings = "\"tnum\" 1, \"lnum\" 1";
   countdown.style.fontSize = "13px";
   countdown.style.lineHeight = "15px";
   countdown.style.opacity = "0.96";
+  countdown.style.width = "100%";
 
   element.replaceChildren(priceText, countdown);
-  element.style.alignItems = "center";
+  element.style.alignItems = "flex-start";
   element.style.background = tagColor;
   element.style.borderRadius = "6px";
   element.style.boxShadow = "0 8px 18px rgba(15, 23, 42, 0.12)";
@@ -656,7 +662,7 @@ function renderCurrentPriceTag(input: {
   element.style.overflow = "hidden";
   element.style.padding = "5px 8px";
   element.style.right = `${RIGHT_PRICE_SCALE_WIDTH - CURRENT_PRICE_TAG_WIDTH}px`;
-  element.style.textAlign = "center";
+  element.style.textAlign = "left";
   element.style.top = `${Math.round(top)}px`;
   element.style.whiteSpace = "nowrap";
   element.style.width = `${CURRENT_PRICE_TAG_WIDTH}px`;
