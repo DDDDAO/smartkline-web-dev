@@ -39,10 +39,17 @@ import {
 import type { KlineInterval, MarketSymbol } from "@/app/_types/market";
 import type { CopyTradingTradeMarker } from "@/app/_types/copy-trading";
 import type { StructuredSignal } from "@/app/_types/signal";
+import { SourceAvatar, SymbolIcon } from "./signal-workspace/card-ui";
+import {
+  formatSignalPaperPositionStatus,
+  getSignalDirectionBadgeClass,
+  getSignalPaperPositionBadgeClass,
+} from "./signal-workspace/paper-position-summary";
 
 const MAX_VISIBLE_KOL_SIGNALS = 50;
 const NOTIFICATION_DISMISS_MS = 6_500;
 const KOL_SIGNAL_POLL_INTERVAL_MS = 30_000;
+const COMPACT_LAYOUT_MEDIA_QUERY = "(max-width: 1023px)";
 const TELEGRAM_DISCUSSION_GROUP_URL =
   process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
 const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
@@ -65,6 +72,7 @@ export function SignalWorkspace() {
   const [theme, setTheme] = useState<ChartTheme>("light");
   const [language, setLanguage] = useState<WorkspaceLanguage>("zh-CN");
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isMobileKolSheetOpen, setIsMobileKolSheetOpen] = useState(false);
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [isRightPanelExiting, setIsRightPanelExiting] = useState(false);
   const [isWorkspaceMotionVisible, setIsWorkspaceMotionVisible] =
@@ -83,6 +91,7 @@ export function SignalWorkspace() {
   const latestKolSignalCreatedAtRef = useRef<string | null>(null);
   const copy = getWorkspaceCopy(language);
   const copyRef = useRef<WorkspaceCopy>(copy);
+  const isCompactLayout = useCompactLayout();
   const rightPanelExitTimeoutRef = useRef<number | null>(null);
   const onboardingOpenTimeoutRef = useRef<number | null>(null);
   const hasEvaluatedAutoOnboardingRef = useRef(false);
@@ -135,14 +144,15 @@ export function SignalWorkspace() {
     : false;
   const isDarkTheme = theme === "dark";
   const pageClassName = isDarkTheme
-    ? "flex h-screen w-screen flex-col overflow-hidden bg-[#0B0E11] text-slate-100"
-    : "flex h-screen w-screen flex-col overflow-hidden bg-[#F1F4F8] text-slate-900";
+    ? "flex min-h-dvh w-full flex-col overflow-x-hidden overflow-y-auto bg-[#0B0E11] text-slate-100 lg:h-screen lg:overflow-hidden"
+    : "flex min-h-dvh w-full flex-col overflow-x-hidden overflow-y-auto bg-[#F1F4F8] text-slate-900 lg:h-screen lg:overflow-hidden";
   const workspaceGridClassName = isRightPanelCollapsed
-    ? "motion-fx-7-workspace-grid relative grid h-full min-h-0 gap-3 p-4 lg:grid-cols-[minmax(0,1fr)]"
-    : "motion-fx-7-workspace-grid relative grid h-full min-h-0 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]";
+    ? "motion-fx-7-workspace-grid relative flex min-h-0 flex-col gap-3 p-3 pb-24 lg:grid lg:h-full lg:p-4 lg:pb-4 lg:grid-cols-[minmax(0,1fr)]"
+    : "motion-fx-7-workspace-grid relative flex min-h-0 flex-col gap-3 p-3 pb-24 lg:grid lg:h-full lg:gap-4 lg:p-4 lg:pb-4 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]";
 
   const startOnboardingGuide = useCallback(() => {
     setIsRightPanelCollapsed(false);
+    setIsMobileKolSheetOpen(true);
     if (onboardingOpenTimeoutRef.current !== null) {
       window.clearTimeout(onboardingOpenTimeoutRef.current);
     }
@@ -420,6 +430,29 @@ export function SignalWorkspace() {
     }, 220);
   };
 
+  const handleSignalSelect = useCallback(
+    (signal: StructuredSignal) => {
+      if (signal.symbol !== symbol) {
+        setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
+      } else {
+        setChartFocusSignalRequestKey(null);
+      }
+      setActiveSignalId(signal.id);
+      setSymbol(signal.symbol);
+    },
+    [symbol],
+  );
+
+  const handleSymbolChange = useCallback(
+    (nextSymbol: MarketSymbol) => {
+      const nextSignal = signals.find((signal) => signal.symbol === nextSymbol);
+      setChartFocusSignalRequestKey(null);
+      setSymbol(nextSymbol);
+      setActiveSignalId(nextSignal?.id ?? "");
+    },
+    [signals],
+  );
+
   return (
     <main className={pageClassName} data-compact-ui>
       <div
@@ -437,13 +470,13 @@ export function SignalWorkspace() {
           onThemeToggle={toggleTheme}
         />
       </div>
-      <div className="min-h-0 min-w-0 flex-1">
+      <div className="min-w-0 flex-1 lg:min-h-0 lg:overflow-hidden">
         <section
           className={workspaceGridClassName}
           data-right-panel-collapsed={String(isRightPanelCollapsed)}
         >
           <div
-            className={`motion-fx-10-delay-1 motion-fx-10-reveal motion-fx-7-primary-panel flex h-full min-h-0 min-w-0 w-full ${isWorkspaceMotionVisible ? "is-visible" : ""}`}
+            className={`motion-fx-10-delay-1 motion-fx-10-reveal motion-fx-7-primary-panel flex min-w-0 w-full lg:h-full lg:min-h-0 ${isWorkspaceMotionVisible ? "is-visible" : ""}`}
           >
             <RealtimeKlinePanel
               key={`${symbol}-${interval}`}
@@ -453,6 +486,7 @@ export function SignalWorkspace() {
               focusSignalRequestKey={chartFocusSignalRequestKey}
               interval={interval}
               language={language}
+              isCompactLayout={isCompactLayout}
               marketOptions={marketOptions}
               symbol={symbol}
               signals={signals}
@@ -462,25 +496,8 @@ export function SignalWorkspace() {
                 setChartFocusSignalRequestKey(null);
                 setInterval(nextInterval);
               }}
-              onSymbolChange={(nextSymbol) => {
-                const nextSignal = signals.find(
-                  (signal) => signal.symbol === nextSymbol,
-                );
-                setChartFocusSignalRequestKey(null);
-                setSymbol(nextSymbol);
-                setActiveSignalId(nextSignal?.id ?? "");
-              }}
-              onSignalSelect={(signal) => {
-                if (signal.symbol !== symbol) {
-                  setChartFocusSignalRequestKey(
-                    createSignalFocusRequestKey(signal),
-                  );
-                } else {
-                  setChartFocusSignalRequestKey(null);
-                }
-                setActiveSignalId(signal.id);
-                setSymbol(signal.symbol);
-              }}
+              onSymbolChange={handleSymbolChange}
+              onSignalSelect={handleSignalSelect}
               onFocusSignalRequestHandled={() =>
                 setChartFocusSignalRequestKey(null)
               }
@@ -490,7 +507,7 @@ export function SignalWorkspace() {
 
           {!isRightPanelCollapsed || isRightPanelExiting ? (
             <div
-              className={`kol-panel-shell motion-fx-10-delay-2 motion-fx-10-reveal motion-fx-7-secondary-panel relative flex min-h-0 min-w-0 flex-col gap-3 ${isWorkspaceMotionVisible ? "is-visible" : ""} ${isRightPanelExiting ? "is-exiting" : ""}`}
+              className={`kol-panel-shell motion-fx-10-delay-2 motion-fx-10-reveal motion-fx-7-secondary-panel relative hidden min-h-0 min-w-0 flex-col gap-3 lg:flex ${isWorkspaceMotionVisible ? "is-visible" : ""} ${isRightPanelExiting ? "is-exiting" : ""}`}
             >
               <KolPanel
                 activeSignal={activeSignal}
@@ -509,17 +526,7 @@ export function SignalWorkspace() {
                 paperPositionsBySignalId={paperPositionsBySignalId}
                 sourceStatus={kolSignalSourceStatus}
                 signals={kolSignals}
-                onSignalSelect={(signal) => {
-                  if (signal.symbol !== symbol) {
-                    setChartFocusSignalRequestKey(
-                      createSignalFocusRequestKey(signal),
-                    );
-                  } else {
-                    setChartFocusSignalRequestKey(null);
-                  }
-                  setActiveSignalId(signal.id);
-                  setSymbol(signal.symbol);
-                }}
+                onSignalSelect={handleSignalSelect}
               />
             </div>
           ) : (
@@ -533,6 +540,19 @@ export function SignalWorkspace() {
           )}
         </section>
       </div>
+      <MobileKolBottomSheet
+        activeSignal={activeSignal}
+        copy={copy}
+        isCompactLayout={isCompactLayout}
+        isDarkTheme={isDarkTheme}
+        isOpen={isMobileKolSheetOpen}
+        paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
+        paperPositionsBySignalId={paperPositionsBySignalId}
+        signals={kolSignals}
+        sourceStatus={kolSignalSourceStatus}
+        onOpenChange={setIsMobileKolSheetOpen}
+        onSignalSelect={handleSignalSelect}
+      />
       <OnboardingGuide
         copy={copy.onboarding}
         isDarkTheme={isDarkTheme}
@@ -540,6 +560,221 @@ export function SignalWorkspace() {
         onComplete={() => setIsOnboardingOpen(false)}
       />
     </main>
+  );
+}
+
+function useCompactLayout(): boolean {
+  const [isCompactLayout, setIsCompactLayout] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(COMPACT_LAYOUT_MEDIA_QUERY);
+    const updateCompactLayout = () => setIsCompactLayout(mediaQuery.matches);
+
+    updateCompactLayout();
+    mediaQuery.addEventListener("change", updateCompactLayout);
+    return () => mediaQuery.removeEventListener("change", updateCompactLayout);
+  }, []);
+
+  return isCompactLayout;
+}
+
+function MobileKolBottomSheet({
+  activeSignal,
+  copy,
+  isCompactLayout,
+  isDarkTheme,
+  isOpen,
+  paperPositionErrorsBySymbol,
+  paperPositionsBySignalId,
+  signals,
+  sourceStatus,
+  onOpenChange,
+  onSignalSelect,
+}: {
+  activeSignal: StructuredSignal | null;
+  copy: WorkspaceCopy;
+  isCompactLayout: boolean;
+  isDarkTheme: boolean;
+  isOpen: boolean;
+  paperPositionErrorsBySymbol: Readonly<Record<string, string>>;
+  paperPositionsBySignalId: Readonly<Record<string, PaperPositionRecord>>;
+  signals: readonly StructuredSignal[];
+  sourceStatus: KolSignalSourceStatus;
+  onOpenChange: (isOpen: boolean) => void;
+  onSignalSelect: (signal: StructuredSignal) => void;
+}) {
+  const closeButtonClassName = isDarkTheme
+    ? "inline-flex h-9 items-center gap-1.5 rounded-full border border-white/[0.075] bg-white/[0.035] px-3 text-xs font-semibold text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50"
+    : "inline-flex h-9 items-center gap-1.5 rounded-full border border-[#BFE7FB] bg-[#F4FBFF] px-3 text-xs font-semibold text-slate-700 transition hover:border-[#A7DDF7] hover:bg-[#ECF8FE] hover:text-slate-900";
+
+  if (!isCompactLayout) {
+    return null;
+  }
+
+  if (isOpen) {
+    return (
+      <>
+        <button
+          aria-label={copy.common.close}
+          className={
+            isDarkTheme
+              ? "fixed inset-0 z-[70] bg-black/42 backdrop-blur-[2px] lg:hidden"
+              : "fixed inset-0 z-[70] bg-slate-950/20 backdrop-blur-[2px] lg:hidden"
+          }
+          type="button"
+          onClick={() => onOpenChange(false)}
+        />
+        <div className="fixed inset-x-0 bottom-0 z-[80] h-[min(78dvh,680px)] px-2 pb-[max(8px,env(safe-area-inset-bottom))] lg:hidden">
+          <KolPanel
+            activeSignal={activeSignal}
+            activeCardScrollBlock="nearest"
+            copy={copy}
+            headerAction={
+              <button
+                className={closeButtonClassName}
+                type="button"
+                onClick={() => onOpenChange(false)}
+              >
+                <CloseIcon className="h-3.5 w-3.5" />
+                <span>{copy.common.close}</span>
+              </button>
+            }
+            isDarkTheme={isDarkTheme}
+            paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
+            paperPositionsBySignalId={paperPositionsBySignalId}
+            sourceStatus={sourceStatus}
+            signals={signals}
+            variant="mobileSheet"
+            onSignalSelect={(signal) => {
+              onSignalSelect(signal);
+              onOpenChange(false);
+            }}
+          />
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-[max(12px,env(safe-area-inset-bottom))] lg:hidden">
+      <MobileKolSheetHandle
+        activeSignal={activeSignal}
+        copy={copy}
+        isDarkTheme={isDarkTheme}
+        paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
+        paperPositionsBySignalId={paperPositionsBySignalId}
+        sourceStatus={sourceStatus}
+        onOpen={() => onOpenChange(true)}
+      />
+    </div>
+  );
+}
+
+function MobileKolSheetHandle({
+  activeSignal,
+  copy,
+  isDarkTheme,
+  paperPositionErrorsBySymbol,
+  paperPositionsBySignalId,
+  sourceStatus,
+  onOpen,
+}: {
+  activeSignal: StructuredSignal | null;
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  paperPositionErrorsBySymbol: Readonly<Record<string, string>>;
+  paperPositionsBySignalId: Readonly<Record<string, PaperPositionRecord>>;
+  sourceStatus: KolSignalSourceStatus;
+  onOpen: () => void;
+}) {
+  const activePaperPosition = activeSignal
+    ? (paperPositionsBySignalId[activeSignal.id] ?? null)
+    : null;
+  const paperPositionError = activeSignal
+    ? (paperPositionErrorsBySymbol[activeSignal.symbol] ?? null)
+    : null;
+  const buttonClassName = isDarkTheme
+    ? "motion-fx-9-surface w-full rounded-[22px] border border-white/[0.085] bg-[#181A20]/96 px-3.5 py-3 text-left text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
+    : "motion-fx-9-surface w-full rounded-[22px] border border-[#D5E4EF] bg-white/96 px-3.5 py-3 text-left text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl";
+  const eyebrowClassName = isDarkTheme
+    ? "text-[10px] font-bold uppercase tracking-[0.12em] text-sky-300"
+    : "text-[10px] font-bold uppercase tracking-[0.12em] text-[#008DCC]";
+  const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
+  const statusText = activeSignal
+    ? formatSignalPaperPositionStatus(
+        activePaperPosition,
+        paperPositionError,
+        copy.paper,
+      )
+    : sourceStatus.isLoading
+      ? copy.paper.loading
+      : sourceStatus.error
+        ? copy.common.errorPrefix
+      : copy.kol.noSignalsStatus;
+
+  return (
+    <button className={buttonClassName} type="button" onClick={onOpen}>
+      <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-slate-400/45" />
+      <div className="flex min-w-0 items-center gap-3">
+        {activeSignal ? (
+          <SourceAvatar
+            isDarkTheme={isDarkTheme}
+            name={activeSignal.source_name}
+            url={activeSignal.source_avatar_url}
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className={
+              isDarkTheme
+                ? "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-sky-300"
+                : "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#EAF8FE] text-[#008DCC]"
+            }
+          >
+            K
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className={eyebrowClassName}>{copy.kol.title}</span>
+            {activeSignal ? (
+              <span className="inline-flex min-w-0 items-center gap-1 truncate text-xs font-semibold">
+                <SymbolIcon symbol={activeSignal.symbol} />
+                <span className="truncate">
+                  {formatMobileSymbolLabel(activeSignal.symbol)}
+                </span>
+              </span>
+            ) : null}
+          </div>
+          <div className={`mt-1 min-w-0 truncate text-xs ${mutedClassName}`}>
+            {activeSignal
+              ? `${activeSignal.source_name} · ${formatMobileSignalTime(activeSignal)}`
+              : copy.kol.noSignalsMessage}
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          {activeSignal ? (
+            <span
+              className={getSignalDirectionBadgeClass(
+                isDarkTheme,
+                activeSignal.direction,
+              )}
+            >
+              {copy.kol.directionShort[activeSignal.direction]}
+            </span>
+          ) : null}
+          <span
+            className={getSignalPaperPositionBadgeClass(
+              isDarkTheme,
+              activePaperPosition,
+            )}
+          >
+            {statusText}
+          </span>
+        </div>
+        <ChevronUpIcon className={isDarkTheme ? "h-4 w-4 shrink-0 text-slate-400" : "h-4 w-4 shrink-0 text-slate-500"} />
+      </div>
+    </button>
   );
 }
 
@@ -1051,6 +1286,33 @@ function sortSignalsForKolPanel(
   });
 }
 
+function formatMobileSignalTime(signal: StructuredSignal): string {
+  return signal.created_at.replace("T", " ").slice(5, 16);
+}
+
+function formatMobileSymbolLabel(symbol: MarketSymbol): string {
+  return symbol.replace("/USDT:USDT", "");
+}
+
+function ChevronUpIcon({ className }: { className: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="m6 15 6-6 6 6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.4"
+      />
+    </svg>
+  );
+}
+
 function ChevronLeftIcon({ className }: { className: string }) {
   return (
     <svg
@@ -1065,6 +1327,24 @@ function ChevronLeftIcon({ className }: { className: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2.6"
+      />
+    </svg>
+  );
+}
+
+function CloseIcon({ className }: { className: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="m6 6 12 12M18 6 6 18"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2.2"
       />
     </svg>
   );

@@ -25,6 +25,7 @@ export function RealtimeKlinePanel({
   activeSignal,
   focusSignalRequestKey,
   isActivePaperPositionReady,
+  isCompactLayout,
   interval,
   language,
   marketOptions,
@@ -42,6 +43,7 @@ export function RealtimeKlinePanel({
   activeSignal: StructuredSignal | null;
   focusSignalRequestKey: string | null;
   isActivePaperPositionReady: boolean;
+  isCompactLayout: boolean;
   interval: KlineInterval;
   language: WorkspaceLanguage;
   marketOptions: readonly MarketSymbol[];
@@ -191,12 +193,12 @@ export function RealtimeKlinePanel({
   }, [canLoadOlderHistory, interval, symbol]);
 
   return (
-    <section className={isDarkTheme ? "flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#181A20]" : "flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]"}>
-      <div className={isDarkTheme ? "flex min-h-[48px] flex-wrap items-center justify-between gap-3 border-b border-white/[0.075] bg-white/[0.055] px-5 py-1.5" : "flex min-h-[48px] flex-wrap items-center justify-between gap-3 border-b border-[#E5EAF0] bg-white px-5 py-1.5"}>
-        <div>
+    <section className={isDarkTheme ? "flex h-[calc(100dvh-6rem)] min-h-[520px] w-full flex-1 flex-col overflow-hidden rounded-[22px] border border-white/[0.075] bg-[#181A20] lg:h-full lg:min-h-0 lg:rounded-[24px]" : "flex h-[calc(100dvh-6rem)] min-h-[520px] w-full flex-1 flex-col overflow-hidden rounded-[22px] border border-[#E5EAF0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)] lg:h-full lg:min-h-0 lg:rounded-[24px]"}>
+      <div className={isDarkTheme ? "flex min-h-[48px] flex-wrap items-start justify-between gap-3 border-b border-white/[0.075] bg-white/[0.055] px-3 py-3 sm:px-5 lg:items-center lg:py-1.5" : "flex min-h-[48px] flex-wrap items-start justify-between gap-3 border-b border-[#E5EAF0] bg-white px-3 py-3 sm:px-5 lg:items-center lg:py-1.5"}>
+        <div className="min-w-0">
           <h1 className={isDarkTheme ? "text-base font-semibold tracking-tight text-slate-50" : "text-base font-semibold tracking-tight text-slate-950"}>{copy.realtime.title}</h1>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex w-full min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end lg:w-auto">
           <SymbolSearchInput
             key={symbol}
             isDarkTheme={isDarkTheme}
@@ -205,16 +207,18 @@ export function RealtimeKlinePanel({
             symbol={symbol}
             onSymbolChange={onSymbolChange}
           />
-          <div className={isDarkTheme ? "flex h-[30px] items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5" : "flex h-[30px] items-center gap-1 rounded-full border border-[#E5EAF0] bg-[#F8FAFC] p-0.5"}>
-            {intervals.map((item) => (
-              <button
-                key={item}
-                className={item === interval ? "h-6 rounded-full bg-[#00A6F4] px-3 text-xs font-semibold text-white" : isDarkTheme ? "h-6 rounded-full px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.08] hover:text-slate-100" : "h-6 rounded-full px-3 text-xs font-medium text-slate-500 hover:bg-white hover:text-slate-950"}
-                onClick={() => onIntervalChange(item)}
-              >
-                {item}
-              </button>
-            ))}
+          <div className="min-w-0 overflow-x-auto pb-0.5">
+            <div className={isDarkTheme ? "inline-flex h-[30px] min-w-max items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5" : "inline-flex h-[30px] min-w-max items-center gap-1 rounded-full border border-[#E5EAF0] bg-[#F8FAFC] p-0.5"}>
+              {intervals.map((item) => (
+                <button
+                  key={item}
+                  className={item === interval ? "h-6 rounded-full bg-[#00A6F4] px-3 text-xs font-semibold text-white" : isDarkTheme ? "h-6 rounded-full px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.08] hover:text-slate-100" : "h-6 rounded-full px-3 text-xs font-medium text-slate-500 hover:bg-white hover:text-slate-950"}
+                  onClick={() => onIntervalChange(item)}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -229,6 +233,8 @@ export function RealtimeKlinePanel({
           canLoadOlderHistory={canLoadOlderHistory}
           eventSignals={chartEventSignals}
           focusSignalRequestKey={focusSignalRequestKey}
+          interval={interval}
+          isCompactLayout={isCompactLayout}
           isLoadingOlderHistory={isLoadingOlderHistory}
           theme={theme}
           tradeMarkers={chartTradeMarkers}

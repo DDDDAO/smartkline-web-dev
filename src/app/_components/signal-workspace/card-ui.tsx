@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import Image from "next/image";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { getResolvedKolAvatarUrl } from "@/app/_lib/kol-avatar";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { StructuredSignal } from "@/app/_types/signal";
@@ -39,16 +40,34 @@ export function SymbolIcon({
   symbol: string;
 }) {
   const symbolName = getSymbolBaseAsset(symbol);
-  const knownIcon = getKnownSymbolIcon(symbolName);
+  const iconUrl = createBinanceAssetIconProxyUrl(symbolName);
+  const [loadedIconUrl, setLoadedIconUrl] = useState<string | null>(null);
   const sizeClassName = size === "md" ? "h-5 w-5 text-[10px]" : "h-4 w-4 text-[9px]";
+  const pixelSize = size === "md" ? 20 : 16;
 
   return (
     <span
       aria-hidden="true"
-      className={`grid shrink-0 place-items-center overflow-hidden rounded-full font-black text-white ${sizeClassName}`}
-      style={knownIcon?.style ?? createAvatarFallbackStyle(symbolName)}
+      className={`relative grid shrink-0 place-items-center overflow-hidden rounded-full font-black text-white ${sizeClassName}`}
+      style={createAvatarFallbackStyle(symbolName)}
     >
-      {knownIcon?.content ?? getSymbolIconGlyph(symbolName)}
+      <span className="leading-none">{getSymbolIconGlyph(symbolName)}</span>
+      <Image
+        alt=""
+        className="absolute inset-0 h-full w-full rounded-full object-cover transition-opacity duration-150"
+        height={pixelSize}
+        loading="lazy"
+        src={iconUrl}
+        style={{ opacity: loadedIconUrl === iconUrl ? 1 : 0 }}
+        unoptimized
+        width={pixelSize}
+        onError={() => {
+          setLoadedIconUrl((currentIconUrl) => currentIconUrl === iconUrl ? null : currentIconUrl);
+        }}
+        onLoad={() => {
+          setLoadedIconUrl(iconUrl);
+        }}
+      />
     </span>
   );
 }
@@ -61,119 +80,8 @@ export function getSymbolBaseAsset(symbol: string): string {
   return baseAsset.replace(/USDT$/, "").trim();
 }
 
-type KnownSymbolIcon = {
-  content: ReactNode;
-  style: CSSProperties;
-};
-
-/**
- * Binance exposes asset metadata, but its logo CDN blocks cross-origin hotlinks
- * in Chromium through ORB/CORP. Rendering the common symbols locally keeps the
- * filter usable instead of showing a white circle when a remote image is denied.
- */
-function getKnownSymbolIcon(symbol: string): KnownSymbolIcon | null {
-  const symbolName = symbol.toUpperCase();
-  const textIcon = (label: string, background: string, fontSize = "0.92em"): KnownSymbolIcon => ({
-    content: <span className="leading-none" style={{ fontSize }}>{label}</span>,
-    style: { background },
-  });
-
-  const icons: Record<string, KnownSymbolIcon> = {
-    ADA: textIcon("A", "#3468D1"),
-    AVAX: textIcon("A", "#E84142"),
-    BNB: {
-      content: <BnbSymbolGlyph />,
-      style: { background: "#F3BA2F" },
-    },
-    BTC: textIcon("₿", "#F7931A", "1.02em"),
-    DOGE: textIcon("Ð", "#C2A633", "1em"),
-    ETH: {
-      content: <EthereumSymbolGlyph />,
-      style: { background: "linear-gradient(135deg, #6B8AFF, #8A5CF6)" },
-    },
-    EUR: textIcon("€", "linear-gradient(135deg, #2563EB, #60A5FA)", "1em"),
-    LINK: {
-      content: <ChainlinkSymbolGlyph />,
-      style: { background: "#2A5ADA" },
-    },
-    LITE: textIcon("Li", "linear-gradient(135deg, #60A5FA, #A78BFA)", "0.72em"),
-    LTC: textIcon("Ł", "#345D9D", "1em"),
-    SOL: {
-      content: <SolanaSymbolGlyph />,
-      style: { background: "#14151A" },
-    },
-    TON: {
-      content: <TonSymbolGlyph />,
-      style: { background: "#0098EA" },
-    },
-    USDT: textIcon("₮", "#26A17B", "1em"),
-    XRP: textIcon("X", "#23292F"),
-  };
-
-  return icons[symbolName] ?? null;
-}
-
-function EthereumSymbolGlyph() {
-  return (
-    <svg aria-hidden="true" className="h-[78%] w-[78%]" fill="none" viewBox="0 0 24 24">
-      <path d="M12 2 5.5 12.2 12 9.3l6.5 2.9L12 2Z" fill="#F5F7FF" opacity="0.92" />
-      <path d="M5.5 13.5 12 22l6.5-8.5L12 17.1 5.5 13.5Z" fill="#C9D5FF" opacity="0.95" />
-      <path d="m12 9.3-6.5 2.9L12 15.8l6.5-3.6L12 9.3Z" fill="#FFFFFF" />
-    </svg>
-  );
-}
-
-function BnbSymbolGlyph() {
-  return (
-    <svg aria-hidden="true" className="h-[78%] w-[78%]" fill="none" viewBox="0 0 24 24">
-      <path d="M12 3.2 15.1 6.3 12 9.4 8.9 6.3 12 3.2Z" fill="#181A20" />
-      <path d="M6.3 8.9 9.4 12 6.3 15.1 3.2 12 6.3 8.9Z" fill="#181A20" />
-      <path d="M17.7 8.9 20.8 12l-3.1 3.1-3.1-3.1 3.1-3.1Z" fill="#181A20" />
-      <path d="M12 14.6 15.1 17.7 12 20.8 8.9 17.7 12 14.6Z" fill="#181A20" />
-      <path d="M12 9.2 14.8 12 12 14.8 9.2 12 12 9.2Z" fill="#181A20" />
-    </svg>
-  );
-}
-
-function SolanaSymbolGlyph() {
-  return (
-    <svg aria-hidden="true" className="h-[78%] w-[78%]" fill="none" viewBox="0 0 24 24">
-      <path d="M6.2 6.5h11.6l-2 2.5H4.2l2-2.5Z" fill="url(#solana-a)" />
-      <path d="M4.2 10.8h11.6l2 2.4H6.2l-2-2.4Z" fill="url(#solana-b)" />
-      <path d="M6.2 15h11.6l-2 2.5H4.2l2-2.5Z" fill="url(#solana-c)" />
-      <defs>
-        <linearGradient id="solana-a" x1="4.2" x2="17.8" y1="8" y2="8" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#00FFA3" />
-          <stop offset="1" stopColor="#DC1FFF" />
-        </linearGradient>
-        <linearGradient id="solana-b" x1="4.2" x2="17.8" y1="12" y2="12" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#00FFA3" />
-          <stop offset="1" stopColor="#DC1FFF" />
-        </linearGradient>
-        <linearGradient id="solana-c" x1="4.2" x2="17.8" y1="16.5" y2="16.5" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#00FFA3" />
-          <stop offset="1" stopColor="#DC1FFF" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
-
-function ChainlinkSymbolGlyph() {
-  return (
-    <svg aria-hidden="true" className="h-[78%] w-[78%]" fill="none" viewBox="0 0 24 24">
-      <path d="m12 3.7 7 4v8l-7 4-7-4v-8l7-4Z" stroke="#FFFFFF" strokeWidth="3" />
-    </svg>
-  );
-}
-
-function TonSymbolGlyph() {
-  return (
-    <svg aria-hidden="true" className="h-[78%] w-[78%]" fill="none" viewBox="0 0 24 24">
-      <path d="M4.4 6.2h15.2L12 19.5 4.4 6.2Z" fill="#FFFFFF" />
-      <path d="M7.4 8.3h9.2L12 16.4 7.4 8.3Z" fill="#0098EA" opacity="0.38" />
-    </svg>
-  );
+function createBinanceAssetIconProxyUrl(symbol: string): string {
+  return `/api/binance-asset-icons/${encodeURIComponent(symbol)}`;
 }
 
 function getSymbolIconGlyph(symbol: string): string {

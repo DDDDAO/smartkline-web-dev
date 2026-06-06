@@ -21,25 +21,23 @@ export function SymbolSearchInput({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const normalizedQuery = query.trim().toUpperCase();
   const matchedMarkets = useMemo(() => {
-    const normalizedMarkets = normalizedQuery.length === 0
+    return normalizedQuery.length === 0
       ? marketOptions
       : marketOptions.filter((market) => {
         const compactSymbol = market.replace("/USDT:USDT", "USDT").toUpperCase();
         return market.toUpperCase().includes(normalizedQuery) || compactSymbol.includes(normalizedQuery);
       });
-
-    return normalizedMarkets.slice(0, 16);
   }, [marketOptions, normalizedQuery]);
   const inputClassName = isDarkTheme
-    ? `h-[30px] w-[220px] rounded-full border border-white/[0.075] bg-white/[0.035] py-0 pr-4 text-xs font-medium text-slate-100 outline-none placeholder:text-slate-500 transition-[border-color,background-color,padding] focus:border-[#00A6F4] ${isOpen ? "pl-9" : "pl-4"}`
-    : `h-[30px] w-[220px] rounded-full border border-[#E5EAF0] bg-[#F8FAFC] py-0 pr-4 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 transition-[border-color,background-color,padding] focus:border-[#00A6F4] focus:bg-[#F8FAFC] ${isOpen ? "pl-9" : "pl-4"}`;
+    ? `h-[30px] w-full rounded-full border border-white/[0.075] bg-white/[0.035] py-0 pr-4 text-xs font-medium text-slate-100 outline-none placeholder:text-slate-500 transition-[border-color,background-color,padding] focus:border-[#00A6F4] sm:w-[220px] ${isOpen ? "pl-9" : "pl-4"}`
+    : `h-[30px] w-full rounded-full border border-[#E5EAF0] bg-[#F8FAFC] py-0 pr-4 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 transition-[border-color,background-color,padding] focus:border-[#00A6F4] focus:bg-[#F8FAFC] sm:w-[220px] ${isOpen ? "pl-9" : "pl-4"}`;
   const dropdownClassName = isDarkTheme
-    ? "absolute left-0 top-10 z-30 max-h-80 w-[280px] overflow-y-auto rounded-2xl border border-white/[0.075] bg-[#181A20] p-1 shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
-    : "absolute left-0 top-10 z-30 max-h-80 w-[280px] overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-1 shadow-[0_18px_60px_rgba(15,23,42,0.10)]";
+    ? "absolute left-0 top-10 z-30 max-h-[min(60dvh,20rem)] w-full overflow-y-auto rounded-2xl border border-white/[0.075] bg-[#181A20] p-1 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:w-[280px]"
+    : "absolute left-0 top-10 z-30 max-h-[min(60dvh,20rem)] w-full overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-1 shadow-[0_18px_60px_rgba(15,23,42,0.10)] sm:w-[280px]";
 
   return (
     <div
-      className="relative"
+      className="relative w-full sm:w-auto"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) {
           setIsOpen(false);
@@ -60,9 +58,10 @@ export function SymbolSearchInput({
           setIsOpen(true);
           setHighlightedIndex(0);
         }}
-        onFocus={(event) => {
-          event.currentTarget.select();
+        onFocus={() => {
+          setQuery("");
           setIsOpen(true);
+          setHighlightedIndex(0);
         }}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {

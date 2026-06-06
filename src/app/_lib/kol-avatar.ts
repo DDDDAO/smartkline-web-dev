@@ -1,14 +1,17 @@
 const DEMO_KOL_AVATAR_URLS = [
-  "/kol-avatars/a1ac3b70a598173766e29e2617168a2b.jpg",
-  "/kol-avatars/a7775ac510096908c3e1229a7e807cdc.jpg",
-  "/kol-avatars/a91413d11656033e5bb8e1818644e8ce.jpg",
-  "/kol-avatars/d3357a41cef2bae41db9da6ce81389f8.jpg",
-  "/kol-avatars/e6dc6e7d79165ca42dcdcc5babf8dfae.jpg",
-  "/kol-avatars/v2-6faa5be0e1d6e68024ba7a43e3e15548_b.jpg"
+  "/kol-avatars/kol-avatar-1.jpg",
+  "/kol-avatars/kol-avatar-2.jpg",
+  "/kol-avatars/kol-avatar-3.jpg",
+  "/kol-avatars/kol-avatar-4.jpg",
+  "/kol-avatars/kol-avatar-5.jpg",
+  "/kol-avatars/kol-avatar-6.jpg",
 ] as const;
 
 const DEMO_KOL_AVATAR_BY_SOURCE_NAME: Readonly<Record<string, string>> = {
   "\u4e09\u9a6c\u54e5\u5408\u7ea6": DEMO_KOL_AVATAR_URLS[0],
+  "\u5927\u9556\u5ba2\u5408\u7ea6\u7fa4": DEMO_KOL_AVATAR_URLS[1],
+  "btc\u5cf0\u54e5": DEMO_KOL_AVATAR_URLS[2],
+  "trader-soul": DEMO_KOL_AVATAR_URLS[3],
   "Alpha Lane": DEMO_KOL_AVATAR_URLS[1],
   "Range Lab": DEMO_KOL_AVATAR_URLS[2],
   "Delta Desk": DEMO_KOL_AVATAR_URLS[3],
@@ -29,11 +32,33 @@ export function getDemoKolAvatarUrl(name: string): string {
 }
 
 export function getResolvedKolAvatarUrl(name: string, url: string | null | undefined): string {
-  if (!url || isGeneratedPlaceholderAvatar(url)) {
+  if (!url || shouldUseLocalKolAvatar(url)) {
     return getDemoKolAvatarUrl(name);
   }
 
   return url;
+}
+
+/**
+ * KOL avatars from the live API are currently Discord CDN hotlinks. They work
+ * in some regions but are not a dependable product asset, so UI surfaces use
+ * bundled avatars unless the caller already provides a same-origin asset.
+ */
+function shouldUseLocalKolAvatar(url: string): boolean {
+  if (isGeneratedPlaceholderAvatar(url)) {
+    return true;
+  }
+
+  if (url.startsWith("/")) {
+    return false;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
+  } catch {
+    return true;
+  }
 }
 
 function isGeneratedPlaceholderAvatar(url: string): boolean {
