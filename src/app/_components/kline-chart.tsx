@@ -54,8 +54,9 @@ const LEFT_EDGE_HISTORY_THRESHOLD_BARS = 80;
 const INITIAL_VISIBLE_CANDLE_COUNT = 240;
 const RIGHT_EDGE_FOLLOW_THRESHOLD_BARS = 2;
 const CANDLE_COUNTDOWN_UPDATE_MS = 1_000;
-const RIGHT_PRICE_SCALE_WIDTH = 132;
-const CURRENT_PRICE_TAG_HEIGHT = 74;
+const RIGHT_PRICE_SCALE_WIDTH = 96;
+const CURRENT_PRICE_TAG_WIDTH = 76;
+const CURRENT_PRICE_TAG_HEIGHT = 42;
 const KLINE_INTERVAL_MS_BY_INTERVAL: Record<KlineInterval, number> = {
   "1d": 86_400_000,
   "1h": 3_600_000,
@@ -542,7 +543,7 @@ export function KlineChart({
     <div className="relative h-full w-full">
       <div ref={containerRef} className="absolute inset-0" />
       <div ref={signalDataGuideTargetRef} data-guide-target="kline-signal-data" aria-hidden="true" className="pointer-events-none absolute z-10" />
-      <div data-guide-target="kline-kol-avatars" aria-hidden="true" className="pointer-events-none absolute bottom-2 left-4 right-[138px] z-10 h-28" />
+      <div data-guide-target="kline-kol-avatars" aria-hidden="true" className="pointer-events-none absolute bottom-2 left-4 right-[102px] z-10 h-28" />
       <div ref={hiddenSignalHintRef} aria-hidden="true" className="hidden" />
       <div
         ref={currentPriceTagRef}
@@ -630,35 +631,35 @@ function renderCurrentPriceTag(input: {
   const countdown = document.createElement("span");
 
   priceText.textContent = KLINE_PRICE_FORMAT.formatter(candle.close);
-  priceText.style.fontSize = "20px";
-  priceText.style.lineHeight = "22px";
+  priceText.style.fontSize = "13px";
+  priceText.style.lineHeight = "15px";
 
   countdown.textContent = countdownText;
-  countdown.style.fontSize = "20px";
-  countdown.style.lineHeight = "22px";
+  countdown.style.fontSize = "13px";
+  countdown.style.lineHeight = "15px";
   countdown.style.opacity = "0.96";
 
   element.replaceChildren(priceText, countdown);
   element.style.alignItems = "center";
   element.style.background = tagColor;
-  element.style.borderRadius = "8px";
-  element.style.boxShadow = "0 10px 22px rgba(15, 23, 42, 0.14)";
+  element.style.borderRadius = "6px";
+  element.style.boxShadow = "0 8px 18px rgba(15, 23, 42, 0.12)";
   element.style.color = "#FFFFFF";
   element.style.display = "flex";
   element.style.flexDirection = "column";
   element.style.fontVariantNumeric = "tabular-nums";
   element.style.fontWeight = "700";
-  element.style.gap = "4px";
+  element.style.gap = "1px";
   element.style.justifyContent = "center";
   element.style.letterSpacing = "-0.02em";
   element.style.minHeight = `${CURRENT_PRICE_TAG_HEIGHT}px`;
   element.style.overflow = "hidden";
-  element.style.padding = "8px 12px";
-  element.style.right = "0px";
+  element.style.padding = "5px 8px";
+  element.style.right = `${RIGHT_PRICE_SCALE_WIDTH - CURRENT_PRICE_TAG_WIDTH}px`;
   element.style.textAlign = "center";
   element.style.top = `${Math.round(top)}px`;
   element.style.whiteSpace = "nowrap";
-  element.style.width = `${RIGHT_PRICE_SCALE_WIDTH}px`;
+  element.style.width = `${CURRENT_PRICE_TAG_WIDTH}px`;
   element.style.opacity = "1";
 }
 
