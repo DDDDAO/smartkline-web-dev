@@ -1,4 +1,5 @@
 import { LineStyle } from "lightweight-charts";
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { MarketCandle } from "@/app/_types/market";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { StructuredSignal } from "@/app/_types/signal";
@@ -9,7 +10,9 @@ export function createSignalPriceRaySourceState(
   signal: StructuredSignal,
   paperPosition: PaperPositionRecord | null,
   theme: ChartTheme,
+  language: WorkspaceLanguage = "zh-CN",
 ): { ranges: SignalPriceRangeSource[]; rays: SignalPriceRaySource[]; startTimeMs: number } | null {
+  const copy = getWorkspaceCopy(language);
   const startTimeMs = Date.parse(signal.created_at);
   if (!Number.isFinite(startTimeMs)) {
     return null;
@@ -37,21 +40,21 @@ export function createSignalPriceRaySourceState(
     }
 
     rays.push(
-      { label: isExited ? "入场上沿" : undefined, price: signal.entry_max, endTimeMs, ...style.entryRay },
-      { label: isExited ? "入场下沿" : undefined, price: signal.entry_min, endTimeMs, ...style.entryRay },
+      { label: isExited ? copy.kline.entryUpper : undefined, price: signal.entry_max, endTimeMs, ...style.entryRay },
+      { label: isExited ? copy.kline.entryLower : undefined, price: signal.entry_min, endTimeMs, ...style.entryRay },
     );
   }
 
   if (signal.trigger_price !== null) {
-    rays.push({ label: isExited ? "入场" : undefined, price: signal.trigger_price, endTimeMs, ...style.entryRay });
+    rays.push({ label: isExited ? copy.kline.entry : undefined, price: signal.trigger_price, endTimeMs, ...style.entryRay });
   }
 
   if (signal.stop_loss !== null) {
-    rays.push({ label: isExited ? "止损" : undefined, price: signal.stop_loss, endTimeMs, ...style.stopLossRay });
+    rays.push({ label: isExited ? copy.kline.stopLoss : undefined, price: signal.stop_loss, endTimeMs, ...style.stopLossRay });
   }
 
   for (const [index, price] of signal.take_profit.entries()) {
-    rays.push({ label: isExited ? `止盈${index + 1}` : undefined, price, endTimeMs, ...style.takeProfitRay });
+    rays.push({ label: isExited ? copy.kline.takeProfit(index + 1) : undefined, price, endTimeMs, ...style.takeProfitRay });
   }
 
   return { ranges, rays, startTimeMs };
@@ -72,10 +75,10 @@ function createSignalDrawingStyle(
     return {
       entryRangeFillColor: theme === "light" ? "rgba(8, 145, 178, 0.32)" : "rgba(34, 211, 238, 0.36)",
       entryRay: { color: "#0891b2", lineStyle: LineStyle.Solid, lineWidth: 3 },
-      riskRangeFillColor: theme === "light" ? "rgba(239, 68, 68, 0.12)" : "rgba(248, 113, 113, 0.16)",
-      rewardRangeFillColor: theme === "light" ? "rgba(34, 197, 94, 0.12)" : "rgba(74, 222, 128, 0.16)",
-      stopLossRay: { color: "rgba(220, 38, 38, 0.62)", lineStyle: LineStyle.Dashed, lineWidth: 1 },
-      takeProfitRay: { color: "rgba(22, 163, 74, 0.62)", lineStyle: LineStyle.Dashed, lineWidth: 1 },
+      riskRangeFillColor: theme === "light" ? "rgba(246, 70, 93, 0.12)" : "rgba(246, 70, 93, 0.16)",
+      rewardRangeFillColor: createTakeProfitFillColor(theme, 0.12, 0.16),
+      stopLossRay: { color: "#F6465D", lineStyle: LineStyle.Dashed, lineWidth: 1 },
+      takeProfitRay: { color: createTakeProfitFillColor(theme, 0.62, 0.62), lineStyle: LineStyle.Dashed, lineWidth: 1 },
     };
   }
 
@@ -83,25 +86,25 @@ function createSignalDrawingStyle(
     return {
       entryRangeFillColor: theme === "light" ? "rgba(8, 145, 178, 0.08)" : "rgba(34, 211, 238, 0.10)",
       entryRay: { color: "rgba(8, 145, 178, 0.52)", lineStyle: LineStyle.Dashed, lineWidth: 1 },
-      riskRangeFillColor: theme === "light" ? "rgba(239, 68, 68, 0.20)" : "rgba(248, 113, 113, 0.22)",
-      rewardRangeFillColor: theme === "light" ? "rgba(34, 197, 94, 0.20)" : "rgba(74, 222, 128, 0.22)",
-      stopLossRay: { color: "#dc2626", lineStyle: LineStyle.Solid, lineWidth: 3 },
-      takeProfitRay: { color: "#16a34a", lineStyle: LineStyle.Solid, lineWidth: 3 },
+      riskRangeFillColor: theme === "light" ? "rgba(246, 70, 93, 0.08)" : "rgba(246, 70, 93, 0.10)",
+      rewardRangeFillColor: createTakeProfitFillColor(theme, 0.08, 0.10),
+      stopLossRay: { color: "#F6465D", lineStyle: LineStyle.Solid, lineWidth: 3 },
+      takeProfitRay: { color: createTakeProfitLineColor(theme), lineStyle: LineStyle.Solid, lineWidth: 3 },
     };
   }
 
   if (paperPosition?.status === "exited") {
     const secondaryEntryColor = theme === "light" ? "rgba(8, 145, 178, 0.54)" : "rgba(34, 211, 238, 0.60)";
-    const secondaryStopColor = theme === "light" ? "rgba(220, 38, 38, 0.58)" : "rgba(248, 113, 113, 0.64)";
-    const secondaryTargetColor = theme === "light" ? "rgba(22, 163, 74, 0.58)" : "rgba(74, 222, 128, 0.64)";
-    const exitedStopColor = paperPosition.exitReason === "stop-loss" ? "#dc2626" : secondaryStopColor;
-    const exitedTargetColor = paperPosition.exitReason === "take-profit" ? "#16a34a" : secondaryTargetColor;
+    const secondaryStopColor = theme === "light" ? "rgba(246, 70, 93, 0.58)" : "rgba(255, 116, 133, 0.64)";
+    const secondaryTargetColor = theme === "light" ? "rgba(47, 189, 133, 0.58)" : "rgba(69, 220, 166, 0.64)";
+    const exitedStopColor = paperPosition.exitReason === "stop-loss" ? "#F6465D" : secondaryStopColor;
+    const exitedTargetColor = paperPosition.exitReason === "take-profit" ? "#2FBD85" : secondaryTargetColor;
 
     return {
       entryRangeFillColor: theme === "light" ? "rgba(8, 145, 178, 0.05)" : "rgba(34, 211, 238, 0.06)",
       entryRay: { color: secondaryEntryColor, lineStyle: LineStyle.Solid, lineWidth: 1 },
-      riskRangeFillColor: theme === "light" ? "rgba(239, 68, 68, 0.08)" : "rgba(248, 113, 113, 0.10)",
-      rewardRangeFillColor: theme === "light" ? "rgba(34, 197, 94, 0.08)" : "rgba(74, 222, 128, 0.10)",
+      riskRangeFillColor: theme === "light" ? "rgba(246, 70, 93, 0.08)" : "rgba(246, 70, 93, 0.10)",
+      rewardRangeFillColor: createTakeProfitFillColor(theme, 0.08, 0.10),
       stopLossRay: { color: exitedStopColor, lineStyle: LineStyle.Solid, lineWidth: paperPosition.exitReason === "stop-loss" ? 2 : 1 },
       takeProfitRay: { color: exitedTargetColor, lineStyle: LineStyle.Solid, lineWidth: paperPosition.exitReason === "take-profit" ? 2 : 1 },
     };
@@ -110,11 +113,23 @@ function createSignalDrawingStyle(
   return {
     entryRangeFillColor: theme === "light" ? "rgba(8, 145, 178, 0.22)" : "rgba(34, 211, 238, 0.26)",
     entryRay: { color: "#0891b2", lineStyle: LineStyle.Solid, lineWidth: 2 },
-    riskRangeFillColor: theme === "light" ? "rgba(239, 68, 68, 0.14)" : "rgba(248, 113, 113, 0.18)",
-    rewardRangeFillColor: theme === "light" ? "rgba(34, 197, 94, 0.14)" : "rgba(74, 222, 128, 0.18)",
-    stopLossRay: { color: "#dc2626", lineStyle: LineStyle.Solid, lineWidth: 2 },
-    takeProfitRay: { color: "#16a34a", lineStyle: LineStyle.Solid, lineWidth: 2 },
+    riskRangeFillColor: theme === "light" ? "rgba(246, 70, 93, 0.07)" : "rgba(246, 70, 93, 0.09)",
+    rewardRangeFillColor: createTakeProfitFillColor(theme, 0.07, 0.09),
+    stopLossRay: { color: "#F6465D", lineStyle: LineStyle.Solid, lineWidth: 2 },
+    takeProfitRay: { color: createTakeProfitLineColor(theme), lineStyle: LineStyle.Solid, lineWidth: 2 },
   };
+}
+
+function createTakeProfitLineColor(theme: ChartTheme): string {
+  return theme === "light" ? "#2FBD85" : "#2FBD85";
+}
+
+function createTakeProfitFillColor(theme: ChartTheme, lightOpacity: number, darkOpacity: number): string {
+  if (theme === "light") {
+    return `rgba(47, 189, 133, ${lightOpacity})`;
+  }
+
+  return `rgba(47, 189, 133, ${darkOpacity})`;
 }
 
 function createSignalRiskRewardRanges(
@@ -165,8 +180,7 @@ function resolveRiskRewardAnchors(
 
     /**
      * Range entries have their own blue zone. Risk/reward fills start from the
-     * range edge that faces the stop/target so the red and green areas do not
-     * overlap the entry zone.
+     * range edge that faces the stop/target so those areas do not overlap it.
      */
     return signal.direction === "long"
       ? { riskAnchorPrice: lowerEntryBoundary, rewardAnchorPrice: upperEntryBoundary }

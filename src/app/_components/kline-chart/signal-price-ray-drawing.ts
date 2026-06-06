@@ -147,4 +147,5 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: n
   ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
   ctx.lineTo(x, y + radius);
   ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
 }

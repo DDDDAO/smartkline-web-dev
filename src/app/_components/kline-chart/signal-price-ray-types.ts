@@ -1,4 +1,5 @@
 import type { IChartApi, ISeriesApi, LineStyle, LineWidth } from "lightweight-charts";
+import type { WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { MarketCandle } from "@/app/_types/market";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { StructuredSignal } from "@/app/_types/signal";
@@ -6,6 +7,7 @@ import type { ChartTheme } from "@/app/_components/kline-chart";
 
 export type SignalPriceRayPrimitiveOptions = {
   candles: readonly MarketCandle[];
+  language: WorkspaceLanguage;
   paperPosition: PaperPositionRecord | null;
   signal: StructuredSignal | null;
   theme: ChartTheme;
