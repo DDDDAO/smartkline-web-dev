@@ -12,7 +12,6 @@ import type { MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type { KolSignalSourceStatus } from "./types";
 import {
-  formatKolSourceType,
   SignalField,
   SourceAvatar,
   SymbolIcon,
@@ -352,7 +351,6 @@ export function KolPanel({
                           }
                         >
                           <span className="min-w-0 truncate whitespace-nowrap">
-                            {formatKolSourceType(signal.source_type, copy.kol)} ·{" "}
                             {formatSignalDisplayTime(signal)}
                           </span>
                         </div>
