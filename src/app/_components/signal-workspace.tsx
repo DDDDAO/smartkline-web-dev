@@ -147,8 +147,8 @@ export function SignalWorkspace() {
     ? "flex min-h-dvh w-full flex-col overflow-x-hidden overflow-y-auto bg-[#0B0E11] text-slate-100 lg:h-screen lg:overflow-hidden"
     : "flex min-h-dvh w-full flex-col overflow-x-hidden overflow-y-auto bg-[#F1F4F8] text-slate-900 lg:h-screen lg:overflow-hidden";
   const workspaceGridClassName = isRightPanelCollapsed
-    ? "motion-fx-7-workspace-grid relative flex min-h-0 flex-col gap-3 p-3 pb-24 lg:grid lg:h-full lg:p-4 lg:pb-4 lg:grid-cols-[minmax(0,1fr)]"
-    : "motion-fx-7-workspace-grid relative flex min-h-0 flex-col gap-3 p-3 pb-24 lg:grid lg:h-full lg:gap-4 lg:p-4 lg:pb-4 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]";
+    ? "motion-fx-7-workspace-grid relative flex min-h-0 flex-col gap-3 p-3 pb-28 lg:grid lg:h-full lg:p-4 lg:pb-4 lg:grid-cols-[minmax(0,1fr)]"
+    : "motion-fx-7-workspace-grid relative flex min-h-0 flex-col gap-3 p-3 pb-28 lg:grid lg:h-full lg:gap-4 lg:p-4 lg:pb-4 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]";
 
   const startOnboardingGuide = useCallback(() => {
     setIsRightPanelCollapsed(false);
@@ -694,8 +694,8 @@ function MobileKolSheetHandle({
     ? (paperPositionErrorsBySymbol[activeSignal.symbol] ?? null)
     : null;
   const buttonClassName = isDarkTheme
-    ? "motion-fx-9-surface w-full rounded-[22px] border border-white/[0.085] bg-[#181A20]/96 px-3.5 py-3 text-left text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
-    : "motion-fx-9-surface w-full rounded-[22px] border border-[#D5E4EF] bg-white/96 px-3.5 py-3 text-left text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl";
+    ? "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-white/[0.085] bg-[#181A20]/96 px-3.5 py-3 text-left text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
+    : "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-[#D5E4EF] bg-white/96 px-3.5 py-3 text-left text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl";
   const eyebrowClassName = isDarkTheme
     ? "text-[10px] font-bold uppercase tracking-[0.12em] text-sky-300"
     : "text-[10px] font-bold uppercase tracking-[0.12em] text-[#008DCC]";

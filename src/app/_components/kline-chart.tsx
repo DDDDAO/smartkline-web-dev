@@ -67,10 +67,10 @@ const COMPACT_CHART_METRICS = {
   currentPriceTagFontSize: 12,
   currentPriceTagHeight: 38,
   currentPriceTagLineHeight: 14,
-  currentPriceTagWidth: 70,
+  currentPriceTagWidth: 68,
   initialVisibleCandleCount: 104,
-  priceScaleTickMarkDensity: 3.2,
-  rightPriceScaleWidth: 82,
+  priceScaleTickMarkDensity: 2.6,
+  rightPriceScaleWidth: 68,
 } as const;
 const KLINE_INTERVAL_MS_BY_INTERVAL: Record<KlineInterval, number> = {
   "1d": 86_400_000,
