@@ -194,7 +194,7 @@ export function RealtimeKlinePanel({
 
   return (
     <section className={isDarkTheme ? "flex h-[calc(100dvh-11.25rem)] min-h-[360px] w-full flex-1 flex-col overflow-hidden rounded-[22px] border border-white/[0.075] bg-[#181A20] lg:h-full lg:min-h-0 lg:rounded-[24px]" : "flex h-[calc(100dvh-11.25rem)] min-h-[360px] w-full flex-1 flex-col overflow-hidden rounded-[22px] border border-[#E5EAF0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)] lg:h-full lg:min-h-0 lg:rounded-[24px]"}>
-      <div className={isDarkTheme ? "flex min-h-[48px] items-start justify-start border-b border-white/[0.075] bg-white/[0.055] px-3 py-3 sm:px-5 lg:items-center lg:py-1.5" : "flex min-h-[48px] items-start justify-start border-b border-[#E5EAF0] bg-white px-3 py-3 sm:px-5 lg:items-center lg:py-1.5"}>
+      <div className={isDarkTheme ? "relative z-50 flex min-h-[48px] items-start justify-start border-b border-white/[0.075] bg-white/[0.055] px-3 py-3 sm:px-5 lg:items-center lg:py-1.5" : "relative z-50 flex min-h-[48px] items-start justify-start border-b border-[#E5EAF0] bg-white px-3 py-3 sm:px-5 lg:items-center lg:py-1.5"}>
         <div className="flex w-full min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-start lg:w-auto">
           <SymbolSearchInput
             key={symbol}

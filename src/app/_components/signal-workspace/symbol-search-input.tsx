@@ -32,12 +32,12 @@ export function SymbolSearchInput({
     ? `h-[30px] w-full rounded-full border border-white/[0.075] bg-white/[0.035] py-0 pr-4 text-xs font-medium text-slate-100 outline-none placeholder:text-slate-500 transition-[border-color,background-color,padding] focus:border-[#00A6F4] sm:w-[220px] lg:h-9 lg:w-[260px] lg:text-sm ${isOpen ? "pl-9" : "pl-4"}`
     : `h-[30px] w-full rounded-full border border-[#E5EAF0] bg-[#F8FAFC] py-0 pr-4 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 transition-[border-color,background-color,padding] focus:border-[#00A6F4] focus:bg-[#F8FAFC] sm:w-[220px] lg:h-9 lg:w-[260px] lg:text-sm ${isOpen ? "pl-9" : "pl-4"}`;
   const dropdownClassName = isDarkTheme
-    ? "absolute left-0 top-10 z-30 max-h-[min(60dvh,20rem)] w-full overflow-y-auto rounded-2xl border border-white/[0.075] bg-[#181A20] p-1 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:w-[280px] lg:top-11"
-    : "absolute left-0 top-10 z-30 max-h-[min(60dvh,20rem)] w-full overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-1 shadow-[0_18px_60px_rgba(15,23,42,0.10)] sm:w-[280px] lg:top-11";
+    ? "absolute left-0 top-10 z-[90] max-h-[min(60dvh,20rem)] w-full overflow-y-auto rounded-2xl border border-white/[0.075] bg-[#181A20] p-1 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:w-[280px] lg:top-11"
+    : "absolute left-0 top-10 z-[90] max-h-[min(60dvh,20rem)] w-full overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-1 shadow-[0_18px_60px_rgba(15,23,42,0.10)] sm:w-[280px] lg:top-11";
 
   return (
     <div
-      className="relative w-full sm:w-auto"
+      className="relative z-[90] w-full sm:w-auto"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) {
           setIsOpen(false);
