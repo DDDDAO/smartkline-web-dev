@@ -3,13 +3,19 @@ import type { WorkspaceCopy } from "@/app/_lib/i18n";
 
 type OnboardingGuideProps = {
   copy: WorkspaceCopy["onboarding"];
+  isCompactLayout?: boolean;
   isDarkTheme: boolean;
   isOpen: boolean;
+  onMobileKolSheetOpenChange?: (isOpen: boolean) => void;
   onComplete: () => void;
 };
 
+type CoachPlacement = "above-left" | "above-right" | "below-left" | "side-right-center";
+
 type GuideStep = {
-  coachPlacement?: "above-left" | "above-right" | "side-right-center";
+  coachPlacement?: CoachPlacement;
+  mobileCoachPlacement?: CoachPlacement;
+  mobileKolSheet?: "closed" | "open";
   padding: number;
   radius: number;
   target: string;
@@ -32,24 +38,29 @@ export const ONBOARDING_GUIDE_STORAGE_KEY = "smartkline:onboarding-guide-seen";
 
 const GUIDE_STEPS: GuideStep[] = [
   {
+    mobileKolSheet: "open",
     padding: 0,
     radius: 24,
     target: "kol-first-card",
   },
   {
     coachPlacement: "above-right",
+    mobileKolSheet: "closed",
     padding: 8,
     radius: 24,
     target: "kline-signal-data",
   },
   {
     coachPlacement: "above-left",
+    mobileKolSheet: "closed",
     padding: 8,
     radius: 22,
     target: "kline-kol-avatars",
   },
   {
     coachPlacement: "side-right-center",
+    mobileCoachPlacement: "below-left",
+    mobileKolSheet: "closed",
     padding: 0,
     radius: 999,
     target: "ai-summary-button",
@@ -84,20 +95,42 @@ function markOnboardingGuideSeen(): void {
   }
 }
 
-export function OnboardingGuide({ copy, isDarkTheme, isOpen, onComplete }: OnboardingGuideProps) {
+export function OnboardingGuide({
+  copy,
+  isCompactLayout = false,
+  isDarkTheme,
+  isOpen,
+  onMobileKolSheetOpenChange,
+  onComplete,
+}: OnboardingGuideProps) {
   const maskId = useId().replaceAll(":", "");
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect] = useState<HighlightRect>(() => createFallbackRect());
   const [coachMarkPosition, setCoachMarkPosition] = useState<CoachMarkPosition>(() => ({ left: 24, top: 96 }));
   const coachMarkRef = useRef<HTMLDivElement | null>(null);
   const step = GUIDE_STEPS[stepIndex];
-  const stepCopy = copy.steps[stepIndex] ?? copy.steps[0] ?? "";
+  const stepCopy = (isCompactLayout ? copy.mobileSteps[stepIndex] : copy.steps[stepIndex]) ?? copy.steps[stepIndex] ?? copy.steps[0] ?? "";
+
+  const syncMobileGuideSurface = useCallback(
+    (nextStepIndex: number) => {
+      if (!isCompactLayout) {
+        return;
+      }
+
+      onMobileKolSheetOpenChange?.(GUIDE_STEPS[nextStepIndex]?.mobileKolSheet === "open");
+    },
+    [isCompactLayout, onMobileKolSheetOpenChange],
+  );
 
   const completeGuide = useCallback(() => {
+    if (isCompactLayout) {
+      onMobileKolSheetOpenChange?.(false);
+    }
+
     markOnboardingGuideSeen();
     setStepIndex(0);
     onComplete();
-  }, [onComplete]);
+  }, [isCompactLayout, onComplete, onMobileKolSheetOpenChange]);
 
   const advanceGuide = useCallback(() => {
     if (stepIndex >= GUIDE_STEPS.length - 1) {
@@ -105,15 +138,17 @@ export function OnboardingGuide({ copy, isDarkTheme, isOpen, onComplete }: Onboa
       return;
     }
 
-    setStepIndex((currentStepIndex) => currentStepIndex + 1);
-  }, [completeGuide, stepIndex]);
+    const nextStepIndex = stepIndex + 1;
+    syncMobileGuideSurface(nextStepIndex);
+    setStepIndex(nextStepIndex);
+  }, [completeGuide, stepIndex, syncMobileGuideSurface]);
 
   const updateHighlight = useCallback(() => {
     const nextRect = resolveTargetRect(step);
-    const nextCoachMarkPosition = resolveCoachMarkPosition(nextRect, step);
+    const nextCoachMarkPosition = resolveCoachMarkPosition(nextRect, step, isCompactLayout);
     setRect(nextRect);
     setCoachMarkPosition(nextCoachMarkPosition);
-  }, [step]);
+  }, [isCompactLayout, step]);
 
   useLayoutEffect(() => {
     if (!isOpen) {
@@ -130,6 +165,14 @@ export function OnboardingGuide({ copy, isDarkTheme, isOpen, onComplete }: Onboa
       window.clearTimeout(settleTimeoutId);
     };
   }, [isOpen, stepIndex, updateHighlight]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    syncMobileGuideSurface(stepIndex);
+  }, [isOpen, stepIndex, syncMobileGuideSurface]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -325,26 +368,35 @@ function createFallbackRect(): HighlightRect {
   });
 }
 
-function resolveCoachMarkPosition(rect: HighlightRect, step: GuideStep): CoachMarkPosition {
+function resolveCoachMarkPosition(rect: HighlightRect, step: GuideStep, isCompactLayout: boolean): CoachMarkPosition {
   const safePadding = VIEWPORT_SAFE_PADDING;
-  const maxLeft = window.innerWidth - COACH_MARK_WIDTH - safePadding;
+  const coachMarkWidth = Math.min(COACH_MARK_WIDTH, window.innerWidth - safePadding * 2);
+  const maxLeft = window.innerWidth - coachMarkWidth - safePadding;
+  const placement = isCompactLayout ? (step.mobileCoachPlacement ?? step.coachPlacement) : step.coachPlacement;
 
-  if (step.coachPlacement === "above-right") {
+  if (placement === "above-right") {
     return {
-      left: clamp(rect.x + rect.width - COACH_MARK_WIDTH, safePadding, maxLeft),
+      left: clamp(rect.x + rect.width - coachMarkWidth, safePadding, maxLeft),
       top: clamp(rect.y - COACH_MARK_ESTIMATED_HEIGHT - 1, safePadding, window.innerHeight - COACH_MARK_ESTIMATED_HEIGHT - safePadding),
     };
   }
 
-  if (step.coachPlacement === "above-left") {
+  if (placement === "above-left") {
     return {
       left: clamp(rect.x, safePadding, maxLeft),
       top: clamp(rect.y - COACH_MARK_ESTIMATED_HEIGHT - 1, safePadding, window.innerHeight - COACH_MARK_ESTIMATED_HEIGHT - safePadding),
     };
   }
 
-  if (step.coachPlacement === "side-right-center") {
-    const hasRightRoom = rect.x + rect.width + COACH_MARK_WIDTH + 16 <= window.innerWidth - safePadding;
+  if (placement === "below-left") {
+    return {
+      left: clamp(rect.x, safePadding, maxLeft),
+      top: clamp(rect.y + rect.height + 12, safePadding, window.innerHeight - COACH_MARK_ESTIMATED_HEIGHT - safePadding),
+    };
+  }
+
+  if (placement === "side-right-center") {
+    const hasRightRoom = rect.x + rect.width + coachMarkWidth + 16 <= window.innerWidth - safePadding;
     const left = hasRightRoom
       ? rect.x + rect.width + 16
       : clamp(rect.x, safePadding, maxLeft);
@@ -355,8 +407,8 @@ function resolveCoachMarkPosition(rect: HighlightRect, step: GuideStep): CoachMa
     };
   }
 
-  const hasRightRoom = rect.x + rect.width + COACH_MARK_WIDTH + 22 <= window.innerWidth - safePadding;
-  const hasLeftRoom = rect.x - COACH_MARK_WIDTH - 22 >= safePadding;
+  const hasRightRoom = rect.x + rect.width + coachMarkWidth + 22 <= window.innerWidth - safePadding;
+  const hasLeftRoom = rect.x - coachMarkWidth - 22 >= safePadding;
   const preferredTop = clamp(rect.y + rect.height / 2 - 68, safePadding, window.innerHeight - 160);
 
   if (hasRightRoom) {
@@ -364,10 +416,10 @@ function resolveCoachMarkPosition(rect: HighlightRect, step: GuideStep): CoachMa
   }
 
   if (hasLeftRoom) {
-    return { left: rect.x - COACH_MARK_WIDTH - 16, top: preferredTop };
+    return { left: rect.x - coachMarkWidth - 16, top: preferredTop };
   }
 
-  const left = clamp(rect.x, safePadding, window.innerWidth - COACH_MARK_WIDTH - safePadding);
+  const left = clamp(rect.x, safePadding, maxLeft);
   const belowTop = rect.y + rect.height + 14;
   if (belowTop + 132 <= window.innerHeight - safePadding) {
     return { left, top: belowTop };
