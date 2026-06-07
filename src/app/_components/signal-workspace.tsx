@@ -152,7 +152,9 @@ export function SignalWorkspace() {
 
   const startOnboardingGuide = useCallback(() => {
     setIsRightPanelCollapsed(false);
-    setIsMobileKolSheetOpen(true);
+    if (isCompactLayout) {
+      setIsMobileKolSheetOpen(true);
+    }
     if (onboardingOpenTimeoutRef.current !== null) {
       window.clearTimeout(onboardingOpenTimeoutRef.current);
     }
@@ -161,7 +163,7 @@ export function SignalWorkspace() {
       setIsOnboardingOpen(true);
       onboardingOpenTimeoutRef.current = null;
     }, 180);
-  }, []);
+  }, [isCompactLayout]);
 
   const handleTelegramDiscussionJoin = () => {
     openExternalTelegramUrl(TELEGRAM_DISCUSSION_GROUP_URL);
@@ -555,9 +557,16 @@ export function SignalWorkspace() {
       />
       <OnboardingGuide
         copy={copy.onboarding}
+        isCompactLayout={isCompactLayout}
         isDarkTheme={isDarkTheme}
         isOpen={isOnboardingOpen}
-        onComplete={() => setIsOnboardingOpen(false)}
+        onMobileKolSheetOpenChange={setIsMobileKolSheetOpen}
+        onComplete={() => {
+          setIsOnboardingOpen(false);
+          if (isCompactLayout) {
+            setIsMobileKolSheetOpen(false);
+          }
+        }}
       />
     </main>
   );

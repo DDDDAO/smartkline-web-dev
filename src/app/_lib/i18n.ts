@@ -87,6 +87,12 @@ const zh = {
   onboarding: {
     ariaLabel: "新手引导，点击任意位置进入下一步",
     hint: "点击任意位置继续",
+    mobileSteps: [
+      "底部 KOL 面板展示最新交易策略情报，点击“查看情报源”可查看原始信息。",
+      "选中的 KOL 交易数据（进场位、止盈止损线和买卖点）会同步到 K 线图上。",
+      "点击底部的 KOL 头像，可以快速切换查看不同 KOL 的卡片信息与 K 线数据。",
+      "点此查看 AI 总结的全网多空比例与市场动态。",
+    ],
     steps: [
       "这里展示KOL最新的交易策略情报，点击“查看情报源”可查看原始信息。",
       "右侧选中的 KOL 交易数据（进场位、止盈止损线和买卖点）已直接同步在 K 线图上。",
@@ -250,6 +256,12 @@ const en: WorkspaceCopy = {
   onboarding: {
     ariaLabel: "Quick tour, click anywhere to continue",
     hint: "Click anywhere to continue",
+    mobileSteps: [
+      "The bottom KOL sheet shows the latest trade signals. Tap “Original” to review the source message.",
+      "The selected KOL trade data — entries, TP/SL lines, and buy/sell markers — is synced onto the K-line chart.",
+      "Tap the KOL avatars at the bottom to switch cards and chart data quickly.",
+      "Open the AI brief to review market-wide long/short bias and recent dynamics.",
+    ],
     steps: [
       "This area shows the latest KOL trade signals. Click “Original” to review the source message.",
       "The selected KOL trade data — entries, TP/SL lines, and buy/sell markers — is synced directly onto the K-line chart.",
