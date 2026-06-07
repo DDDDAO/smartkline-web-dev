@@ -205,11 +205,11 @@ export function RealtimeKlinePanel({
             onSymbolChange={onSymbolChange}
           />
           <div className="min-w-0 overflow-x-auto pb-0.5">
-            <div className={isDarkTheme ? "inline-flex h-[30px] min-w-max items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5" : "inline-flex h-[30px] min-w-max items-center gap-1 rounded-full border border-[#E5EAF0] bg-[#F8FAFC] p-0.5"}>
+            <div className={isDarkTheme ? "inline-flex h-[30px] min-w-max items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5 lg:h-9" : "inline-flex h-[30px] min-w-max items-center gap-1 rounded-full border border-[#E5EAF0] bg-[#F8FAFC] p-0.5 lg:h-9"}>
               {intervals.map((item) => (
                 <button
                   key={item}
-                  className={item === interval ? "h-6 rounded-full bg-[#00A6F4] px-3 text-xs font-semibold text-white" : isDarkTheme ? "h-6 rounded-full px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.08] hover:text-slate-100" : "h-6 rounded-full px-3 text-xs font-medium text-slate-500 hover:bg-white hover:text-slate-950"}
+                  className={item === interval ? "h-6 rounded-full bg-[#00A6F4] px-3 text-xs font-semibold text-white lg:h-8 lg:px-4 lg:text-sm" : isDarkTheme ? "h-6 rounded-full px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.08] hover:text-slate-100 lg:h-8 lg:px-4 lg:text-sm" : "h-6 rounded-full px-3 text-xs font-medium text-slate-500 hover:bg-white hover:text-slate-950 lg:h-8 lg:px-4 lg:text-sm"}
                   onClick={() => onIntervalChange(item)}
                 >
                   {item}
