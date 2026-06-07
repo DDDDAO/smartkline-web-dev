@@ -735,50 +735,52 @@ button {
   }
 }
 
-[data-compact-ui] {
-  font-size: 14px;
-}
+@media (max-width: 1023px) {
+  [data-compact-ui] {
+    font-size: 14px;
+  }
 
-[data-compact-ui] :where(.text-lg) {
-  font-size: 1rem;
-  line-height: 1.5rem;
-}
+  [data-compact-ui] :where(.text-lg) {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
 
-[data-compact-ui] :where(.text-base) {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-}
+  [data-compact-ui] :where(.text-base) {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
 
-[data-compact-ui] :where(.text-sm) {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-}
+  [data-compact-ui] :where(.text-sm) {
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
+  }
 
-[data-compact-ui] :where(.text-xs) {
-  font-size: 0.6875rem;
-  line-height: 1rem;
-}
+  [data-compact-ui] :where(.text-xs) {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+  }
 
-[data-compact-ui] :where(.text-\[13px\]) {
-  font-size: 12px;
-}
+  [data-compact-ui] :where(.text-\[13px\]) {
+    font-size: 12px;
+  }
 
-[data-compact-ui] :where(.text-\[12px\]) {
-  font-size: 11px;
-}
+  [data-compact-ui] :where(.text-\[12px\]) {
+    font-size: 11px;
+  }
 
-[data-compact-ui] :where(.text-\[11px\]) {
-  font-size: 10px;
-}
+  [data-compact-ui] :where(.text-\[11px\]) {
+    font-size: 10px;
+  }
 
-[data-compact-ui] :where(.text-\[10px\]) {
-  font-size: 9px;
-}
+  [data-compact-ui] :where(.text-\[10px\]) {
+    font-size: 9px;
+  }
 
-[data-compact-ui] :where(.text-\[9px\]) {
-  font-size: 8px;
-}
+  [data-compact-ui] :where(.text-\[9px\]) {
+    font-size: 8px;
+  }
 
-[data-compact-ui] :where(.text-\[8px\]) {
-  font-size: 7px;
+  [data-compact-ui] :where(.text-\[8px\]) {
+    font-size: 7px;
+  }
 }
