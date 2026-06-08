@@ -139,7 +139,9 @@ export function upsertCandle(candles: readonly MarketCandle[], nextCandle: Marke
   }
 
   if (nextCandle.sourceTimeMs === lastCandle.sourceTimeMs) {
-    return [...candles.slice(0, -1), nextCandle];
+    return areCandlesEqual(lastCandle, nextCandle)
+      ? candles as MarketCandle[]
+      : [...candles.slice(0, -1), nextCandle];
   }
 
   const existingIndex = candles.findIndex((candle) => candle.sourceTimeMs === nextCandle.sourceTimeMs);
@@ -147,22 +149,54 @@ export function upsertCandle(candles: readonly MarketCandle[], nextCandle: Marke
     return [...candles, nextCandle].sort(compareCandlesByTime);
   }
 
+  if (areCandlesEqual(candles[existingIndex], nextCandle)) {
+    return candles as MarketCandle[];
+  }
+
   const updatedCandles = candles.slice();
   updatedCandles[existingIndex] = nextCandle;
-  return updatedCandles.sort(compareCandlesByTime);
+  return updatedCandles;
 }
 
 export function upsertCandles(
   candles: readonly MarketCandle[],
   nextCandles: readonly MarketCandle[],
 ): MarketCandle[] {
-  let mergedCandles = candles.slice();
-
-  for (const nextCandle of nextCandles) {
-    mergedCandles = upsertCandle(mergedCandles, nextCandle);
+  if (nextCandles.length === 0) {
+    return candles as MarketCandle[];
   }
 
-  return mergedCandles;
+  const candlesBySourceTime = new Map<number, MarketCandle>();
+  let didChange = false;
+
+  for (const candle of candles) {
+    candlesBySourceTime.set(candle.sourceTimeMs, candle);
+  }
+
+  for (const nextCandle of nextCandles) {
+    const currentCandle = candlesBySourceTime.get(nextCandle.sourceTimeMs);
+    if (!currentCandle || !areCandlesEqual(currentCandle, nextCandle)) {
+      didChange = true;
+      candlesBySourceTime.set(nextCandle.sourceTimeMs, nextCandle);
+    }
+  }
+
+  if (!didChange) {
+    return candles as MarketCandle[];
+  }
+
+  return Array.from(candlesBySourceTime.values()).sort(compareCandlesByTime);
+}
+
+function areCandlesEqual(left: MarketCandle, right: MarketCandle): boolean {
+  return (
+    left.sourceTimeMs === right.sourceTimeMs &&
+    left.open === right.open &&
+    left.high === right.high &&
+    left.low === right.low &&
+    left.close === right.close &&
+    left.volume === right.volume
+  );
 }
 
 export function prependHistoricalCandles(

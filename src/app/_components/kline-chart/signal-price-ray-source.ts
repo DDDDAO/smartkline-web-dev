@@ -3,7 +3,7 @@ import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { MarketCandle } from "@/app/_types/market";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { StructuredSignal } from "@/app/_types/signal";
-import type { ChartTheme } from "@/app/_components/kline-chart";
+import type { ChartTheme } from "@/app/_components/kline-chart/types";
 import type { SignalPriceRangeSource, SignalPriceRayChartApi, SignalPriceRaySource } from "./signal-price-ray-types";
 
 export function createSignalPriceRaySourceState(

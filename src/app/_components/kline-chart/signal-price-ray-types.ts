@@ -3,7 +3,7 @@ import type { WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { MarketCandle } from "@/app/_types/market";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { StructuredSignal } from "@/app/_types/signal";
-import type { ChartTheme } from "@/app/_components/kline-chart";
+import type { ChartTheme } from "@/app/_components/kline-chart/types";
 
 export type SignalPriceRayPrimitiveOptions = {
   candles: readonly MarketCandle[];

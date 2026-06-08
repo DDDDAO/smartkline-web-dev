@@ -3,7 +3,7 @@ import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
 import { getResolvedKolAvatarUrl } from "@/app/_lib/kol-avatar";
 import type { MarketCandle } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
-import type { ChartTheme } from "@/app/_components/kline-chart";
+import type { ChartTheme } from "@/app/_components/kline-chart/types";
 
 const RIGHT_PRICE_SCALE_RESERVED_WIDTH = 118;
 const SIGNAL_LABEL_EDGE_PADDING = 18;
@@ -433,22 +433,39 @@ function getAvatarBottom(item: AvatarLayoutItem): number {
 }
 
 function findNearestCandle(candles: readonly MarketCandle[], sourceTimeMs: number): MarketCandle | null {
-  if (!Number.isFinite(sourceTimeMs)) {
+  if (!Number.isFinite(sourceTimeMs) || candles.length === 0) {
     return null;
   }
 
-  let nearestCandle = candles[0];
-  let nearestDistance = Math.abs(nearestCandle.sourceTimeMs - sourceTimeMs);
+  let lowIndex = 0;
+  let highIndex = candles.length - 1;
 
-  for (const candle of candles) {
-    const distance = Math.abs(candle.sourceTimeMs - sourceTimeMs);
-    if (distance < nearestDistance) {
-      nearestCandle = candle;
-      nearestDistance = distance;
+  while (lowIndex <= highIndex) {
+    const middleIndex = Math.floor((lowIndex + highIndex) / 2);
+    const middleTimeMs = candles[middleIndex].sourceTimeMs;
+
+    if (middleTimeMs === sourceTimeMs) {
+      return candles[middleIndex];
+    }
+
+    if (middleTimeMs < sourceTimeMs) {
+      lowIndex = middleIndex + 1;
+    } else {
+      highIndex = middleIndex - 1;
     }
   }
 
-  return nearestCandle;
+  if (lowIndex >= candles.length) {
+    return candles[candles.length - 1];
+  }
+
+  if (highIndex < 0) {
+    return candles[0];
+  }
+
+  return sourceTimeMs - candles[highIndex].sourceTimeMs <= candles[lowIndex].sourceTimeMs - sourceTimeMs
+    ? candles[highIndex]
+    : candles[lowIndex];
 }
 
 function clamp(value: number, min: number, max: number): number {

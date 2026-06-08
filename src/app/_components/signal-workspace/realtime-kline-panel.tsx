@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { intervals } from "@/app/_lib/demo-data";
 import { createSignalAiSummary } from "@/app/_lib/signal-ai-summary";
@@ -10,7 +11,8 @@ import {
   upsertCandle,
   upsertCandles,
 } from "@/app/_lib/binance-market-data";
-import { KlineChart, type ChartTheme } from "@/app/_components/kline-chart";
+import type { KlineChartProps } from "@/app/_components/kline-chart";
+import type { ChartTheme } from "@/app/_components/kline-chart/types";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { CopyTradingTradeMarker } from "@/app/_types/copy-trading";
 import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
@@ -19,6 +21,10 @@ import { SymbolSearchInput } from "./symbol-search-input";
 
 const LATEST_CANDLE_BACKFILL_INTERVAL_MS = 60_000;
 const LATEST_CANDLE_BACKFILL_LIMIT = 3;
+const KlineChart = dynamic<KlineChartProps>(
+  () => import("@/app/_components/kline-chart").then((module) => module.KlineChart),
+  { loading: () => null },
+);
 
 export function RealtimeKlinePanel({
   activePaperPosition,

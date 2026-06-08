@@ -8,7 +8,7 @@ import type {
 import type { MarketCandle } from "@/app/_types/market";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { StructuredSignal } from "@/app/_types/signal";
-import type { ChartTheme } from "@/app/_components/kline-chart";
+import type { ChartTheme } from "@/app/_components/kline-chart/types";
 import { drawSignalPriceRange, drawSignalPriceRay } from "./signal-price-ray-drawing";
 import { createSignalPriceRaySourceState, resolveSignalTimeCoordinate } from "./signal-price-ray-source";
 import type {
