@@ -66,8 +66,10 @@ export function KolPanel({
 }) {
   const activeCardRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef(new Map<string, HTMLDivElement>());
-  const previousCardRectsRef = useRef(new Map<string, DOMRect>());
+  const previousCardTopsRef = useRef(new Map<string, number>());
+  const previousLayoutKeyRef = useRef<string | null>(null);
   const previousSignalIdsRef = useRef(new Set<string>());
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const [flippedSignalIds, setFlippedSignalIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -135,23 +137,29 @@ export function KolPanel({
       signals,
     ],
   );
-  useLayoutEffect(() => {
-    const previousRects = previousCardRectsRef.current;
-    const previousSignalIds = previousSignalIdsRef.current;
-    const currentRects = new Map<string, DOMRect>();
+  const visibleSignalIds = visibleSignals.map((signal) => signal.id);
+  const visibleSignalLayoutKey = JSON.stringify(visibleSignalIds);
 
-    for (const signal of visibleSignals) {
-      const element = cardRefs.current.get(signal.id);
+  useLayoutEffect(() => {
+    const previousTops = previousCardTopsRef.current;
+    const previousSignalIds = previousSignalIdsRef.current;
+    const currentTops = new Map<string, number>();
+    const shouldAnimateLayoutChange =
+      previousLayoutKeyRef.current !== null &&
+      previousLayoutKeyRef.current !== visibleSignalLayoutKey;
+
+    for (const signalId of visibleSignalIds) {
+      const element = cardRefs.current.get(signalId);
       if (!element) {
         continue;
       }
 
-      const currentRect = element.getBoundingClientRect();
-      const previousRect = previousRects.get(signal.id);
-      currentRects.set(signal.id, currentRect);
+      const currentTop = getScrollContentTop(element, scrollAreaRef.current);
+      const previousTop = previousTops.get(signalId);
+      currentTops.set(signalId, currentTop);
 
-      if (previousRect) {
-        const deltaY = previousRect.top - currentRect.top;
+      if (shouldAnimateLayoutChange && previousTop !== undefined) {
+        const deltaY = previousTop - currentTop;
         if (Math.abs(deltaY) > 1) {
           element.animate(
             [
@@ -164,7 +172,7 @@ export function KolPanel({
         continue;
       }
 
-      if (previousSignalIds.size > 0) {
+      if (shouldAnimateLayoutChange && previousSignalIds.size > 0) {
         element.animate(
           [
             { opacity: 0, transform: "translateY(-18px) scale(0.98)" },
@@ -175,11 +183,10 @@ export function KolPanel({
       }
     }
 
-    previousCardRectsRef.current = currentRects;
-    previousSignalIdsRef.current = new Set(
-      visibleSignals.map((signal) => signal.id),
-    );
-  }, [visibleSignals]);
+    previousCardTopsRef.current = currentTops;
+    previousLayoutKeyRef.current = visibleSignalLayoutKey;
+    previousSignalIdsRef.current = new Set(visibleSignalIds);
+  });
 
   useEffect(() => {
     activeCardRef.current?.scrollIntoView({
@@ -249,6 +256,7 @@ export function KolPanel({
         onSymbolFilterChange={setSymbolFilter}
       />
       <div
+        ref={scrollAreaRef}
         className={
           isDarkTheme
             ? "kol-scroll-area kol-scroll-area-dark mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#12161D] pb-3 pl-3 pr-1 pt-2"
@@ -927,6 +935,20 @@ function matchesStatusFilter(
   }
 
   return record.status === "exited" && record.exitReason === statusFilter;
+}
+
+function getScrollContentTop(
+  element: HTMLElement,
+  scrollArea: HTMLElement | null,
+): number {
+  if (!scrollArea) {
+    return element.getBoundingClientRect().top;
+  }
+
+  const elementRect = element.getBoundingClientRect();
+  const scrollAreaRect = scrollArea.getBoundingClientRect();
+
+  return elementRect.top - scrollAreaRect.top + scrollArea.scrollTop;
 }
 
 function getSignalCardClassName({
