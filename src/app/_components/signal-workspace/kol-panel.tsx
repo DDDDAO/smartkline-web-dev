@@ -546,7 +546,7 @@ function KolPanelFilters({
 
   return (
     <div className={containerClassName}>
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-2 gap-2">
         <FilterDropdown
           id="kol-source-filter"
           allLabel={ALL_KOL_FILTER}
