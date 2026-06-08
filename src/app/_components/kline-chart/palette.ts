@@ -1,4 +1,4 @@
-import type { ChartTheme } from "@/app/_components/kline-chart";
+import type { ChartTheme } from "@/app/_components/kline-chart/types";
 
 export function createChartPalette(theme: ChartTheme) {
   if (theme === "light") {

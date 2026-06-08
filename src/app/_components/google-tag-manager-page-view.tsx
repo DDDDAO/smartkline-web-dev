@@ -19,6 +19,7 @@ export function GoogleTagManagerPageView() {
     const queryString = searchParams.toString();
     const pagePath = queryString ? `${pathname}?${queryString}` : pathname;
 
+    window.dataLayer = window.dataLayer ?? [];
     window.dataLayer.push({
       event: "page_view",
       page_location: window.location.href,

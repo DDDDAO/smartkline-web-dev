@@ -62,6 +62,7 @@ const zh = {
     entry: "入场/触发",
     filters: {
       kol: "KOL",
+      status: "状态",
       symbol: "币种",
     },
     loadingAria: "正在加载 KOL 信源",
@@ -75,6 +76,10 @@ const zh = {
     sourceTypes: {
       opening: "开仓信号",
       resonance: "共振信号",
+    },
+    statusFilters: {
+      closed: "已平仓",
+      notOpened: "未开仓",
     },
     stopLoss: "止损",
     takeProfit: "止盈",
@@ -126,8 +131,8 @@ const zh = {
   realtime: {
     errorInline: (error: string) => `行情连接异常：${error}`,
     guideCurrentError: (error: string) => `当前错误：${error}`,
-    guideDescription: "当前行情图加载失败，可能与地区网络环境有关。请切换网络地区或开启可访问 Binance 行情源的网络环境后重试。",
-    guideEnvironment: "建议环境：可正常访问 Binance 行情数据。",
+    guideDescription: "当前行情图加载失败，可能与地区网络环境有关。建议切换至香港、新加坡、日韩等可访问 Binance 行情源的网络环境后重试。",
+    guideEnvironment: "建议环境：香港、新加坡、日韩等可正常访问 Binance 行情数据的网络。",
     guideEyebrow: "行情图加载失败",
     guideTitle: "请检查地区网络环境",
     searchNoMatches: "没有匹配的合约",
@@ -231,6 +236,7 @@ const en: WorkspaceCopy = {
     entry: "Entry/Trigger",
     filters: {
       kol: "KOL",
+      status: "Status",
       symbol: "Symbol",
     },
     loadingAria: "Loading KOL feed",
@@ -244,6 +250,10 @@ const en: WorkspaceCopy = {
     sourceTypes: {
       opening: "Trade signal",
       resonance: "Resonance signal",
+    },
+    statusFilters: {
+      closed: "Closed",
+      notOpened: "Not opened",
     },
     stopLoss: "Stop loss",
     takeProfit: "Take profit",
@@ -295,8 +305,8 @@ const en: WorkspaceCopy = {
   realtime: {
     errorInline: (error) => `Market connection error: ${error}`,
     guideCurrentError: (error) => `Current error: ${error}`,
-    guideDescription: "The chart failed to load and may be blocked by the current network region. Switch networks or use an environment that can access Binance market data, then retry.",
-    guideEnvironment: "Recommended: a network that can reach Binance market data.",
+    guideDescription: "The chart failed to load and may be blocked by the current network region. Try Hong Kong, Singapore, Japan, Korea, or another network region that can access Binance market data, then retry.",
+    guideEnvironment: "Recommended: Hong Kong, Singapore, Japan, or Korea network regions that can reach Binance market data.",
     guideEyebrow: "Market chart failed",
     guideTitle: "Check network access",
     searchNoMatches: "No matching contracts",

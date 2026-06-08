@@ -28,6 +28,17 @@ import {
 const ALL_SYMBOL_FILTER = "__all_symbols__";
 const ALL_DIRECTION_FILTER = "__all_directions__";
 const ALL_KOL_FILTER = "__all_kols__";
+const ALL_STATUS_FILTER = "__all_statuses__";
+const STATUS_FILTER_OPTIONS = [
+  "closed",
+  "entered",
+  "not-entered",
+  "take-profit",
+  "stop-loss",
+] as const;
+
+type StatusFilterOption = (typeof STATUS_FILTER_OPTIONS)[number];
+
 export function KolPanel({
   activeSignal,
   activeCardScrollBlock = "center",
@@ -55,8 +66,10 @@ export function KolPanel({
 }) {
   const activeCardRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef(new Map<string, HTMLDivElement>());
-  const previousCardRectsRef = useRef(new Map<string, DOMRect>());
+  const previousCardTopsRef = useRef(new Map<string, number>());
+  const previousLayoutKeyRef = useRef<string | null>(null);
   const previousSignalIdsRef = useRef(new Set<string>());
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const [flippedSignalIds, setFlippedSignalIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -64,6 +77,7 @@ export function KolPanel({
   const [directionFilter, setDirectionFilter] =
     useState<string>(ALL_DIRECTION_FILTER);
   const [kolFilter, setKolFilter] = useState<string>(ALL_KOL_FILTER);
+  const [statusFilter, setStatusFilter] = useState<string>(ALL_STATUS_FILTER);
   const symbolOptions = useMemo(
     () => createUniqueOptions(signals.map((signal) => signal.symbol)),
     [signals],
@@ -89,6 +103,10 @@ export function KolPanel({
     kolFilter !== ALL_KOL_FILTER && kolOptions.includes(kolFilter)
       ? kolFilter
       : ALL_KOL_FILTER;
+  const effectiveStatusFilter: StatusFilterOption | typeof ALL_STATUS_FILTER =
+    statusFilter !== ALL_STATUS_FILTER && isStatusFilterOption(statusFilter)
+      ? statusFilter
+      : ALL_STATUS_FILTER;
   const visibleSignals = useMemo(
     () =>
       signals.filter((signal) => {
@@ -101,33 +119,47 @@ export function KolPanel({
         const matchesKol =
           effectiveKolFilter === ALL_KOL_FILTER ||
           signal.source_name === effectiveKolFilter;
+        const matchesStatus =
+          effectiveStatusFilter === ALL_STATUS_FILTER ||
+          matchesStatusFilter(
+            paperPositionsBySignalId[signal.id] ?? null,
+            effectiveStatusFilter,
+          );
 
-        return matchesSymbol && matchesDirection && matchesKol;
+        return matchesSymbol && matchesDirection && matchesKol && matchesStatus;
       }),
     [
       effectiveDirectionFilter,
       effectiveKolFilter,
+      effectiveStatusFilter,
       effectiveSymbolFilter,
+      paperPositionsBySignalId,
       signals,
     ],
   );
-  useLayoutEffect(() => {
-    const previousRects = previousCardRectsRef.current;
-    const previousSignalIds = previousSignalIdsRef.current;
-    const currentRects = new Map<string, DOMRect>();
+  const visibleSignalIds = visibleSignals.map((signal) => signal.id);
+  const visibleSignalLayoutKey = JSON.stringify(visibleSignalIds);
 
-    for (const signal of visibleSignals) {
-      const element = cardRefs.current.get(signal.id);
+  useLayoutEffect(() => {
+    const previousTops = previousCardTopsRef.current;
+    const previousSignalIds = previousSignalIdsRef.current;
+    const currentTops = new Map<string, number>();
+    const shouldAnimateLayoutChange =
+      previousLayoutKeyRef.current !== null &&
+      previousLayoutKeyRef.current !== visibleSignalLayoutKey;
+
+    for (const signalId of visibleSignalIds) {
+      const element = cardRefs.current.get(signalId);
       if (!element) {
         continue;
       }
 
-      const currentRect = element.getBoundingClientRect();
-      const previousRect = previousRects.get(signal.id);
-      currentRects.set(signal.id, currentRect);
+      const currentTop = getScrollContentTop(element, scrollAreaRef.current);
+      const previousTop = previousTops.get(signalId);
+      currentTops.set(signalId, currentTop);
 
-      if (previousRect) {
-        const deltaY = previousRect.top - currentRect.top;
+      if (shouldAnimateLayoutChange && previousTop !== undefined) {
+        const deltaY = previousTop - currentTop;
         if (Math.abs(deltaY) > 1) {
           element.animate(
             [
@@ -140,7 +172,7 @@ export function KolPanel({
         continue;
       }
 
-      if (previousSignalIds.size > 0) {
+      if (shouldAnimateLayoutChange && previousSignalIds.size > 0) {
         element.animate(
           [
             { opacity: 0, transform: "translateY(-18px) scale(0.98)" },
@@ -151,11 +183,10 @@ export function KolPanel({
       }
     }
 
-    previousCardRectsRef.current = currentRects;
-    previousSignalIdsRef.current = new Set(
-      visibleSignals.map((signal) => signal.id),
-    );
-  }, [visibleSignals]);
+    previousCardTopsRef.current = currentTops;
+    previousLayoutKeyRef.current = visibleSignalLayoutKey;
+    previousSignalIdsRef.current = new Set(visibleSignalIds);
+  });
 
   useEffect(() => {
     activeCardRef.current?.scrollIntoView({
@@ -214,14 +245,18 @@ export function KolPanel({
         kolOptions={kolOptions}
         directionFilter={effectiveDirectionFilter}
         directionOptions={directionOptions}
+        statusFilter={effectiveStatusFilter}
+        statusOptions={STATUS_FILTER_OPTIONS}
         symbolFilter={effectiveSymbolFilter}
         symbolOptions={symbolOptions}
         copy={copy}
         onKolFilterChange={setKolFilter}
         onDirectionFilterChange={setDirectionFilter}
+        onStatusFilterChange={setStatusFilter}
         onSymbolFilterChange={setSymbolFilter}
       />
       <div
+        ref={scrollAreaRef}
         className={
           isDarkTheme
             ? "kol-scroll-area kol-scroll-area-dark mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#12161D] pb-3 pl-3 pr-1 pt-2"
@@ -486,10 +521,13 @@ function KolPanelFilters({
   isDarkTheme,
   kolFilter,
   kolOptions,
+  statusFilter,
+  statusOptions,
   symbolFilter,
   symbolOptions,
   onDirectionFilterChange,
   onKolFilterChange,
+  onStatusFilterChange,
   onSymbolFilterChange,
 }: {
   copy: WorkspaceCopy;
@@ -498,22 +536,25 @@ function KolPanelFilters({
   isDarkTheme: boolean;
   kolFilter: string;
   kolOptions: readonly string[];
+  statusFilter: string;
+  statusOptions: readonly StatusFilterOption[];
   symbolFilter: string;
   symbolOptions: readonly MarketSymbol[];
   onDirectionFilterChange: (value: string) => void;
   onKolFilterChange: (value: string) => void;
+  onStatusFilterChange: (value: string) => void;
   onSymbolFilterChange: (value: string) => void;
 }) {
   const containerClassName = isDarkTheme
     ? "bg-[#12161D] px-3 pb-2 pt-3"
     : "bg-[#FAFBFD] px-3 pb-2 pt-3";
   const [openFilter, setOpenFilter] = useState<
-    "kol" | "direction" | "symbol" | null
+    "kol" | "direction" | "status" | "symbol" | null
   >(null);
 
   return (
     <div className={containerClassName}>
-      <div className="grid grid-cols-3 gap-1.5">
+      <div className="grid grid-cols-2 gap-2">
         <FilterDropdown
           id="kol-source-filter"
           allLabel={ALL_KOL_FILTER}
@@ -545,6 +586,24 @@ function KolPanelFilters({
           }
           onOpenChange={(isOpen) => setOpenFilter(isOpen ? "direction" : null)}
           onChange={onDirectionFilterChange}
+        />
+        <FilterDropdown
+          id="kol-status-filter"
+          allLabel={ALL_STATUS_FILTER}
+          allText={copy.common.all}
+          isOpen={openFilter === "status"}
+          isDarkTheme={isDarkTheme}
+          label={copy.kol.filters.status}
+          options={statusOptions}
+          value={statusFilter}
+          optionLabel={(status) => formatStatusFilterLabel(status, copy)}
+          renderIcon={(option) =>
+            option === ALL_STATUS_FILTER ? null : (
+              <StatusFilterDot status={option as StatusFilterOption} />
+            )
+          }
+          onOpenChange={(isOpen) => setOpenFilter(isOpen ? "status" : null)}
+          onChange={onStatusFilterChange}
         />
         <FilterDropdown
           id="kol-symbol-filter"
@@ -706,6 +765,21 @@ function DirectionFilterDot({
   );
 }
 
+function StatusFilterDot({ status }: { status: StatusFilterOption }) {
+  const colorClassName =
+    status === "entered"
+      ? "bg-[#16AFF5]"
+      : status === "not-entered"
+        ? "bg-[#FFD978]"
+        : status === "stop-loss"
+          ? "bg-[#F08A92]"
+          : status === "take-profit"
+            ? "bg-[#72D4B0]"
+            : "bg-slate-400";
+
+  return <span className={`h-2 w-2 shrink-0 rounded-full ${colorClassName}`} />;
+}
+
 function FilterEmptyState({ copy, isDarkTheme }: { copy: WorkspaceCopy; isDarkTheme: boolean }) {
   return (
     <KolPanelSourceState
@@ -834,6 +908,47 @@ function createUniqueOptions<T extends string>(values: readonly T[]): T[] {
   return Array.from(new Set(values)).sort((left, right) =>
     left.localeCompare(right),
   );
+}
+
+function isStatusFilterOption(value: string): value is StatusFilterOption {
+  return STATUS_FILTER_OPTIONS.includes(value as StatusFilterOption);
+}
+
+function matchesStatusFilter(
+  record: PaperPositionRecord | null,
+  statusFilter: StatusFilterOption,
+): boolean {
+  if (!record || record.status === "invalid") {
+    return false;
+  }
+
+  if (statusFilter === "closed") {
+    return record.status === "exited";
+  }
+
+  if (statusFilter === "entered") {
+    return record.status === "entered";
+  }
+
+  if (statusFilter === "not-entered") {
+    return record.status === "not-entered";
+  }
+
+  return record.status === "exited" && record.exitReason === statusFilter;
+}
+
+function getScrollContentTop(
+  element: HTMLElement,
+  scrollArea: HTMLElement | null,
+): number {
+  if (!scrollArea) {
+    return element.getBoundingClientRect().top;
+  }
+
+  const elementRect = element.getBoundingClientRect();
+  const scrollAreaRect = scrollArea.getBoundingClientRect();
+
+  return elementRect.top - scrollAreaRect.top + scrollArea.scrollTop;
 }
 
 function getSignalCardClassName({
@@ -965,4 +1080,27 @@ function formatDirectionLabel(
   copy: WorkspaceCopy,
 ): string {
   return copy.kol.directionFull[direction];
+}
+
+function formatStatusFilterLabel(
+  status: StatusFilterOption,
+  copy: WorkspaceCopy,
+): string {
+  if (status === "closed") {
+    return copy.kol.statusFilters.closed;
+  }
+
+  if (status === "entered") {
+    return copy.paper.statusEntered;
+  }
+
+  if (status === "not-entered") {
+    return copy.kol.statusFilters.notOpened;
+  }
+
+  if (status === "take-profit") {
+    return copy.paper.statusExitedTakeProfit;
+  }
+
+  return copy.paper.statusExitedStopLoss;
 }

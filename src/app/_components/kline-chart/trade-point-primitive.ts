@@ -8,7 +8,7 @@ import type {
   SeriesAttachedParameter,
   Time,
 } from "lightweight-charts";
-import type { ChartTheme } from "@/app/_components/kline-chart";
+import type { ChartTheme } from "@/app/_components/kline-chart/types";
 import type { MarketCandle } from "@/app/_types/market";
 
 const TRADE_POINT_MARKER_WIDTH = 20;
