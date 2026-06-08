@@ -62,6 +62,7 @@ const zh = {
     entry: "入场/触发",
     filters: {
       kol: "KOL",
+      status: "状态",
       symbol: "币种",
     },
     loadingAria: "正在加载 KOL 信源",
@@ -75,6 +76,10 @@ const zh = {
     sourceTypes: {
       opening: "开仓信号",
       resonance: "共振信号",
+    },
+    statusFilters: {
+      closed: "已平仓",
+      notOpened: "未开仓",
     },
     stopLoss: "止损",
     takeProfit: "止盈",
@@ -231,6 +236,7 @@ const en: WorkspaceCopy = {
     entry: "Entry/Trigger",
     filters: {
       kol: "KOL",
+      status: "Status",
       symbol: "Symbol",
     },
     loadingAria: "Loading KOL feed",
@@ -244,6 +250,10 @@ const en: WorkspaceCopy = {
     sourceTypes: {
       opening: "Trade signal",
       resonance: "Resonance signal",
+    },
+    statusFilters: {
+      closed: "Closed",
+      notOpened: "Not opened",
     },
     stopLoss: "Stop loss",
     takeProfit: "Take profit",
