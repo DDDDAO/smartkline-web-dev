@@ -36,8 +36,31 @@ const STATUS_FILTER_OPTIONS = [
   "take-profit",
   "stop-loss",
 ] as const;
+const KOL_STATS_SAMPLE_LIMIT = 20;
+const KOL_STATS_GROUP_LIMIT = 4;
 
 type StatusFilterOption = (typeof STATUS_FILTER_OPTIONS)[number];
+
+type KolStatsSummaryModel = {
+  groups: KolStatsGroupModel[];
+  metrics: KolStatsMetricModel[];
+  meta: string;
+  title: string;
+};
+
+type KolStatsGroupModel = {
+  closedText: string;
+  exitBreakdownText: string;
+  kolName: string;
+  totalPnlText: string;
+  totalPnlTone?: "default" | "negative" | "positive";
+};
+
+type KolStatsMetricModel = {
+  label: string;
+  tone?: "default" | "negative" | "positive";
+  value: string;
+};
 
 export function KolPanel({
   activeSignal,
@@ -107,7 +130,7 @@ export function KolPanel({
     statusFilter !== ALL_STATUS_FILTER && isStatusFilterOption(statusFilter)
       ? statusFilter
       : ALL_STATUS_FILTER;
-  const visibleSignals = useMemo(
+  const baseFilteredSignals = useMemo(
     () =>
       signals.filter((signal) => {
         const matchesSymbol =
@@ -119,6 +142,19 @@ export function KolPanel({
         const matchesKol =
           effectiveKolFilter === ALL_KOL_FILTER ||
           signal.source_name === effectiveKolFilter;
+
+        return matchesSymbol && matchesDirection && matchesKol;
+      }),
+    [
+      effectiveDirectionFilter,
+      effectiveKolFilter,
+      effectiveSymbolFilter,
+      signals,
+    ],
+  );
+  const visibleSignals = useMemo(
+    () =>
+      baseFilteredSignals.filter((signal) => {
         const matchesStatus =
           effectiveStatusFilter === ALL_STATUS_FILTER ||
           matchesStatusFilter(
@@ -126,15 +162,28 @@ export function KolPanel({
             effectiveStatusFilter,
           );
 
-        return matchesSymbol && matchesDirection && matchesKol && matchesStatus;
+        return matchesStatus;
+      }),
+    [baseFilteredSignals, effectiveStatusFilter, paperPositionsBySignalId],
+  );
+  const statsSummary = useMemo(
+    () =>
+      createKolStatsSummary({
+        copy,
+        isStatusStatsFilter: isStatusStatsFilter(effectiveStatusFilter),
+        paperPositionsBySignalId,
+        selectedKolName:
+          effectiveKolFilter === ALL_KOL_FILTER ? null : effectiveKolFilter,
+        statusFilteredSignals: visibleSignals,
+        baseFilteredSignals,
       }),
     [
-      effectiveDirectionFilter,
+      baseFilteredSignals,
+      copy,
       effectiveKolFilter,
       effectiveStatusFilter,
-      effectiveSymbolFilter,
       paperPositionsBySignalId,
-      signals,
+      visibleSignals,
     ],
   );
   const visibleSignalIds = visibleSignals.map((signal) => signal.id);
@@ -255,6 +304,12 @@ export function KolPanel({
         onStatusFilterChange={setStatusFilter}
         onSymbolFilterChange={setSymbolFilter}
       />
+      {statsSummary ? (
+        <KolStatsSummaryPanel
+          isDarkTheme={isDarkTheme}
+          summary={statsSummary}
+        />
+      ) : null}
       <div
         ref={scrollAreaRef}
         className={
@@ -628,6 +683,113 @@ function KolPanelFilters({
   );
 }
 
+function KolStatsSummaryPanel({
+  isDarkTheme,
+  summary,
+}: {
+  isDarkTheme: boolean;
+  summary: KolStatsSummaryModel;
+}) {
+  const containerClassName = isDarkTheme
+    ? "bg-[#12161D] px-3 pb-2"
+    : "bg-[#FAFBFD] px-3 pb-2";
+  const panelClassName = isDarkTheme
+    ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2.5"
+    : "rounded-2xl border border-[#E5EAF0] bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.025)]";
+  const titleClassName = isDarkTheme
+    ? "min-w-0 truncate text-[11px] font-semibold text-slate-200"
+    : "min-w-0 truncate text-[11px] font-semibold text-slate-700";
+  const metaClassName = isDarkTheme
+    ? "shrink-0 text-[10px] font-medium text-slate-500"
+    : "shrink-0 text-[10px] font-medium text-slate-400";
+
+  return (
+    <div className={containerClassName}>
+      <div className={panelClassName}>
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className={titleClassName}>{summary.title}</div>
+          <div className={metaClassName}>{summary.meta}</div>
+        </div>
+        {summary.groups.length > 0 ? (
+          <div className="mt-2 space-y-1.5">
+            {summary.groups.map((group) => (
+              <KolStatsGroupRow
+                key={group.kolName}
+                group={group}
+                isDarkTheme={isDarkTheme}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-2 grid grid-cols-4 gap-1.5">
+            {summary.metrics.map((metric) => (
+              <KolStatsMetric
+                key={metric.label}
+                isDarkTheme={isDarkTheme}
+                metric={metric}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function KolStatsGroupRow({
+  group,
+  isDarkTheme,
+}: {
+  group: KolStatsGroupModel;
+  isDarkTheme: boolean;
+}) {
+  const rowClassName = isDarkTheme
+    ? "grid grid-cols-[minmax(0,1fr)_42px_50px_58px] items-center gap-2 rounded-xl bg-white/[0.035] px-2 py-1.5"
+    : "grid grid-cols-[minmax(0,1fr)_42px_50px_58px] items-center gap-2 rounded-xl bg-slate-50 px-2 py-1.5";
+  const nameClassName = isDarkTheme
+    ? "truncate text-[11px] font-semibold text-slate-200"
+    : "truncate text-[11px] font-semibold text-slate-700";
+  const mutedClassName = isDarkTheme
+    ? "truncate text-right text-[10px] font-medium text-slate-500"
+    : "truncate text-right text-[10px] font-medium text-slate-400";
+  const totalClassName = getKolStatsMetricValueClassName(
+    isDarkTheme,
+    group.totalPnlTone,
+  );
+
+  return (
+    <div className={rowClassName}>
+      <div className={nameClassName}>{group.kolName}</div>
+      <div className={mutedClassName}>{group.closedText}</div>
+      <div className={mutedClassName}>{group.exitBreakdownText}</div>
+      <div className={`${totalClassName} text-right`}>{group.totalPnlText}</div>
+    </div>
+  );
+}
+
+function KolStatsMetric({
+  isDarkTheme,
+  metric,
+}: {
+  isDarkTheme: boolean;
+  metric: KolStatsMetricModel;
+}) {
+  const labelClassName = isDarkTheme
+    ? "truncate text-[10px] leading-4 text-slate-500"
+    : "truncate text-[10px] leading-4 text-slate-400";
+  const valueClassName = getKolStatsMetricValueClassName(
+    isDarkTheme,
+    metric.tone,
+  );
+
+  return (
+    <div className="min-w-0">
+      <div className={labelClassName}>{metric.label}</div>
+      <div className={valueClassName}>{metric.value}</div>
+    </div>
+  );
+}
+
 function FilterDropdown<T extends string>({
   allLabel,
   allText,
@@ -914,6 +1076,12 @@ function isStatusFilterOption(value: string): value is StatusFilterOption {
   return STATUS_FILTER_OPTIONS.includes(value as StatusFilterOption);
 }
 
+function isStatusStatsFilter(
+  value: StatusFilterOption | typeof ALL_STATUS_FILTER,
+): boolean {
+  return value === "closed" || value === "take-profit" || value === "stop-loss";
+}
+
 function matchesStatusFilter(
   record: PaperPositionRecord | null,
   statusFilter: StatusFilterOption,
@@ -935,6 +1103,248 @@ function matchesStatusFilter(
   }
 
   return record.status === "exited" && record.exitReason === statusFilter;
+}
+
+function createKolStatsSummary({
+  baseFilteredSignals,
+  copy,
+  isStatusStatsFilter,
+  paperPositionsBySignalId,
+  selectedKolName,
+  statusFilteredSignals,
+}: {
+  baseFilteredSignals: readonly StructuredSignal[];
+  copy: WorkspaceCopy;
+  isStatusStatsFilter: boolean;
+  paperPositionsBySignalId: Readonly<Record<string, PaperPositionRecord>>;
+  selectedKolName: string | null;
+  statusFilteredSignals: readonly StructuredSignal[];
+}): KolStatsSummaryModel | null {
+  if (!selectedKolName && !isStatusStatsFilter) {
+    return null;
+  }
+
+  const summarySignals = isStatusStatsFilter
+    ? statusFilteredSignals
+    : baseFilteredSignals;
+  if (summarySignals.length === 0) {
+    return null;
+  }
+
+  const sampledSignals = sortSignalsByCreatedAtDesc(summarySignals).slice(
+    0,
+    KOL_STATS_SAMPLE_LIMIT,
+  );
+  const stats = createKolStatsFromSignals(
+    sampledSignals,
+    paperPositionsBySignalId,
+  );
+  const groups = isStatusStatsFilter
+    ? createKolStatsGroups(sampledSignals, paperPositionsBySignalId, copy)
+    : [];
+  const titlePrefix = selectedKolName ? `${selectedKolName} · ` : "";
+  const title = `${titlePrefix}${
+    isStatusStatsFilter
+      ? copy.kol.stats.filteredTitle
+      : copy.kol.stats.recentTitle
+  }`;
+  const metaParts = [copy.kol.stats.sample(sampledSignals.length)];
+  if (isStatusStatsFilter) {
+    metaParts.push(copy.kol.stats.kolCount(countUniqueKols(sampledSignals)));
+  }
+
+  return {
+    groups,
+    metrics: createKolStatsMetrics(stats, copy),
+    meta: metaParts.join(" · "),
+    title,
+  };
+}
+
+function createKolStatsMetrics(
+  stats: KolStatsModel,
+  copy: WorkspaceCopy,
+): KolStatsMetricModel[] {
+  return [
+    { label: copy.kol.stats.closed, value: String(stats.closedCount) },
+    { label: copy.kol.stats.winRate, tone: getWinRateTone(stats.winRatePercent), value: formatPercent(stats.winRatePercent) },
+    {
+      label: copy.kol.stats.totalPnl,
+      tone: getPercentTone(stats.totalPnlPercent),
+      value: formatSignedPercent(stats.totalPnlPercent),
+    },
+    { label: copy.kol.stats.pending, value: String(stats.pendingCount) },
+  ];
+}
+
+type KolStatsModel = {
+  closedCount: number;
+  pendingCount: number;
+  stopLossCount: number;
+  takeProfitCount: number;
+  totalPnlPercent: number | null;
+  winRatePercent: number | null;
+};
+
+function createKolStatsGroups(
+  signals: readonly StructuredSignal[],
+  paperPositionsBySignalId: Readonly<Record<string, PaperPositionRecord>>,
+  copy: WorkspaceCopy,
+): KolStatsGroupModel[] {
+  const signalsByKol = new Map<string, StructuredSignal[]>();
+
+  for (const signal of signals) {
+    const currentSignals = signalsByKol.get(signal.source_name) ?? [];
+    currentSignals.push(signal);
+    signalsByKol.set(signal.source_name, currentSignals);
+  }
+
+  return Array.from(signalsByKol.entries())
+    .map(([kolName, kolSignals]) => {
+      const stats = createKolStatsFromSignals(kolSignals, paperPositionsBySignalId);
+      return {
+        closedText: `${copy.kol.stats.closed} ${stats.closedCount}`,
+        exitBreakdownText: `${copy.kol.stats.profitLoss} ${stats.takeProfitCount}/${stats.stopLossCount}`,
+        kolName,
+        stats,
+        totalPnlText: formatSignedPercent(stats.totalPnlPercent),
+        totalPnlTone: getPercentTone(stats.totalPnlPercent),
+      };
+    })
+    .sort((left, right) => {
+      const closedSort = right.stats.closedCount - left.stats.closedCount;
+      if (closedSort !== 0) {
+        return closedSort;
+      }
+
+      return (
+        (right.stats.totalPnlPercent ?? Number.NEGATIVE_INFINITY) -
+        (left.stats.totalPnlPercent ?? Number.NEGATIVE_INFINITY)
+      );
+    })
+    .slice(0, KOL_STATS_GROUP_LIMIT)
+    .map((group) => ({
+      closedText: group.closedText,
+      exitBreakdownText: group.exitBreakdownText,
+      kolName: group.kolName,
+      totalPnlText: group.totalPnlText,
+      totalPnlTone: group.totalPnlTone,
+    }));
+}
+
+function createKolStatsFromSignals(
+  signals: readonly StructuredSignal[],
+  paperPositionsBySignalId: Readonly<Record<string, PaperPositionRecord>>,
+): KolStatsModel {
+  let closedCount = 0;
+  let pendingCount = 0;
+  let pnlSum = 0;
+  let stopLossCount = 0;
+  let takeProfitCount = 0;
+
+  for (const signal of signals) {
+    const record = paperPositionsBySignalId[signal.id] ?? null;
+    if (!record || record.status !== "exited") {
+      pendingCount += 1;
+      continue;
+    }
+
+    closedCount += 1;
+    if (record.exitReason === "take-profit") {
+      takeProfitCount += 1;
+    }
+    if (record.exitReason === "stop-loss") {
+      stopLossCount += 1;
+    }
+    if (record.pnlPercent !== null) {
+      pnlSum += record.pnlPercent;
+    }
+  }
+
+  return {
+    closedCount,
+    pendingCount,
+    stopLossCount,
+    takeProfitCount,
+    totalPnlPercent: closedCount > 0 ? pnlSum : null,
+    winRatePercent:
+      closedCount > 0 ? (takeProfitCount / closedCount) * 100 : null,
+  };
+}
+
+function countUniqueKols(signals: readonly StructuredSignal[]): number {
+  return new Set(signals.map((signal) => signal.source_name)).size;
+}
+
+function sortSignalsByCreatedAtDesc(
+  signals: readonly StructuredSignal[],
+): StructuredSignal[] {
+  return signals.slice().sort((left, right) => {
+    const createdAtSort =
+      Date.parse(right.created_at) - Date.parse(left.created_at);
+    if (Number.isFinite(createdAtSort) && createdAtSort !== 0) {
+      return createdAtSort;
+    }
+
+    return right.id.localeCompare(left.id);
+  });
+}
+
+function formatPercent(value: number | null): string {
+  if (value === null) {
+    return "--";
+  }
+
+  return `${formatCompactPercentNumber(value)}%`;
+}
+
+function formatSignedPercent(value: number | null): string {
+  if (value === null) {
+    return "--";
+  }
+
+  return `${value >= 0 ? "+" : ""}${formatCompactPercentNumber(value)}%`;
+}
+
+function formatCompactPercentNumber(value: number): string {
+  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+}
+
+function getPercentTone(value: number | null): KolStatsMetricModel["tone"] {
+  if (value === null || value === 0) {
+    return "default";
+  }
+
+  return value > 0 ? "positive" : "negative";
+}
+
+function getWinRateTone(value: number | null): KolStatsMetricModel["tone"] {
+  if (value === null || value === 50) {
+    return "default";
+  }
+
+  return value > 50 ? "positive" : "negative";
+}
+
+function getKolStatsMetricValueClassName(
+  isDarkTheme: boolean,
+  tone: KolStatsMetricModel["tone"] = "default",
+): string {
+  if (tone === "positive") {
+    return isDarkTheme
+      ? "truncate text-xs font-semibold leading-4 text-[#45DCA6]"
+      : "truncate text-xs font-semibold leading-4 text-[#159B72]";
+  }
+
+  if (tone === "negative") {
+    return isDarkTheme
+      ? "truncate text-xs font-semibold leading-4 text-[#FF7586]"
+      : "truncate text-xs font-semibold leading-4 text-[#D9515F]";
+  }
+
+  return isDarkTheme
+    ? "truncate text-xs font-semibold leading-4 text-slate-200"
+    : "truncate text-xs font-semibold leading-4 text-slate-800";
 }
 
 function getScrollContentTop(
