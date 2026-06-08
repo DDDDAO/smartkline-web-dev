@@ -833,13 +833,11 @@ function WorkspaceTopNavigation({
           <button className={headerLinkClassName} type="button">
             {copy.workspace.copyTrading}
           </button>
-          <button
-            className={headerLinkClassName}
-            type="button"
-            onClick={onCommunityOpen}
-          >
-            {copy.workspace.community}
-          </button>
+          <TelegramCommunityButton
+            copy={copy}
+            isDarkTheme={isDarkTheme}
+            onCommunityOpen={onCommunityOpen}
+          />
         </nav>
       </div>
       <div className="relative flex items-center gap-2">
@@ -913,6 +911,39 @@ function BrandLogo({
         width={isEnglish ? 240 : 160}
       />
     </div>
+  );
+}
+
+function TelegramCommunityButton({
+  copy,
+  isDarkTheme,
+  onCommunityOpen,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  onCommunityOpen: () => void;
+}) {
+  const className = isDarkTheme
+    ? "group motion-fx-1-nav-button flex h-10 items-center gap-2 overflow-hidden rounded-full border border-sky-300/20 bg-[#229ED9] px-3 text-sm font-bold text-white transition-[width] duration-200 ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+    : "group motion-fx-1-nav-button flex h-10 items-center gap-2 overflow-hidden rounded-full border border-[#1C93CC]/20 bg-[#229ED9] px-3 text-sm font-bold text-white transition-[width] duration-200 ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#229ED9]";
+
+  return (
+    <button
+      aria-label={`${copy.workspace.community} · ${copy.workspace.communitySlug}`}
+      className={className}
+      title={`${copy.workspace.community} · ${copy.workspace.communitySlug}`}
+      type="button"
+      onClick={onCommunityOpen}
+    >
+      <TelegramIcon className="h-4 w-4 shrink-0" />
+      <span className="whitespace-nowrap">{copy.workspace.community}</span>
+      <span
+        aria-hidden="true"
+        className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold text-sky-50/90 opacity-0 transition-[max-width,opacity,margin] duration-200 ease-out group-hover:ml-1 group-hover:max-w-28 group-hover:opacity-100 group-focus-visible:ml-1 group-focus-visible:max-w-28 group-focus-visible:opacity-100"
+      >
+        {copy.workspace.communitySlug}
+      </span>
+    </button>
   );
 }
 
@@ -1459,6 +1490,27 @@ function SunIcon({ className }: { className: string }) {
         strokeWidth="1.9"
       />
       <circle cx="12" cy="12" r="4.2" stroke="currentColor" strokeWidth="1.9" />
+    </svg>
+  );
+}
+
+function TelegramIcon({ className }: { className: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M20.9 4.4 3.8 11c-.9.35-.88 1.68.04 1.98l4.07 1.33 1.58 5c.28.9 1.42 1.18 2.08.52l2.18-2.18 4.11 3.03c.79.58 1.92.14 2.1-.82l3.17-13.8c.22-1.04-.95-1.99-2.23-1.66Z"
+        fill="currentColor"
+        opacity="0.96"
+      />
+      <path
+        d="m8.16 13.95 8.8-5.53-6.85 7.24-.16 3.2-1.79-4.91Z"
+        fill="#BFEFFF"
+      />
     </svg>
   );
 }
