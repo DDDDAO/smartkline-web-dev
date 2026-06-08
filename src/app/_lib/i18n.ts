@@ -131,8 +131,8 @@ const zh = {
   realtime: {
     errorInline: (error: string) => `行情连接异常：${error}`,
     guideCurrentError: (error: string) => `当前错误：${error}`,
-    guideDescription: "当前行情图加载失败，可能与地区网络环境有关。建议切换至新加坡、日韩等可访问 Binance 行情源的网络环境后重试。",
-    guideEnvironment: "建议环境：新加坡、日韩等可正常访问 Binance 行情数据的网络。",
+    guideDescription: "当前行情图加载失败，可能与地区网络环境有关。建议切换至香港、新加坡、日韩等可访问 Binance 行情源的网络环境后重试。",
+    guideEnvironment: "建议环境：香港、新加坡、日韩等可正常访问 Binance 行情数据的网络。",
     guideEyebrow: "行情图加载失败",
     guideTitle: "请检查地区网络环境",
     searchNoMatches: "没有匹配的合约",
@@ -305,8 +305,8 @@ const en: WorkspaceCopy = {
   realtime: {
     errorInline: (error) => `Market connection error: ${error}`,
     guideCurrentError: (error) => `Current error: ${error}`,
-    guideDescription: "The chart failed to load and may be blocked by the current network region. Try Singapore, Japan, Korea, or another network region that can access Binance market data, then retry.",
-    guideEnvironment: "Recommended: Singapore, Japan, or Korea network regions that can reach Binance market data.",
+    guideDescription: "The chart failed to load and may be blocked by the current network region. Try Hong Kong, Singapore, Japan, Korea, or another network region that can access Binance market data, then retry.",
+    guideEnvironment: "Recommended: Hong Kong, Singapore, Japan, or Korea network regions that can reach Binance market data.",
     guideEyebrow: "Market chart failed",
     guideTitle: "Check network access",
     searchNoMatches: "No matching contracts",
