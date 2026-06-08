@@ -1237,8 +1237,169 @@ function dedupeStructuredSignalsByPosition(
   }
 
   return sortSignalsForKolPanel(
-    Array.from(signalsByPositionKey.values()),
+    dedupeStructuredSignalsByLooseSourceMatch(
+      Array.from(signalsByPositionKey.values()),
+    ),
   ).slice(0, MAX_VISIBLE_KOL_SIGNALS);
+}
+
+function dedupeStructuredSignalsByLooseSourceMatch(
+  signals: readonly StructuredSignal[],
+): StructuredSignal[] {
+  const uniqueSignals: StructuredSignal[] = [];
+
+  for (const signal of signals) {
+    const duplicateIndex = uniqueSignals.findIndex((currentSignal) =>
+      areStructuredSignalsLooseSourceDuplicate(signal, currentSignal),
+    );
+
+    if (duplicateIndex === -1) {
+      uniqueSignals.push(signal);
+      continue;
+    }
+
+    if (
+      compareStructuredSignalDuplicatePreference(
+        signal,
+        uniqueSignals[duplicateIndex],
+      ) < 0
+    ) {
+      uniqueSignals[duplicateIndex] = signal;
+    }
+  }
+
+  return uniqueSignals;
+}
+
+function areStructuredSignalsLooseSourceDuplicate(
+  left: StructuredSignal,
+  right: StructuredSignal,
+): boolean {
+  /**
+   * The upstream parser can store the same original KOL message twice with
+   * slightly different entry ranges, e.g. main range plus an aggressive add-on.
+   * Source text is required here so separate KOL messages that merely share
+   * similar prices are not collapsed.
+   */
+  return (
+    left.source_name === right.source_name &&
+    normalizeSignalRawTextForDuplicate(left.raw_text) ===
+      normalizeSignalRawTextForDuplicate(right.raw_text) &&
+    left.symbol === right.symbol &&
+    left.direction === right.direction &&
+    left.source_type === right.source_type &&
+    left.stop_loss === right.stop_loss &&
+    areNumberArraysEqual(left.take_profit, right.take_profit) &&
+    areSignalEntriesLooseDuplicate(left, right)
+  );
+}
+
+function compareStructuredSignalDuplicatePreference(
+  left: StructuredSignal,
+  right: StructuredSignal,
+): number {
+  const entrySpecificitySort =
+    getStructuredSignalEntryWidth(left) - getStructuredSignalEntryWidth(right);
+  if (entrySpecificitySort !== 0) {
+    return entrySpecificitySort;
+  }
+
+  return compareStructuredSignalCreatedAt(left, right);
+}
+
+function areSignalEntriesLooseDuplicate(
+  left: StructuredSignal,
+  right: StructuredSignal,
+): boolean {
+  const leftRange = getStructuredSignalEntryRange(left);
+  const rightRange = getStructuredSignalEntryRange(right);
+
+  if (leftRange && rightRange) {
+    const overlap =
+      Math.min(leftRange.max, rightRange.max) -
+      Math.max(leftRange.min, rightRange.min);
+    if (overlap <= 0) {
+      return false;
+    }
+
+    const narrowerWidth = Math.min(
+      leftRange.max - leftRange.min,
+      rightRange.max - rightRange.min,
+    );
+    return narrowerWidth > 0 && overlap / narrowerWidth >= 0.8;
+  }
+
+  if (
+    leftRange &&
+    right.entry_type === "trigger" &&
+    right.trigger_price !== null
+  ) {
+    return (
+      right.trigger_price >= leftRange.min &&
+      right.trigger_price <= leftRange.max
+    );
+  }
+
+  if (
+    rightRange &&
+    left.entry_type === "trigger" &&
+    left.trigger_price !== null
+  ) {
+    return (
+      left.trigger_price >= rightRange.min &&
+      left.trigger_price <= rightRange.max
+    );
+  }
+
+  return (
+    left.entry_type === "trigger" &&
+    right.entry_type === "trigger" &&
+    left.trigger_price === right.trigger_price
+  );
+}
+
+function getStructuredSignalEntryRange(
+  signal: StructuredSignal,
+): { max: number; min: number } | null {
+  if (
+    signal.entry_type !== "range" ||
+    signal.entry_min === null ||
+    signal.entry_max === null
+  ) {
+    return null;
+  }
+
+  return {
+    max: Math.max(signal.entry_min, signal.entry_max),
+    min: Math.min(signal.entry_min, signal.entry_max),
+  };
+}
+
+function getStructuredSignalEntryWidth(signal: StructuredSignal): number {
+  const range = getStructuredSignalEntryRange(signal);
+  if (range) {
+    return range.max - range.min;
+  }
+
+  if (signal.entry_type === "trigger" && signal.trigger_price !== null) {
+    return 0;
+  }
+
+  return Number.POSITIVE_INFINITY;
+}
+
+function normalizeSignalRawTextForDuplicate(rawText: string): string {
+  return rawText.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function areNumberArraysEqual(
+  leftValues: readonly number[],
+  rightValues: readonly number[],
+): boolean {
+  return (
+    leftValues.length === rightValues.length &&
+    leftValues.every((leftValue, index) => leftValue === rightValues[index])
+  );
 }
 
 function compareStructuredSignalCreatedAt(
