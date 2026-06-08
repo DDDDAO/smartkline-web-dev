@@ -29,7 +29,7 @@ type ComputePaperPositionRecordOptions = {
 };
 
 type EntryRule =
-  | { type: "range"; min: number; max: number }
+  | { type: "range"; min: number | null; max: number | null }
   | { type: "price"; price: number }
   | { type: "market"; price: number };
 
@@ -223,12 +223,11 @@ function resolveSignalSnapshotPrice(candles: readonly MarketCandle[], trackingSt
 }
 
 function resolveEntryRule(signal: StructuredSignal, signalSnapshotPrice: number): EntryRule | null {
-  const entryMin = normalizePositivePrice(signal.entry_min);
-  const entryMax = normalizePositivePrice(signal.entry_max);
+  const rangeEntryRule = resolveRangeEntryRule(signal);
   const triggerPrice = normalizePositivePrice(signal.trigger_price);
 
-  if (entryMin !== null && entryMax !== null) {
-    return { type: "range", min: Math.min(entryMin, entryMax), max: Math.max(entryMin, entryMax) };
+  if (rangeEntryRule !== null) {
+    return rangeEntryRule;
   }
 
   if (triggerPrice !== null) {
@@ -237,6 +236,34 @@ function resolveEntryRule(signal: StructuredSignal, signalSnapshotPrice: number)
 
   const marketPrice = normalizePositivePrice(signalSnapshotPrice);
   return marketPrice === null ? null : { type: "market", price: marketPrice };
+}
+
+function resolveRangeEntryRule(signal: StructuredSignal): Extract<EntryRule, { type: "range" }> | null {
+  const entryMin = normalizeRangeBoundaryPrice(signal.entry_min);
+  const entryMax = normalizeRangeBoundaryPrice(signal.entry_max);
+
+  if (entryMin === null && entryMax === null) {
+    return null;
+  }
+
+  /**
+   * The parser encodes prompts such as "below 62000 any long" as a range with
+   * one real boundary, for example 0-62000. Zero is not a tradable price; it is
+   * an open boundary and must not degrade the signal into a market entry.
+   */
+  if (signal.entry_type !== "range" && (entryMin === null || entryMax === null)) {
+    return null;
+  }
+
+  if (entryMin !== null && entryMax !== null) {
+    return { type: "range", min: Math.min(entryMin, entryMax), max: Math.max(entryMin, entryMax) };
+  }
+
+  return { type: "range", min: entryMin, max: entryMax };
+}
+
+function normalizeRangeBoundaryPrice(value: number | null): number | null {
+  return value !== null && Number.isFinite(value) && value > 0 ? value : null;
 }
 
 function normalizePositivePrice(value: number | null): number | null {
@@ -259,7 +286,7 @@ function findEntryFill(input: {
       return { candleIndex, price: input.entryRule.price, timeMs: candle.sourceTimeMs };
     }
 
-    if (input.entryRule.type === "range" && candle.low <= input.entryRule.max && candle.high >= input.entryRule.min) {
+    if (input.entryRule.type === "range" && doesCandleOverlapRange(candle, input.entryRule)) {
       return {
         candleIndex,
         price: resolveRangeEntryPrice({
@@ -275,6 +302,13 @@ function findEntryFill(input: {
   return null;
 }
 
+function doesCandleOverlapRange(candle: MarketCandle, range: Extract<EntryRule, { type: "range" }>): boolean {
+  return (
+    (range.min === null || candle.high >= range.min) &&
+    (range.max === null || candle.low <= range.max)
+  );
+}
+
 function resolveRangeEntryPrice(input: {
   candle: MarketCandle;
   range: Extract<EntryRule, { type: "range" }>;
@@ -288,11 +322,22 @@ function resolveRangeEntryPrice(input: {
     return input.candle.open;
   }
 
-  return input.candle.open > input.range.max ? input.range.max : input.range.min;
+  if (input.range.max !== null && input.candle.open > input.range.max) {
+    return input.range.max;
+  }
+
+  if (input.range.min !== null && input.candle.open < input.range.min) {
+    return input.range.min;
+  }
+
+  return input.range.max ?? input.range.min ?? input.candle.open;
 }
 
 function isPriceInsideRange(price: number, range: Extract<EntryRule, { type: "range" }>): boolean {
-  return price >= range.min && price <= range.max;
+  return (
+    (range.min === null || price >= range.min) &&
+    (range.max === null || price <= range.max)
+  );
 }
 
 function findExitFill(input: {
@@ -371,11 +416,11 @@ function calculateDistanceToEntry(currentPrice: number, entryRule: EntryRule): {
 }
 
 function resolveNearestRangeBoundary(currentPrice: number, range: Extract<EntryRule, { type: "range" }>): number {
-  if (currentPrice > range.max) {
+  if (range.max !== null && currentPrice > range.max) {
     return range.max;
   }
 
-  if (currentPrice < range.min) {
+  if (range.min !== null && currentPrice < range.min) {
     return range.min;
   }
 
