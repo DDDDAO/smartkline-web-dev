@@ -73,7 +73,7 @@ export function KolPanel({
   sourceStatus,
   signals,
   variant = "desktop",
-  onAiFollowRequest,
+  onFollowRequest,
   onSignalSelect,
 }: {
   activeSignal: StructuredSignal | null;
@@ -86,7 +86,7 @@ export function KolPanel({
   sourceStatus: KolSignalSourceStatus;
   signals: readonly StructuredSignal[];
   variant?: "desktop" | "mobileSheet";
-  onAiFollowRequest?: (signal: StructuredSignal) => void;
+  onFollowRequest?: (signal: StructuredSignal) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
 }) {
   const activeCardRef = useRef<HTMLDivElement | null>(null);
@@ -525,12 +525,12 @@ export function KolPanel({
                     isDarkTheme={isDarkTheme}
                     record={paperPositionRecord}
                   />
-                  {onAiFollowRequest ? (
-                    <AiFollowSignalStrip
+                  {onFollowRequest ? (
+                    <FollowSignalStrip
                       copy={copy}
                       isDarkTheme={isDarkTheme}
                       signal={signal}
-                      onAiFollowRequest={onAiFollowRequest}
+                      onFollowRequest={onFollowRequest}
                     />
                   ) : null}
                 </div>
@@ -800,16 +800,16 @@ function KolStatsMetric({
   );
 }
 
-function AiFollowSignalStrip({
+function FollowSignalStrip({
   copy,
   isDarkTheme,
   signal,
-  onAiFollowRequest,
+  onFollowRequest,
 }: {
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
   signal: StructuredSignal;
-  onAiFollowRequest: (signal: StructuredSignal) => void;
+  onFollowRequest: (signal: StructuredSignal) => void;
 }) {
   const stripClassName = isDarkTheme
     ? "mt-3 rounded-2xl border border-sky-400/20 bg-sky-400/10 p-3"
@@ -826,18 +826,18 @@ function AiFollowSignalStrip({
 
   return (
     <div className={stripClassName}>
-      <div className={labelClassName}>{copy.workspace.aiFollow.signalCardLabel}</div>
-      <div className={metaClassName}>{copy.workspace.aiFollow.signalCardMeta}</div>
+      <div className={labelClassName}>{copy.workspace.followConversion.signalCardLabel}</div>
+      <div className={metaClassName}>{copy.workspace.followConversion.signalCardMeta}</div>
       <button
         className={buttonClassName}
         type="button"
         onClick={(event) => {
           event.stopPropagation();
-          onAiFollowRequest(signal);
+          onFollowRequest(signal);
         }}
         onKeyDown={(event) => event.stopPropagation()}
       >
-        {copy.workspace.aiFollow.signalCardCta}
+        {copy.workspace.followConversion.signalCardCta}
       </button>
     </div>
   );
