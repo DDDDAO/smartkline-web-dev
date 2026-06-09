@@ -46,10 +46,8 @@ import {
   getSignalPaperPositionBadgeClass,
 } from "./signal-workspace/paper-position-summary";
 import {
-  BinanceGuideModal,
+  CommunityConversionModal,
   KolFollowProductTab,
-  RunningProductTab,
-  TradePlanModal,
   WorkspaceProductTabs,
   type WorkspaceProductTab,
 } from "./signal-workspace/product-tabs";
@@ -85,10 +83,8 @@ export function SignalWorkspace() {
   const [isRightPanelExiting, setIsRightPanelExiting] = useState(false);
   const [activeProductTab, setActiveProductTab] =
     useState<WorkspaceProductTab>("intel");
-  const [tradePlanSignal, setTradePlanSignal] =
-    useState<StructuredSignal | null>(null);
-  const [isTradePlanConfirmed, setIsTradePlanConfirmed] = useState(false);
-  const [isBinanceGuideOpen, setIsBinanceGuideOpen] = useState(false);
+  const [isCommunityConversionOpen, setIsCommunityConversionOpen] =
+    useState(false);
   const [isWorkspaceMotionVisible, setIsWorkspaceMotionVisible] =
     useState(false);
   const [marketOptions, setMarketOptions] = useState<MarketSymbol[]>(markets);
@@ -146,9 +142,6 @@ export function SignalWorkspace() {
   const activeChartPaperPosition = activeSignal
     ? (paperPositionsBySignalId[activeSignal.id] ?? null)
     : null;
-  const activeTradePlanPaperPosition = tradePlanSignal
-    ? (paperPositionsBySignalId[tradePlanSignal.id] ?? null)
-    : null;
   /**
    * Chart-level signal drawings depend on the simulated lifecycle. Rendering
    * before this record exists briefly applies the wrong lifecycle style.
@@ -183,9 +176,14 @@ export function SignalWorkspace() {
     }, 180);
   }, [isCompactLayout]);
 
-  const handleTelegramDiscussionJoin = () => {
+  const handleTelegramDiscussionJoin = useCallback(() => {
     openExternalTelegramUrl(TELEGRAM_DISCUSSION_GROUP_URL);
-  };
+  }, []);
+
+  const handleCommunityModalJoin = useCallback(() => {
+    handleTelegramDiscussionJoin();
+    setIsCommunityConversionOpen(false);
+  }, [handleTelegramDiscussionJoin]);
 
   const toggleTheme = () =>
     setTheme((currentTheme) => (currentTheme === "light" ? "dark" : "light"));
@@ -473,87 +471,20 @@ export function SignalWorkspace() {
     [signals],
   );
 
-  const openTradePlan = useCallback((signal: StructuredSignal) => {
-    const currentCopy = copyRef.current;
-    setTradePlanSignal(signal);
-    setIsTradePlanConfirmed(false);
-    setWorkspaceNotification({
-      id: `trade-plan-${signal.id}-${Date.now()}`,
-      title: currentCopy.workspace.feedback.title,
-      message: currentCopy.workspace.feedback.tradePlanOpened(signal.source_name),
-      meta: currentCopy.workspace.feedback.meta,
-    });
-  }, []);
+  const openCommunityConversion = useCallback((signal: StructuredSignal) => {
+    handleSignalSelect(signal);
+    setIsCommunityConversionOpen(true);
+  }, [handleSignalSelect]);
 
-  const handleKolFollowStart = useCallback(
-    (model: { name: string; latestSignal: StructuredSignal }) => {
-      const currentCopy = copyRef.current;
-      setActiveProductTab("running");
-      setActiveSignalId(model.latestSignal.id);
-      setSymbol(model.latestSignal.symbol);
-      setWorkspaceNotification({
-        id: `kol-follow-${model.name}-${Date.now()}`,
-        title: currentCopy.workspace.feedback.title,
-        message: currentCopy.workspace.feedback.followConfigured(model.name),
-        meta: currentCopy.workspace.feedback.meta,
-      });
-    },
-    [],
-  );
-
-  const handleKolDetailOpen = useCallback(
-    (model: { name: string; latestSignal: StructuredSignal }) => {
-      const currentCopy = copyRef.current;
-      handleSignalSelect(model.latestSignal);
-      setWorkspaceNotification({
-        id: `kol-detail-${model.name}-${Date.now()}`,
-        title: currentCopy.workspace.feedback.title,
-        message: currentCopy.workspace.feedback.detailOpened(model.name),
-        meta: currentCopy.workspace.feedback.meta,
-      });
-    },
-    [handleSignalSelect],
-  );
-
-  const handleRunningTaskAction = useCallback(
-    (task: { title: string; sourceSignal: StructuredSignal | null }, action: string) => {
-      const currentCopy = copyRef.current;
-      if (task.sourceSignal) {
-        handleSignalSelect(task.sourceSignal);
+  const handleKolCommunityConversionOpen = useCallback(
+    (_sourceName: string, signal?: StructuredSignal) => {
+      if (signal) {
+        handleSignalSelect(signal);
       }
-      setWorkspaceNotification({
-        id: `running-task-${task.title}-${action}-${Date.now()}`,
-        title: currentCopy.workspace.feedback.title,
-        message: currentCopy.workspace.feedback.taskAction(task.title, action),
-        meta: currentCopy.workspace.feedback.meta,
-      });
+      setIsCommunityConversionOpen(true);
     },
     [handleSignalSelect],
   );
-
-  const startTradePlanSimulation = useCallback(() => {
-    const currentCopy = copyRef.current;
-    setTradePlanSignal(null);
-    setIsTradePlanConfirmed(false);
-    setActiveProductTab("running");
-    setWorkspaceNotification({
-      id: `trade-plan-sim-${Date.now()}`,
-      title: currentCopy.workspace.feedback.title,
-      message: currentCopy.workspace.feedback.simulationStarted,
-      meta: currentCopy.workspace.feedback.meta,
-    });
-  }, []);
-
-  const startTradePlanLiveTracking = useCallback(() => {
-    const currentCopy = copyRef.current;
-    setIsBinanceGuideOpen(true);
-    setWorkspaceNotification({
-      id: `trade-plan-live-${Date.now()}`,
-      title: currentCopy.workspace.feedback.title,
-      message: currentCopy.workspace.feedback.liveNeedsApi,
-      meta: currentCopy.workspace.feedback.meta,
-    });
-  }, []);
 
   return (
     <main className={pageClassName} data-compact-ui>
@@ -631,7 +562,7 @@ export function SignalWorkspace() {
                   paperPositionsBySignalId={paperPositionsBySignalId}
                   sourceStatus={kolSignalSourceStatus}
                   signals={kolSignals}
-                  onAiFollowRequest={openTradePlan}
+                  onFollowRequest={openCommunityConversion}
                   onSignalSelect={handleSignalSelect}
                 />
               </div>
@@ -645,26 +576,14 @@ export function SignalWorkspace() {
               />
             )}
           </section>
-        ) : activeProductTab === "kolFollow" ? (
+        ) : (
           <KolFollowProductTab
             copy={copy}
             isDarkTheme={isDarkTheme}
             paperPositionsBySignalId={paperPositionsBySignalId}
             signals={kolSignals}
-            onAiFollowRequest={openTradePlan}
-            onApiGuideOpen={() => setIsBinanceGuideOpen(true)}
-            onDetailOpen={handleKolDetailOpen}
-            onFollowStart={handleKolFollowStart}
+            onCommunityConversionOpen={handleKolCommunityConversionOpen}
             onSignalSelect={handleSignalSelect}
-          />
-        ) : (
-          <RunningProductTab
-            copy={copy}
-            isDarkTheme={isDarkTheme}
-            paperPositionsBySignalId={paperPositionsBySignalId}
-            signals={kolSignals}
-            onApiGuideOpen={() => setIsBinanceGuideOpen(true)}
-            onTaskAction={handleRunningTaskAction}
           />
         )}
       </div>
@@ -679,7 +598,7 @@ export function SignalWorkspace() {
           paperPositionsBySignalId={paperPositionsBySignalId}
           signals={kolSignals}
           sourceStatus={kolSignalSourceStatus}
-          onAiFollowRequest={openTradePlan}
+          onFollowRequest={openCommunityConversion}
           onOpenChange={setIsMobileKolSheetOpen}
           onSignalSelect={handleSignalSelect}
         />
@@ -697,25 +616,12 @@ export function SignalWorkspace() {
           }
         }}
       />
-      <TradePlanModal
-        copy={copy}
-        isConfirmed={isTradePlanConfirmed}
-        isDarkTheme={isDarkTheme}
-        record={activeTradePlanPaperPosition}
-        signal={tradePlanSignal}
-        onClose={() => {
-          setTradePlanSignal(null);
-          setIsTradePlanConfirmed(false);
-        }}
-        onConfirmedChange={setIsTradePlanConfirmed}
-        onLiveStart={startTradePlanLiveTracking}
-        onSimulationStart={startTradePlanSimulation}
-      />
-      {isBinanceGuideOpen ? (
-        <BinanceGuideModal
+      {isCommunityConversionOpen ? (
+        <CommunityConversionModal
           copy={copy}
           isDarkTheme={isDarkTheme}
-          onClose={() => setIsBinanceGuideOpen(false)}
+          onClose={() => setIsCommunityConversionOpen(false)}
+          onCommunityOpen={handleCommunityModalJoin}
         />
       ) : null}
     </main>
@@ -747,7 +653,7 @@ function MobileKolBottomSheet({
   paperPositionsBySignalId,
   signals,
   sourceStatus,
-  onAiFollowRequest,
+  onFollowRequest,
   onOpenChange,
   onSignalSelect,
 }: {
@@ -760,7 +666,7 @@ function MobileKolBottomSheet({
   paperPositionsBySignalId: Readonly<Record<string, PaperPositionRecord>>;
   signals: readonly StructuredSignal[];
   sourceStatus: KolSignalSourceStatus;
-  onAiFollowRequest: (signal: StructuredSignal) => void;
+  onFollowRequest: (signal: StructuredSignal) => void;
   onOpenChange: (isOpen: boolean) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
 }) {
@@ -806,7 +712,7 @@ function MobileKolBottomSheet({
             sourceStatus={sourceStatus}
             signals={signals}
             variant="mobileSheet"
-            onAiFollowRequest={onAiFollowRequest}
+            onFollowRequest={onFollowRequest}
             onSignalSelect={(signal) => {
               onSignalSelect(signal);
               onOpenChange(false);
@@ -977,7 +883,7 @@ function WorkspaceTopNavigation({
       <div className="flex min-w-0 items-center gap-5">
         <BrandLogo copy={copy} isDarkTheme={isDarkTheme} language={language} />
       </div>
-      <div className="order-3 w-full min-w-0 lg:order-none lg:w-auto lg:flex-1">
+      <div className="order-3 flex w-full min-w-0 items-center gap-2 overflow-x-auto lg:order-none lg:w-auto lg:flex-1">
         <WorkspaceProductTabs
           activeTab={activeProductTab}
           copy={copy}
@@ -985,11 +891,9 @@ function WorkspaceTopNavigation({
           variant="topbar"
           onTabChange={onProductTabChange}
         />
-      </div>
-      <div className="hidden min-w-0 items-center gap-5 xl:flex">
         <nav
           aria-label={copy.workspace.navAria}
-          className="flex items-center gap-1"
+          className="flex shrink-0 items-center gap-1"
         >
           <button
             className={headerLinkClassName}
