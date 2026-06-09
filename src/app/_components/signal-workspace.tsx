@@ -45,6 +45,14 @@ import {
   getSignalDirectionBadgeClass,
   getSignalPaperPositionBadgeClass,
 } from "./signal-workspace/paper-position-summary";
+import {
+  BinanceGuideModal,
+  KolFollowProductTab,
+  RunningProductTab,
+  TradePlanModal,
+  WorkspaceProductTabs,
+  type WorkspaceProductTab,
+} from "./signal-workspace/product-tabs";
 
 const MAX_VISIBLE_KOL_SIGNALS = 50;
 const NOTIFICATION_DISMISS_MS = 6_500;
@@ -75,6 +83,12 @@ export function SignalWorkspace() {
   const [isMobileKolSheetOpen, setIsMobileKolSheetOpen] = useState(false);
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [isRightPanelExiting, setIsRightPanelExiting] = useState(false);
+  const [activeProductTab, setActiveProductTab] =
+    useState<WorkspaceProductTab>("intel");
+  const [tradePlanSignal, setTradePlanSignal] =
+    useState<StructuredSignal | null>(null);
+  const [isTradePlanConfirmed, setIsTradePlanConfirmed] = useState(false);
+  const [isBinanceGuideOpen, setIsBinanceGuideOpen] = useState(false);
   const [isWorkspaceMotionVisible, setIsWorkspaceMotionVisible] =
     useState(false);
   const [marketOptions, setMarketOptions] = useState<MarketSymbol[]>(markets);
@@ -132,6 +146,9 @@ export function SignalWorkspace() {
   const activeChartPaperPosition = activeSignal
     ? (paperPositionsBySignalId[activeSignal.id] ?? null)
     : null;
+  const activeTradePlanPaperPosition = tradePlanSignal
+    ? (paperPositionsBySignalId[tradePlanSignal.id] ?? null)
+    : null;
   /**
    * Chart-level signal drawings depend on the simulated lifecycle. Rendering
    * before this record exists briefly applies the wrong lifecycle style.
@@ -151,6 +168,7 @@ export function SignalWorkspace() {
     : "motion-fx-7-workspace-grid relative flex min-h-0 flex-col gap-3 p-3 pb-28 lg:grid lg:h-full lg:gap-4 lg:p-4 lg:pb-4 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]";
 
   const startOnboardingGuide = useCallback(() => {
+    setActiveProductTab("intel");
     setIsRightPanelCollapsed(false);
     if (isCompactLayout) {
       setIsMobileKolSheetOpen(true);
@@ -455,12 +473,95 @@ export function SignalWorkspace() {
     [signals],
   );
 
+  const openTradePlan = useCallback((signal: StructuredSignal) => {
+    const currentCopy = copyRef.current;
+    setTradePlanSignal(signal);
+    setIsTradePlanConfirmed(false);
+    setWorkspaceNotification({
+      id: `trade-plan-${signal.id}-${Date.now()}`,
+      title: currentCopy.workspace.feedback.title,
+      message: currentCopy.workspace.feedback.tradePlanOpened(signal.source_name),
+      meta: currentCopy.workspace.feedback.meta,
+    });
+  }, []);
+
+  const handleKolFollowStart = useCallback(
+    (model: { name: string; latestSignal: StructuredSignal }) => {
+      const currentCopy = copyRef.current;
+      setActiveProductTab("running");
+      setActiveSignalId(model.latestSignal.id);
+      setSymbol(model.latestSignal.symbol);
+      setWorkspaceNotification({
+        id: `kol-follow-${model.name}-${Date.now()}`,
+        title: currentCopy.workspace.feedback.title,
+        message: currentCopy.workspace.feedback.followConfigured(model.name),
+        meta: currentCopy.workspace.feedback.meta,
+      });
+    },
+    [],
+  );
+
+  const handleKolDetailOpen = useCallback(
+    (model: { name: string; latestSignal: StructuredSignal }) => {
+      const currentCopy = copyRef.current;
+      handleSignalSelect(model.latestSignal);
+      setWorkspaceNotification({
+        id: `kol-detail-${model.name}-${Date.now()}`,
+        title: currentCopy.workspace.feedback.title,
+        message: currentCopy.workspace.feedback.detailOpened(model.name),
+        meta: currentCopy.workspace.feedback.meta,
+      });
+    },
+    [handleSignalSelect],
+  );
+
+  const handleRunningTaskAction = useCallback(
+    (task: { title: string; sourceSignal: StructuredSignal | null }, action: string) => {
+      const currentCopy = copyRef.current;
+      if (task.sourceSignal) {
+        handleSignalSelect(task.sourceSignal);
+      }
+      setWorkspaceNotification({
+        id: `running-task-${task.title}-${action}-${Date.now()}`,
+        title: currentCopy.workspace.feedback.title,
+        message: currentCopy.workspace.feedback.taskAction(task.title, action),
+        meta: currentCopy.workspace.feedback.meta,
+      });
+    },
+    [handleSignalSelect],
+  );
+
+  const startTradePlanSimulation = useCallback(() => {
+    const currentCopy = copyRef.current;
+    setTradePlanSignal(null);
+    setIsTradePlanConfirmed(false);
+    setActiveProductTab("running");
+    setWorkspaceNotification({
+      id: `trade-plan-sim-${Date.now()}`,
+      title: currentCopy.workspace.feedback.title,
+      message: currentCopy.workspace.feedback.simulationStarted,
+      meta: currentCopy.workspace.feedback.meta,
+    });
+  }, []);
+
+  const startTradePlanLiveTracking = useCallback(() => {
+    const currentCopy = copyRef.current;
+    setIsBinanceGuideOpen(true);
+    setWorkspaceNotification({
+      id: `trade-plan-live-${Date.now()}`,
+      title: currentCopy.workspace.feedback.title,
+      message: currentCopy.workspace.feedback.liveNeedsApi,
+      meta: currentCopy.workspace.feedback.meta,
+    });
+  }, []);
+
   return (
     <main className={pageClassName} data-compact-ui>
       <div
         className={`motion-fx-10-delay-0 motion-fx-10-reveal ${isWorkspaceMotionVisible ? "is-visible" : ""}`}
       >
         <WorkspaceTopNavigation
+          activeProductTab={activeProductTab}
           copy={copy}
           isDarkTheme={isDarkTheme}
           language={language}
@@ -469,92 +570,120 @@ export function SignalWorkspace() {
           onGuideOpen={startOnboardingGuide}
           onLanguageToggle={toggleLanguage}
           onNotificationDismiss={() => setWorkspaceNotification(null)}
+          onProductTabChange={setActiveProductTab}
           onThemeToggle={toggleTheme}
         />
       </div>
       <div className="min-w-0 flex-1 lg:min-h-0 lg:overflow-hidden">
-        <section
-          className={workspaceGridClassName}
-          data-right-panel-collapsed={String(isRightPanelCollapsed)}
-        >
-          <div
-            className={`motion-fx-10-delay-1 motion-fx-10-reveal motion-fx-7-primary-panel flex min-w-0 w-full lg:h-full lg:min-h-0 ${isWorkspaceMotionVisible ? "is-visible" : ""}`}
+        {activeProductTab === "intel" ? (
+          <section
+            className={workspaceGridClassName}
+            data-right-panel-collapsed={String(isRightPanelCollapsed)}
           >
-            <RealtimeKlinePanel
-              key={`${symbol}-${interval}`}
-              activePaperPosition={activeChartPaperPosition}
-              isActivePaperPositionReady={isActiveChartPaperPositionReady}
-              activeSignal={activeSignal}
-              focusSignalRequestKey={chartFocusSignalRequestKey}
-              interval={interval}
-              language={language}
-              isCompactLayout={isCompactLayout}
-              marketOptions={marketOptions}
-              symbol={symbol}
-              signals={signals}
-              theme={theme}
-              tradeMarkers={EMPTY_COPY_TRADING_TRADE_MARKERS}
-              onIntervalChange={(nextInterval) => {
-                setChartFocusSignalRequestKey(null);
-                setInterval(nextInterval);
-              }}
-              onSymbolChange={handleSymbolChange}
-              onSignalSelect={handleSignalSelect}
-              onFocusSignalRequestHandled={() =>
-                setChartFocusSignalRequestKey(null)
-              }
-              onMarketCandleUpdate={setLatestMarketCandleUpdate}
-            />
-          </div>
-
-          {!isRightPanelCollapsed || isRightPanelExiting ? (
             <div
-              className={`kol-panel-shell motion-fx-10-delay-2 motion-fx-10-reveal motion-fx-7-secondary-panel relative hidden min-h-0 min-w-0 flex-col gap-3 lg:flex ${isWorkspaceMotionVisible ? "is-visible" : ""} ${isRightPanelExiting ? "is-exiting" : ""}`}
+              className={`motion-fx-10-delay-1 motion-fx-10-reveal motion-fx-7-primary-panel flex min-w-0 w-full lg:h-full lg:min-h-0 ${isWorkspaceMotionVisible ? "is-visible" : ""}`}
             >
-              <KolPanel
+              <RealtimeKlinePanel
+                key={`${symbol}-${interval}`}
+                activePaperPosition={activeChartPaperPosition}
+                isActivePaperPositionReady={isActiveChartPaperPositionReady}
                 activeSignal={activeSignal}
-                headerAction={
-                  <SidebarCollapseButton
-                    copy={copy}
-                    isCollapsed={isRightPanelCollapsed}
-                    isDarkTheme={isDarkTheme}
-                    variant="header"
-                    onToggle={toggleRightPanel}
-                  />
-                }
-                copy={copy}
-                isDarkTheme={isDarkTheme}
-                paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
-                paperPositionsBySignalId={paperPositionsBySignalId}
-                sourceStatus={kolSignalSourceStatus}
-                signals={kolSignals}
+                focusSignalRequestKey={chartFocusSignalRequestKey}
+                interval={interval}
+                language={language}
+                isCompactLayout={isCompactLayout}
+                marketOptions={marketOptions}
+                symbol={symbol}
+                signals={signals}
+                theme={theme}
+                tradeMarkers={EMPTY_COPY_TRADING_TRADE_MARKERS}
+                onIntervalChange={(nextInterval) => {
+                  setChartFocusSignalRequestKey(null);
+                  setInterval(nextInterval);
+                }}
+                onSymbolChange={handleSymbolChange}
                 onSignalSelect={handleSignalSelect}
+                onFocusSignalRequestHandled={() =>
+                  setChartFocusSignalRequestKey(null)
+                }
+                onMarketCandleUpdate={setLatestMarketCandleUpdate}
               />
             </div>
-          ) : (
-            <SidebarCollapseButton
-              copy={copy}
-              isCollapsed={isRightPanelCollapsed}
-              isDarkTheme={isDarkTheme}
-              variant="edge-tab"
-              onToggle={toggleRightPanel}
-            />
-          )}
-        </section>
+
+            {!isRightPanelCollapsed || isRightPanelExiting ? (
+              <div
+                className={`kol-panel-shell motion-fx-10-delay-2 motion-fx-10-reveal motion-fx-7-secondary-panel relative hidden min-h-0 min-w-0 flex-col gap-3 lg:flex ${isWorkspaceMotionVisible ? "is-visible" : ""} ${isRightPanelExiting ? "is-exiting" : ""}`}
+              >
+                <KolPanel
+                  activeSignal={activeSignal}
+                  headerAction={
+                    <SidebarCollapseButton
+                      copy={copy}
+                      isCollapsed={isRightPanelCollapsed}
+                      isDarkTheme={isDarkTheme}
+                      variant="header"
+                      onToggle={toggleRightPanel}
+                    />
+                  }
+                  copy={copy}
+                  isDarkTheme={isDarkTheme}
+                  paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
+                  paperPositionsBySignalId={paperPositionsBySignalId}
+                  sourceStatus={kolSignalSourceStatus}
+                  signals={kolSignals}
+                  onAiFollowRequest={openTradePlan}
+                  onSignalSelect={handleSignalSelect}
+                />
+              </div>
+            ) : (
+              <SidebarCollapseButton
+                copy={copy}
+                isCollapsed={isRightPanelCollapsed}
+                isDarkTheme={isDarkTheme}
+                variant="edge-tab"
+                onToggle={toggleRightPanel}
+              />
+            )}
+          </section>
+        ) : activeProductTab === "kolFollow" ? (
+          <KolFollowProductTab
+            copy={copy}
+            isDarkTheme={isDarkTheme}
+            paperPositionsBySignalId={paperPositionsBySignalId}
+            signals={kolSignals}
+            onAiFollowRequest={openTradePlan}
+            onApiGuideOpen={() => setIsBinanceGuideOpen(true)}
+            onDetailOpen={handleKolDetailOpen}
+            onFollowStart={handleKolFollowStart}
+            onSignalSelect={handleSignalSelect}
+          />
+        ) : (
+          <RunningProductTab
+            copy={copy}
+            isDarkTheme={isDarkTheme}
+            paperPositionsBySignalId={paperPositionsBySignalId}
+            signals={kolSignals}
+            onApiGuideOpen={() => setIsBinanceGuideOpen(true)}
+            onTaskAction={handleRunningTaskAction}
+          />
+        )}
       </div>
-      <MobileKolBottomSheet
-        activeSignal={activeSignal}
-        copy={copy}
-        isCompactLayout={isCompactLayout}
-        isDarkTheme={isDarkTheme}
-        isOpen={isMobileKolSheetOpen}
-        paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
-        paperPositionsBySignalId={paperPositionsBySignalId}
-        signals={kolSignals}
-        sourceStatus={kolSignalSourceStatus}
-        onOpenChange={setIsMobileKolSheetOpen}
-        onSignalSelect={handleSignalSelect}
-      />
+      {activeProductTab === "intel" ? (
+        <MobileKolBottomSheet
+          activeSignal={activeSignal}
+          copy={copy}
+          isCompactLayout={isCompactLayout}
+          isDarkTheme={isDarkTheme}
+          isOpen={isMobileKolSheetOpen}
+          paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
+          paperPositionsBySignalId={paperPositionsBySignalId}
+          signals={kolSignals}
+          sourceStatus={kolSignalSourceStatus}
+          onAiFollowRequest={openTradePlan}
+          onOpenChange={setIsMobileKolSheetOpen}
+          onSignalSelect={handleSignalSelect}
+        />
+      ) : null}
       <OnboardingGuide
         copy={copy.onboarding}
         isCompactLayout={isCompactLayout}
@@ -568,6 +697,27 @@ export function SignalWorkspace() {
           }
         }}
       />
+      <TradePlanModal
+        copy={copy}
+        isConfirmed={isTradePlanConfirmed}
+        isDarkTheme={isDarkTheme}
+        record={activeTradePlanPaperPosition}
+        signal={tradePlanSignal}
+        onClose={() => {
+          setTradePlanSignal(null);
+          setIsTradePlanConfirmed(false);
+        }}
+        onConfirmedChange={setIsTradePlanConfirmed}
+        onLiveStart={startTradePlanLiveTracking}
+        onSimulationStart={startTradePlanSimulation}
+      />
+      {isBinanceGuideOpen ? (
+        <BinanceGuideModal
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          onClose={() => setIsBinanceGuideOpen(false)}
+        />
+      ) : null}
     </main>
   );
 }
@@ -597,6 +747,7 @@ function MobileKolBottomSheet({
   paperPositionsBySignalId,
   signals,
   sourceStatus,
+  onAiFollowRequest,
   onOpenChange,
   onSignalSelect,
 }: {
@@ -609,6 +760,7 @@ function MobileKolBottomSheet({
   paperPositionsBySignalId: Readonly<Record<string, PaperPositionRecord>>;
   signals: readonly StructuredSignal[];
   sourceStatus: KolSignalSourceStatus;
+  onAiFollowRequest: (signal: StructuredSignal) => void;
   onOpenChange: (isOpen: boolean) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
 }) {
@@ -654,6 +806,7 @@ function MobileKolBottomSheet({
             sourceStatus={sourceStatus}
             signals={signals}
             variant="mobileSheet"
+            onAiFollowRequest={onAiFollowRequest}
             onSignalSelect={(signal) => {
               onSignalSelect(signal);
               onOpenChange(false);
@@ -788,6 +941,7 @@ function MobileKolSheetHandle({
 }
 
 function WorkspaceTopNavigation({
+  activeProductTab,
   copy,
   isDarkTheme,
   language,
@@ -796,8 +950,10 @@ function WorkspaceTopNavigation({
   onGuideOpen,
   onLanguageToggle,
   onNotificationDismiss,
+  onProductTabChange,
   onThemeToggle,
 }: {
+  activeProductTab: WorkspaceProductTab;
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
   language: WorkspaceLanguage;
@@ -806,11 +962,12 @@ function WorkspaceTopNavigation({
   onGuideOpen: () => void;
   onLanguageToggle: () => void;
   onNotificationDismiss: () => void;
+  onProductTabChange: (tab: WorkspaceProductTab) => void;
   onThemeToggle: () => void;
 }) {
   const headerClassName = isDarkTheme
-    ? "relative z-50 flex h-16 shrink-0 items-center justify-between border-b border-white/[0.075] bg-[#0B0E11]/95 px-5 backdrop-blur-xl"
-    : "relative z-50 flex h-16 shrink-0 items-center justify-between border-b border-[#E5EAF0] bg-white/95 px-5 backdrop-blur-xl";
+    ? "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/[0.075] bg-[#0B0E11]/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap"
+    : "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#E5EAF0] bg-white/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap";
   const headerLinkClassName = isDarkTheme
     ? "motion-fx-1-nav-button px-2 py-2 text-sm font-semibold text-slate-400 transition-colors hover:text-[#69D4FF]"
     : "motion-fx-1-nav-button px-2 py-2 text-sm font-semibold text-slate-500 transition-colors hover:text-[#008DCC]";
@@ -819,9 +976,20 @@ function WorkspaceTopNavigation({
     <header className={headerClassName}>
       <div className="flex min-w-0 items-center gap-5">
         <BrandLogo copy={copy} isDarkTheme={isDarkTheme} language={language} />
+      </div>
+      <div className="order-3 w-full min-w-0 lg:order-none lg:w-auto lg:flex-1">
+        <WorkspaceProductTabs
+          activeTab={activeProductTab}
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          variant="topbar"
+          onTabChange={onProductTabChange}
+        />
+      </div>
+      <div className="hidden min-w-0 items-center gap-5 xl:flex">
         <nav
           aria-label={copy.workspace.navAria}
-          className="hidden items-center gap-1 md:flex"
+          className="flex items-center gap-1"
         >
           <button
             className={headerLinkClassName}
@@ -829,9 +997,6 @@ function WorkspaceTopNavigation({
             onClick={onGuideOpen}
           >
             {copy.workspace.guide}
-          </button>
-          <button className={headerLinkClassName} type="button">
-            {copy.workspace.copyTrading}
           </button>
           <TelegramCommunityButton
             copy={copy}
