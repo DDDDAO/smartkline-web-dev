@@ -67,6 +67,7 @@ export function WorkspaceProductTabs({
             key={tab}
             aria-current={isActive ? "page" : undefined}
             className={buttonClassName}
+            data-guide-target={tab === "kolFollow" ? "workspace-kol-follow-tab" : undefined}
             title={tabCopy.description}
             type="button"
             onClick={() => onTabChange(tab)}

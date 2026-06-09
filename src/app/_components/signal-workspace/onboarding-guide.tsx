@@ -65,6 +65,14 @@ const GUIDE_STEPS: GuideStep[] = [
     radius: 999,
     target: "ai-summary-button",
   },
+  {
+    coachPlacement: "below-left",
+    mobileCoachPlacement: "below-left",
+    mobileKolSheet: "closed",
+    padding: 6,
+    radius: 999,
+    target: "workspace-kol-follow-tab",
+  },
 ];
 
 const COACH_MARK_WIDTH = 340;
@@ -277,6 +285,10 @@ function resolveTargetRect(step: GuideStep): HighlightRect {
 
   if (step.target === "kol-first-card") {
     element.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+  }
+
+  if (step.target === "workspace-kol-follow-tab") {
+    element.scrollIntoView({ block: "nearest", inline: "center", behavior: "auto" });
   }
 
   const targetRect = element.getBoundingClientRect();
