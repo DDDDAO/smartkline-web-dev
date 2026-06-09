@@ -141,11 +141,6 @@ export function KolFollowProductTab({
               </p>
             </div>
           </div>
-          <StageNotice
-            isDarkTheme={isDarkTheme}
-            label={copy.workspace.kolFollow.stageNotice.label}
-            text={copy.workspace.kolFollow.stageNotice.text}
-          />
           <div className="mt-3 grid gap-2 md:grid-cols-3">
             {copy.workspace.kolFollow.flow.map((item, index) => (
               <div
@@ -179,7 +174,7 @@ export function KolFollowProductTab({
           </div>
         </div>
         <div className="kol-scroll-area min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="grid gap-3 xl:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {models.length > 0 ? (
               models.map((model, index) => (
                 <KolFollowCard
@@ -381,33 +376,6 @@ function KolFollowCard({
   );
 }
 
-function StageNotice({
-  isDarkTheme,
-  label,
-  text,
-}: {
-  isDarkTheme: boolean;
-  label: string;
-  text: string;
-}) {
-  const containerClassName = isDarkTheme
-    ? "mt-3 rounded-2xl border border-sky-400/25 bg-sky-400/10 px-3 py-2.5"
-    : "mt-3 rounded-2xl border border-[#CDEFFF] bg-[#F1FBFF] px-3 py-2.5";
-  const labelClassName = isDarkTheme
-    ? "kol-signal-pill kol-signal-pill-dark kol-status-live"
-    : "kol-signal-pill kol-status-live";
-  const textClassName = isDarkTheme
-    ? "mt-2 text-xs font-medium leading-5 text-sky-100/90"
-    : "mt-2 text-xs font-medium leading-5 text-[#087EBB]";
-
-  return (
-    <div className={containerClassName}>
-      <span className={labelClassName}>{label}</span>
-      <div className={textClassName}>{text}</div>
-    </div>
-  );
-}
-
 export function CommunityConversionModal({
   copy,
   isDarkTheme,
@@ -428,10 +396,7 @@ export function CommunityConversionModal({
       <div className={modalClassName}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <span className={getInfoPillClassName(isDarkTheme)}>
-              {copy.workspace.communityConversion.badge}
-            </span>
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight">
+            <h2 className="text-2xl font-semibold tracking-tight">
               {copy.workspace.communityConversion.title}
             </h2>
             <p className={getPanelDescriptionClassName(isDarkTheme)}>

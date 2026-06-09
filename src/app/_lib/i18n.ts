@@ -174,12 +174,6 @@ const zh = {
     documentTitle: "K线情报局",
     edgePanel: "展开 KOL信息",
     expandPanel: "KOL信息",
-    feedback: {
-      communityConversionOpened: (name: string) => `已打开 ${name} 的 TG 社群跟单入口。`,
-      communityJoined: "已打开 TG 社群，请在 Telegram 中完成加入。",
-      meta: "K线情报局 · 社群跟单",
-      title: "操作已记录",
-    },
     followConversion: {
       signalCardCta: "一键跟单",
       signalCardLabel: "一键跟单",
@@ -194,10 +188,6 @@ const zh = {
       heroBadge: "排行榜",
       heroTitle: "KOL跟单",
       riskNote: "排行基于当前可见信号聚合展示，仅用于辅助观察；实际跟单教程和风控说明在 TG 社群内持续更新。",
-      stageNotice: {
-        label: "社群转化",
-        text: "当前一键跟单先引导加入 TG 社群，免费跟单教程和完整功能会在社群内优先同步。",
-      },
       stats: {
         active: "活跃信号",
         latest: "最近信号",
@@ -418,12 +408,6 @@ const en: WorkspaceCopy = {
     documentTitle: "SmartKline Intel",
     edgePanel: "Expand KOL signals",
     expandPanel: "KOL signals",
-    feedback: {
-      communityConversionOpened: (name) => `Opened the TG community copy entry for ${name}.`,
-      communityJoined: "Opened the TG community. Complete joining in Telegram.",
-      meta: "SmartKline Intel · Community copy",
-      title: "Action recorded",
-    },
     followConversion: {
       signalCardCta: "Copy now",
       signalCardLabel: "Copy now",
@@ -438,10 +422,6 @@ const en: WorkspaceCopy = {
       heroBadge: "Ranking",
       heroTitle: "KOL Copy",
       riskNote: "Ranking is aggregated from visible signals for observation only. Copy-trading tutorials and risk notes are updated in the TG community.",
-      stageNotice: {
-        label: "Community flow",
-        text: "One-click copy currently routes to the TG community first. Free tutorials and full feature updates are shared there first.",
-      },
       stats: {
         active: "Active signals",
         latest: "Latest signal",

@@ -177,14 +177,7 @@ export function SignalWorkspace() {
   }, [isCompactLayout]);
 
   const handleTelegramDiscussionJoin = useCallback(() => {
-    const currentCopy = copyRef.current;
     openExternalTelegramUrl(TELEGRAM_DISCUSSION_GROUP_URL);
-    setWorkspaceNotification({
-      id: `community-joined-${Date.now()}`,
-      title: currentCopy.workspace.feedback.title,
-      message: currentCopy.workspace.feedback.communityJoined,
-      meta: currentCopy.workspace.feedback.meta,
-    });
   }, []);
 
   const handleCommunityModalJoin = useCallback(() => {
@@ -479,34 +472,16 @@ export function SignalWorkspace() {
   );
 
   const openCommunityConversion = useCallback((signal: StructuredSignal) => {
-    const currentCopy = copyRef.current;
     handleSignalSelect(signal);
     setIsCommunityConversionOpen(true);
-    setWorkspaceNotification({
-      id: `community-conversion-${signal.id}-${Date.now()}`,
-      title: currentCopy.workspace.feedback.title,
-      message: currentCopy.workspace.feedback.communityConversionOpened(
-        signal.source_name,
-      ),
-      meta: currentCopy.workspace.feedback.meta,
-    });
   }, [handleSignalSelect]);
 
   const handleKolCommunityConversionOpen = useCallback(
-    (sourceName: string, signal?: StructuredSignal) => {
-      const currentCopy = copyRef.current;
+    (_sourceName: string, signal?: StructuredSignal) => {
       if (signal) {
         handleSignalSelect(signal);
       }
       setIsCommunityConversionOpen(true);
-      setWorkspaceNotification({
-        id: `kol-community-${sourceName}-${Date.now()}`,
-        title: currentCopy.workspace.feedback.title,
-        message: currentCopy.workspace.feedback.communityConversionOpened(
-          sourceName,
-        ),
-        meta: currentCopy.workspace.feedback.meta,
-      });
     },
     [handleSignalSelect],
   );
