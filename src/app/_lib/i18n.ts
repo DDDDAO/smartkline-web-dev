@@ -160,7 +160,7 @@ const zh = {
     communityConversion: {
       badge: "免费教程",
       benefits: ["免费跟单教程", "KOL 信号解读", "社群实时提醒"],
-      description: "一键跟单入口现在先承接到 TG 社群。进群后可以获取免费的跟单教程、KOL 信号说明和后续功能上线通知。",
+      description: "进群后可以获取免费的跟单教程、KOL 信号说明和后续功能上线通知。",
       primaryAction: "一键添加 TG 社群",
       secondaryAction: "稍后再说",
       sideAction: "一键添加 TG 社群",
@@ -394,7 +394,7 @@ const en: WorkspaceCopy = {
     communityConversion: {
       badge: "Free guide",
       benefits: ["Free copy-trading guide", "KOL signal walkthroughs", "Realtime community alerts"],
-      description: "The one-click copy entry now routes to the TG community first. Join to get the free copy-trading guide, KOL signal explanations, and feature launch updates.",
+      description: "Join to get the free copy-trading guide, KOL signal explanations, and feature launch updates.",
       primaryAction: "Add TG Community",
       secondaryAction: "Later",
       sideAction: "Add TG Community",
