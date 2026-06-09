@@ -883,7 +883,7 @@ function WorkspaceTopNavigation({
       <div className="flex min-w-0 items-center gap-5">
         <BrandLogo copy={copy} isDarkTheme={isDarkTheme} language={language} />
       </div>
-      <div className="order-3 w-full min-w-0 lg:order-none lg:w-auto lg:flex-1">
+      <div className="order-3 flex w-full min-w-0 items-center gap-2 overflow-x-auto lg:order-none lg:w-auto lg:flex-1">
         <WorkspaceProductTabs
           activeTab={activeProductTab}
           copy={copy}
@@ -891,11 +891,9 @@ function WorkspaceTopNavigation({
           variant="topbar"
           onTabChange={onProductTabChange}
         />
-      </div>
-      <div className="hidden min-w-0 items-center gap-5 xl:flex">
         <nav
           aria-label={copy.workspace.navAria}
-          className="flex items-center gap-1"
+          className="flex shrink-0 items-center gap-1"
         >
           <button
             className={headerLinkClassName}

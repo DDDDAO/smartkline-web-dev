@@ -211,7 +211,7 @@ const zh = {
       kolFollow: {
         description: "KOL 排行榜 / 信息广场",
         label: "KOL跟单",
-        stageLabel: "社群",
+        stageLabel: "",
       },
     },
     signalUpdateMessage: (count: number) => `已加载 ${count} 条新情报。`,
@@ -445,7 +445,7 @@ const en: WorkspaceCopy = {
       kolFollow: {
         description: "KOL ranking / information plaza",
         label: "KOL Copy",
-        stageLabel: "Community",
+        stageLabel: "",
       },
     },
     signalUpdateMessage: (count) => `Loaded ${count} new signals.`,
