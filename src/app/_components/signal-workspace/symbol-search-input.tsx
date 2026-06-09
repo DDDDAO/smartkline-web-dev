@@ -21,12 +21,25 @@ export function SymbolSearchInput({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const normalizedQuery = query.trim().toUpperCase();
   const matchedMarkets = useMemo(() => {
-    return normalizedQuery.length === 0
-      ? marketOptions
-      : marketOptions.filter((market) => {
-        const compactSymbol = market.replace("/USDT:USDT", "USDT").toUpperCase();
-        return market.toUpperCase().includes(normalizedQuery) || compactSymbol.includes(normalizedQuery);
-      });
+    if (normalizedQuery.length === 0) {
+      return marketOptions;
+    }
+
+    return marketOptions
+      .map((market, index) => ({
+        index,
+        market,
+        score: scoreMarketSymbolMatch(market, normalizedQuery),
+      }))
+      .filter(isRankedMarketSymbolSearchResult)
+      .sort((left, right) => {
+        if (left.score !== right.score) {
+          return left.score - right.score;
+        }
+
+        return left.index - right.index;
+      })
+      .map((result) => result.market);
   }, [marketOptions, normalizedQuery]);
   const inputClassName = isDarkTheme
     ? `h-[30px] w-full rounded-full border border-white/[0.075] bg-white/[0.035] py-0 pr-4 text-xs font-medium text-slate-100 outline-none placeholder:text-slate-500 transition-[border-color,background-color,padding] focus:border-[#00A6F4] sm:w-[220px] lg:h-9 lg:w-[260px] lg:text-sm ${isOpen ? "pl-9" : "pl-4"}`
@@ -117,6 +130,64 @@ export function SymbolSearchInput({
       ) : null}
     </div>
   );
+}
+
+type MarketSymbolSearchResult = {
+  index: number;
+  market: MarketSymbol;
+  score: number | null;
+};
+
+type RankedMarketSymbolSearchResult = MarketSymbolSearchResult & {
+  score: number;
+};
+
+function isRankedMarketSymbolSearchResult(
+  result: MarketSymbolSearchResult,
+): result is RankedMarketSymbolSearchResult {
+  return result.score !== null;
+}
+
+function scoreMarketSymbolMatch(
+  market: MarketSymbol,
+  normalizedQuery: string,
+): number | null {
+  const baseSymbol = market.split("/")[0]?.toUpperCase() ?? "";
+  const compactSymbol = market.replace("/USDT:USDT", "USDT").toUpperCase();
+  const fullSymbol = market.toUpperCase();
+  const baseIndex = baseSymbol.indexOf(normalizedQuery);
+  const compactIndex = compactSymbol.indexOf(normalizedQuery);
+  const fullIndex = fullSymbol.indexOf(normalizedQuery);
+
+  if (baseSymbol === normalizedQuery) {
+    return 0;
+  }
+
+  if (compactSymbol === normalizedQuery) {
+    return 1;
+  }
+
+  if (baseSymbol.startsWith(normalizedQuery)) {
+    return 10 + baseSymbol.length;
+  }
+
+  if (compactSymbol.startsWith(normalizedQuery)) {
+    return 30 + compactSymbol.length;
+  }
+
+  if (baseIndex >= 0) {
+    return 50 + baseIndex * 100 + baseSymbol.length;
+  }
+
+  if (compactIndex >= 0) {
+    return 80 + compactIndex * 100 + compactSymbol.length;
+  }
+
+  if (fullIndex >= 0) {
+    return 120 + fullIndex * 100 + fullSymbol.length;
+  }
+
+  return null;
 }
 
 function SearchIcon({ className }: { "aria-hidden": "true"; className: string }) {
