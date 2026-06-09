@@ -91,7 +91,20 @@ export function WorkspaceProductTabs({
             type="button"
             onClick={() => onTabChange(tab)}
           >
-            {tabCopy.label}
+            <span>{tabCopy.label}</span>
+            {tabCopy.stageLabel ? (
+              <span
+                className={
+                  isActive
+                    ? "ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                    : isDarkTheme
+                      ? "ml-1 rounded-full bg-amber-300/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200"
+                      : "ml-1 rounded-full bg-[#FFF8E8] px-1.5 py-0.5 text-[10px] font-semibold text-[#8B5B00]"
+                }
+              >
+                {tabCopy.stageLabel}
+              </span>
+            ) : null}
           </button>
         );
       })}
@@ -149,6 +162,11 @@ export function KolFollowProductTab({
               </p>
             </div>
           </div>
+          <StageNotice
+            isDarkTheme={isDarkTheme}
+            label={copy.workspace.kolFollow.stageNotice.label}
+            text={copy.workspace.kolFollow.stageNotice.text}
+          />
           <div className="mt-3 grid gap-2 md:grid-cols-3">
             {copy.workspace.kolFollow.flow.map((item, index) => (
               <div
@@ -324,6 +342,33 @@ function KolFollowCard({
   );
 }
 
+function StageNotice({
+  isDarkTheme,
+  label,
+  text,
+}: {
+  isDarkTheme: boolean;
+  label: string;
+  text: string;
+}) {
+  const containerClassName = isDarkTheme
+    ? "mt-3 rounded-2xl border border-amber-300/25 bg-amber-300/10 px-3 py-2.5"
+    : "mt-3 rounded-2xl border border-[#FFEFC5] bg-[#FFF8E8] px-3 py-2.5";
+  const labelClassName = isDarkTheme
+    ? "kol-signal-pill kol-signal-pill-dark kol-status-pending"
+    : "kol-signal-pill kol-status-pending";
+  const textClassName = isDarkTheme
+    ? "mt-2 text-xs font-medium leading-5 text-amber-100/90"
+    : "mt-2 text-xs font-medium leading-5 text-[#8B5B00]";
+
+  return (
+    <div className={containerClassName}>
+      <span className={labelClassName}>{label}</span>
+      <div className={textClassName}>{text}</div>
+    </div>
+  );
+}
+
 export function RunningProductTab({
   copy,
   isDarkTheme,
@@ -359,6 +404,11 @@ export function RunningProductTab({
             <p className={getPanelDescriptionClassName(isDarkTheme)}>
               {copy.workspace.running.description}
             </p>
+            <StageNotice
+              isDarkTheme={isDarkTheme}
+              label={copy.workspace.running.stageNotice.label}
+              text={copy.workspace.running.stageNotice.text}
+            />
           </div>
           <div className="flex flex-wrap gap-1.5">
             {copy.workspace.running.filters.map((filter) => (

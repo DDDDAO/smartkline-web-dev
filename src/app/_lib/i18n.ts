@@ -236,6 +236,10 @@ const zh = {
       heroBadge: "轻量版",
       heroTitle: "KOL跟单",
       riskNote: "默认先模拟观察；小额实盘会等待新信号，不直接复制当前浮亏仓位。",
+      stageNotice: {
+        label: "模拟测试中",
+        text: "当前展示为模拟测试阶段，完整 KOL 跟单功能会尽快上线。",
+      },
       stats: {
         active: "运行中",
         latest: "最近信号",
@@ -253,14 +257,17 @@ const zh = {
       intel: {
         description: "K线图 + KOL 信号 + AI跟入口",
         label: "K线情报局",
+        stageLabel: "",
       },
       kolFollow: {
         description: "精选 KOL / 带单员",
         label: "KOL跟单",
+        stageLabel: "模拟测试中",
       },
       running: {
         description: "AI跟 / 一键跟单任务",
         label: "运行中",
+        stageLabel: "模拟测试中",
       },
     },
     running: {
@@ -271,6 +278,10 @@ const zh = {
       empty: "当前还没有运行任务。",
       filters: ["全部", "AI跟", "一键跟单"],
       noticeTitle: "通知中心",
+      stageNotice: {
+        label: "模拟测试中",
+        text: "当前运行任务为模拟测试展示，真实执行状态同步功能会尽快上线。",
+      },
       taskActions: {
         pause: "暂停",
         stop: "停止",
@@ -534,6 +545,10 @@ const en: WorkspaceCopy = {
       heroBadge: "Lite",
       heroTitle: "KOL Copy",
       riskNote: "Simulation is the default. Small live tracking waits for new signals and does not copy current losing positions directly.",
+      stageNotice: {
+        label: "Testing",
+        text: "This tab is currently a simulation preview. Full KOL copy functionality will be launched soon.",
+      },
       stats: {
         active: "Running",
         latest: "Latest signal",
@@ -551,14 +566,17 @@ const en: WorkspaceCopy = {
       intel: {
         description: "K-line + KOL signals + AI Follow",
         label: "K-line Intel",
+        stageLabel: "",
       },
       kolFollow: {
         description: "Curated KOLs / lead traders",
         label: "KOL Copy",
+        stageLabel: "Testing",
       },
       running: {
         description: "AI Follow / copy tasks",
         label: "Running",
+        stageLabel: "Testing",
       },
     },
     running: {
@@ -569,6 +587,10 @@ const en: WorkspaceCopy = {
       empty: "No running tasks yet.",
       filters: ["All", "AI Follow", "Copy"],
       noticeTitle: "Notification Center",
+      stageNotice: {
+        label: "Testing",
+        text: "Running tasks are shown as a simulation preview. Live execution syncing will be launched soon.",
+      },
       taskActions: {
         pause: "Pause",
         stop: "Stop",
