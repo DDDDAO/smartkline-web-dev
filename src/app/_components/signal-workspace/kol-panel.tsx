@@ -73,6 +73,7 @@ export function KolPanel({
   sourceStatus,
   signals,
   variant = "desktop",
+  onAiFollowRequest,
   onSignalSelect,
 }: {
   activeSignal: StructuredSignal | null;
@@ -85,6 +86,7 @@ export function KolPanel({
   sourceStatus: KolSignalSourceStatus;
   signals: readonly StructuredSignal[];
   variant?: "desktop" | "mobileSheet";
+  onAiFollowRequest?: (signal: StructuredSignal) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
 }) {
   const activeCardRef = useRef<HTMLDivElement | null>(null);
@@ -523,6 +525,14 @@ export function KolPanel({
                     isDarkTheme={isDarkTheme}
                     record={paperPositionRecord}
                   />
+                  {onAiFollowRequest ? (
+                    <AiFollowSignalStrip
+                      copy={copy}
+                      isDarkTheme={isDarkTheme}
+                      signal={signal}
+                      onAiFollowRequest={onAiFollowRequest}
+                    />
+                  ) : null}
                 </div>
                 <div
                   className={`${backCardClassName} motion-fx-3-card-face-back signal-card-face signal-card-back`}
@@ -786,6 +796,49 @@ function KolStatsMetric({
     <div className="min-w-0">
       <div className={labelClassName}>{metric.label}</div>
       <div className={valueClassName}>{metric.value}</div>
+    </div>
+  );
+}
+
+function AiFollowSignalStrip({
+  copy,
+  isDarkTheme,
+  signal,
+  onAiFollowRequest,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  signal: StructuredSignal;
+  onAiFollowRequest: (signal: StructuredSignal) => void;
+}) {
+  const stripClassName = isDarkTheme
+    ? "mt-3 rounded-2xl border border-sky-400/20 bg-sky-400/10 p-3"
+    : "mt-3 rounded-2xl border border-[#CDEFFF] bg-[#F1FBFF] p-3";
+  const labelClassName = isDarkTheme
+    ? "text-[11px] font-semibold uppercase tracking-[0.08em] text-sky-300"
+    : "text-[11px] font-semibold uppercase tracking-[0.08em] text-[#087EBB]";
+  const metaClassName = isDarkTheme
+    ? "mt-1 text-xs font-medium text-slate-300"
+    : "mt-1 text-xs font-medium text-slate-600";
+  const buttonClassName = isDarkTheme
+    ? "mt-3 inline-flex h-9 w-full items-center justify-center rounded-full border border-sky-400/25 bg-sky-400/15 px-3 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/20"
+    : "mt-3 inline-flex h-9 w-full items-center justify-center rounded-full bg-[#00A6F4] px-3 text-xs font-semibold text-white transition hover:bg-[#0097DD]";
+
+  return (
+    <div className={stripClassName}>
+      <div className={labelClassName}>{copy.workspace.aiFollow.signalCardLabel}</div>
+      <div className={metaClassName}>{copy.workspace.aiFollow.signalCardMeta}</div>
+      <button
+        className={buttonClassName}
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onAiFollowRequest(signal);
+        }}
+        onKeyDown={(event) => event.stopPropagation()}
+      >
+        {copy.workspace.aiFollow.signalCardCta}
+      </button>
     </div>
   );
 }
