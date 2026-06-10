@@ -144,12 +144,12 @@ const zh = {
     title: "模拟仓位",
   },
   realtime: {
-    errorInline: (error: string) => `行情连接异常：${error}`,
-    guideCurrentError: (error: string) => `当前错误：${error}`,
-    guideDescription: "当前行情图加载失败，可能与地区网络环境有关。建议切换至香港、新加坡、日韩等可访问 Binance 行情源的网络环境后重试。",
-    guideEnvironment: "建议环境：香港、新加坡、日韩等可正常访问 Binance 行情数据的网络。",
-    guideEyebrow: "行情图加载失败",
-    guideTitle: "请检查地区网络环境",
+    errorInline: (error: string) => `\u884c\u60c5\u8fde\u63a5\u5f02\u5e38\uff1a${error}`,
+    guideCurrentError: (error: string) => `\u5f53\u524d\u9519\u8bef\uff1a${error}`,
+    guideDescription: "\u5f53\u524d\u884c\u60c5\u56fe\u52a0\u8f7d\u5931\u8d25\uff0c\u53ef\u80fd\u4e0e\u5730\u533a\u7f51\u7edc\u73af\u5883\u6709\u5173\u3002",
+    guideEnvironment: "\u9999\u6e2f\u3001\u65b0\u52a0\u5761\u3001\u65e5\u97e9\u7b49\u53ef\u8bbf\u95ee Binance \u884c\u60c5\u6e90",
+    guideEyebrow: "\u884c\u60c5\u56fe\u52a0\u8f7d\u5931\u8d25",
+    guideTitle: "\u8bf7\u68c0\u67e5\u5730\u533a\u7f51\u7edc\u73af\u5883",
     searchNoMatches: "没有匹配的合约",
     searchPlaceholder: "搜索合约，例如 BTC",
     title: "K线看盘",
@@ -161,8 +161,8 @@ const zh = {
     community: "加入TG社群",
     communityConversion: {
       badge: "免费教程",
-      benefits: ["免费跟单教程", "KOL 信号解读", "社群实时提醒"],
-      description: "进群后可以获取免费的跟单教程、KOL 信号说明和后续功能上线通知。",
+      benefits: ["免费跟单教程", "KOL 信号解读", "后续功能上线通知"],
+      description: "进群后可以获取...",
       primaryAction: "一键添加 TG 社群",
       secondaryAction: "稍后再说",
       sideAction: "一键添加 TG 社群",
@@ -207,7 +207,7 @@ const zh = {
     productTabs: {
       intel: {
         description: "K线图 + KOL 信号 + 一键跟单入口",
-        label: "K线情报局",
+        label: "\u60c5\u62a5\u770b\u677f",
         stageLabel: "",
       },
       kolFollow: {
@@ -382,8 +382,8 @@ const en: WorkspaceCopy = {
   realtime: {
     errorInline: (error) => `Market connection error: ${error}`,
     guideCurrentError: (error) => `Current error: ${error}`,
-    guideDescription: "The chart failed to load and may be blocked by the current network region. Try Hong Kong, Singapore, Japan, Korea, or another network region that can access Binance market data, then retry.",
-    guideEnvironment: "Recommended: Hong Kong, Singapore, Japan, or Korea network regions that can reach Binance market data.",
+    guideDescription: "The chart failed to load and may be blocked by the current network region.",
+    guideEnvironment: "Hong Kong, Singapore, Japan, Korea, or another region that can access Binance market data",
     guideEyebrow: "Market chart failed",
     guideTitle: "Check network access",
     searchNoMatches: "No matching contracts",
@@ -443,7 +443,7 @@ const en: WorkspaceCopy = {
     productTabs: {
       intel: {
         description: "K-line + KOL signals + one-click copy",
-        label: "K-line Intel",
+        label: "Intel Board",
         stageLabel: "",
       },
       kolFollow: {

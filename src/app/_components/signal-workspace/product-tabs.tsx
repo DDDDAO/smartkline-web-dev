@@ -44,9 +44,7 @@ export function WorkspaceProductTabs({
 }) {
   const shellClassName =
     variant === "topbar"
-      ? isDarkTheme
-        ? "flex w-full min-w-0 gap-1 overflow-x-auto rounded-full border border-white/[0.075] bg-white/[0.035] p-1 lg:w-fit"
-        : "flex w-full min-w-0 gap-1 overflow-x-auto rounded-full border border-[#E5EAF0] bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.035)] lg:w-fit"
+      ? "flex w-full min-w-0 gap-7 overflow-x-auto bg-transparent p-0 lg:w-fit"
       : isDarkTheme
         ? "mx-3 mt-3 flex w-fit max-w-[calc(100vw-1.5rem)] gap-1 overflow-x-auto rounded-full border border-white/[0.075] bg-white/[0.035] p-1 lg:mx-4"
         : "mx-3 mt-3 flex w-fit max-w-[calc(100vw-1.5rem)] gap-1 overflow-x-auto rounded-full border border-[#E5EAF0] bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.035)] lg:mx-4";
@@ -56,11 +54,18 @@ export function WorkspaceProductTabs({
       {WORKSPACE_PRODUCT_TABS.map((tab) => {
         const tabCopy = copy.workspace.productTabs[tab];
         const isActive = activeTab === tab;
-        const buttonClassName = isActive
-          ? "motion-fx-1-nav-button flex h-9 shrink-0 items-center rounded-full bg-[#00A6F4] px-3 text-xs font-semibold text-white sm:px-4 sm:text-sm"
-          : isDarkTheme
-            ? "motion-fx-1-nav-button flex h-9 shrink-0 items-center rounded-full px-3 text-xs font-semibold text-slate-400 transition hover:bg-white/[0.08] hover:text-sky-300 sm:px-4 sm:text-sm"
-            : "motion-fx-1-nav-button flex h-9 shrink-0 items-center rounded-full px-3 text-xs font-semibold text-slate-500 transition hover:bg-[#EAF8FE] hover:text-[#008DCC] sm:px-4 sm:text-sm";
+        const buttonClassName =
+          variant === "topbar"
+            ? isActive
+              ? "motion-fx-1-nav-button flex h-9 shrink-0 items-center bg-transparent px-0 text-xs font-semibold text-[#00A6F4] transition hover:bg-transparent hover:text-[#00A6F4] sm:text-sm"
+              : isDarkTheme
+                ? "motion-fx-1-nav-button flex h-9 shrink-0 items-center bg-transparent px-0 text-xs font-medium text-slate-400 transition hover:bg-transparent hover:text-sky-300 sm:text-sm"
+                : "motion-fx-1-nav-button flex h-9 shrink-0 items-center bg-transparent px-0 text-xs font-medium text-slate-500 transition hover:bg-transparent hover:text-[#008DCC] sm:text-sm"
+            : isActive
+              ? "motion-fx-1-nav-button flex h-9 shrink-0 items-center rounded-full bg-[#00A6F4] px-3 text-xs font-semibold text-white sm:px-4 sm:text-sm"
+              : isDarkTheme
+                ? "motion-fx-1-nav-button flex h-9 shrink-0 items-center rounded-full px-3 text-xs font-semibold text-slate-400 transition hover:bg-white/[0.08] hover:text-sky-300 sm:px-4 sm:text-sm"
+                : "motion-fx-1-nav-button flex h-9 shrink-0 items-center rounded-full px-3 text-xs font-semibold text-slate-500 transition hover:bg-[#EAF8FE] hover:text-[#008DCC] sm:px-4 sm:text-sm";
 
         return (
           <button
@@ -142,39 +147,14 @@ export function KolFollowProductTab({
               </p>
             </div>
           </div>
-          <div className="mt-3 grid gap-2 md:grid-cols-3">
-            {copy.workspace.kolFollow.flow.map((item, index) => (
-              <div
-                key={item}
-                className={
-                  isDarkTheme
-                    ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3"
-                    : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3"
-                }
-              >
-                <div
-                  className={
-                    isDarkTheme
-                      ? "text-xs font-semibold text-sky-300"
-                      : "text-xs font-semibold text-[#008DCC]"
-                  }
-                >
-                  {index + 1}
-                </div>
-                <div
-                  className={
-                    isDarkTheme
-                      ? "mt-1 text-sm font-semibold text-slate-100"
-                      : "mt-1 text-sm font-semibold text-slate-900"
-                  }
-                >
-                  {item}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
-        <div className="kol-scroll-area min-h-0 flex-1 overflow-y-auto p-4">
+        <div
+          className={
+            isDarkTheme
+              ? "kol-scroll-area kol-scroll-area-dark mr-2 min-h-0 flex-1 overflow-y-auto bg-[#12161D] pb-3 pl-3 pr-1 pt-3"
+              : "kol-scroll-area mr-2 min-h-0 flex-1 overflow-y-auto bg-[#FAFBFD] pb-3 pl-3 pr-1 pt-3"
+          }
+        >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {models.length > 0 ? (
               models.map((model, index) => (
@@ -389,8 +369,8 @@ export function CommunityConversionModal({
   onCommunityOpen: () => void;
 }) {
   const modalClassName = isDarkTheme
-    ? "w-[min(720px,94vw)] rounded-[28px] border border-white/[0.08] bg-[#181A20] p-5 text-slate-100 shadow-[0_24px_72px_rgba(0,0,0,0.42)]"
-    : "w-[min(720px,94vw)] rounded-[28px] border border-[#E5EAF0] bg-white p-5 text-slate-950 shadow-[0_22px_64px_rgba(15,23,42,0.16)]";
+    ? "w-[min(560px,92vw)] rounded-[28px] border border-white/[0.08] bg-[#181A20] p-6 text-slate-100 shadow-[0_24px_72px_rgba(0,0,0,0.42)]"
+    : "w-[min(560px,92vw)] rounded-[28px] border border-[#E5EAF0] bg-white p-6 text-slate-950 shadow-[0_22px_64px_rgba(15,23,42,0.16)]";
 
   return (
     <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/42 p-4 backdrop-blur-[6px]">
@@ -400,9 +380,6 @@ export function CommunityConversionModal({
             <h2 className="text-2xl font-semibold tracking-tight">
               {copy.workspace.communityConversion.title}
             </h2>
-            <p className={getPanelDescriptionClassName(isDarkTheme)}>
-              {copy.workspace.communityConversion.subtitle}
-            </p>
           </div>
           <button
             aria-label={copy.common.close}
@@ -422,29 +399,32 @@ export function CommunityConversionModal({
         >
           {copy.workspace.communityConversion.description}
         </p>
-        <div className="mt-4 grid gap-2 md:grid-cols-3">
-          {copy.workspace.communityConversion.benefits.map((benefit) => (
-            <div key={benefit} className={getInnerPanelClassName(isDarkTheme)}>
-              <div
+        <div className="mt-3 grid gap-3">
+          {copy.workspace.communityConversion.benefits.map((benefit, index) => (
+            <div
+              key={benefit}
+              className={
+                isDarkTheme
+                  ? "flex items-center gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-4 py-3"
+                  : "flex items-center gap-3 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-4 py-3"
+              }
+            >
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#EAF8FE] text-base font-bold text-[#00A6F4]">
+                {index + 1}
+              </span>
+              <span
                 className={
                   isDarkTheme
-                    ? "text-sm font-semibold text-sky-200"
-                    : "text-sm font-semibold text-[#087EBB]"
+                    ? "text-base font-semibold text-slate-100"
+                    : "text-base font-semibold text-slate-950"
                 }
               >
                 {benefit}
-              </div>
+              </span>
             </div>
           ))}
         </div>
-        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            className={getSecondaryButtonClassName(isDarkTheme)}
-            type="button"
-            onClick={onClose}
-          >
-            {copy.workspace.communityConversion.secondaryAction}
-          </button>
+        <div className="mt-6 flex justify-end">
           <button
             className={getPrimaryButtonClassName()}
             type="button"

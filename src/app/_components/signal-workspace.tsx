@@ -872,18 +872,15 @@ function WorkspaceTopNavigation({
   onThemeToggle: () => void;
 }) {
   const headerClassName = isDarkTheme
-    ? "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/[0.075] bg-[#0B0E11]/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap"
-    : "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#E5EAF0] bg-white/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap";
-  const headerLinkClassName = isDarkTheme
-    ? "motion-fx-1-nav-button px-2 py-2 text-sm font-semibold text-slate-400 transition-colors hover:text-[#69D4FF]"
-    : "motion-fx-1-nav-button px-2 py-2 text-sm font-semibold text-slate-500 transition-colors hover:text-[#008DCC]";
+    ? "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-6 border-b border-white/[0.075] bg-[#0B0E11]/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap"
+    : "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-6 border-b border-[#E5EAF0] bg-white/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap";
 
   return (
     <header className={headerClassName}>
-      <div className="flex min-w-0 items-center gap-5">
+      <div className="flex min-w-0 items-center gap-8">
         <BrandLogo copy={copy} isDarkTheme={isDarkTheme} language={language} />
       </div>
-      <div className="order-3 flex w-full min-w-0 items-center gap-2 overflow-x-auto lg:order-none lg:w-auto lg:flex-1">
+      <div className="order-3 flex w-full min-w-0 items-center gap-7 overflow-x-auto lg:order-none lg:w-auto lg:flex-1">
         <WorkspaceProductTabs
           activeTab={activeProductTab}
           copy={copy}
@@ -893,15 +890,8 @@ function WorkspaceTopNavigation({
         />
         <nav
           aria-label={copy.workspace.navAria}
-          className="flex shrink-0 items-center gap-1"
+          className="flex shrink-0 items-center gap-4"
         >
-          <button
-            className={headerLinkClassName}
-            type="button"
-            onClick={onGuideOpen}
-          >
-            {copy.workspace.guide}
-          </button>
           <TelegramCommunityButton
             copy={copy}
             isDarkTheme={isDarkTheme}
@@ -910,6 +900,11 @@ function WorkspaceTopNavigation({
         </nav>
       </div>
       <div className="relative flex items-center gap-2">
+        <GuideIconButton
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          onGuideOpen={onGuideOpen}
+        />
         <AnimatedThemeToggler
           copy={copy}
           isCollapsed
@@ -993,24 +988,51 @@ function TelegramCommunityButton({
   onCommunityOpen: () => void;
 }) {
   const className = isDarkTheme
-    ? "group motion-fx-1-nav-button flex h-10 items-center gap-2 overflow-hidden rounded-full border border-sky-300/20 bg-[#229ED9] px-3 text-sm font-bold text-white transition-[width] duration-200 ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-    : "group motion-fx-1-nav-button flex h-10 items-center gap-2 overflow-hidden rounded-full border border-[#1C93CC]/20 bg-[#229ED9] px-3 text-sm font-bold text-white transition-[width] duration-200 ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#229ED9]";
+    ? "group motion-fx-1-nav-button flex h-10 items-center gap-2 overflow-visible rounded-full border border-sky-300/24 bg-[#00A6F4] px-3 text-sm font-semibold text-white transition-none hover:bg-[#00A6F4] hover:shadow-none active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+    : "group motion-fx-1-nav-button flex h-10 items-center gap-2 overflow-visible rounded-full border border-[#00A6F4]/20 bg-[#00A6F4] px-3 text-sm font-semibold text-white transition-none hover:bg-[#00A6F4] hover:shadow-none active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#229ED9]";
+  const slugClassName = "max-w-0 overflow-hidden whitespace-nowrap text-xs font-normal text-white/86 opacity-0 transition-[max-width,opacity,margin] duration-200 ease-out group-hover:ml-1 group-hover:max-w-28 group-hover:opacity-100 group-focus-visible:ml-1 group-focus-visible:max-w-28 group-focus-visible:opacity-100";
 
   return (
     <button
-      aria-label={`${copy.workspace.community} · ${copy.workspace.communitySlug}`}
+      aria-label={`${copy.workspace.community} - ${copy.workspace.communitySlug}`}
       className={className}
-      title={`${copy.workspace.community} · ${copy.workspace.communitySlug}`}
+      title={`${copy.workspace.community} - ${copy.workspace.communitySlug}`}
       type="button"
       onClick={onCommunityOpen}
     >
       <TelegramIcon className="h-4 w-4 shrink-0" />
       <span className="whitespace-nowrap">{copy.workspace.community}</span>
-      <span
-        aria-hidden="true"
-        className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold text-sky-50/90 opacity-0 transition-[max-width,opacity,margin] duration-200 ease-out group-hover:ml-1 group-hover:max-w-28 group-hover:opacity-100 group-focus-visible:ml-1 group-focus-visible:max-w-28 group-focus-visible:opacity-100"
-      >
+      <span aria-hidden="true" className={slugClassName}>
         {copy.workspace.communitySlug}
+      </span>
+    </button>
+  );
+}
+
+function GuideIconButton({
+  copy,
+  isDarkTheme,
+  onGuideOpen,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  onGuideOpen: () => void;
+}) {
+  const className = isDarkTheme
+    ? "group motion-fx-1-nav-button flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/[0.075] bg-white/[0.035] px-0 text-sm font-medium text-slate-300 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out hover:w-[104px] hover:border-white/[0.11] hover:bg-white/[0.08] hover:px-3 hover:text-slate-50 active:scale-[0.98] focus-visible:w-[104px] focus-visible:px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+    : "group motion-fx-1-nav-button flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[#E5EAF0] bg-white px-0 text-sm font-medium text-slate-500 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out hover:w-[104px] hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:px-3 hover:text-slate-950 active:scale-[0.98] focus-visible:w-[104px] focus-visible:px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#229ED9]";
+
+  return (
+    <button
+      aria-label={copy.workspace.guide}
+      className={className}
+      title={copy.workspace.guide}
+      type="button"
+      onClick={onGuideOpen}
+    >
+      <GuideSparkIcon className="h-4 w-4 shrink-0" />
+      <span className="ml-0 max-w-0 overflow-hidden whitespace-nowrap text-xs font-normal opacity-0 transition-[max-width,opacity,margin] duration-200 ease-out group-hover:ml-2 group-hover:max-w-16 group-hover:opacity-100 group-focus-visible:ml-2 group-focus-visible:max-w-16 group-focus-visible:opacity-100">
+        {copy.workspace.guide}
       </span>
     </button>
   );
@@ -1478,6 +1500,41 @@ function LanguagesIcon({ className }: { className: string }) {
   );
 }
 
+function GuideSparkIcon({ className }: { className: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="9"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.9"
+      />
+      <path
+        d="M9.75 9.35a2.35 2.35 0 0 1 4.5.9c0 1.55-1.15 2.05-1.84 2.55-.48.35-.66.72-.66 1.35"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.9"
+      />
+      <path
+        d="M12 17.25h.01"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.5"
+      />
+    </svg>
+  );
+}
+
 function MoonIcon({ className }: { className: string }) {
   return (
     <svg
@@ -1572,13 +1629,8 @@ function TelegramIcon({ className }: { className: string }) {
       viewBox="0 0 24 24"
     >
       <path
-        d="M20.9 4.4 3.8 11c-.9.35-.88 1.68.04 1.98l4.07 1.33 1.58 5c.28.9 1.42 1.18 2.08.52l2.18-2.18 4.11 3.03c.79.58 1.92.14 2.1-.82l3.17-13.8c.22-1.04-.95-1.99-2.23-1.66Z"
+        d="M21.5 4.1 18.2 19.7c-.25 1.1-.9 1.37-1.82.85l-5.03-3.7-2.43 2.34c-.27.27-.5.5-1.02.5l.36-5.12 9.32-8.43c.4-.36-.09-.56-.63-.2L5.43 13.2.47 11.65c-1.08-.34-1.1-1.08.22-1.6L20.08 2.58c.9-.34 1.68.2 1.42 1.52Z"
         fill="currentColor"
-        opacity="0.96"
-      />
-      <path
-        d="m8.16 13.95 8.8-5.53-6.85 7.24-.16 3.2-1.79-4.91Z"
-        fill="#BFEFFF"
       />
     </svg>
   );

@@ -284,14 +284,17 @@ function isAbortError(error: unknown): boolean {
 function MarketEnvironmentGuide({ copy, error, isDarkTheme }: { copy: ReturnType<typeof getWorkspaceCopy>; error: string; isDarkTheme: boolean }) {
   return (
     <div className="absolute inset-0 z-40 grid place-items-center px-6">
-      <div className={isDarkTheme ? "max-w-lg rounded-3xl border border-slate-700 bg-slate-950/92 p-6 text-slate-100 shadow-2xl backdrop-blur" : "max-w-lg rounded-3xl border border-slate-200 bg-white/94 p-6 text-slate-950 shadow-2xl backdrop-blur"}>
-        <div className={isDarkTheme ? "text-sm font-bold text-cyan-300" : "text-sm font-bold text-cyan-700"}>{copy.realtime.guideEyebrow}</div>
+      <div className={isDarkTheme ? "w-[min(640px,calc(100vw-3rem))] rounded-3xl border border-slate-700 bg-slate-950/92 p-6 text-slate-100 shadow-2xl backdrop-blur" : "w-[min(640px,calc(100vw-3rem))] rounded-3xl border border-slate-200 bg-white/94 p-6 text-slate-950 shadow-2xl backdrop-blur"}>
+        <div className="text-sm font-bold text-[#00A6F4]">{copy.realtime.guideEyebrow}</div>
         <h3 className="mt-2 text-xl font-black">{copy.realtime.guideTitle}</h3>
-        <p className={isDarkTheme ? "mt-3 text-sm leading-6 text-slate-300" : "mt-3 text-sm leading-6 text-slate-600"}>
-          {copy.realtime.guideDescription}
-        </p>
+        <div className={isDarkTheme ? "mt-3 text-[13px] leading-6 text-slate-300" : "mt-3 text-[13px] leading-6 text-slate-600"}>
+          <p className="whitespace-nowrap">
+            {"\u5efa\u8bae\u5207\u6362\u81f3"}
+            <span className="font-bold text-[#00A6F4]">{copy.realtime.guideEnvironment}</span>
+            {"\u7684\u7f51\u7edc\u73af\u5883\u540e\u91cd\u8bd5\u3002"}
+          </p>
+        </div>
         <div className={isDarkTheme ? "mt-4 rounded-2xl bg-slate-900 p-3 text-xs leading-5 text-slate-400" : "mt-4 rounded-2xl bg-slate-50 p-3 text-xs leading-5 text-slate-500"}>
-          <div>{copy.realtime.guideEnvironment}</div>
           <div>{copy.realtime.guideCurrentError(error)}</div>
         </div>
       </div>
