@@ -69,7 +69,9 @@ import {
 } from "./signal-workspace/paper-position-summary";
 import {
   CommunityConversionModal,
+  isWorkspaceProductTab,
   KolFollowProductTab,
+  WORKSPACE_PRODUCT_TAB_STORAGE_KEY,
   WorkspaceProductTabs,
   type WorkspaceProductTab,
 } from "./signal-workspace/product-tabs";
@@ -111,6 +113,7 @@ export function SignalWorkspace() {
   const [isRightPanelExiting, setIsRightPanelExiting] = useState(false);
   const [activeProductTab, setActiveProductTab] =
     useState<WorkspaceProductTab>("intel");
+  const [isProductTabHydrated, setIsProductTabHydrated] = useState(false);
   const [isCommunityConversionOpen, setIsCommunityConversionOpen] =
     useState(false);
   const [isWorkspaceMotionVisible, setIsWorkspaceMotionVisible] =
@@ -316,6 +319,27 @@ export function SignalWorkspace() {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       try {
+        const storedProductTab = window.localStorage.getItem(
+          WORKSPACE_PRODUCT_TAB_STORAGE_KEY,
+        );
+        if (isWorkspaceProductTab(storedProductTab)) {
+          setActiveProductTab(storedProductTab);
+        } else if (storedProductTab !== null) {
+          window.localStorage.removeItem(WORKSPACE_PRODUCT_TAB_STORAGE_KEY);
+        }
+      } catch {
+        // Keep the default tab when local storage is unavailable.
+      } finally {
+        setIsProductTabHydrated(true);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      try {
         const rawWatchlist = window.localStorage.getItem(
           WORKSPACE_WATCHLIST_STORAGE_KEY,
         );
@@ -356,6 +380,21 @@ export function SignalWorkspace() {
       // Ignore storage failures in private browsing or restricted webviews.
     }
   }, [isWatchlistHydrated, watchlist]);
+
+  useEffect(() => {
+    if (!isProductTabHydrated) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        WORKSPACE_PRODUCT_TAB_STORAGE_KEY,
+        activeProductTab,
+      );
+    } catch {
+      // Ignore storage failures in private browsing or restricted webviews.
+    }
+  }, [activeProductTab, isProductTabHydrated]);
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {

@@ -13,11 +13,19 @@ import {
 
 export type WorkspaceProductTab = "intel" | "kolFollow" | "topSignals";
 
-const WORKSPACE_PRODUCT_TABS: readonly WorkspaceProductTab[] = [
+export const WORKSPACE_PRODUCT_TAB_STORAGE_KEY = "smartkline:workspace-product-tab:v1";
+
+export const WORKSPACE_PRODUCT_TABS: readonly WorkspaceProductTab[] = [
   "intel",
   "kolFollow",
   "topSignals",
 ];
+
+export function isWorkspaceProductTab(
+  value: string | null | undefined,
+): value is WorkspaceProductTab {
+  return WORKSPACE_PRODUCT_TABS.includes(value as WorkspaceProductTab);
+}
 
 type KolFollowModel = {
   activeCount: number;

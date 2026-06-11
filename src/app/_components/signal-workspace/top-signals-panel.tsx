@@ -687,8 +687,8 @@ function SourceHeader({
     <div className="flex min-w-0 items-start gap-3">
       <SourceAvatar isDarkTheme={isDarkTheme} name={model.trader.name} url={model.trader.avatar} />
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-start justify-between gap-2">
-          <h3 className={isDarkTheme ? "min-w-0 flex-1 truncate text-sm font-black text-slate-50" : "min-w-0 flex-1 truncate text-sm font-black text-slate-950"}>{model.trader.name}</h3>
+        <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
+          <h3 className={isDarkTheme ? "min-w-0 flex-1 truncate text-sm font-black leading-5 text-slate-50" : "min-w-0 flex-1 truncate text-sm font-black leading-5 text-slate-950"}>{model.trader.name}</h3>
           {onActionToggle && actionLabel ? (
             <button
               className={actionButtonClassName}
@@ -703,8 +703,8 @@ function SourceHeader({
             </button>
           ) : null}
         </div>
-        <div className={isDarkTheme ? "mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500" : "mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500"}>
-          <span>{panelCopy.signalType}: {model.trader.platform}</span>
+        <div className={isDarkTheme ? "mt-0.5 flex min-w-0 flex-wrap items-center gap-2 text-xs font-semibold leading-none text-slate-500" : "mt-0.5 flex min-w-0 flex-wrap items-center gap-2 text-xs font-semibold leading-none text-slate-500"}>
+          <span className="min-w-0 truncate">{panelCopy.signalType}: {model.trader.platform}</span>
           {onWatchToggle ? (
             <FavoriteStarButton
               activeLabel={copy.workspace.watchlist.removeFavorite}
