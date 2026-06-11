@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { COPY_TRADING_RADAR_TRADE_LIMIT, isActiveCopyTradingTrader } from "@/app/_lib/copy-trading-radar-api";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type {
@@ -607,14 +607,44 @@ function TopSignalSourceCard({
   const shouldRenderBackRows = isFlipped;
   const primaryPosition = visiblePositions[0] ?? null;
   const primarySymbol = primaryPosition?.symbol ?? model.events[0]?.symbol ?? null;
+  const frontFaceRef = useRef<HTMLDivElement | null>(null);
+  const [lockedCardHeight, setLockedCardHeight] = useState<number | null>(null);
+  const lockedCardHeightStyle: CSSProperties | undefined = lockedCardHeight === null
+    ? undefined
+    : { minHeight: lockedCardHeight };
+
+  useLayoutEffect(() => {
+    if (isFlipped) {
+      return;
+    }
+
+    const frontFace = frontFaceRef.current;
+    if (!frontFace) {
+      return;
+    }
+
+    const updateLockedCardHeight = () => {
+      const nextHeight = Math.ceil(frontFace.getBoundingClientRect().height);
+      if (Number.isFinite(nextHeight) && nextHeight > 0) {
+        setLockedCardHeight(nextHeight);
+      }
+    };
+
+    updateLockedCardHeight();
+    const resizeObserver = new ResizeObserver(updateLockedCardHeight);
+    resizeObserver.observe(frontFace);
+    return () => resizeObserver.disconnect();
+  }, [isFlipped, model.events.length, model.positions.length, visibleTradeRowCount]);
 
   return (
-    <div className="signal-card-scene will-change-transform">
-      <div className={`signal-card-flipper ${isFlipped ? "is-flipped" : ""}`}>
+    <div className="signal-card-scene will-change-transform" style={lockedCardHeightStyle}>
+      <div className={`signal-card-flipper ${isFlipped ? "is-flipped" : ""}`} style={lockedCardHeightStyle}>
         <div
+          ref={frontFaceRef}
           className={`${cardClassName} motion-fx-3-card-face-front signal-card-face`}
           aria-hidden={isFlipped}
           role="button"
+          style={lockedCardHeightStyle}
           tabIndex={isFlipped ? -1 : 0}
           onClick={onCardSelect}
           onKeyDown={(event) => {
@@ -694,6 +724,7 @@ function TopSignalSourceCard({
         <div
           className={`${backCardClassName} motion-fx-3-card-face-back signal-card-face signal-card-back`}
           aria-hidden={!isFlipped}
+          style={lockedCardHeightStyle}
         >
           <div className="motion-fx-3-back-panel flex h-full min-h-0 flex-col">
             <SourceHeader
