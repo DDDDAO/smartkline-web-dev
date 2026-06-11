@@ -28,8 +28,8 @@ export type CopyTradingPosition = {
   symbol: string;
   direction: CopyTradingDirection;
   quantity: number;
-  entry_price: number;
-  current_price: number;
+  entry_price: number | null;
+  current_price: number | null;
   leverage: number;
   margin_snapshot: number | null;
   notional_value: number;
@@ -104,15 +104,21 @@ export type CopyTradingChartSignal = {
 export type CopyTradingTradeMarkerSide = "buy" | "sell";
 
 export type CopyTradingTradeMarker = {
+  actionLabel: string;
   avatarUrl: string | null;
+  detail: string;
+  direction: CopyTradingDirection;
   eventId: string;
+  eventType: CopyTradingEventType;
   id: string;
-  label: "B" | "S";
-  price: number;
+  occurredAtText: string;
+  price: number | null;
+  priceText: string | null;
   side: CopyTradingTradeMarkerSide;
   signalId: string;
   sourceTimeMs: number;
   symbol: MarketSymbol;
   title: string;
+  traderId: string;
   traderName: string;
 };

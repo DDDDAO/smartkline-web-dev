@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+
+@source "../**/*.{ts,tsx}";
 
 :root {
   --background: #f7f8fa;
@@ -424,12 +426,13 @@ button {
 }
 
 .kol-status-badge {
-  min-width: 62px;
+  flex: 0 0 auto;
+  min-width: auto;
+  white-space: nowrap;
 }
 
 .kol-status-badge::before {
-  height: 7px;
-  width: 7px;
+  display: none;
 }
 
 .kol-direction-long {

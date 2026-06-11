@@ -22,7 +22,7 @@ export function AiSignalSummaryOverlay({
 
   const isDarkTheme = theme === "dark";
   const copy = getWorkspaceCopy(language);
-  const wrapperClassName = "group pointer-events-auto absolute left-3 top-3 z-30 lg:left-4 lg:top-4";
+  const wrapperClassName = "group pointer-events-auto absolute left-3 top-12 z-30 lg:left-4 lg:top-14";
   const triggerClassName = isDarkTheme
     ? "motion-fx-9-surface inline-flex h-9 items-center rounded-full border border-white/[0.075] bg-[#161B24]/92 px-3 text-xs font-medium text-slate-200 shadow-[0_12px_30px_rgba(0,0,0,0.24)] outline-none backdrop-blur-xl hover:-translate-y-0.5 hover:border-white/[0.12] hover:bg-[#1B2230] focus-visible:border-sky-500/40 lg:h-10 lg:px-4"
     : "motion-fx-9-surface inline-flex h-9 items-center rounded-full border border-slate-200/90 bg-white/98 px-3 text-xs font-medium text-slate-700 shadow-[0_10px_28px_rgba(15,23,42,0.08)] outline-none backdrop-blur-xl hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white focus-visible:border-sky-200 lg:h-10 lg:px-4";

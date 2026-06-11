@@ -11,6 +11,13 @@ import {
   fetchKolSignalsAfter,
 } from "@/app/_lib/kol-signal-api";
 import {
+  createCopyTradingTradeMarkers,
+  createMarketAlignedMockCopyTradingRadarSnapshot,
+  fetchCopyTradingRadarSnapshot,
+  isActiveCopyTradingTrader,
+  toCopyTradingMarketSymbol,
+} from "@/app/_lib/copy-trading-radar-api";
+import {
   computePaperPositionRecord,
   type PaperPositionRecord,
 } from "@/app/_lib/paper-position";
@@ -22,6 +29,14 @@ import {
   type WorkspaceCopy,
   type WorkspaceLanguage,
 } from "@/app/_lib/i18n";
+import {
+  createEmptyWorkspaceWatchlist,
+  createKolSourceWatchKey,
+  parseWorkspaceWatchlistValue,
+  serializeWorkspaceWatchlist,
+  WORKSPACE_WATCHLIST_STORAGE_KEY,
+  type WorkspaceWatchlist,
+} from "@/app/_lib/workspace-watchlist";
 import { hasSeenOnboardingGuide, OnboardingGuide } from "./signal-workspace/onboarding-guide";
 import { RealtimeKlinePanel } from "./signal-workspace/realtime-kline-panel";
 import {
@@ -36,8 +51,15 @@ import {
   createSignalFocusRequestKey,
   type ChartTheme,
 } from "@/app/_components/kline-chart";
+import type { ChartTimeFocusRequest, KlineSignalBiasSummary } from "@/app/_components/kline-chart/types";
 import type { KlineInterval, MarketSymbol } from "@/app/_types/market";
-import type { CopyTradingTradeMarker } from "@/app/_types/copy-trading";
+import type {
+  CopyTradingEvent,
+  CopyTradingPosition,
+  CopyTradingRadarSnapshot,
+  CopyTradingTrader,
+  CopyTradingTradeMarker,
+} from "@/app/_types/copy-trading";
 import type { StructuredSignal } from "@/app/_types/signal";
 import { SourceAvatar, SymbolIcon } from "./signal-workspace/card-ui";
 import {
@@ -51,10 +73,12 @@ import {
   WorkspaceProductTabs,
   type WorkspaceProductTab,
 } from "./signal-workspace/product-tabs";
+import { TopSignalsPanel } from "./signal-workspace/top-signals-panel";
 
-const MAX_VISIBLE_KOL_SIGNALS = 50;
+const MAX_VISIBLE_KOL_SIGNAL_HISTORY = 1_000;
 const NOTIFICATION_DISMISS_MS = 6_500;
 const KOL_SIGNAL_POLL_INTERVAL_MS = 30_000;
+const TOP_SIGNALS_POLL_INTERVAL_MS = 60_000;
 const COMPACT_LAYOUT_MEDIA_QUERY = "(max-width: 1023px)";
 const TELEGRAM_DISCUSSION_GROUP_URL =
   process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
@@ -75,10 +99,14 @@ export function SignalWorkspace() {
   const [chartFocusSignalRequestKey, setChartFocusSignalRequestKey] = useState<
     string | null
   >(null);
+  const [chartFocusTimeRequest, setChartFocusTimeRequest] =
+    useState<ChartTimeFocusRequest | null>(null);
   const [theme, setTheme] = useState<ChartTheme>("light");
   const [language, setLanguage] = useState<WorkspaceLanguage>("zh-CN");
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isMobileKolSheetOpen, setIsMobileKolSheetOpen] = useState(false);
+  const [isMobileTopSignalsSheetOpen, setIsMobileTopSignalsSheetOpen] =
+    useState(false);
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [isRightPanelExiting, setIsRightPanelExiting] = useState(false);
   const [activeProductTab, setActiveProductTab] =
@@ -89,6 +117,22 @@ export function SignalWorkspace() {
     useState(false);
   const [marketOptions, setMarketOptions] = useState<MarketSymbol[]>(markets);
   const [signals, setSignals] = useState<StructuredSignal[]>([]);
+  const [watchlist, setWatchlist] = useState<WorkspaceWatchlist>(() =>
+    createEmptyWorkspaceWatchlist(),
+  );
+  const [isWatchlistHydrated, setIsWatchlistHydrated] = useState(false);
+  const [topSignalsSnapshot, setTopSignalsSnapshot] =
+    useState<CopyTradingRadarSnapshot | null>(null);
+  const [activeTopSignalSourceId, setActiveTopSignalSourceId] = useState("");
+  const [activeTopSignalTradeEventId, setActiveTopSignalTradeEventId] =
+    useState("");
+  const [topSignalsSourceFilterId, setTopSignalsSourceFilterId] =
+    useState("all");
+  const [topSignalsSourceStatus, setTopSignalsSourceStatus] =
+    useState<KolSignalSourceStatus>({
+      error: null,
+      isLoading: true,
+    });
   const [latestMarketCandleUpdate, setLatestMarketCandleUpdate] =
     useState<PaperPositionMarketCandleUpdate | null>(null);
   const [workspaceNotification, setWorkspaceNotification] =
@@ -111,6 +155,47 @@ export function SignalWorkspace() {
     signals[0] ??
     null;
   const kolSignals = useMemo(() => sortSignalsForKolPanel(signals), [signals]);
+  const watchlistedKolSourceKeys = useMemo(
+    () => new Set(watchlist.kolSources.map((source) => source.key)),
+    [watchlist.kolSources],
+  );
+  const watchlistedTopSignalSourceIds = useMemo(
+    () => new Set(watchlist.topSignalSources.map((source) => source.id)),
+    [watchlist.topSignalSources],
+  );
+  const topSignalsActiveSourceIds = useMemo(
+    () => new Set(topSignalsSnapshot?.traders.filter(isActiveCopyTradingTrader).map((trader) => trader.trader_id) ?? []),
+    [topSignalsSnapshot],
+  );
+  const effectiveTopSignalsSourceFilterId = topSignalsSourceFilterId === "all" || topSignalsActiveSourceIds.has(topSignalsSourceFilterId)
+    ? topSignalsSourceFilterId
+    : "all";
+  const allTopSignalsTradeMarkers = useMemo(() => {
+    if (!topSignalsSnapshot) {
+      return EMPTY_COPY_TRADING_TRADE_MARKERS;
+    }
+
+    return createCopyTradingTradeMarkers(topSignalsSnapshot);
+  }, [topSignalsSnapshot]);
+  const topSignalsTradeMarkers = useMemo(() => {
+    if (effectiveTopSignalsSourceFilterId === "all") {
+      return allTopSignalsTradeMarkers;
+    }
+
+    return allTopSignalsTradeMarkers.filter((marker) => {
+      return marker.traderId === effectiveTopSignalsSourceFilterId;
+    });
+  }, [allTopSignalsTradeMarkers, effectiveTopSignalsSourceFilterId]);
+  const topSignalsEventsById = useMemo(
+    () => new Map(topSignalsSnapshot?.events.map((event) => [event.event_id, event]) ?? []),
+    [topSignalsSnapshot],
+  );
+  const topSignalsSignalBiasSummary = useMemo(
+    () => createTopSignalsSignalBiasSummary(topSignalsSnapshot, symbol),
+    [symbol, topSignalsSnapshot],
+  );
+  const shouldLoadTopSignalsSnapshot = activeProductTab === "topSignals";
+
   const {
     candlesBySymbol: paperPositionCandlesBySymbol,
     errorsBySymbol: paperPositionErrorsBySymbol,
@@ -227,6 +312,50 @@ export function SignalWorkspace() {
 
     return () => window.clearTimeout(timeoutId);
   }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      try {
+        const rawWatchlist = window.localStorage.getItem(
+          WORKSPACE_WATCHLIST_STORAGE_KEY,
+        );
+        const result = parseWorkspaceWatchlistValue(rawWatchlist);
+        setWatchlist(result.watchlist);
+        setIsWatchlistHydrated(true);
+        if (result.shouldRewrite) {
+          window.localStorage.setItem(
+            WORKSPACE_WATCHLIST_STORAGE_KEY,
+            serializeWorkspaceWatchlist(result.watchlist),
+          );
+        }
+      } catch {
+        setWatchlist(createEmptyWorkspaceWatchlist());
+        setIsWatchlistHydrated(true);
+        try {
+          window.localStorage.removeItem(WORKSPACE_WATCHLIST_STORAGE_KEY);
+        } catch {
+          // Ignore storage failures in private browsing or restricted webviews.
+        }
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  useEffect(() => {
+    if (!isWatchlistHydrated) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        WORKSPACE_WATCHLIST_STORAGE_KEY,
+        serializeWorkspaceWatchlist(watchlist),
+      );
+    } catch {
+      // Ignore storage failures in private browsing or restricted webviews.
+    }
+  }, [isWatchlistHydrated, watchlist]);
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
@@ -430,6 +559,89 @@ export function SignalWorkspace() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!shouldLoadTopSignalsSnapshot) {
+      return;
+    }
+
+    let isActive = true;
+    let isPolling = false;
+    let pollingIntervalId: number | null = null;
+
+    const applySnapshot = (
+      snapshot: CopyTradingRadarSnapshot,
+      error: string | null,
+    ) => {
+      if (!isActive) {
+        return;
+      }
+
+      setTopSignalsSnapshot(snapshot);
+      setTopSignalsSourceStatus({ error, isLoading: false });
+      const activeSourceIds = new Set(snapshot.traders.filter(isActiveCopyTradingTrader).map((trader) => trader.trader_id));
+      setActiveTopSignalSourceId((currentSourceId) =>
+        activeSourceIds.has(currentSourceId)
+          ? currentSourceId
+          : (snapshot.traders.find(isActiveCopyTradingTrader)?.trader_id ?? ""),
+      );
+      setTopSignalsSourceFilterId((currentSourceFilterId) =>
+        currentSourceFilterId === "all" || activeSourceIds.has(currentSourceFilterId)
+          ? currentSourceFilterId
+          : "all",
+      );
+      setActiveTopSignalTradeEventId((currentTradeEventId) =>
+        snapshot.events.some((event) => event.event_id === currentTradeEventId)
+          ? currentTradeEventId
+          : "",
+      );
+    };
+
+    const loadSnapshot = async (allowMockFallback: boolean) => {
+      if (!isActive || isPolling) {
+        return;
+      }
+
+      isPolling = true;
+      try {
+        const snapshot = await fetchCopyTradingRadarSnapshot();
+        applySnapshot(snapshot, null);
+      } catch (error: unknown) {
+        const message = formatKolSignalSourceError(error);
+        if (!allowMockFallback) {
+          if (isActive) {
+            setTopSignalsSourceStatus({ error: message, isLoading: false });
+          }
+          return;
+        }
+
+        try {
+          const mockSnapshot = await createMarketAlignedMockCopyTradingRadarSnapshot();
+          applySnapshot(mockSnapshot, message);
+        } catch {
+          if (isActive) {
+            setTopSignalsSnapshot(null);
+            setActiveTopSignalSourceId("");
+            setTopSignalsSourceStatus({ error: message, isLoading: false });
+          }
+        }
+      } finally {
+        isPolling = false;
+      }
+    };
+
+    void loadSnapshot(true);
+    pollingIntervalId = window.setInterval(() => {
+      void loadSnapshot(false);
+    }, TOP_SIGNALS_POLL_INTERVAL_MS);
+
+    return () => {
+      isActive = false;
+      if (pollingIntervalId !== null) {
+        window.clearInterval(pollingIntervalId);
+      }
+    };
+  }, [shouldLoadTopSignalsSnapshot]);
+
   const toggleRightPanel = () => {
     if (isRightPanelExiting) {
       return;
@@ -450,26 +662,140 @@ export function SignalWorkspace() {
 
   const handleSignalSelect = useCallback(
     (signal: StructuredSignal) => {
-      if (signal.symbol !== symbol) {
-        setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
-      } else {
-        setChartFocusSignalRequestKey(null);
-      }
+      setChartFocusSignalRequestKey(createSignalFocusRequestKey(signal));
+      setChartFocusTimeRequest(null);
       setActiveSignalId(signal.id);
       setSymbol(signal.symbol);
     },
-    [symbol],
+    [],
   );
 
   const handleSymbolChange = useCallback(
     (nextSymbol: MarketSymbol) => {
       const nextSignal = signals.find((signal) => signal.symbol === nextSymbol);
       setChartFocusSignalRequestKey(null);
+      setChartFocusTimeRequest(null);
       setSymbol(nextSymbol);
       setActiveSignalId(nextSignal?.id ?? "");
+      if (activeProductTab === "topSignals") {
+        setActiveTopSignalTradeEventId("");
+      }
     },
-    [signals],
+    [activeProductTab, signals],
   );
+
+  const handleTopSignalSourceSelect = useCallback((sourceId: string) => {
+    setActiveTopSignalSourceId(sourceId);
+    setActiveTopSignalTradeEventId("");
+  }, []);
+
+  const handleTopSignalSourceFilterChange = useCallback((sourceId: string) => {
+    setTopSignalsSourceFilterId(sourceId);
+    if (sourceId !== "all") {
+      setActiveTopSignalSourceId(sourceId);
+      setActiveTopSignalTradeEventId("");
+    }
+  }, []);
+
+  const handleTopSignalPositionSelect = useCallback((position: CopyTradingPosition) => {
+    setActiveTopSignalSourceId(position.trader_id);
+    setActiveTopSignalTradeEventId("");
+    setChartFocusSignalRequestKey(null);
+    setChartFocusTimeRequest(null);
+    setSymbol(toCopyTradingMarketSymbol(position.symbol));
+  }, []);
+
+  const handleTopSignalTradeSelect = useCallback((event: CopyTradingEvent) => {
+    const eventTimeMs = Date.parse(event.occurred_at);
+    const nextSymbol = toCopyTradingMarketSymbol(event.symbol);
+    setActiveTopSignalSourceId(event.trader_id);
+    setActiveTopSignalTradeEventId(event.event_id);
+    setChartFocusSignalRequestKey(null);
+    setSymbol(nextSymbol);
+
+    if (Number.isFinite(eventTimeMs)) {
+      setChartFocusTimeRequest({
+        key: `top-signal-trade:${event.event_id}:${eventTimeMs}`,
+        sourceTimeMs: eventTimeMs,
+      });
+    } else {
+      setChartFocusTimeRequest(null);
+    }
+  }, []);
+
+  const handleTopSignalTradeMarkerSelect = useCallback((marker: CopyTradingTradeMarker) => {
+    const event = topSignalsEventsById.get(marker.eventId);
+    if (event) {
+      handleTopSignalTradeSelect(event);
+    }
+  }, [handleTopSignalTradeSelect, topSignalsEventsById]);
+
+  const handleKolSourceWatchToggle = useCallback((signal: StructuredSignal) => {
+    const sourceKey = createKolSourceWatchKey(signal.source_name);
+    if (!sourceKey) {
+      return;
+    }
+
+    setWatchlist((currentWatchlist) => {
+      const isAlreadyWatched = currentWatchlist.kolSources.some(
+        (source) => source.key === sourceKey,
+      );
+
+      if (isAlreadyWatched) {
+        return {
+          ...currentWatchlist,
+          kolSources: currentWatchlist.kolSources.filter(
+            (source) => source.key !== sourceKey,
+          ),
+        };
+      }
+
+      return {
+        ...currentWatchlist,
+        kolSources: [
+          {
+            avatarUrl: signal.source_avatar_url,
+            favoritedAt: new Date().toISOString(),
+            key: sourceKey,
+            name: signal.source_name,
+            sourceType: signal.source_type,
+          },
+          ...currentWatchlist.kolSources,
+        ],
+      };
+    });
+  }, []);
+
+  const handleTopSignalSourceWatchToggle = useCallback((trader: CopyTradingTrader) => {
+    setWatchlist((currentWatchlist) => {
+      const isAlreadyWatched = currentWatchlist.topSignalSources.some(
+        (source) => source.id === trader.trader_id,
+      );
+
+      if (isAlreadyWatched) {
+        return {
+          ...currentWatchlist,
+          topSignalSources: currentWatchlist.topSignalSources.filter(
+            (source) => source.id !== trader.trader_id,
+          ),
+        };
+      }
+
+      return {
+        ...currentWatchlist,
+        topSignalSources: [
+          {
+            avatarUrl: trader.avatar,
+            favoritedAt: new Date().toISOString(),
+            id: trader.trader_id,
+            name: trader.name,
+            platform: trader.platform,
+          },
+          ...currentWatchlist.topSignalSources,
+        ],
+      };
+    });
+  }, []);
 
   const openCommunityConversion = useCallback((signal: StructuredSignal) => {
     handleSignalSelect(signal);
@@ -485,6 +811,17 @@ export function SignalWorkspace() {
     },
     [handleSignalSelect],
   );
+
+  const isIntelTab = activeProductTab === "intel";
+  const isTopSignalsTab = activeProductTab === "topSignals";
+  const isChartSplitProductTab = isIntelTab || isTopSignalsTab;
+  const chartActiveSignal = isIntelTab ? activeSignal : null;
+  const chartActivePaperPosition = isIntelTab ? activeChartPaperPosition : null;
+  const chartSignals = isIntelTab ? signals : [];
+  const chartTradeMarkers = isTopSignalsTab
+    ? topSignalsTradeMarkers
+    : EMPTY_COPY_TRADING_TRADE_MARKERS;
+  const chartFocusTime = isTopSignalsTab ? chartFocusTimeRequest : null;
 
   return (
     <main className={pageClassName} data-compact-ui>
@@ -506,7 +843,7 @@ export function SignalWorkspace() {
         />
       </div>
       <div className="min-w-0 flex-1 lg:min-h-0 lg:overflow-hidden">
-        {activeProductTab === "intel" ? (
+        {isChartSplitProductTab ? (
           <section
             className={workspaceGridClassName}
             data-right-panel-collapsed={String(isRightPanelCollapsed)}
@@ -516,20 +853,23 @@ export function SignalWorkspace() {
             >
               <RealtimeKlinePanel
                 key={`${symbol}-${interval}`}
-                activePaperPosition={activeChartPaperPosition}
-                isActivePaperPositionReady={isActiveChartPaperPositionReady}
-                activeSignal={activeSignal}
+                activePaperPosition={chartActivePaperPosition}
+                isActivePaperPositionReady={isIntelTab && isActiveChartPaperPositionReady}
+                activeSignal={chartActiveSignal}
                 focusSignalRequestKey={chartFocusSignalRequestKey}
+                focusTimeRequest={chartFocusTime}
                 interval={interval}
                 language={language}
                 isCompactLayout={isCompactLayout}
                 marketOptions={marketOptions}
+                signalBiasSummary={isTopSignalsTab ? topSignalsSignalBiasSummary : null}
                 symbol={symbol}
-                signals={signals}
+                signals={chartSignals}
                 theme={theme}
-                tradeMarkers={EMPTY_COPY_TRADING_TRADE_MARKERS}
+                tradeMarkers={chartTradeMarkers}
                 onIntervalChange={(nextInterval) => {
                   setChartFocusSignalRequestKey(null);
+                  setChartFocusTimeRequest(null);
                   setInterval(nextInterval);
                 }}
                 onSymbolChange={handleSymbolChange}
@@ -537,7 +877,11 @@ export function SignalWorkspace() {
                 onFocusSignalRequestHandled={() =>
                   setChartFocusSignalRequestKey(null)
                 }
+                onFocusTimeRequestHandled={() =>
+                  setChartFocusTimeRequest(null)
+                }
                 onMarketCandleUpdate={setLatestMarketCandleUpdate}
+                onTradeMarkerSelect={isTopSignalsTab ? handleTopSignalTradeMarkerSelect : undefined}
               />
             </div>
 
@@ -545,32 +889,64 @@ export function SignalWorkspace() {
               <div
                 className={`kol-panel-shell motion-fx-10-delay-2 motion-fx-10-reveal motion-fx-7-secondary-panel relative hidden min-h-0 min-w-0 flex-col gap-3 lg:flex ${isWorkspaceMotionVisible ? "is-visible" : ""} ${isRightPanelExiting ? "is-exiting" : ""}`}
               >
-                <KolPanel
-                  activeSignal={activeSignal}
-                  headerAction={
-                    <SidebarCollapseButton
-                      copy={copy}
-                      isCollapsed={isRightPanelCollapsed}
-                      isDarkTheme={isDarkTheme}
-                      variant="header"
-                      onToggle={toggleRightPanel}
-                    />
-                  }
-                  copy={copy}
-                  isDarkTheme={isDarkTheme}
-                  paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
-                  paperPositionsBySignalId={paperPositionsBySignalId}
-                  sourceStatus={kolSignalSourceStatus}
-                  signals={kolSignals}
-                  onFollowRequest={openCommunityConversion}
-                  onSignalSelect={handleSignalSelect}
-                />
+                {isIntelTab ? (
+                  <KolPanel
+                    activeSignal={activeSignal}
+                    headerAction={
+                      <SidebarCollapseButton
+                        copy={copy}
+                        isCollapsed={isRightPanelCollapsed}
+                        isDarkTheme={isDarkTheme}
+                        panelLabel={copy.kol.title}
+                        variant="header"
+                        onToggle={toggleRightPanel}
+                      />
+                    }
+                    copy={copy}
+                    isDarkTheme={isDarkTheme}
+                    paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
+                    paperPositionsBySignalId={paperPositionsBySignalId}
+                    sourceStatus={kolSignalSourceStatus}
+                    signals={kolSignals}
+                    watchlistedSourceKeys={watchlistedKolSourceKeys}
+                    onFollowRequest={openCommunityConversion}
+                    onSourceWatchToggle={handleKolSourceWatchToggle}
+                    onSignalSelect={handleSignalSelect}
+                  />
+                ) : (
+                  <TopSignalsPanel
+                    activeSourceId={activeTopSignalSourceId}
+                    activeTradeEventId={activeTopSignalTradeEventId}
+                    copy={copy}
+                    headerAction={
+                      <SidebarCollapseButton
+                        copy={copy}
+                        isCollapsed={isRightPanelCollapsed}
+                        isDarkTheme={isDarkTheme}
+                        panelLabel={copy.workspace.topSignals.title}
+                        variant="header"
+                        onToggle={toggleRightPanel}
+                      />
+                    }
+                    isDarkTheme={isDarkTheme}
+                    snapshot={topSignalsSnapshot}
+                    sourceFilterId={effectiveTopSignalsSourceFilterId}
+                    sourceStatus={topSignalsSourceStatus}
+                    watchlistedSourceIds={watchlistedTopSignalSourceIds}
+                    onPositionSelect={handleTopSignalPositionSelect}
+                    onSourceFilterChange={handleTopSignalSourceFilterChange}
+                    onSourceSelect={handleTopSignalSourceSelect}
+                    onSourceWatchToggle={handleTopSignalSourceWatchToggle}
+                    onTradeSelect={handleTopSignalTradeSelect}
+                  />
+                )}
               </div>
             ) : (
               <SidebarCollapseButton
                 copy={copy}
                 isCollapsed={isRightPanelCollapsed}
                 isDarkTheme={isDarkTheme}
+                panelLabel={isTopSignalsTab ? copy.workspace.topSignals.title : copy.kol.title}
                 variant="edge-tab"
                 onToggle={toggleRightPanel}
               />
@@ -582,12 +958,14 @@ export function SignalWorkspace() {
             isDarkTheme={isDarkTheme}
             paperPositionsBySignalId={paperPositionsBySignalId}
             signals={kolSignals}
+            watchlistedSourceKeys={watchlistedKolSourceKeys}
             onCommunityConversionOpen={handleKolCommunityConversionOpen}
+            onKolSourceWatchToggle={handleKolSourceWatchToggle}
             onSignalSelect={handleSignalSelect}
           />
         )}
       </div>
-      {activeProductTab === "intel" ? (
+      {isIntelTab ? (
         <MobileKolBottomSheet
           activeSignal={activeSignal}
           copy={copy}
@@ -598,9 +976,31 @@ export function SignalWorkspace() {
           paperPositionsBySignalId={paperPositionsBySignalId}
           signals={kolSignals}
           sourceStatus={kolSignalSourceStatus}
+          watchlistedSourceKeys={watchlistedKolSourceKeys}
           onFollowRequest={openCommunityConversion}
           onOpenChange={setIsMobileKolSheetOpen}
+          onSourceWatchToggle={handleKolSourceWatchToggle}
           onSignalSelect={handleSignalSelect}
+        />
+      ) : null}
+      {isTopSignalsTab ? (
+        <MobileTopSignalsBottomSheet
+          activeSourceId={activeTopSignalSourceId}
+          activeTradeEventId={activeTopSignalTradeEventId}
+          copy={copy}
+          isCompactLayout={isCompactLayout}
+          isDarkTheme={isDarkTheme}
+          isOpen={isMobileTopSignalsSheetOpen}
+          snapshot={topSignalsSnapshot}
+          sourceFilterId={effectiveTopSignalsSourceFilterId}
+          sourceStatus={topSignalsSourceStatus}
+          watchlistedSourceIds={watchlistedTopSignalSourceIds}
+          onOpenChange={setIsMobileTopSignalsSheetOpen}
+          onPositionSelect={handleTopSignalPositionSelect}
+          onSourceFilterChange={handleTopSignalSourceFilterChange}
+          onSourceSelect={handleTopSignalSourceSelect}
+          onSourceWatchToggle={handleTopSignalSourceWatchToggle}
+          onTradeSelect={handleTopSignalTradeSelect}
         />
       ) : null}
       <OnboardingGuide
@@ -643,6 +1043,44 @@ function useCompactLayout(): boolean {
   return isCompactLayout;
 }
 
+function createTopSignalsSignalBiasSummary(
+  snapshot: CopyTradingRadarSnapshot | null,
+  symbol: MarketSymbol,
+): KlineSignalBiasSummary | null {
+  if (!snapshot) {
+    return null;
+  }
+
+  let longCount = 0;
+  let shortCount = 0;
+
+  for (const event of snapshot.events) {
+    if (toCopyTradingMarketSymbol(event.symbol) !== symbol) {
+      continue;
+    }
+
+    if (event.direction === "long") {
+      longCount += 1;
+    } else {
+      shortCount += 1;
+    }
+  }
+
+  const totalCount = longCount + shortCount;
+  if (totalCount === 0) {
+    return null;
+  }
+
+  const longPercent = Math.round((longCount / totalCount) * 100);
+  return {
+    longCount,
+    longPercent,
+    shortCount,
+    shortPercent: 100 - longPercent,
+    totalCount,
+  };
+}
+
 function MobileKolBottomSheet({
   activeSignal,
   copy,
@@ -653,8 +1091,10 @@ function MobileKolBottomSheet({
   paperPositionsBySignalId,
   signals,
   sourceStatus,
+  watchlistedSourceKeys,
   onFollowRequest,
   onOpenChange,
+  onSourceWatchToggle,
   onSignalSelect,
 }: {
   activeSignal: StructuredSignal | null;
@@ -666,8 +1106,10 @@ function MobileKolBottomSheet({
   paperPositionsBySignalId: Readonly<Record<string, PaperPositionRecord>>;
   signals: readonly StructuredSignal[];
   sourceStatus: KolSignalSourceStatus;
+  watchlistedSourceKeys: ReadonlySet<string>;
   onFollowRequest: (signal: StructuredSignal) => void;
   onOpenChange: (isOpen: boolean) => void;
+  onSourceWatchToggle: (signal: StructuredSignal) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
 }) {
   const closeButtonClassName = isDarkTheme
@@ -712,7 +1154,9 @@ function MobileKolBottomSheet({
             sourceStatus={sourceStatus}
             signals={signals}
             variant="mobileSheet"
+            watchlistedSourceKeys={watchlistedSourceKeys}
             onFollowRequest={onFollowRequest}
+            onSourceWatchToggle={onSourceWatchToggle}
             onSignalSelect={(signal) => {
               onSignalSelect(signal);
               onOpenChange(false);
@@ -735,6 +1179,161 @@ function MobileKolBottomSheet({
         onOpen={() => onOpenChange(true)}
       />
     </div>
+  );
+}
+
+function MobileTopSignalsBottomSheet({
+  activeSourceId,
+  activeTradeEventId,
+  copy,
+  isCompactLayout,
+  isDarkTheme,
+  isOpen,
+  snapshot,
+  sourceFilterId,
+  sourceStatus,
+  watchlistedSourceIds,
+  onOpenChange,
+  onPositionSelect,
+  onSourceFilterChange,
+  onSourceSelect,
+  onSourceWatchToggle,
+  onTradeSelect,
+}: {
+  activeSourceId: string;
+  activeTradeEventId: string;
+  copy: WorkspaceCopy;
+  isCompactLayout: boolean;
+  isDarkTheme: boolean;
+  isOpen: boolean;
+  snapshot: CopyTradingRadarSnapshot | null;
+  sourceFilterId: string;
+  sourceStatus: KolSignalSourceStatus;
+  watchlistedSourceIds: ReadonlySet<string>;
+  onOpenChange: (isOpen: boolean) => void;
+  onPositionSelect: (position: CopyTradingPosition) => void;
+  onSourceFilterChange: (sourceId: string) => void;
+  onSourceSelect: (sourceId: string) => void;
+  onSourceWatchToggle: (trader: CopyTradingTrader) => void;
+  onTradeSelect: (event: CopyTradingEvent) => void;
+}) {
+  const closeButtonClassName = isDarkTheme
+    ? "inline-flex h-9 items-center gap-1.5 rounded-full border border-white/[0.075] bg-white/[0.035] px-3 text-xs font-semibold text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50"
+    : "inline-flex h-9 items-center gap-1.5 rounded-full border border-[#BFE7FB] bg-[#F4FBFF] px-3 text-xs font-semibold text-slate-700 transition hover:border-[#A7DDF7] hover:bg-[#ECF8FE] hover:text-slate-900";
+
+  if (!isCompactLayout) {
+    return null;
+  }
+
+  if (isOpen) {
+    return (
+      <>
+        <button
+          aria-label={copy.common.close}
+          className={
+            isDarkTheme
+              ? "fixed inset-0 z-[70] bg-black/42 backdrop-blur-[2px] lg:hidden"
+              : "fixed inset-0 z-[70] bg-slate-950/20 backdrop-blur-[2px] lg:hidden"
+          }
+          type="button"
+          onClick={() => onOpenChange(false)}
+        />
+        <div className="fixed inset-x-0 bottom-0 z-[80] h-[min(78dvh,680px)] px-2 pb-[max(8px,env(safe-area-inset-bottom))] lg:hidden">
+          <TopSignalsPanel
+            activeSourceId={activeSourceId}
+            activeTradeEventId={activeTradeEventId}
+            copy={copy}
+            headerAction={
+              <button
+                className={closeButtonClassName}
+                type="button"
+                onClick={() => onOpenChange(false)}
+              >
+                <CloseIcon className="h-3.5 w-3.5" />
+                <span>{copy.common.close}</span>
+              </button>
+            }
+            isDarkTheme={isDarkTheme}
+            snapshot={snapshot}
+            sourceFilterId={sourceFilterId}
+            sourceStatus={sourceStatus}
+            variant="mobileSheet"
+            watchlistedSourceIds={watchlistedSourceIds}
+            onPositionSelect={(position) => {
+              onPositionSelect(position);
+              onOpenChange(false);
+            }}
+            onSourceFilterChange={onSourceFilterChange}
+            onSourceSelect={onSourceSelect}
+            onSourceWatchToggle={onSourceWatchToggle}
+            onTradeSelect={(event) => {
+              onTradeSelect(event);
+              onOpenChange(false);
+            }}
+          />
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-[max(12px,env(safe-area-inset-bottom))] lg:hidden">
+      <MobileTopSignalsSheetHandle
+        copy={copy}
+        isDarkTheme={isDarkTheme}
+        sourceStatus={sourceStatus}
+        onOpen={() => onOpenChange(true)}
+      />
+    </div>
+  );
+}
+
+function MobileTopSignalsSheetHandle({
+  copy,
+  isDarkTheme,
+  sourceStatus,
+  onOpen,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  sourceStatus: KolSignalSourceStatus;
+  onOpen: () => void;
+}) {
+  const buttonClassName = isDarkTheme
+    ? "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-white/[0.085] bg-[#181A20]/96 px-3.5 py-3 text-left text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
+    : "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-[#D5E4EF] bg-white/96 px-3.5 py-3 text-left text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl";
+  const eyebrowClassName = isDarkTheme
+    ? "text-[10px] font-bold uppercase tracking-[0.12em] text-sky-300"
+    : "text-[10px] font-bold uppercase tracking-[0.12em] text-[#008DCC]";
+  const statusText = sourceStatus.isLoading
+    ? copy.paper.loading
+    : sourceStatus.error
+      ? copy.common.errorPrefix
+      : "";
+
+  return (
+    <button className={buttonClassName} type="button" onClick={onOpen}>
+      <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-slate-400/45" />
+      <div className="flex min-w-0 items-center gap-3">
+        <span
+          aria-hidden="true"
+          className={
+            isDarkTheme
+              ? "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-sky-300"
+              : "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#EAF8FE] text-[#008DCC]"
+          }
+        >
+          S
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className={eyebrowClassName}>{copy.workspace.topSignals.title}</span>
+            {statusText ? <span className="truncate text-xs font-semibold">{statusText}</span> : null}
+          </div>
+        </div>
+        <ChevronUpIcon className={isDarkTheme ? "h-4 w-4 shrink-0 text-slate-400" : "h-4 w-4 shrink-0 text-slate-500"} />
+      </div>
+    </button>
   );
 }
 
@@ -1150,17 +1749,20 @@ function SidebarCollapseButton({
   copy,
   isCollapsed,
   isDarkTheme,
+  panelLabel,
   variant = "header",
   onToggle,
 }: {
   copy: WorkspaceCopy;
   isCollapsed: boolean;
   isDarkTheme: boolean;
+  panelLabel?: string;
   variant?: "header" | "edge-tab";
   onToggle: () => void;
 }) {
-  const label = isCollapsed ? copy.workspace.expandPanel : copy.workspace.collapse;
-  const edgeLabel = copy.workspace.edgePanel;
+  const resolvedPanelLabel = panelLabel ?? copy.kol.title;
+  const label = isCollapsed ? resolvedPanelLabel : copy.workspace.collapse;
+  const edgeLabel = isCollapsed ? resolvedPanelLabel : copy.workspace.edgePanel;
 
   if (variant === "edge-tab") {
     const className = isDarkTheme
@@ -1178,7 +1780,7 @@ function SidebarCollapseButton({
           <ChevronLeftIcon className="motion-fx-7-collapse-icon h-4 w-4" />
         </span>
         <span className="pointer-events-none absolute left-8 top-1/2 max-w-0 -translate-y-1/2 overflow-hidden whitespace-nowrap text-[13px] font-normal leading-none opacity-0 transition-[max-width,opacity] duration-200 ease-out group-hover:max-w-20 group-hover:opacity-100">
-          {copy.kol.title}
+          {resolvedPanelLabel}
         </span>
       </button>
     );
@@ -1360,7 +1962,7 @@ function dedupeStructuredSignalsByPosition(
 
   return sortSignalsForKolPanel(
     Array.from(signalsByPositionKey.values()),
-  ).slice(0, MAX_VISIBLE_KOL_SIGNALS);
+  ).slice(0, MAX_VISIBLE_KOL_SIGNAL_HISTORY);
 }
 
 function compareStructuredSignalCreatedAt(

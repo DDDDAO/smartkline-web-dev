@@ -50,10 +50,19 @@ type BinanceKlinePayload = {
   };
 };
 
+type BinancePremiumIndexRow = {
+  markPrice?: string;
+  symbol?: string;
+};
+
 type RealtimeHandlers = {
   onOpen: () => void;
   onError: (error: Error) => void;
   onCandle: (candle: MarketCandle) => void;
+};
+
+type MarkPriceFetchOptions = {
+  signal?: AbortSignal;
 };
 
 export async function fetchUsdtPerpetualMarkets(): Promise<MarketSymbol[]> {
@@ -109,6 +118,44 @@ export async function fetchHistoricalCandles(
   }
 
   return candles.filter((candle) => candle.sourceTimeMs < untilMs).slice(-limit);
+}
+
+export async function fetchUsdtPerpetualMarkPrices(
+  symbols: readonly string[],
+  options: MarkPriceFetchOptions = {},
+): Promise<Map<string, number>> {
+  const normalizedSymbols = new Set(
+    symbols.map(normalizeBinanceFuturesSymbol).filter(Boolean),
+  );
+  if (normalizedSymbols.size === 0) {
+    return new Map();
+  }
+
+  const response = await fetch(
+    new URL("/fapi/v1/premiumIndex", BINANCE_FUTURES_REST_BASE_URL),
+    { signal: options.signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Binance mark prices failed: ${response.status} ${response.statusText}`);
+  }
+
+  const payload = await response.json() as BinancePremiumIndexRow[] | BinancePremiumIndexRow;
+  const rows = Array.isArray(payload) ? payload : [payload];
+  const pricesBySymbol = new Map<string, number>();
+
+  for (const row of rows) {
+    const symbol = normalizeBinanceFuturesSymbol(row.symbol ?? "");
+    if (!normalizedSymbols.has(symbol)) {
+      continue;
+    }
+
+    const price = Number(row.markPrice);
+    if (Number.isFinite(price) && price > 0) {
+      pricesBySymbol.set(symbol, price);
+    }
+  }
+
+  return pricesBySymbol;
 }
 
 export function subscribeToBinanceKlines(
@@ -223,6 +270,24 @@ export function toBinanceFuturesStreamSymbol(symbol: MarketSymbol): string {
   }
 
   return `${match[1]}${match[2]}`.toLowerCase();
+}
+
+function normalizeBinanceFuturesSymbol(symbol: string): string {
+  const normalizedSymbol = symbol.trim().toUpperCase();
+  if (!normalizedSymbol) {
+    return "";
+  }
+
+  if (!normalizedSymbol.includes("/")) {
+    return normalizedSymbol;
+  }
+
+  try {
+    return toBinanceFuturesStreamSymbol(normalizedSymbol as MarketSymbol).toUpperCase();
+  } catch {
+    const [marketPair] = normalizedSymbol.split(":");
+    return marketPair.replace("/", "");
+  }
 }
 
 function createBinanceKlineWebSocketUrl(symbol: MarketSymbol, interval: KlineInterval): string {

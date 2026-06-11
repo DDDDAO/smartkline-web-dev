@@ -695,7 +695,11 @@ function formatCurrency(value: number | null): string {
   return `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
-function formatPrice(value: number): string {
+function formatPrice(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
   return value.toLocaleString("en-US", { maximumFractionDigits: Math.abs(value) >= 1000 ? 1 : 4 });
 }
 

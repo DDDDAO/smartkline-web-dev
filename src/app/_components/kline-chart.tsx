@@ -15,7 +15,7 @@ import {
   type MouseEventParams,
   type Time,
 } from "lightweight-charts";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AiSignalSummaryOverlay } from "./kline-chart/ai-signal-summary-overlay";
 import { renderPaperPositionLifecycleLabels } from "./kline-chart/paper-position-lifecycle-labels";
 import { createChartPalette } from "./kline-chart/palette";
@@ -24,8 +24,8 @@ import { createSignalEventRenderKey, renderSignalEventLabels } from "./kline-cha
 import { createSignalFocusRequestKey } from "./kline-chart/signal-focus";
 import { SignalPriceRayPrimitive } from "./kline-chart/signal-price-ray-primitive";
 import { readTradePointMarkerId, TradePointPrimitive, type KlineTradePointMarker } from "./kline-chart/trade-point-primitive";
-import type { ChartTheme } from "./kline-chart/types";
-import type { WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { ChartTheme, ChartTimeFocusRequest, KlineSignalBiasSummary } from "./kline-chart/types";
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { SignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import type { KlineInterval, MarketCandle } from "@/app/_types/market";
@@ -42,15 +42,19 @@ export type KlineChartProps = {
   canLoadOlderHistory: boolean;
   eventSignals: readonly StructuredSignal[];
   focusSignalRequestKey: string | null;
+  focusTimeRequest?: ChartTimeFocusRequest | null;
   interval: KlineInterval;
   isCompactLayout?: boolean;
   isLoadingOlderHistory: boolean;
   language: WorkspaceLanguage;
+  signalBiasSummary?: KlineSignalBiasSummary | null;
   theme: ChartTheme;
   tradeMarkers: readonly KlineTradePointMarker[];
   onEventSignalSelect: (signal: StructuredSignal) => void;
   onFocusSignalRequestHandled: () => void;
+  onFocusTimeRequestHandled?: () => void;
   onLoadOlderHistory: () => void;
+  onTradeMarkerSelect?: (markerId: string) => void;
 };
 
 const LEFT_EDGE_HISTORY_THRESHOLD_BARS = 80;
@@ -84,6 +88,29 @@ const KLINE_INTERVAL_MS_BY_INTERVAL: Record<KlineInterval, number> = {
   "15m": 900_000,
 };
 
+type TradeMarkerTooltipState = {
+  containerHeight: number;
+  containerWidth: number;
+  marker: KlineTradePointMarker;
+  x: number;
+  y: number;
+};
+
+type HoveredCandleInfo = Pick<MarketCandle, "close" | "high" | "low" | "open">;
+
+type HoveredCandleInfoPair = {
+  label: HTMLSpanElement;
+  value: HTMLSpanElement;
+};
+
+type HoveredCandleInfoChildren = {
+  close: HoveredCandleInfoPair;
+  high: HoveredCandleInfoPair;
+  low: HoveredCandleInfoPair;
+  open: HoveredCandleInfoPair;
+  change: HTMLSpanElement;
+};
+
 type KlineChartMetrics = {
   currentPriceTagFontSize: number;
   currentPriceTagHeight: number;
@@ -93,6 +120,8 @@ type KlineChartMetrics = {
   priceScaleTickMarkDensity: number;
   rightPriceScaleWidth: number;
 };
+
+const hoveredCandleInfoChildrenByElement = new WeakMap<HTMLDivElement, HoveredCandleInfoChildren>();
 
 function resolveKlineChartMetrics(isCompactLayout: boolean): KlineChartMetrics {
   return isCompactLayout ? COMPACT_CHART_METRICS : DESKTOP_CHART_METRICS;
@@ -134,18 +163,25 @@ export function KlineChart({
   canLoadOlderHistory,
   eventSignals,
   focusSignalRequestKey,
+  focusTimeRequest = null,
   interval,
   isCompactLayout = false,
   isLoadingOlderHistory,
   language,
+  signalBiasSummary = null,
   theme,
   tradeMarkers,
   onLoadOlderHistory,
   onEventSignalSelect,
   onFocusSignalRequestHandled,
+  onFocusTimeRequestHandled,
+  onTradeMarkerSelect,
 }: KlineChartProps) {
   const chartMetrics = resolveKlineChartMetrics(isCompactLayout);
+  const [tradeMarkerTooltip, setTradeMarkerTooltip] = useState<TradeMarkerTooltipState | null>(null);
+  const tradeMarkerTooltipRef = useRef<TradeMarkerTooltipState | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const hoveredCandleInfoRef = useRef<HTMLDivElement | null>(null);
   const hiddenSignalHintRef = useRef<HTMLDivElement | null>(null);
   const currentPriceTagRef = useRef<HTMLDivElement | null>(null);
   const labelOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -163,6 +199,7 @@ export function KlineChart({
   const onLoadOlderHistoryRef = useRef(onLoadOlderHistory);
   const eventSignalsRef = useRef(eventSignals);
   const tradeMarkersRef = useRef(tradeMarkers);
+  const tradeMarkersByIdRef = useRef<ReadonlyMap<string, KlineTradePointMarker>>(new Map());
   const candlesRef = useRef(candles);
   const renderedCandlesRef = useRef<readonly MarketCandle[]>([]);
   const renderedThemeRef = useRef<ChartTheme>(theme);
@@ -174,8 +211,14 @@ export function KlineChart({
   const languageRef = useRef(language);
   const currentCandleCountdownTextRef = useRef("");
   const onEventSignalSelectRef = useRef(onEventSignalSelect);
+  const onTradeMarkerSelectRef = useRef(onTradeMarkerSelect);
   const handledFocusSignalRequestKeyRef = useRef<string | null>(null);
+  const handledFocusTimeRequestKeyRef = useRef<string | null>(null);
   const eventLabelRenderKey = `${createSignalEventRenderKey(candles, eventSignals, theme, language, activeSignal?.id ?? null)}:${isCompactLayout ? "compact" : "desktop"}`;
+
+  useEffect(() => {
+    tradeMarkerTooltipRef.current = tradeMarkerTooltip;
+  }, [tradeMarkerTooltip]);
 
   useEffect(() => {
     canLoadOlderHistoryRef.current = canLoadOlderHistory;
@@ -183,6 +226,7 @@ export function KlineChart({
     onLoadOlderHistoryRef.current = onLoadOlderHistory;
     eventSignalsRef.current = eventSignals;
     tradeMarkersRef.current = tradeMarkers;
+    tradeMarkersByIdRef.current = createTradeMarkerLookup(tradeMarkers);
     candlesRef.current = candles;
     activePaperPositionRef.current = activePaperPosition;
     activeSignalRef.current = activeSignal;
@@ -191,7 +235,8 @@ export function KlineChart({
     themeRef.current = theme;
     languageRef.current = language;
     onEventSignalSelectRef.current = onEventSignalSelect;
-  }, [activePaperPosition, activeSignal, activeSignalDrawingReady, canLoadOlderHistory, candles, chartMetrics, eventSignals, isLoadingOlderHistory, language, onEventSignalSelect, onLoadOlderHistory, theme, tradeMarkers]);
+    onTradeMarkerSelectRef.current = onTradeMarkerSelect;
+  }, [activePaperPosition, activeSignal, activeSignalDrawingReady, canLoadOlderHistory, candles, chartMetrics, eventSignals, isLoadingOlderHistory, language, onEventSignalSelect, onLoadOlderHistory, onTradeMarkerSelect, theme, tradeMarkers]);
 
   useEffect(() => {
     const updateCountdown = () => {
@@ -218,6 +263,7 @@ export function KlineChart({
       return;
     }
 
+    const hoveredCandleInfoElement = hoveredCandleInfoRef.current;
     const palette = createChartPalette(themeRef.current);
     const currentChartMetrics = chartMetricsRef.current;
     const chart = createChart(container, {
@@ -270,7 +316,13 @@ export function KlineChart({
 
     volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
+    const signalRayPrimitive = new SignalPriceRayPrimitive();
+    const tradePointPrimitive = new TradePointPrimitive();
+    candleSeries.attachPrimitive(signalRayPrimitive);
+    candleSeries.attachPrimitive(tradePointPrimitive);
+
     let overlayRenderFrameId: number | null = null;
+    let tradePointRenderFrameId: number | null = null;
     const renderChartOverlays = () => {
       const drawableSignal = activeSignalDrawingReadyRef.current
         ? activeSignalRef.current
@@ -334,8 +386,20 @@ export function KlineChart({
       });
     };
 
+    const scheduleTradePointRender = () => {
+      if (tradePointRenderFrameId !== null) {
+        return;
+      }
+
+      tradePointRenderFrameId = window.requestAnimationFrame(() => {
+        tradePointRenderFrameId = null;
+        tradePointPrimitive.refresh();
+      });
+    };
+
     const handleVisibleLogicalRangeChange = (logicalRange: LogicalRange | null) => {
       scheduleChartOverlayRender();
+      scheduleTradePointRender();
 
       if (!logicalRange || !canLoadOlderHistoryRef.current || isLoadingOlderHistoryRef.current) {
         return;
@@ -346,18 +410,18 @@ export function KlineChart({
       }
     };
 
-    const signalRayPrimitive = new SignalPriceRayPrimitive();
-    const tradePointPrimitive = new TradePointPrimitive();
-    candleSeries.attachPrimitive(signalRayPrimitive);
-    candleSeries.attachPrimitive(tradePointPrimitive);
-
     const handleChartClick = (param: MouseEventParams<Time>) => {
-      const markerId = readTradePointMarkerId(param.hoveredObjectId);
+      const markerId = readTradePointMarkerId(readMouseEventObjectId(param));
       if (!markerId) {
         return;
       }
 
-      const marker = tradeMarkersRef.current.find((item) => item.id === markerId);
+      if (onTradeMarkerSelectRef.current) {
+        onTradeMarkerSelectRef.current(markerId);
+        return;
+      }
+
+      const marker = tradeMarkersByIdRef.current.get(markerId);
       const signal = marker
         ? eventSignalsRef.current.find((item) => item.id === marker.signalId) ?? (activeSignalRef.current?.id === marker.signalId ? activeSignalRef.current : null)
         : null;
@@ -366,8 +430,49 @@ export function KlineChart({
       }
     };
 
+    const updateTradeMarkerTooltip = (nextTooltip: TradeMarkerTooltipState | null) => {
+      if (areTradeMarkerTooltipsEqual(tradeMarkerTooltipRef.current, nextTooltip)) {
+        return;
+      }
+
+      tradeMarkerTooltipRef.current = nextTooltip;
+      setTradeMarkerTooltip(nextTooltip);
+    };
+
+    const handleCrosshairMove = (param: MouseEventParams<Time>) => {
+      renderHoveredCandleInfo({
+        candles: candlesRef.current,
+        element: hoveredCandleInfoElement,
+        language: languageRef.current,
+        param,
+        series: candleSeries,
+        theme: themeRef.current,
+      });
+
+      const markerId = readTradePointMarkerId(readMouseEventObjectId(param));
+      if (!markerId || !param.point) {
+        updateTradeMarkerTooltip(null);
+        return;
+      }
+
+      const marker = tradeMarkersByIdRef.current.get(markerId);
+      if (!marker) {
+        updateTradeMarkerTooltip(null);
+        return;
+      }
+
+      updateTradeMarkerTooltip({
+        containerHeight: container.clientHeight,
+        containerWidth: container.clientWidth,
+        marker,
+        x: param.point.x,
+        y: param.point.y,
+      });
+    };
+
     chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
     chart.subscribeClick(handleChartClick);
+    chart.subscribeCrosshairMove(handleCrosshairMove);
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
@@ -378,8 +483,13 @@ export function KlineChart({
       if (overlayRenderFrameId !== null) {
         window.cancelAnimationFrame(overlayRenderFrameId);
       }
+      if (tradePointRenderFrameId !== null) {
+        window.cancelAnimationFrame(tradePointRenderFrameId);
+      }
+      hideHoveredCandleInfo(hoveredCandleInfoElement);
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
       chart.unsubscribeClick(handleChartClick);
+      chart.unsubscribeCrosshairMove(handleCrosshairMove);
       candleSeries.detachPrimitive(signalRayPrimitive);
       candleSeries.detachPrimitive(tradePointPrimitive);
       chart.remove();
@@ -456,6 +566,7 @@ export function KlineChart({
       volumeSeriesRef.current.setData([]);
       signalRayPrimitiveRef.current?.applyOptions({ candles, language: languageRef.current, paperPosition: null, signal: null, theme });
       tradePointPrimitiveRef.current?.applyOptions({ activeSignalId: null, candles, markers: [], theme });
+      hideHoveredCandleInfo(hoveredCandleInfoRef.current);
       labelOverlayRef.current?.replaceChildren();
       lifecycleOverlayRef.current?.replaceChildren();
       labelOverlayRef.current?.removeAttribute("data-signal-event-hidden-right");
@@ -642,9 +753,37 @@ export function KlineChart({
     onFocusSignalRequestHandled();
   }, [activeSignal, candles, focusSignalRequestKey, onFocusSignalRequestHandled]);
 
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || !focusTimeRequest || candles.length === 0) {
+      return;
+    }
+
+    if (handledFocusTimeRequestKeyRef.current === focusTimeRequest.key) {
+      return;
+    }
+
+    const targetIndex = findNearestCandleIndex(candles, focusTimeRequest.sourceTimeMs);
+    if (targetIndex === -1) {
+      return;
+    }
+
+    chart.timeScale().setVisibleLogicalRange({
+      from: Math.max(0, targetIndex - 52),
+      to: Math.min(candles.length - 1, targetIndex + 52),
+    });
+    handledFocusTimeRequestKeyRef.current = focusTimeRequest.key;
+    onFocusTimeRequestHandled?.();
+  }, [candles, focusTimeRequest, onFocusTimeRequestHandled]);
+
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="absolute inset-0" />
+      <div
+        ref={hoveredCandleInfoRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute left-3 top-2 z-40 hidden max-w-[calc(100%-7rem)] overflow-hidden whitespace-nowrap text-[11px] font-semibold tracking-tight sm:left-4 sm:top-3 sm:text-xs lg:text-sm"
+      />
       <div ref={signalDataGuideTargetRef} data-guide-target="kline-signal-data" aria-hidden="true" className="pointer-events-none absolute z-10" />
       <div data-guide-target="kline-kol-avatars" aria-hidden="true" className="pointer-events-none absolute bottom-2 left-3 right-[86px] z-10 h-24 lg:left-4 lg:right-[102px] lg:h-28" />
       <div ref={hiddenSignalHintRef} aria-hidden="true" className="hidden" />
@@ -661,8 +800,426 @@ export function KlineChart({
         summary={aiSummary}
         theme={theme}
       />
+      <SignalBiasSummaryOverlay
+        language={language}
+        summary={signalBiasSummary}
+        theme={theme}
+      />
+      {tradeMarkerTooltip ? (
+        <TradeMarkerTooltip
+          language={language}
+          marker={tradeMarkerTooltip.marker}
+          style={createTradeMarkerTooltipStyle(tradeMarkerTooltip)}
+          theme={theme}
+        />
+      ) : null}
     </div>
   );
+}
+
+
+function readMouseEventObjectId(param: MouseEventParams<Time>): unknown {
+  return param.hoveredInfo?.objectId ?? param.hoveredObjectId;
+}
+
+function createTradeMarkerLookup(markers: readonly KlineTradePointMarker[]): ReadonlyMap<string, KlineTradePointMarker> {
+  if (markers.length === 0) {
+    return new Map();
+  }
+
+  return new Map(markers.map((marker) => [marker.id, marker]));
+}
+
+function areTradeMarkerTooltipsEqual(
+  left: TradeMarkerTooltipState | null,
+  right: TradeMarkerTooltipState | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return left.marker.id === right.marker.id
+    && left.containerHeight === right.containerHeight
+    && left.containerWidth === right.containerWidth
+    && Math.round(left.x) === Math.round(right.x)
+    && Math.round(left.y) === Math.round(right.y);
+}
+
+function SignalBiasSummaryOverlay({
+  language,
+  summary,
+  theme,
+}: {
+  language: WorkspaceLanguage;
+  summary: KlineSignalBiasSummary | null;
+  theme: ChartTheme;
+}) {
+  if (!summary || summary.totalCount === 0) {
+    return null;
+  }
+
+  const copy = getWorkspaceCopy(language);
+  const isDarkTheme = theme === "dark";
+  const shellClassName = isDarkTheme
+    ? "pointer-events-none absolute left-3 top-8 z-[35] max-w-[calc(100%-7rem)] overflow-hidden rounded-full border border-white/[0.08] bg-[#161B24]/86 px-2.5 py-1.5 text-[10px] font-bold text-slate-200 shadow-[0_10px_24px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:left-4 sm:top-9 sm:text-[11px]"
+    : "pointer-events-none absolute left-3 top-8 z-[35] max-w-[calc(100%-7rem)] overflow-hidden rounded-full border border-slate-200/90 bg-white/92 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 shadow-[0_8px_22px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:left-4 sm:top-9 sm:text-[11px]";
+  const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
+  const barTrackClassName = isDarkTheme ? "bg-white/[0.08]" : "bg-slate-100";
+
+  return (
+    <div className={shellClassName}>
+      <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
+        <span className={mutedClassName}>{copy.kline.signalBiasTitle}</span>
+        <span className="text-emerald-500">{copy.kline.signalBiasLong(summary.longPercent, summary.longCount)}</span>
+        <span className="text-rose-500">{copy.kline.signalBiasShort(summary.shortPercent, summary.shortCount)}</span>
+        <span className={mutedClassName}>{copy.kline.signalBiasSample(summary.totalCount)}</span>
+        <span className={`hidden h-1.5 w-16 overflow-hidden rounded-full sm:flex ${barTrackClassName}`}>
+          <span className="h-full bg-emerald-500/90" style={{ width: `${summary.longPercent}%` }} />
+          <span className="h-full bg-rose-500/80" style={{ width: `${summary.shortPercent}%` }} />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function renderHoveredCandleInfo(input: {
+  candles: readonly MarketCandle[];
+  element: HTMLDivElement | null;
+  language: WorkspaceLanguage;
+  param: MouseEventParams<Time>;
+  series: ISeriesApi<"Candlestick">;
+  theme: ChartTheme;
+}): void {
+  const { candles, element, language, param, series, theme } = input;
+  if (!element || !param.point) {
+    hideHoveredCandleInfo(element);
+    return;
+  }
+
+  const candle = readHoveredCandleInfo(param, series) ?? readHoveredCandleInfoFromTime(param.time, candles);
+  if (!candle) {
+    hideHoveredCandleInfo(element);
+    return;
+  }
+
+  const labels = getHoveredCandleLabels(language);
+  const change = candle.close - candle.open;
+  const changeRatio = candle.open !== 0 ? change / candle.open : null;
+  const valueColor = getHoveredCandleValueColor(change, theme);
+  const labelColor = theme === "dark" ? "#E5E7EB" : "#111827";
+  const children = ensureHoveredCandleInfoChildren(element);
+
+  element.style.alignItems = "center";
+  element.style.display = "flex";
+  element.style.fontVariantNumeric = "tabular-nums";
+  element.style.gap = "10px";
+  element.style.lineHeight = "1.2";
+  element.style.opacity = "1";
+  element.style.textShadow = theme === "dark" ? "0 1px 2px rgba(0,0,0,0.45)" : "0 1px 0 rgba(255,255,255,0.72)";
+
+  setHoveredCandlePair(children.open, labels.open, formatKlineOhlcValue(candle.open), labelColor, valueColor);
+  setHoveredCandlePair(children.high, labels.high, formatKlineOhlcValue(candle.high), labelColor, valueColor);
+  setHoveredCandlePair(children.low, labels.low, formatKlineOhlcValue(candle.low), labelColor, valueColor);
+  setHoveredCandlePair(children.close, labels.close, formatKlineOhlcValue(candle.close), labelColor, valueColor);
+  children.change.textContent = `${formatSignedKlineDelta(change)} (${formatSignedKlinePercent(changeRatio)})`;
+  children.change.style.color = valueColor;
+}
+
+function hideHoveredCandleInfo(element: HTMLDivElement | null): void {
+  if (!element) {
+    return;
+  }
+
+  element.style.opacity = "0";
+  element.style.display = "none";
+}
+
+function readHoveredCandleInfo(param: MouseEventParams<Time>, series: ISeriesApi<"Candlestick">): HoveredCandleInfo | null {
+  return normalizeHoveredCandleInfo(param.seriesData.get(series));
+}
+
+function readHoveredCandleInfoFromTime(time: Time | undefined, candles: readonly MarketCandle[]): HoveredCandleInfo | null {
+  if (typeof time !== "number") {
+    return null;
+  }
+
+  return candles.find((candle) => candle.time === time) ?? null;
+}
+
+function normalizeHoveredCandleInfo(value: unknown): HoveredCandleInfo | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<Record<keyof HoveredCandleInfo, unknown>>;
+  const open = Number(candidate.open);
+  const high = Number(candidate.high);
+  const low = Number(candidate.low);
+  const close = Number(candidate.close);
+
+  if (![open, high, low, close].every(Number.isFinite)) {
+    return null;
+  }
+
+  return { close, high, low, open };
+}
+
+function ensureHoveredCandleInfoChildren(element: HTMLDivElement): HoveredCandleInfoChildren {
+  const cachedChildren = hoveredCandleInfoChildrenByElement.get(element);
+  if (cachedChildren) {
+    return cachedChildren;
+  }
+
+  const open = createHoveredCandleInfoPair("open");
+  const high = createHoveredCandleInfoPair("high");
+  const low = createHoveredCandleInfoPair("low");
+  const close = createHoveredCandleInfoPair("close");
+  const change = document.createElement("span");
+  change.dataset.ohlcChange = "true";
+  change.style.display = "inline-block";
+  change.style.fontWeight = "700";
+
+  const children = {
+    open,
+    high,
+    low,
+    close,
+    change,
+  };
+
+  element.replaceChildren(open.group, high.group, low.group, close.group, change);
+  hoveredCandleInfoChildrenByElement.set(element, children);
+  return children;
+}
+
+function createHoveredCandleInfoPair(key: string): HoveredCandleInfoPair & { group: HTMLSpanElement } {
+  const group = document.createElement("span");
+  const label = document.createElement("span");
+  const value = document.createElement("span");
+
+  group.dataset.ohlcGroup = key;
+  group.style.display = "inline-flex";
+  group.style.fontWeight = "700";
+  group.style.gap = "0";
+  group.style.minWidth = "0";
+  label.dataset.ohlcLabel = "true";
+  value.dataset.ohlcValue = "true";
+
+  group.replaceChildren(label, value);
+  return { group, label, value };
+}
+
+function setHoveredCandlePair(
+  pair: HoveredCandleInfoPair,
+  label: string,
+  value: string,
+  labelColor: string,
+  valueColor: string,
+): void {
+  pair.label.textContent = label;
+  pair.label.style.color = labelColor;
+  pair.value.textContent = value;
+  pair.value.style.color = valueColor;
+}
+
+function getHoveredCandleLabels(language: WorkspaceLanguage): { close: string; high: string; low: string; open: string } {
+  if (language === "en-US") {
+    return { close: "C=", high: "H=", low: "L=", open: "O=" };
+  }
+
+  return { close: "收=", high: "高=", low: "低=", open: "开=" };
+}
+
+function getHoveredCandleValueColor(change: number, theme: ChartTheme): string {
+  if (change > 0) {
+    return createChartPalette(theme).up;
+  }
+
+  if (change < 0) {
+    return createChartPalette(theme).down;
+  }
+
+  return theme === "dark" ? "#CBD5E1" : "#334155";
+}
+
+function formatKlineOhlcValue(value: number): string {
+  return KLINE_PRICE_FORMAT.formatter(value);
+}
+
+function formatSignedKlineDelta(value: number): string {
+  if (value === 0) {
+    return "0";
+  }
+
+  const prefix = value > 0 ? "+" : "-";
+  return `${prefix}${KLINE_PRICE_FORMAT.formatter(Math.abs(value))}`;
+}
+
+function formatSignedKlinePercent(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  const prefix = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${prefix}${(Math.abs(value) * 100).toFixed(2)}%`;
+}
+
+function TradeMarkerTooltip({
+  language,
+  marker,
+  style,
+  theme,
+}: {
+  language: WorkspaceLanguage;
+  marker: KlineTradePointMarker;
+  style: CSSProperties;
+  theme: ChartTheme;
+}) {
+  const isDarkTheme = theme === "dark";
+  const sideLabel = formatTradeMarkerSide(marker.side, language);
+  const actionLabel = formatTradeMarkerAction(marker, language);
+  const directionLabel = marker.direction ? formatTradeMarkerDirection(marker.direction, language) : null;
+  const avatarStyle = marker.avatarUrl ? { backgroundImage: `url("${marker.avatarUrl}")` } : undefined;
+  const shellClassName = isDarkTheme
+    ? "pointer-events-none absolute z-50 w-[264px] rounded-2xl border border-white/[0.10] bg-[#181A20]/96 p-3 text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
+    : "pointer-events-none absolute z-50 w-[264px] rounded-2xl border border-[#D5E4EF] bg-white/96 p-3 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.16)] backdrop-blur-xl";
+  const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
+
+  return (
+    <div className={shellClassName} style={style}>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className={getTradeMarkerTooltipAvatarClassName(isDarkTheme, marker.side)}>
+          <span className="block h-full w-full bg-cover bg-center" style={avatarStyle}>
+            {!marker.avatarUrl ? getTradeMarkerInitial(marker) : null}
+          </span>
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-xs font-black">{marker.traderName ?? marker.title}</div>
+          <div className={`mt-0.5 truncate text-[10px] font-medium ${mutedClassName}`}>{marker.occurredAtText ?? "--"}</div>
+        </div>
+        <span className={getTradeMarkerTooltipSideClassName(isDarkTheme, marker.side)}>{sideLabel}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className={getTradeMarkerTooltipActionClassName(isDarkTheme)}>{actionLabel}</span>
+        {directionLabel ? <span className={getTradeMarkerTooltipDirectionClassName(isDarkTheme, marker.direction)}>{directionLabel}</span> : null}
+        <span className={isDarkTheme ? "text-[10px] font-bold text-slate-300" : "text-[10px] font-bold text-slate-600"}>{String(marker.symbol)}</span>
+      </div>
+      <div className={`mt-2 text-[11px] leading-4 ${mutedClassName}`}>
+        {formatTradeMarkerPriceLabel(language)} {formatTradeMarkerPrice(marker)}
+      </div>
+      {marker.detail ? (
+        <p className={isDarkTheme ? "mt-2 max-h-12 overflow-hidden text-[11px] leading-4 text-slate-300" : "mt-2 max-h-12 overflow-hidden text-[11px] leading-4 text-slate-600"}>
+          {marker.detail}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function createTradeMarkerTooltipStyle(tooltip: TradeMarkerTooltipState): CSSProperties {
+  const xOffset = tooltip.containerWidth > 0 && tooltip.x > tooltip.containerWidth - 286 ? "calc(-100% - 12px)" : "12px";
+  const yOffset = tooltip.containerHeight > 0 && tooltip.y > tooltip.containerHeight - 170 ? "calc(-100% - 12px)" : "12px";
+
+  return {
+    left: Math.round(tooltip.x),
+    top: Math.round(tooltip.y),
+    transform: `translate(${xOffset}, ${yOffset})`,
+  };
+}
+
+function formatTradeMarkerSide(side: "buy" | "sell", language: WorkspaceLanguage): string {
+  if (language === "en-US") {
+    return side === "buy" ? "Buy" : "Sell";
+  }
+
+  return side === "buy" ? "买入" : "卖出";
+}
+
+function formatTradeMarkerDirection(direction: "long" | "short", language: WorkspaceLanguage): string {
+  if (language === "en-US") {
+    return direction === "long" ? "Long" : "Short";
+  }
+
+  return direction === "long" ? "多" : "空";
+}
+
+function formatTradeMarkerAction(marker: KlineTradePointMarker, language: WorkspaceLanguage): string {
+  if (!marker.eventType || language !== "en-US") {
+    return marker.actionLabel ?? marker.title;
+  }
+
+  const labels: Record<NonNullable<KlineTradePointMarker["eventType"]>, string> = {
+    add: "Add",
+    close: "Close",
+    losing_streak: "Losing streak",
+    open: "Open",
+    oversized_position: "Oversized",
+    reduce: "Reduce",
+    reverse: "Reverse",
+    stop_loss: "Stop loss",
+    take_profit: "Take profit",
+    trailing_stop: "Trailing stop",
+  };
+  return labels[marker.eventType] ?? marker.actionLabel ?? marker.title;
+}
+
+function formatTradeMarkerPriceLabel(language: WorkspaceLanguage): string {
+  return language === "en-US" ? "Price" : "价格";
+}
+
+function formatTradeMarkerPrice(marker: KlineTradePointMarker): string {
+  if (marker.priceText) {
+    return marker.priceText;
+  }
+
+  return marker.price !== null && Number.isFinite(marker.price)
+    ? KLINE_PRICE_FORMAT.formatter(marker.price)
+    : "--";
+}
+
+function getTradeMarkerInitial(marker: KlineTradePointMarker): string {
+  const value = marker.traderName ?? marker.title;
+  return Array.from(value.trim().replace(/\s+/gu, ""))[0]?.toUpperCase() ?? "S";
+}
+
+function getTradeMarkerTooltipAvatarClassName(isDarkTheme: boolean, side: "buy" | "sell"): string {
+  const sideClassName = side === "buy" ? "border-emerald-400" : "border-rose-400";
+  const themeClassName = isDarkTheme ? "bg-slate-800 text-slate-50" : "bg-sky-100 text-sky-700";
+  return `grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border-2 ${sideClassName} ${themeClassName} text-xs font-black`;
+}
+
+function getTradeMarkerTooltipSideClassName(isDarkTheme: boolean, side: "buy" | "sell"): string {
+  if (side === "buy") {
+    return isDarkTheme
+      ? "rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-black text-emerald-200"
+      : "rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700";
+  }
+
+  return isDarkTheme
+    ? "rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] font-black text-rose-200"
+    : "rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-black text-rose-700";
+}
+
+function getTradeMarkerTooltipActionClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-200"
+    : "rounded-full border border-[#E5EAF0] bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-bold text-slate-700";
+}
+
+function getTradeMarkerTooltipDirectionClassName(isDarkTheme: boolean, direction: "long" | "short" | undefined): string {
+  if (direction === "long") {
+    return isDarkTheme
+      ? "rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-300"
+      : "rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700";
+  }
+
+  return isDarkTheme
+    ? "rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-black text-rose-300"
+    : "rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-black text-rose-700";
 }
 
 function findNearestCandleIndex(candles: readonly MarketCandle[], sourceTimeMs: number): number {

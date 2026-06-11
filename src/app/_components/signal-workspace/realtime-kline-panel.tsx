@@ -12,7 +12,7 @@ import {
   upsertCandles,
 } from "@/app/_lib/binance-market-data";
 import type { KlineChartProps } from "@/app/_components/kline-chart";
-import type { ChartTheme } from "@/app/_components/kline-chart/types";
+import type { ChartTheme, ChartTimeFocusRequest, KlineSignalBiasSummary } from "@/app/_components/kline-chart/types";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { CopyTradingTradeMarker } from "@/app/_types/copy-trading";
 import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
@@ -21,6 +21,7 @@ import { SymbolSearchInput } from "./symbol-search-input";
 
 const LATEST_CANDLE_BACKFILL_INTERVAL_MS = 60_000;
 const LATEST_CANDLE_BACKFILL_LIMIT = 3;
+const EMPTY_MARKET_CANDLES: readonly MarketCandle[] = [];
 const KlineChart = dynamic<KlineChartProps>(
   () => import("@/app/_components/kline-chart").then((module) => module.KlineChart),
   { loading: () => null },
@@ -30,11 +31,13 @@ export function RealtimeKlinePanel({
   activePaperPosition,
   activeSignal,
   focusSignalRequestKey,
+  focusTimeRequest,
   isActivePaperPositionReady,
   isCompactLayout,
   interval,
   language,
   marketOptions,
+  signalBiasSummary,
   symbol,
   signals,
   theme,
@@ -43,16 +46,20 @@ export function RealtimeKlinePanel({
   onSymbolChange,
   onSignalSelect,
   onFocusSignalRequestHandled,
+  onFocusTimeRequestHandled,
   onMarketCandleUpdate,
+  onTradeMarkerSelect,
 }: {
   activePaperPosition: PaperPositionRecord | null;
   activeSignal: StructuredSignal | null;
   focusSignalRequestKey: string | null;
+  focusTimeRequest?: ChartTimeFocusRequest | null;
   isActivePaperPositionReady: boolean;
   isCompactLayout: boolean;
   interval: KlineInterval;
   language: WorkspaceLanguage;
   marketOptions: readonly MarketSymbol[];
+  signalBiasSummary?: KlineSignalBiasSummary | null;
   symbol: MarketSymbol;
   signals: readonly StructuredSignal[];
   theme: ChartTheme;
@@ -61,7 +68,9 @@ export function RealtimeKlinePanel({
   onSymbolChange: (symbol: MarketSymbol) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
   onFocusSignalRequestHandled: () => void;
+  onFocusTimeRequestHandled?: () => void;
   onMarketCandleUpdate: (update: { candles: readonly MarketCandle[]; interval: KlineInterval; symbol: MarketSymbol }) => void;
+  onTradeMarkerSelect?: (marker: CopyTradingTradeMarker) => void;
 }) {
   const [candles, setCandles] = useState<MarketCandle[]>([]);
   const [canLoadOlderHistory, setCanLoadOlderHistory] = useState(true);
@@ -73,7 +82,22 @@ export function RealtimeKlinePanel({
   const copy = getWorkspaceCopy(language);
   const isInitialLoading = candles.length === 0 && !loadError;
   const chartEventSignals = useMemo(() => signals.filter((signal) => signal.symbol === symbol), [signals, symbol]);
-  const chartTradeMarkers = useMemo(() => tradeMarkers.filter((marker) => marker.symbol === symbol), [symbol, tradeMarkers]);
+  const chartRawTradeMarkers = useMemo(() => tradeMarkers.filter((marker) => marker.symbol === symbol), [symbol, tradeMarkers]);
+  const hasTradeMarkersMissingPrice = useMemo(
+    () => chartRawTradeMarkers.some((marker) => marker.price === null || !Number.isFinite(marker.price)),
+    [chartRawTradeMarkers],
+  );
+  const fallbackTradeMarkerCandles = hasTradeMarkersMissingPrice ? candles : EMPTY_MARKET_CANDLES;
+  const chartTradeMarkers = useMemo(
+    () => hasTradeMarkersMissingPrice
+      ? withCandleFallbackTradeMarkerPrices(chartRawTradeMarkers, fallbackTradeMarkerCandles)
+      : chartRawTradeMarkers,
+    [chartRawTradeMarkers, fallbackTradeMarkerCandles, hasTradeMarkersMissingPrice],
+  );
+  const chartTradeMarkersById = useMemo(
+    () => new Map(chartTradeMarkers.map((marker) => [marker.id, marker])),
+    [chartTradeMarkers],
+  );
   const aiSummary = useMemo(() => createSignalAiSummary(chartEventSignals, language), [chartEventSignals, language]);
 
   useEffect(() => {
@@ -236,14 +260,25 @@ export function RealtimeKlinePanel({
           canLoadOlderHistory={canLoadOlderHistory}
           eventSignals={chartEventSignals}
           focusSignalRequestKey={focusSignalRequestKey}
+          focusTimeRequest={focusTimeRequest}
           interval={interval}
           isCompactLayout={isCompactLayout}
           isLoadingOlderHistory={isLoadingOlderHistory}
+          signalBiasSummary={signalBiasSummary ?? null}
           theme={theme}
           tradeMarkers={chartTradeMarkers}
           onEventSignalSelect={onSignalSelect}
           onFocusSignalRequestHandled={onFocusSignalRequestHandled}
+          onFocusTimeRequestHandled={onFocusTimeRequestHandled}
           onLoadOlderHistory={loadOlderHistory}
+          onTradeMarkerSelect={onTradeMarkerSelect
+            ? (markerId) => {
+              const marker = chartTradeMarkersById.get(markerId);
+              if (marker) {
+                onTradeMarkerSelect(marker);
+              }
+            }
+            : undefined}
         />
         {isInitialLoading ? <KlineLoadingOverlay isDarkTheme={isDarkTheme} /> : null}
         {loadError && candles.length === 0 ? (
@@ -279,6 +314,66 @@ function KlineLoadingOverlay({ isDarkTheme }: { isDarkTheme: boolean }) {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
+}
+
+function withCandleFallbackTradeMarkerPrices(
+  markers: readonly CopyTradingTradeMarker[],
+  candles: readonly MarketCandle[],
+): CopyTradingTradeMarker[] {
+  if (markers.length === 0) {
+    return [];
+  }
+
+  return markers.map((marker) => {
+    if (marker.price !== null && Number.isFinite(marker.price)) {
+      return marker;
+    }
+
+    const candle = findPrecedingCandle(candles, marker.sourceTimeMs);
+    if (!candle || !Number.isFinite(candle.close)) {
+      return marker;
+    }
+
+    return {
+      ...marker,
+      price: candle.close,
+      priceText: formatTradeMarkerFallbackPrice(candle.close),
+      title: marker.title.includes("@")
+        ? marker.title
+        : `${marker.title} @ ${formatTradeMarkerFallbackPrice(candle.close)}`,
+    };
+  });
+}
+
+function findPrecedingCandle(candles: readonly MarketCandle[], sourceTimeMs: number): MarketCandle | null {
+  if (!Number.isFinite(sourceTimeMs) || candles.length === 0) {
+    return null;
+  }
+
+  let low = 0;
+  let high = candles.length - 1;
+
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const candle = candles[middle];
+    if (!candle || candle.sourceTimeMs === sourceTimeMs) {
+      return candle ?? null;
+    }
+
+    if (candle.sourceTimeMs < sourceTimeMs) {
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+
+  return candles[Math.max(0, high)] ?? candles[0] ?? null;
+}
+
+function formatTradeMarkerFallbackPrice(value: number): string {
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits: Math.abs(value) >= 1_000 ? 2 : Math.abs(value) >= 1 ? 4 : 6,
+  });
 }
 
 function MarketEnvironmentGuide({ copy, error, isDarkTheme }: { copy: ReturnType<typeof getWorkspaceCopy>; error: string; isDarkTheme: boolean }) {

@@ -2,19 +2,21 @@
 
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
+import { createKolSourceWatchKey } from "@/app/_lib/workspace-watchlist";
 import type { StructuredSignal } from "@/app/_types/signal";
-import { SourceAvatar, SymbolIcon } from "./card-ui";
+import { FavoriteStarButton, SourceAvatar, SymbolIcon } from "./card-ui";
 import {
   formatSignalPaperPositionStatus,
   getSignalDirectionBadgeClass,
   getSignalPaperPositionBadgeClass,
 } from "./paper-position-summary";
 
-export type WorkspaceProductTab = "intel" | "kolFollow";
+export type WorkspaceProductTab = "intel" | "kolFollow" | "topSignals";
 
 const WORKSPACE_PRODUCT_TABS: readonly WorkspaceProductTab[] = [
   "intel",
   "kolFollow",
+  "topSignals",
 ];
 
 type KolFollowModel = {
@@ -103,17 +105,21 @@ export function KolFollowProductTab({
   isDarkTheme,
   paperPositionsBySignalId,
   signals,
+  watchlistedSourceKeys,
   onCommunityConversionOpen,
+  onKolSourceWatchToggle,
   onSignalSelect,
 }: {
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
   paperPositionsBySignalId: Readonly<Record<string, PaperPositionRecord>>;
   signals: readonly StructuredSignal[];
+  watchlistedSourceKeys?: ReadonlySet<string>;
   onCommunityConversionOpen: (
     sourceName: string,
     signal?: StructuredSignal,
   ) => void;
+  onKolSourceWatchToggle?: (signal: StructuredSignal) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
 }) {
   const models = createKolFollowModels(signals, paperPositionsBySignalId);
@@ -162,6 +168,7 @@ export function KolFollowProductTab({
                   key={model.name}
                   copy={copy}
                   isDarkTheme={isDarkTheme}
+                  isWatchlisted={watchlistedSourceKeys?.has(createKolSourceWatchKey(model.name)) ?? false}
                   model={model}
                   paperPositionRecord={
                     paperPositionsBySignalId[model.latestSignal.id] ?? null
@@ -169,6 +176,7 @@ export function KolFollowProductTab({
                   rank={index + 1}
                   onCommunityConversionOpen={onCommunityConversionOpen}
                   onSignalSelect={onSignalSelect}
+                  onWatchToggle={onKolSourceWatchToggle ? () => onKolSourceWatchToggle(model.latestSignal) : undefined}
                 />
               ))
             ) : (
@@ -222,14 +230,17 @@ export function KolFollowProductTab({
 function KolFollowCard({
   copy,
   isDarkTheme,
+  isWatchlisted,
   model,
   paperPositionRecord,
   rank,
   onCommunityConversionOpen,
   onSignalSelect,
+  onWatchToggle,
 }: {
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
+  isWatchlisted: boolean;
   model: KolFollowModel;
   paperPositionRecord: PaperPositionRecord | null;
   rank: number;
@@ -238,6 +249,7 @@ function KolFollowCard({
     signal?: StructuredSignal,
   ) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
+  onWatchToggle?: () => void;
 }) {
   const cardClassName = isDarkTheme
     ? "rounded-[22px] border border-white/[0.075] bg-white/[0.035] p-4 transition hover:border-sky-500/30 hover:bg-white/[0.055]"
@@ -258,7 +270,7 @@ function KolFollowCard({
           <h3 className={getPanelSubtitleClassName(isDarkTheme)}>
             {model.name}
           </h3>
-          <div className="mt-1 flex flex-wrap gap-1.5">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {model.symbols.slice(0, 4).map((symbol) => (
               <span
                 key={symbol}
@@ -272,6 +284,15 @@ function KolFollowCard({
                 {formatSymbolLabel(symbol)}
               </span>
             ))}
+            {onWatchToggle ? (
+              <FavoriteStarButton
+                activeLabel={copy.workspace.watchlist.removeFavorite}
+                inactiveLabel={copy.workspace.watchlist.addFavorite}
+                isActive={isWatchlisted}
+                isDarkTheme={isDarkTheme}
+                onToggle={onWatchToggle}
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -644,12 +665,6 @@ function getWorkspacePanelClassName(isDarkTheme: boolean): string {
     : "rounded-[24px] border border-[#E5EAF0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
 }
 
-function getInnerPanelClassName(isDarkTheme: boolean): string {
-  return isDarkTheme
-    ? "rounded-[20px] border border-white/[0.075] bg-white/[0.035] p-4"
-    : "rounded-[20px] border border-[#E5EAF0] bg-white p-4";
-}
-
 function getPanelTitleClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "text-xl font-semibold tracking-tight text-slate-50"
@@ -716,12 +731,6 @@ function getMetricValueClassName(
 
 function getPrimaryButtonClassName(): string {
   return "motion-fx-1-nav-button inline-flex h-10 items-center justify-center rounded-full bg-[#00A6F4] px-4 text-sm font-semibold text-white transition hover:bg-[#0097DD] disabled:cursor-not-allowed";
-}
-
-function getSecondaryButtonClassName(isDarkTheme: boolean): string {
-  return isDarkTheme
-    ? "motion-fx-1-nav-button inline-flex h-10 items-center justify-center rounded-full border border-white/[0.075] bg-white/[0.035] px-4 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.08] hover:text-sky-300"
-    : "motion-fx-1-nav-button inline-flex h-10 items-center justify-center rounded-full border border-[#E5EAF0] bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE] hover:text-[#008DCC]";
 }
 
 function getIconButtonClassName(isDarkTheme: boolean): string {

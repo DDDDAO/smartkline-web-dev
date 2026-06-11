@@ -72,6 +72,58 @@ export function SymbolIcon({
   );
 }
 
+export function FavoriteStarButton({
+  activeLabel,
+  inactiveLabel,
+  isActive,
+  isDarkTheme,
+  onToggle,
+}: {
+  activeLabel: string;
+  inactiveLabel: string;
+  isActive: boolean;
+  isDarkTheme: boolean;
+  onToggle: () => void;
+}) {
+  const label = isActive ? activeLabel : inactiveLabel;
+  const className = isActive
+    ? isDarkTheme
+      ? "grid h-8 w-8 shrink-0 place-items-center rounded-full border border-amber-300/30 bg-amber-300/14 text-amber-200 transition hover:bg-amber-300/20"
+      : "grid h-8 w-8 shrink-0 place-items-center rounded-full border border-amber-200 bg-amber-50 text-amber-500 transition hover:bg-amber-100"
+    : isDarkTheme
+      ? "grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.035] text-slate-500 transition hover:border-amber-300/30 hover:bg-amber-300/10 hover:text-amber-200"
+      : "grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#E5EAF0] bg-white text-slate-400 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-500";
+
+  return (
+    <button
+      aria-label={label}
+      aria-pressed={isActive}
+      className={className}
+      title={label}
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <svg
+        aria-hidden="true"
+        className="h-4 w-4"
+        fill={isActive ? "currentColor" : "none"}
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="m12 3.4 2.63 5.34 5.9.86-4.27 4.16 1.01 5.87L12 16.86l-5.27 2.77 1.01-5.87L3.47 9.6l5.9-.86L12 3.4Z"
+          stroke="currentColor"
+          strokeLinejoin="round"
+          strokeWidth="1.8"
+        />
+      </svg>
+    </button>
+  );
+}
+
 export function getSymbolBaseAsset(symbol: string): string {
   const normalizedSymbol = symbol.trim().toUpperCase();
   const [marketPair] = normalizedSymbol.split(":");

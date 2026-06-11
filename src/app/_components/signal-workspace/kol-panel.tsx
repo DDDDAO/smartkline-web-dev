@@ -12,11 +12,13 @@ import type { MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type { KolSignalSourceStatus } from "./types";
 import {
+  FavoriteStarButton,
   SignalField,
   SourceAvatar,
   SymbolIcon,
   TelegramSignalMessage,
 } from "./card-ui";
+import { createKolSourceWatchKey } from "@/app/_lib/workspace-watchlist";
 import {
   PaperPositionSummary,
   getPaperPositionBadgeClass,
@@ -62,6 +64,15 @@ type KolStatsMetricModel = {
   value: string;
 };
 
+type WatchedKolSourceModel = {
+  avatarUrl: string | null;
+  key: string;
+  latestSignal: StructuredSignal;
+  name: string;
+  paperPositionRecord: PaperPositionRecord | null;
+  signalCount: number;
+};
+
 export function KolPanel({
   activeSignal,
   activeCardScrollBlock = "center",
@@ -73,7 +84,9 @@ export function KolPanel({
   sourceStatus,
   signals,
   variant = "desktop",
+  watchlistedSourceKeys,
   onFollowRequest,
+  onSourceWatchToggle,
   onSignalSelect,
 }: {
   activeSignal: StructuredSignal | null;
@@ -86,7 +99,9 @@ export function KolPanel({
   sourceStatus: KolSignalSourceStatus;
   signals: readonly StructuredSignal[];
   variant?: "desktop" | "mobileSheet";
+  watchlistedSourceKeys?: ReadonlySet<string>;
   onFollowRequest?: (signal: StructuredSignal) => void;
+  onSourceWatchToggle?: (signal: StructuredSignal) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
 }) {
   const activeCardRef = useRef<HTMLDivElement | null>(null);
@@ -187,6 +202,10 @@ export function KolPanel({
       paperPositionsBySignalId,
       visibleSignals,
     ],
+  );
+  const watchedSources = useMemo(
+    () => createWatchedKolSourceModels(signals, watchlistedSourceKeys, paperPositionsBySignalId),
+    [paperPositionsBySignalId, signals, watchlistedSourceKeys],
   );
   const visibleSignalIds = visibleSignals.map((signal) => signal.id);
   const visibleSignalLayoutKey = JSON.stringify(visibleSignalIds);
@@ -345,6 +364,20 @@ export function KolPanel({
             tone="pending"
           />
         ) : null}
+        {watchedSources.length > 0 ? (
+          <WatchedKolSources
+            copy={copy}
+            isDarkTheme={isDarkTheme}
+            sources={watchedSources}
+            onSourceOpen={(source) => {
+              setKolFilter(source.name);
+              setSymbolFilter(ALL_SYMBOL_FILTER);
+              setDirectionFilter(ALL_DIRECTION_FILTER);
+              setStatusFilter(ALL_STATUS_FILTER);
+              onSignalSelect(source.latestSignal);
+            }}
+          />
+        ) : null}
         {visibleSignals.length === 0 && signals.length > 0 ? (
           <FilterEmptyState copy={copy} isDarkTheme={isDarkTheme} />
         ) : null}
@@ -357,6 +390,9 @@ export function KolPanel({
           const takeProfitText = formatTakeProfitText(signal.take_profit, copy);
           const isActive = signal.id === activeSignal?.id;
           const isFlipped = flippedSignalIds.has(signal.id);
+          const isWatchlisted = watchlistedSourceKeys?.has(
+            createKolSourceWatchKey(signal.source_name),
+          ) ?? false;
           const cardClassName = getSignalCardClassName({
             isActive,
             isDarkTheme,
@@ -448,21 +484,23 @@ export function KolPanel({
                         </div>
                       </div>
                     </div>
-                    <button
-                      className={rawButtonClassName}
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleFlip();
-                      }}
-                      onKeyDown={(event) => event.stopPropagation()}
-                    >
-                      <span>{copy.kol.viewSource}</span>
-                      <ChevronRightIcon />
-                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        className={rawButtonClassName}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleFlip();
+                        }}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
+                        <span>{copy.kol.viewSource}</span>
+                        <ChevronRightIcon />
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                     <span
                       className={
                         isDarkTheme
@@ -493,6 +531,15 @@ export function KolPanel({
                         copy.paper,
                       )}
                     </span>
+                    {onSourceWatchToggle ? (
+                      <FavoriteStarButton
+                        activeLabel={copy.workspace.watchlist.removeFavorite}
+                        inactiveLabel={copy.workspace.watchlist.addFavorite}
+                        isActive={isWatchlisted}
+                        isDarkTheme={isDarkTheme}
+                        onToggle={() => onSourceWatchToggle(signal)}
+                      />
+                    ) : null}
                   </div>
 
                   <div className="signal-card-field-layer mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -797,6 +844,75 @@ function KolStatsMetric({
       <div className={labelClassName}>{metric.label}</div>
       <div className={valueClassName}>{metric.value}</div>
     </div>
+  );
+}
+
+function WatchedKolSources({
+  copy,
+  isDarkTheme,
+  onSourceOpen,
+  sources,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  onSourceOpen: (source: WatchedKolSourceModel) => void;
+  sources: readonly WatchedKolSourceModel[];
+}) {
+  const shellClassName = isDarkTheme
+    ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
+    : "rounded-2xl border border-[#E5EAF0] bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.025)]";
+  const cardClassName = isDarkTheme
+    ? "min-w-0 overflow-hidden rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-2 text-left transition hover:border-sky-500/30 hover:bg-white/[0.055]"
+    : "min-w-0 overflow-hidden rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-2 text-left transition hover:border-[#B7E8FC] hover:bg-[#F4FBFF]";
+
+  return (
+    <section className={shellClassName}>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className={isDarkTheme ? "text-xs font-black text-slate-50" : "text-xs font-black text-slate-950"}>
+          {copy.workspace.watchlist.favoriteKols}
+        </h3>
+        <span className={isDarkTheme ? "text-[10px] font-medium text-slate-500" : "text-[10px] font-medium text-slate-400"}>
+          {copy.workspace.watchlist.favoriteCount(sources.length)}
+        </span>
+      </div>
+      <div className="mt-2 grid max-h-[292px] grid-cols-2 gap-2 overflow-y-auto pr-1">
+        {sources.map((source) => (
+          <button
+            key={source.key}
+            className={cardClassName}
+            type="button"
+            onClick={() => onSourceOpen(source)}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <SourceAvatar
+                isDarkTheme={isDarkTheme}
+                name={source.name}
+                url={source.avatarUrl}
+              />
+              <div className="min-w-0 flex-1">
+                <div className={isDarkTheme ? "truncate text-xs font-black text-slate-50" : "truncate text-xs font-black text-slate-950"}>
+                  {source.name}
+                </div>
+              </div>
+            </div>
+            <div className={isDarkTheme ? "mt-2 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-slate-500" : "mt-2 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-slate-500"}>
+              <span className={getSignalDirectionBadgeClass(isDarkTheme, source.latestSignal.direction)}>
+                {copy.kol.directionShort[source.latestSignal.direction]}
+              </span>
+              <span className={getSignalPaperPositionBadgeClass(isDarkTheme, source.paperPositionRecord)}>
+                {formatSignalPaperPositionStatus(source.paperPositionRecord, null, copy.paper)}
+              </span>
+            </div>
+            <div className={isDarkTheme ? "mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-slate-300" : "mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-slate-700"}>
+              <SymbolIcon symbol={source.latestSignal.symbol} />
+              <span>{formatSymbolLabel(source.latestSignal.symbol)}</span>
+              <span className={isDarkTheme ? "text-slate-600" : "text-slate-400"}>·</span>
+              <span>{copy.workspace.watchlist.signalCount(source.signalCount)}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -1156,6 +1272,44 @@ function matchesStatusFilter(
   }
 
   return record.status === "exited" && record.exitReason === statusFilter;
+}
+
+function createWatchedKolSourceModels(
+  signals: readonly StructuredSignal[],
+  watchlistedSourceKeys: ReadonlySet<string> | undefined,
+  paperPositionsBySignalId: Readonly<Record<string, PaperPositionRecord>>,
+): WatchedKolSourceModel[] {
+  if (!watchlistedSourceKeys || watchlistedSourceKeys.size === 0) {
+    return [];
+  }
+
+  const signalsBySourceKey = new Map<string, StructuredSignal[]>();
+  for (const signal of signals) {
+    const sourceKey = createKolSourceWatchKey(signal.source_name);
+    if (!watchlistedSourceKeys.has(sourceKey)) {
+      continue;
+    }
+
+    const sourceSignals = signalsBySourceKey.get(sourceKey) ?? [];
+    sourceSignals.push(signal);
+    signalsBySourceKey.set(sourceKey, sourceSignals);
+  }
+
+  return Array.from(signalsBySourceKey.entries())
+    .map(([sourceKey, sourceSignals]) => {
+      const sortedSignals = sortSignalsByCreatedAtDesc(sourceSignals);
+      const latestSignal = sortedSignals[0];
+      return {
+        avatarUrl: latestSignal.source_avatar_url,
+        key: sourceKey,
+        latestSignal,
+        name: latestSignal.source_name,
+        paperPositionRecord: paperPositionsBySignalId[latestSignal.id] ?? null,
+        signalCount: sortedSignals.length,
+      };
+    })
+    .sort((left, right) => Date.parse(right.latestSignal.created_at) - Date.parse(left.latestSignal.created_at))
+    .slice(0, 8);
 }
 
 function createKolStatsSummary({
