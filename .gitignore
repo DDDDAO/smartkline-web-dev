@@ -37,6 +37,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Trellis local agent workspace
+/.agents/
+/.codex/
+/.trellis/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
