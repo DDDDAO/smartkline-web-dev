@@ -77,22 +77,26 @@ export function FavoriteStarButton({
   inactiveLabel,
   isActive,
   isDarkTheme,
+  size = "default",
   onToggle,
 }: {
   activeLabel: string;
   inactiveLabel: string;
   isActive: boolean;
   isDarkTheme: boolean;
+  size?: "compact" | "default";
   onToggle: () => void;
 }) {
   const label = isActive ? activeLabel : inactiveLabel;
+  const sizeClassName = size === "compact" ? "h-7 w-7" : "h-8 w-8";
+  const iconClassName = size === "compact" ? "h-3.5 w-3.5" : "h-4 w-4";
   const className = isActive
     ? isDarkTheme
-      ? "grid h-8 w-8 shrink-0 place-items-center rounded-full border border-amber-300/30 bg-amber-300/14 text-amber-200 transition hover:bg-amber-300/20"
-      : "grid h-8 w-8 shrink-0 place-items-center rounded-full border border-amber-200 bg-amber-50 text-amber-500 transition hover:bg-amber-100"
+      ? `grid ${sizeClassName} shrink-0 place-items-center rounded-full border border-amber-300/30 bg-amber-300/14 text-amber-200 transition hover:bg-amber-300/20`
+      : `grid ${sizeClassName} shrink-0 place-items-center rounded-full border border-amber-200 bg-amber-50 text-amber-500 transition hover:bg-amber-100`
     : isDarkTheme
-      ? "grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.035] text-slate-500 transition hover:border-amber-300/30 hover:bg-amber-300/10 hover:text-amber-200"
-      : "grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#E5EAF0] bg-white text-slate-400 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-500";
+      ? `grid ${sizeClassName} shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.035] text-slate-500 transition hover:border-amber-300/30 hover:bg-amber-300/10 hover:text-amber-200`
+      : `grid ${sizeClassName} shrink-0 place-items-center rounded-full border border-[#E5EAF0] bg-white text-slate-400 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-500`;
 
   return (
     <button
@@ -109,7 +113,7 @@ export function FavoriteStarButton({
     >
       <svg
         aria-hidden="true"
-        className="h-4 w-4"
+        className={iconClassName}
         fill={isActive ? "currentColor" : "none"}
         viewBox="0 0 24 24"
       >

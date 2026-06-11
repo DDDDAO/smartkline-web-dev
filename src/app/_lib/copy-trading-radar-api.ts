@@ -24,8 +24,8 @@ const DEFAULT_TRADER_PLATFORM = "Binance Square";
 const USDT_SUFFIX = "USDT";
 const MOCK_MARKET_ALIGNMENT_TIMEOUT_MS = 2_500;
 const MOCK_MARKET_ALIGNMENT_HISTORY_LIMIT = 180;
-const COPY_TRADING_RADAR_SOURCE_LIMIT = 50;
-const COPY_TRADING_RADAR_TRADE_LIMIT = 200;
+const COPY_TRADING_RADAR_SOURCE_LIMIT = 200;
+export const COPY_TRADING_RADAR_TRADE_LIMIT = 200;
 
 const REQUIRED_EVENT_TYPES: CopyTradingEventType[] = [
   "open",
@@ -141,6 +141,10 @@ type SignalCenterTradeEvent = {
   entry_price?: number | string | null;
   markPrice?: number | string | null;
   mark_price?: number | string | null;
+  skipped?: boolean | string | null;
+  status?: string | null;
+  tradeStatus?: string | null;
+  trade_status?: string | null;
   sourceTimestamp: string;
   timestamp: string;
   metadata?: Record<string, unknown>;
@@ -155,7 +159,22 @@ type PositionsResponse = {
 };
 
 type TradesResponse = {
+  sourceId?: string | null;
   trades?: SignalCenterTradeEvent[] | null;
+  meta?: {
+    hasMore?: boolean | null;
+    includeSkipped?: boolean | null;
+    limit?: number | null;
+    offset?: number | null;
+    returnedCount?: number | null;
+  } | null;
+};
+
+export type CopyTradingTradeHistoryPage = {
+  events: CopyTradingEvent[];
+  hasMore: boolean;
+  nextOffset: number;
+  returnedCount: number;
 };
 
 type SignalCenterRadarSourceRuntime = {
@@ -214,7 +233,7 @@ type MockTradeBlueprint = {
 
 export async function fetchCopyTradingRadarSnapshot(): Promise<CopyTradingRadarSnapshot> {
   try {
-    const radarResponse = await requestSignalCenterJson<SignalCenterRadarSnapshotResponse>(`/v1/copy-trading-radar?sourceLimit=${COPY_TRADING_RADAR_SOURCE_LIMIT}&tradeLimit=${COPY_TRADING_RADAR_TRADE_LIMIT}`);
+    const radarResponse = await requestSignalCenterJson<SignalCenterRadarSnapshotResponse>(`/v1/copy-trading-radar?sourceLimit=${COPY_TRADING_RADAR_SOURCE_LIMIT}&tradeLimit=${COPY_TRADING_RADAR_TRADE_LIMIT}&includeSkipped=false`);
     const runtimeData = normalizeRadarRuntimeData(radarResponse.sources ?? []);
     const fallbackMarkPrices = await fetchRuntimeDataFallbackMarkPrices(runtimeData);
     return adaptSignalCenterRuntimeData(runtimeData, radarResponse.updatedAt ?? undefined, fallbackMarkPrices);
@@ -239,6 +258,38 @@ export async function fetchCopyTradingRadarSnapshot(): Promise<CopyTradingRadarS
   }
   const fallbackMarkPrices = await fetchRuntimeDataFallbackMarkPrices(runtimeData);
   return adaptSignalCenterRuntimeData(runtimeData, undefined, fallbackMarkPrices);
+}
+
+export async function fetchCopyTradingSourceTradeHistoryPage({
+  limit = COPY_TRADING_RADAR_TRADE_LIMIT,
+  offset = 0,
+  positions,
+  trader,
+}: {
+  limit?: number;
+  offset?: number;
+  positions: readonly CopyTradingPosition[];
+  trader: CopyTradingTrader;
+}): Promise<CopyTradingTradeHistoryPage> {
+  const safeLimit = Math.max(1, Math.min(COPY_TRADING_RADAR_TRADE_LIMIT, Math.floor(limit)));
+  const safeOffset = Math.max(0, Math.floor(offset));
+  const tradesResponse = await requestSignalCenterJson<TradesResponse>(
+    `/v1/signal-sources/${encodeURIComponent(trader.trader_id)}/trades?limit=${safeLimit}&offset=${safeOffset}&includeSkipped=false`,
+  );
+  const source = createSignalCenterSourceFromTrader(trader);
+  const positionsBySourceAndSymbol = createPositionLookup(positions);
+  const events = adaptSignalCenterTrades(
+    source,
+    tradesResponse.trades ?? [],
+    positionsBySourceAndSymbol,
+  );
+
+  return {
+    events,
+    hasMore: Boolean(tradesResponse.meta?.hasMore),
+    nextOffset: safeOffset + Math.max(0, tradesResponse.meta?.returnedCount ?? events.length),
+    returnedCount: events.length,
+  };
 }
 
 export async function createMarketAlignedMockCopyTradingRadarSnapshot(): Promise<CopyTradingRadarSnapshot> {
@@ -517,7 +568,7 @@ export function getCopyTradingRequiredEventTypes(): CopyTradingEventType[] {
 async function loadSourceRuntimeData(source: SignalCenterSignalSource): Promise<SourceRuntimeData> {
   const [positionsResponse, tradesResponse] = await Promise.all([
     requestSignalCenterJson<PositionsResponse>(`/v1/signal-sources/${encodeURIComponent(source.id)}/positions`),
-    requestSignalCenterJson<TradesResponse>(`/v1/signal-sources/${encodeURIComponent(source.id)}/trades?limit=${COPY_TRADING_RADAR_TRADE_LIMIT}`),
+    requestSignalCenterJson<TradesResponse>(`/v1/signal-sources/${encodeURIComponent(source.id)}/trades?limit=${COPY_TRADING_RADAR_TRADE_LIMIT}&includeSkipped=false`),
   ]);
 
   return {
@@ -540,7 +591,7 @@ function normalizeRadarRuntimeData(runtimeSources: readonly SignalCenterRadarSou
     return [{
       source: runtimeSource.source,
       positions: runtimeSource.positions ?? [],
-      trades: runtimeSource.trades ?? [],
+      trades: filterDisplayableSignalCenterTrades(runtimeSource.trades ?? []),
     }];
   });
 }
@@ -622,6 +673,25 @@ function adaptSignalCenterTrader(
     win_rate: clampPercent(trades.length === 0 ? 0 : trades.filter((trade) => !isLossTrade(trade)).length / trades.length),
     max_drawdown: clampPercent(0.08 + (trades.filter((trade) => isLossTrade(trade)).length % 18) / 100),
     risk_level: riskLevel,
+  };
+}
+
+function createSignalCenterSourceFromTrader(trader: CopyTradingTrader): SignalCenterSignalSource {
+  return {
+    id: trader.trader_id,
+    name: trader.name,
+    signalType: trader.platform || "Signal Center",
+    status: trader.status || "UNKNOWN",
+    margin: trader.margin_balance === null ? "" : String(trader.margin_balance),
+    leaderId: trader.trader_id,
+    leaderPrivate: false,
+    positionShow: true,
+    avatarUrl: trader.avatar,
+    url: trader.source_url,
+    isSpot: false,
+    private: false,
+    isAdmin: false,
+    positionsSyncedTime: trader.positions_synced_at,
   };
 }
 
@@ -734,7 +804,7 @@ function adaptSignalCenterTrades(
   trades: readonly SignalCenterTradeEvent[],
   positionsBySourceAndSymbol: ReadonlyMap<string, CopyTradingPosition>,
 ): CopyTradingEvent[] {
-  return trades.map((trade, index) => {
+  return filterDisplayableSignalCenterTrades(trades).map((trade, index) => {
     const eventType = normalizeTradeActionToEventType(trade);
     const position = positionsBySourceAndSymbol.get(createPositionLookupKey(source.id, trade.symbol, trade.side));
     const direction = normalizeCopyTradingDirection(trade.side);
@@ -760,6 +830,31 @@ function adaptSignalCenterTrades(
       severity,
     };
   });
+}
+
+function filterDisplayableSignalCenterTrades(
+  trades: readonly SignalCenterTradeEvent[],
+): SignalCenterTradeEvent[] {
+  return trades.filter((trade) => !isSkippedSignalCenterTrade(trade));
+}
+
+function isSkippedSignalCenterTrade(trade: SignalCenterTradeEvent): boolean {
+  return isTruthyMetadataFlag(trade.skipped)
+    || isSkipStatus(trade.status)
+    || isSkipStatus(trade.tradeStatus)
+    || isSkipStatus(trade.trade_status)
+    || isTruthyMetadataFlag(trade.metadata?.skipped)
+    || isSkipStatus(trade.metadata?.status)
+    || isSkipStatus(trade.metadata?.tradeStatus)
+    || isSkipStatus(trade.metadata?.trade_status);
+}
+
+function isTruthyMetadataFlag(value: unknown): boolean {
+  return value === true || (typeof value === "string" && value.trim().toLowerCase() === "true");
+}
+
+function isSkipStatus(value: unknown): boolean {
+  return typeof value === "string" && value.trim().toLowerCase() === "skip";
 }
 
 function copyTradingEventToStructuredSignal(

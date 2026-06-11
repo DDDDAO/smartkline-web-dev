@@ -14,6 +14,7 @@ import {
   createCopyTradingTradeMarkers,
   createMarketAlignedMockCopyTradingRadarSnapshot,
   fetchCopyTradingRadarSnapshot,
+  fetchCopyTradingSourceTradeHistoryPage,
   isActiveCopyTradingTrader,
   toCopyTradingMarketSymbol,
 } from "@/app/_lib/copy-trading-radar-api";
@@ -762,6 +763,41 @@ export function SignalWorkspace() {
     }
   }, []);
 
+  const handleTopSignalTradeHistoryLoadMore = useCallback(async ({
+    limit,
+    offset,
+    positions,
+    trader,
+  }: {
+    limit: number;
+    offset: number;
+    positions: readonly CopyTradingPosition[];
+    trader: CopyTradingTrader;
+  }) => {
+    const page = await fetchCopyTradingSourceTradeHistoryPage({
+      limit,
+      offset,
+      positions,
+      trader,
+    });
+
+    setTopSignalsSnapshot((currentSnapshot) => {
+      if (!currentSnapshot || page.events.length === 0) {
+        return currentSnapshot;
+      }
+
+      return {
+        ...currentSnapshot,
+        events: mergeCopyTradingEvents(currentSnapshot.events, page.events),
+      };
+    });
+
+    return {
+      hasMore: page.hasMore,
+      returnedCount: page.returnedCount,
+    };
+  }, []);
+
   const handleTopSignalTradeMarkerSelect = useCallback((marker: CopyTradingTradeMarker) => {
     const event = topSignalsEventsById.get(marker.eventId);
     if (event) {
@@ -976,6 +1012,7 @@ export function SignalWorkspace() {
                     onSourceFilterChange={handleTopSignalSourceFilterChange}
                     onSourceSelect={handleTopSignalSourceSelect}
                     onSourceWatchToggle={handleTopSignalSourceWatchToggle}
+                    onTradeHistoryLoadMore={handleTopSignalTradeHistoryLoadMore}
                     onTradeSelect={handleTopSignalTradeSelect}
                   />
                 )}
@@ -1039,6 +1076,7 @@ export function SignalWorkspace() {
           onSourceFilterChange={handleTopSignalSourceFilterChange}
           onSourceSelect={handleTopSignalSourceSelect}
           onSourceWatchToggle={handleTopSignalSourceWatchToggle}
+          onTradeHistoryLoadMore={handleTopSignalTradeHistoryLoadMore}
           onTradeSelect={handleTopSignalTradeSelect}
         />
       ) : null}
@@ -1118,6 +1156,23 @@ function createTopSignalsSignalBiasSummary(
     shortPercent: 100 - longPercent,
     totalCount,
   };
+}
+
+function mergeCopyTradingEvents(
+  currentEvents: readonly CopyTradingEvent[],
+  nextEvents: readonly CopyTradingEvent[],
+): CopyTradingEvent[] {
+  const eventsById = new Map<string, CopyTradingEvent>();
+  for (const event of currentEvents) {
+    eventsById.set(event.event_id, event);
+  }
+  for (const event of nextEvents) {
+    eventsById.set(event.event_id, event);
+  }
+
+  return Array.from(eventsById.values()).sort(
+    (left, right) => Date.parse(right.occurred_at) - Date.parse(left.occurred_at),
+  );
 }
 
 function MobileKolBottomSheet({
@@ -1237,6 +1292,7 @@ function MobileTopSignalsBottomSheet({
   onSourceFilterChange,
   onSourceSelect,
   onSourceWatchToggle,
+  onTradeHistoryLoadMore,
   onTradeSelect,
 }: {
   activeSourceId: string;
@@ -1254,6 +1310,12 @@ function MobileTopSignalsBottomSheet({
   onSourceFilterChange: (sourceId: string) => void;
   onSourceSelect: (sourceId: string) => void;
   onSourceWatchToggle: (trader: CopyTradingTrader) => void;
+  onTradeHistoryLoadMore: (input: {
+    limit: number;
+    offset: number;
+    positions: readonly CopyTradingPosition[];
+    trader: CopyTradingTrader;
+  }) => Promise<{ hasMore: boolean; returnedCount: number }>;
   onTradeSelect: (event: CopyTradingEvent) => void;
 }) {
   const closeButtonClassName = isDarkTheme
@@ -1305,6 +1367,7 @@ function MobileTopSignalsBottomSheet({
             onSourceFilterChange={onSourceFilterChange}
             onSourceSelect={onSourceSelect}
             onSourceWatchToggle={onSourceWatchToggle}
+            onTradeHistoryLoadMore={onTradeHistoryLoadMore}
             onTradeSelect={(event) => {
               onTradeSelect(event);
               onOpenChange(false);

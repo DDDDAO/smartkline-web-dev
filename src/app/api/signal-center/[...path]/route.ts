@@ -35,17 +35,7 @@ async function proxySignalCenterRequest(request: Request, context: SignalCenterR
       headers,
       method: request.method,
     });
-    const responseHeaders = new Headers();
-    const contentType = response.headers.get("content-type");
-    if (contentType) {
-      responseHeaders.set("content-type", contentType);
-    }
-
-    return new Response(await response.arrayBuffer(), {
-      headers: responseHeaders,
-      status: response.status,
-      statusText: response.statusText,
-    });
+    return createSignalCenterProxyResponse(response, path, request.url);
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : String(error) },
@@ -64,4 +54,131 @@ function createSignalCenterTargetUrl(pathSegments: readonly string[], requestUrl
   const incomingUrl = new URL(requestUrl);
   targetUrl.search = incomingUrl.search;
   return targetUrl.toString();
+}
+
+async function createSignalCenterProxyResponse(
+  response: Response,
+  pathSegments: readonly string[],
+  requestUrl: string,
+): Promise<Response> {
+  const responseHeaders = new Headers();
+  const contentType = response.headers.get("content-type");
+  if (contentType) {
+    responseHeaders.set("content-type", contentType);
+  }
+
+  if (shouldFilterSkippedTrades(pathSegments, requestUrl, contentType)) {
+    const responseText = await response.text();
+    try {
+      return Response.json(filterSkippedTradesPayload(JSON.parse(responseText) as unknown), {
+        status: response.status,
+        statusText: response.statusText,
+      });
+    } catch {
+      return new Response(responseText, {
+        headers: responseHeaders,
+        status: response.status,
+        statusText: response.statusText,
+      });
+    }
+  }
+
+  return new Response(await response.arrayBuffer(), {
+    headers: responseHeaders,
+    status: response.status,
+    statusText: response.statusText,
+  });
+}
+
+function shouldFilterSkippedTrades(
+  pathSegments: readonly string[],
+  requestUrl: string,
+  contentType: string | null,
+): boolean {
+  if (!contentType?.includes("application/json")) {
+    return false;
+  }
+
+  const incomingUrl = new URL(requestUrl);
+  if (incomingUrl.searchParams.get("includeSkipped")?.trim().toLowerCase() === "true") {
+    return false;
+  }
+
+  return isCopyTradingRadarPath(pathSegments) || isSignalSourceTradesPath(pathSegments);
+}
+
+function isCopyTradingRadarPath(pathSegments: readonly string[]): boolean {
+  return pathSegments.length === 2 && pathSegments[0] === "v1" && pathSegments[1] === "copy-trading-radar";
+}
+
+function isSignalSourceTradesPath(pathSegments: readonly string[]): boolean {
+  return pathSegments.length === 4
+    && pathSegments[0] === "v1"
+    && pathSegments[1] === "signal-sources"
+    && pathSegments[3] === "trades";
+}
+
+function filterSkippedTradesPayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  const record = payload as Record<string, unknown>;
+  if (Array.isArray(record.trades)) {
+    return {
+      ...record,
+      trades: record.trades.filter((trade) => !isSkippedTradePayload(trade)),
+    };
+  }
+
+  if (Array.isArray(record.sources)) {
+    return {
+      ...record,
+      sources: record.sources.map((source) => {
+        if (!source || typeof source !== "object") {
+          return source;
+        }
+
+        const sourceRecord = source as Record<string, unknown>;
+        if (!Array.isArray(sourceRecord.trades)) {
+          return sourceRecord;
+        }
+
+        return {
+          ...sourceRecord,
+          trades: sourceRecord.trades.filter((trade) => !isSkippedTradePayload(trade)),
+        };
+      }),
+    };
+  }
+
+  return payload;
+}
+
+function isSkippedTradePayload(value: unknown): boolean {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  const metadata = record.metadata && typeof record.metadata === "object"
+    ? record.metadata as Record<string, unknown>
+    : null;
+
+  return isTruthyMetadataFlag(record.skipped)
+    || isSkipStatus(record.status)
+    || isSkipStatus(record.tradeStatus)
+    || isSkipStatus(record.trade_status)
+    || isTruthyMetadataFlag(metadata?.skipped)
+    || isSkipStatus(metadata?.status)
+    || isSkipStatus(metadata?.tradeStatus)
+    || isSkipStatus(metadata?.trade_status);
+}
+
+function isTruthyMetadataFlag(value: unknown): boolean {
+  return value === true || (typeof value === "string" && value.trim().toLowerCase() === "true");
+}
+
+function isSkipStatus(value: unknown): boolean {
+  return typeof value === "string" && value.trim().toLowerCase() === "skip";
 }

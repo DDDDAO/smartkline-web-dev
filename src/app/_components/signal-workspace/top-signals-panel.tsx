@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { isActiveCopyTradingTrader } from "@/app/_lib/copy-trading-radar-api";
+import { COPY_TRADING_RADAR_TRADE_LIMIT, isActiveCopyTradingTrader } from "@/app/_lib/copy-trading-radar-api";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type {
   CopyTradingDirection,
@@ -11,7 +11,7 @@ import type {
   CopyTradingTrader,
 } from "@/app/_types/copy-trading";
 import type { KolSignalSourceStatus } from "./types";
-import { FavoriteStarButton, SourceAvatar, SymbolIcon } from "./card-ui";
+import { FavoriteStarButton, SignalField, SourceAvatar, SymbolIcon } from "./card-ui";
 
 type TopSignalsPanelProps = {
   activeSourceId: string;
@@ -28,6 +28,12 @@ type TopSignalsPanelProps = {
   onSourceFilterChange: (sourceId: string) => void;
   onSourceSelect: (sourceId: string) => void;
   onSourceWatchToggle?: (trader: CopyTradingTrader) => void;
+  onTradeHistoryLoadMore?: (input: {
+    limit: number;
+    offset: number;
+    positions: readonly CopyTradingPosition[];
+    trader: CopyTradingTrader;
+  }) => Promise<{ hasMore: boolean; returnedCount: number }>;
   onTradeSelect: (event: CopyTradingEvent) => void;
 };
 
@@ -38,7 +44,7 @@ type TopSignalSourceModel = {
 };
 
 const MAX_POSITION_ROWS_PER_SOURCE_CARD = 10;
-const MAX_TRADE_EVENT_ROWS_PER_SOURCE_CARD = 24;
+const TRADE_EVENT_ROWS_PER_PAGE = 24;
 const SMARTKLINE_SOURCE_AVATAR_STYLE: CSSProperties = {
   backgroundImage: "url(\"/logo-mark.svg\")",
   backgroundPosition: "center",
@@ -61,9 +67,13 @@ export function TopSignalsPanel({
   onSourceFilterChange,
   onSourceSelect,
   onSourceWatchToggle,
+  onTradeHistoryLoadMore,
   onTradeSelect,
 }: TopSignalsPanelProps) {
   const [flippedSourceIds, setFlippedSourceIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [visibleTradeRowsBySourceId, setVisibleTradeRowsBySourceId] = useState<Readonly<Record<string, number>>>(() => ({}));
+  const [exhaustedTradeHistorySourceIds, setExhaustedTradeHistorySourceIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [loadingTradeHistorySourceIds, setLoadingTradeHistorySourceIds] = useState<ReadonlySet<string>>(() => new Set());
   const models = useMemo(() => createTopSignalSourceModels(snapshot), [snapshot]);
   const activeModels = useMemo(() => models.filter((model) => isActiveCopyTradingTrader(model.trader)), [models]);
   const filteredModels = useMemo(() => filterTopSignalSourceModelsBySource(activeModels, sourceFilterId), [activeModels, sourceFilterId]);
@@ -100,6 +110,47 @@ export function TopSignalsPanel({
       }
       return nextSourceIds;
     });
+  };
+  const showMoreTrades = async (model: TopSignalSourceModel) => {
+    const sourceId = model.trader.trader_id;
+    const visibleRowCount = visibleTradeRowsBySourceId[sourceId] ?? TRADE_EVENT_ROWS_PER_PAGE;
+    const nextVisibleRowCount = visibleRowCount + TRADE_EVENT_ROWS_PER_PAGE;
+    const shouldRequestNextPage = Boolean(onTradeHistoryLoadMore)
+      && visibleRowCount >= model.events.length
+      && model.events.length >= COPY_TRADING_RADAR_TRADE_LIMIT
+      && !exhaustedTradeHistorySourceIds.has(sourceId)
+      && !loadingTradeHistorySourceIds.has(sourceId);
+
+    if (!shouldRequestNextPage) {
+      setVisibleTradeRowsBySourceId((currentRowsBySourceId) => ({
+        ...currentRowsBySourceId,
+        [sourceId]: nextVisibleRowCount,
+      }));
+      return;
+    }
+
+    setLoadingTradeHistorySourceIds((currentSourceIds) => new Set(currentSourceIds).add(sourceId));
+    try {
+      const page = await onTradeHistoryLoadMore?.({
+        limit: TRADE_EVENT_ROWS_PER_PAGE,
+        offset: model.events.length,
+        positions: model.positions,
+        trader: model.trader,
+      });
+      if (!page?.hasMore) {
+        setExhaustedTradeHistorySourceIds((currentSourceIds) => new Set(currentSourceIds).add(sourceId));
+      }
+      setVisibleTradeRowsBySourceId((currentRowsBySourceId) => ({
+        ...currentRowsBySourceId,
+        [sourceId]: nextVisibleRowCount,
+      }));
+    } finally {
+      setLoadingTradeHistorySourceIds((currentSourceIds) => {
+        const nextSourceIds = new Set(currentSourceIds);
+        nextSourceIds.delete(sourceId);
+        return nextSourceIds;
+      });
+    }
   };
 
   return (
@@ -190,12 +241,21 @@ export function TopSignalsPanel({
               isDarkTheme={isDarkTheme}
               isFlipped={isFlipped}
               isWatchlisted={watchlistedSourceIds?.has(model.trader.trader_id) ?? false}
+              canLoadMoreRemoteTrades={Boolean(onTradeHistoryLoadMore)
+                && model.events.length >= COPY_TRADING_RADAR_TRADE_LIMIT
+                && !exhaustedTradeHistorySourceIds.has(model.trader.trader_id)}
+              isLoadingMoreTrades={loadingTradeHistorySourceIds.has(model.trader.trader_id)}
               model={model}
+              visibleTradeRowCount={visibleTradeRowsBySourceId[model.trader.trader_id] ?? TRADE_EVENT_ROWS_PER_PAGE}
               onFlipToggle={() => toggleSourceFlip({
                 isFlipped,
                 sourceId: model.trader.trader_id,
               })}
+              onCardSelect={() => onSourceSelect(model.trader.trader_id)}
               onPositionSelect={onPositionSelect}
+              onShowMoreTrades={() => {
+                void showMoreTrades(model).catch(() => undefined);
+              }}
               onWatchToggle={onSourceWatchToggle ? () => onSourceWatchToggle(model.trader) : undefined}
               onTradeSelect={onTradeSelect}
             />
@@ -502,26 +562,36 @@ function WatchedTopSignalSources({
 
 function TopSignalSourceCard({
   activeTradeEventId,
+  canLoadMoreRemoteTrades,
   copy,
   isActive,
   isDarkTheme,
   isFlipped,
+  isLoadingMoreTrades,
   isWatchlisted,
   model,
+  visibleTradeRowCount,
   onFlipToggle,
+  onCardSelect,
   onPositionSelect,
+  onShowMoreTrades,
   onWatchToggle,
   onTradeSelect,
 }: {
   activeTradeEventId: string;
+  canLoadMoreRemoteTrades: boolean;
   copy: WorkspaceCopy;
   isActive: boolean;
   isDarkTheme: boolean;
   isFlipped: boolean;
+  isLoadingMoreTrades: boolean;
   isWatchlisted: boolean;
   model: TopSignalSourceModel;
+  visibleTradeRowCount: number;
   onFlipToggle: () => void;
+  onCardSelect: () => void;
   onPositionSelect: (position: CopyTradingPosition) => void;
+  onShowMoreTrades: () => void;
   onWatchToggle?: () => void;
   onTradeSelect: (event: CopyTradingEvent) => void;
 }) {
@@ -529,11 +599,14 @@ function TopSignalSourceCard({
   const cardClassName = getTopSignalCardClassName(isDarkTheme, isActive, model.positions.length > 0 ? "live" : model.events.length > 0 ? "pending" : "muted");
   const backCardClassName = getTopSignalCardBackClassName(isDarkTheme);
   const visiblePositions = model.positions.slice(0, MAX_POSITION_ROWS_PER_SOURCE_CARD);
-  const visibleEvents = selectVisibleTradeEvents(model.events, activeTradeEventId);
+  const visibleEvents = selectVisibleTradeEvents(model.events, activeTradeEventId, visibleTradeRowCount);
   const hiddenPositionCount = Math.max(0, model.positions.length - visiblePositions.length);
-  const hiddenEventCount = Math.max(0, model.events.length - visibleEvents.length);
+  const hiddenEventCount = Math.max(0, model.events.length - Math.min(visibleTradeRowCount, model.events.length));
+  const shouldShowTradePagination = hiddenEventCount > 0 || (canLoadMoreRemoteTrades && visibleTradeRowCount >= model.events.length);
   const shouldRenderFrontRows = !isFlipped;
   const shouldRenderBackRows = isFlipped;
+  const primaryPosition = visiblePositions[0] ?? null;
+  const primarySymbol = primaryPosition?.symbol ?? model.events[0]?.symbol ?? null;
 
   return (
     <div className="signal-card-scene will-change-transform">
@@ -541,8 +614,17 @@ function TopSignalSourceCard({
         <div
           className={`${cardClassName} motion-fx-3-card-face-front signal-card-face`}
           aria-hidden={isFlipped}
+          role="button"
+          tabIndex={isFlipped ? -1 : 0}
+          onClick={onCardSelect}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onCardSelect();
+            }
+          }}
         >
-          <div className="motion-fx-3-front-panel relative z-10 flex min-h-[330px] flex-col p-4">
+          <div className="motion-fx-3-front-panel flex min-w-0 flex-col">
             <SourceHeader
               actionLabel={panelCopy.flipToHistory}
               copy={copy}
@@ -552,12 +634,30 @@ function TopSignalSourceCard({
               onActionToggle={onFlipToggle}
               onWatchToggle={onWatchToggle}
             />
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <MetricTile isDarkTheme={isDarkTheme} label={panelCopy.currentPositions} value={String(model.positions.length)} />
-              <MetricTile isDarkTheme={isDarkTheme} label={panelCopy.tradeHistory} value={String(model.events.length)} />
-              <MetricTile isDarkTheme={isDarkTheme} label={panelCopy.margin} value={formatCurrency(model.trader.margin_balance)} />
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              {primarySymbol ? (
+                <span className={getNeutralBadgeClassName(isDarkTheme)}>
+                  <SymbolIcon symbol={primarySymbol} />
+                  {formatSymbolLabel(primarySymbol)}
+                </span>
+              ) : null}
+              {primaryPosition ? (
+                <span className={getDirectionBadgeClassName(isDarkTheme, primaryPosition.direction)}>
+                  {formatDirection(primaryPosition.direction, copy)}
+                </span>
+              ) : null}
+              <span className={getNeutralBadgeClassName(isDarkTheme)}>
+                {panelCopy.currentPositions}: {model.positions.length}
+              </span>
+              <span className={getNeutralBadgeClassName(isDarkTheme)}>
+                {panelCopy.tradeHistory}: {model.events.length}
+              </span>
             </div>
-            <div className={isDarkTheme ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-3 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
+            <div className="signal-card-field-layer mt-3 grid grid-cols-2 gap-2 text-xs">
+              <SignalField isDarkTheme={isDarkTheme} label={panelCopy.margin} value={formatCurrency(model.trader.margin_balance)} />
+              <SignalField isDarkTheme={isDarkTheme} label={panelCopy.notional} value={formatCurrency(sumPositionNotionalValue(model.positions))} />
+            </div>
+            <div className={isDarkTheme ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3"}>
               <div className="flex items-center justify-between gap-3">
                 <span className={isDarkTheme ? "text-xs font-bold text-slate-100" : "text-xs font-bold text-slate-900"}>{panelCopy.currentPositions}</span>
                 <span className={isDarkTheme ? "text-[10px] font-medium text-slate-500" : "text-[10px] font-medium text-slate-400"}>{panelCopy.positionHint}</span>
@@ -595,7 +695,7 @@ function TopSignalSourceCard({
           className={`${backCardClassName} motion-fx-3-card-face-back signal-card-face signal-card-back`}
           aria-hidden={!isFlipped}
         >
-          <div className="motion-fx-3-back-panel relative z-10 flex min-h-[330px] flex-col p-4">
+          <div className="motion-fx-3-back-panel flex h-full min-h-0 flex-col">
             <SourceHeader
               actionLabel={panelCopy.flipToPositions}
               copy={copy}
@@ -610,25 +710,28 @@ function TopSignalSourceCard({
               <span className={isDarkTheme ? "text-[10px] font-medium text-slate-500" : "text-[10px] font-medium text-slate-400"}>{panelCopy.tradeHint}</span>
             </div>
             {shouldRenderBackRows ? (
-              <div className="mt-2 grid max-h-[232px] gap-2 overflow-y-auto pr-1">
+              <div className="mt-2 grid min-h-0 flex-1 gap-2 overflow-y-auto pr-1">
                 {model.events.length > 0 ? visibleEvents.map((event) => (
-                <TradeEventRow
-                  key={event.event_id}
-                  copy={copy}
-                  event={event}
-                  isActive={event.event_id === activeTradeEventId}
-                  isDarkTheme={isDarkTheme}
-                  onTradeSelect={onTradeSelect}
-                />
+                  <TradeEventRow
+                    key={event.event_id}
+                    copy={copy}
+                    event={event}
+                    isActive={event.event_id === activeTradeEventId}
+                    isDarkTheme={isDarkTheme}
+                    onTradeSelect={onTradeSelect}
+                  />
                 )) : (
                   <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-3 text-xs text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-white px-3 py-3 text-xs text-slate-500"}>
                     {panelCopy.noTrades}
                   </div>
                 )}
-                {hiddenEventCount > 0 ? (
-                  <RowLimitNotice
+                {shouldShowTradePagination ? (
+                  <LoadMoreTradesButton
+                    count={hiddenEventCount > 0 ? hiddenEventCount : null}
+                    copy={copy}
+                    isLoading={isLoadingMoreTrades}
                     isDarkTheme={isDarkTheme}
-                    text={panelCopy.visibleTradesNotice(visibleEvents.length, model.events.length)}
+                    onClick={onShowMoreTrades}
                   />
                 ) : null}
               </div>
@@ -643,14 +746,39 @@ function TopSignalSourceCard({
 function selectVisibleTradeEvents(
   events: readonly CopyTradingEvent[],
   activeTradeEventId: string,
+  visibleTradeRowCount: number,
 ): CopyTradingEvent[] {
-  const visibleEvents = events.slice(0, MAX_TRADE_EVENT_ROWS_PER_SOURCE_CARD);
+  const visibleEvents = events.slice(0, visibleTradeRowCount);
   if (!activeTradeEventId || visibleEvents.some((event) => event.event_id === activeTradeEventId)) {
     return visibleEvents;
   }
 
   const activeEvent = events.find((event) => event.event_id === activeTradeEventId);
   return activeEvent ? [...visibleEvents, activeEvent] : visibleEvents;
+}
+
+function LoadMoreTradesButton({
+  copy,
+  count,
+  isLoading,
+  isDarkTheme,
+  onClick,
+}: {
+  copy: WorkspaceCopy;
+  count: number | null;
+  isLoading: boolean;
+  isDarkTheme: boolean;
+  onClick: () => void;
+}) {
+  const className = isDarkTheme
+    ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-[11px] font-bold text-sky-200 transition hover:border-sky-400/25 hover:bg-sky-400/10 disabled:cursor-wait disabled:opacity-60"
+    : "rounded-2xl border border-[#B7E8FC] bg-white px-3 py-2 text-[11px] font-bold text-[#008DCC] transition hover:bg-[#EAF8FE] disabled:cursor-wait disabled:opacity-60";
+
+  return (
+    <button className={className} disabled={isLoading} type="button" onClick={onClick}>
+      {isLoading ? copy.workspace.topSignals.loadingMoreTrades : copy.workspace.topSignals.loadMoreTrades(count)}
+    </button>
+  );
 }
 
 function RowLimitNotice({ isDarkTheme, text }: { isDarkTheme: boolean; text: string }) {
@@ -680,41 +808,42 @@ function SourceHeader({
 }) {
   const panelCopy = copy.workspace.topSignals;
   const actionButtonClassName = isDarkTheme
-    ? "inline-flex h-8 shrink-0 items-center rounded-full border border-sky-400/20 bg-sky-400/10 px-3 text-[11px] font-bold text-sky-200 transition hover:bg-sky-400/15"
-    : "inline-flex h-8 shrink-0 items-center rounded-full border border-[#B7E8FC] bg-[#EAF8FE] px-3 text-[11px] font-bold text-[#008DCC] transition hover:bg-[#DDF4FF]";
+    ? "motion-fx-3-raw-button inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full border border-sky-400/20 bg-sky-400/10 px-3 text-[11px] font-bold text-sky-200 transition hover:bg-sky-400/15"
+    : "motion-fx-3-raw-button inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full border border-[#B7E8FC] bg-[#EAF8FE] px-3 text-[11px] font-bold text-[#008DCC] transition hover:bg-[#DDF4FF]";
 
   return (
-    <div className="flex min-w-0 items-start gap-3">
-      <SourceAvatar isDarkTheme={isDarkTheme} name={model.trader.name} url={model.trader.avatar} />
-      <div className="min-w-0 flex-1">
-        <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
-          <h3 className={isDarkTheme ? "min-w-0 flex-1 truncate text-sm font-black leading-5 text-slate-50" : "min-w-0 flex-1 truncate text-sm font-black leading-5 text-slate-950"}>{model.trader.name}</h3>
-          {onActionToggle && actionLabel ? (
-            <button
-              className={actionButtonClassName}
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onActionToggle();
-              }}
-              onKeyDown={(event) => event.stopPropagation()}
-            >
-              {actionLabel}
-            </button>
-          ) : null}
-        </div>
-        <div className={isDarkTheme ? "mt-0.5 flex min-w-0 flex-wrap items-center gap-2 text-xs font-semibold leading-none text-slate-500" : "mt-0.5 flex min-w-0 flex-wrap items-center gap-2 text-xs font-semibold leading-none text-slate-500"}>
-          <span className="min-w-0 truncate">{panelCopy.signalType}: {model.trader.platform}</span>
-          {onWatchToggle ? (
-            <FavoriteStarButton
-              activeLabel={copy.workspace.watchlist.removeFavorite}
-              inactiveLabel={copy.workspace.watchlist.addFavorite}
-              isActive={isWatchlisted}
-              isDarkTheme={isDarkTheme}
-              onToggle={onWatchToggle}
-            />
-          ) : null}
-        </div>
+    <div className="grid min-w-0 grid-cols-[40px_minmax(0,1fr)_auto] grid-rows-[40px_28px] gap-x-3 gap-y-0">
+      <div className="col-start-1 row-start-1 row-span-2 flex h-10 items-center">
+        <SourceAvatar isDarkTheme={isDarkTheme} name={model.trader.name} url={model.trader.avatar} />
+      </div>
+      <div className="col-start-2 row-start-1 flex min-w-0 items-center">
+        <h3 className={isDarkTheme ? "min-w-0 truncate text-sm font-black leading-none text-slate-50" : "min-w-0 truncate text-sm font-black leading-none text-slate-950"}>{model.trader.name}</h3>
+      </div>
+      {onActionToggle && actionLabel ? (
+        <button
+          className={`${actionButtonClassName} col-start-3 row-start-1 self-center justify-self-end`}
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onActionToggle();
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          {actionLabel}
+        </button>
+      ) : null}
+      <div className={isDarkTheme ? "col-start-2 col-end-4 row-start-2 flex min-w-0 items-center gap-1.5 text-[13px] font-bold leading-none text-slate-500" : "col-start-2 col-end-4 row-start-2 flex min-w-0 items-center gap-1.5 text-[13px] font-bold leading-none text-slate-500"}>
+        <span className="min-w-0 truncate whitespace-nowrap">{panelCopy.signalType}: {model.trader.platform}</span>
+        {onWatchToggle ? (
+          <FavoriteStarButton
+            activeLabel={copy.workspace.watchlist.removeFavorite}
+            inactiveLabel={copy.workspace.watchlist.addFavorite}
+            isActive={isWatchlisted}
+            isDarkTheme={isDarkTheme}
+            size="compact"
+            onToggle={onWatchToggle}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -788,15 +917,6 @@ function TradeEventRow({ copy, event, isActive, isDarkTheme, onTradeSelect }: { 
         </div>
       </div>
     </button>
-  );
-}
-
-function MetricTile({ isDarkTheme, label, value }: { isDarkTheme: boolean; label: string; value: string }) {
-  return (
-    <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-2" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-2"}>
-      <div className={isDarkTheme ? "text-[10px] font-semibold text-slate-500" : "text-[10px] font-semibold text-slate-400"}>{label}</div>
-      <div className={isDarkTheme ? "mt-1 truncate text-xs font-black text-slate-100" : "mt-1 truncate text-xs font-black text-slate-950"}>{value}</div>
-    </div>
   );
 }
 
@@ -885,18 +1005,27 @@ function getTopSignalCardClassName(isDarkTheme: boolean, isActive: boolean, tone
   const surfaceClassName = isDarkTheme ? "signal-card-surface-dark" : "signal-card-surface-light";
   const toneClassName = tone === "live" ? "signal-card-left-live" : tone === "pending" ? "signal-card-left-pending" : "signal-card-left-muted";
   const activeClassName = isActive ? " signal-card-left-active" : "";
-  const themeClassName = isDarkTheme
-    ? "relative min-h-[330px] cursor-pointer overflow-hidden rounded-[22px] border border-white/[0.075] bg-[#181A20] text-slate-100 transition hover:border-sky-500/30"
-    : "relative min-h-[330px] cursor-pointer overflow-hidden rounded-[22px] border border-[#E5EAF0] bg-white text-slate-950 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition hover:border-[#B7E8FC]";
+  const baseClassName = "relative w-full cursor-pointer overflow-hidden rounded-[18px] border p-3.5 text-left transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5";
 
-  return `${themeClassName} signal-card-left-status ${surfaceClassName} ${toneClassName}${activeClassName}`;
+  if (isActive) {
+    const activeThemeClassName = isDarkTheme
+      ? "border-white/[0.12] bg-white/[0.055] shadow-[0_5px_14px_rgba(0,0,0,0.14)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.18)]"
+      : "border-[#D8E0E8] bg-white shadow-[0_4px_12px_rgba(15,23,42,0.05)] hover:shadow-[0_5px_14px_rgba(15,23,42,0.07)]";
+    return `${baseClassName} ${surfaceClassName} ${activeThemeClassName} signal-card-left-status ${toneClassName}${activeClassName}`;
+  }
+
+  const defaultThemeClassName = isDarkTheme
+    ? "border-white/[0.075] bg-white/[0.035] hover:border-white/[0.12] hover:shadow-[0_5px_14px_rgba(0,0,0,0.18)]"
+    : "border-[#E5EAF0] bg-white hover:border-[#D8E0E8] hover:shadow-[0_5px_14px_rgba(15,23,42,0.07)]";
+
+  return `${baseClassName} ${surfaceClassName} ${defaultThemeClassName} signal-card-left-status ${toneClassName}${activeClassName}`;
 }
 
 function getTopSignalCardBackClassName(isDarkTheme: boolean): string {
   const surfaceClassName = isDarkTheme ? "signal-card-surface-dark" : "signal-card-surface-light";
   const themeClassName = isDarkTheme
-    ? "relative min-h-[330px] cursor-pointer overflow-hidden rounded-[22px] border border-white/[0.075] bg-[#181A20] text-slate-100"
-    : "relative min-h-[330px] cursor-pointer overflow-hidden rounded-[22px] border border-[#E5EAF0] bg-white text-slate-950 shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
+    ? "w-full rounded-[18px] border border-white/[0.075] bg-[#181A20] p-3.5"
+    : "w-full rounded-[18px] border border-[#E5EAF0] bg-white p-3.5";
 
   return `${themeClassName} signal-card-left-status ${surfaceClassName} signal-card-left-live`;
 }
@@ -904,11 +1033,12 @@ function getTopSignalCardBackClassName(isDarkTheme: boolean): string {
 function getTopSignalStateCardClassName(isDarkTheme: boolean, tone: "loading" | "pending" | "risk"): string {
   const surfaceClassName = isDarkTheme ? "signal-card-surface-dark" : "signal-card-surface-light";
   const toneClassName = tone === "loading" ? "signal-card-left-loading" : tone === "risk" ? "signal-card-left-risk" : "signal-card-left-pending";
+  const baseClassName = "signal-card-left-status relative w-full overflow-hidden rounded-[18px] border p-3.5 text-left";
   const themeClassName = isDarkTheme
-    ? "relative overflow-hidden rounded-[22px] border border-white/[0.075] bg-[#181A20] text-slate-100"
-    : "relative overflow-hidden rounded-[22px] border border-[#E5EAF0] bg-white text-slate-950 shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
+    ? "border-white/[0.075] bg-white/[0.035]"
+    : "border-[#E5EAF0] bg-white";
 
-  return `${themeClassName} signal-card-left-status ${surfaceClassName} ${toneClassName}`;
+  return `${baseClassName} ${surfaceClassName} ${themeClassName} ${toneClassName}`;
 }
 
 function getStatusBadgeClassName(isDarkTheme: boolean, tone: "live" | "loading" | "risk"): string {
@@ -929,6 +1059,12 @@ function getDirectionBadgeClassName(isDarkTheme: boolean, direction: CopyTrading
   }
 
   return isDarkTheme ? "rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-black text-rose-300" : "rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-black text-rose-700";
+}
+
+function getNeutralBadgeClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-1 text-slate-200"
+    : "inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700";
 }
 
 function getRiskBadgeClassName(isDarkTheme: boolean, riskLevel: CopyTradingRiskLevel): string {
@@ -971,6 +1107,10 @@ function getPnlClassName(isDarkTheme: boolean, value: number): string {
 
 function formatDirection(direction: CopyTradingDirection, copy: WorkspaceCopy): string {
   return direction === "long" ? copy.kol.directionShort.long : copy.kol.directionShort.short;
+}
+
+function formatSymbolLabel(symbol: string): string {
+  return symbol.replace("/USDT:USDT", "");
 }
 
 function formatEventType(eventType: CopyTradingEventType, copy: WorkspaceCopy): string {
@@ -1036,4 +1176,16 @@ function formatDisplayTime(value: string): string {
   const hours = String(parsedDate.getHours()).padStart(2, "0");
   const minutes = String(parsedDate.getMinutes()).padStart(2, "0");
   return `${month}-${day} ${hours}:${minutes}`;
+}
+
+function sumPositionNotionalValue(positions: readonly CopyTradingPosition[]): number | null {
+  const total = positions.reduce((sum, position) => {
+    if (!Number.isFinite(position.notional_value)) {
+      return sum;
+    }
+
+    return sum + position.notional_value;
+  }, 0);
+
+  return positions.length > 0 ? total : null;
 }
