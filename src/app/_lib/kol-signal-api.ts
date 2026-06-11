@@ -10,9 +10,11 @@ const CONFIGURED_MOCK_MODE = process.env.NEXT_PUBLIC_KOL_SIGNALS_USE_MOCK;
 const DEFAULT_REMOTE_API_BASE_URL = "https://api.smartkline.com/kol";
 const KOL_SIGNALS_REST_PATH = "/kol-message-ai-results";
 const KOL_SIGNALS_INCREMENTAL_PATH = "/kol-message-ai-results/success-after";
-const KOL_SIGNALS_LIMIT = "50";
-const LOCAL_REST_ENDPOINT = "http://127.0.0.1:3001/kol-message-ai-results?limit=50";
-const LOCAL_INCREMENTAL_ENDPOINT = "http://127.0.0.1:3001/kol-message-ai-results/success-after?limit=50";
+const KOL_SIGNAL_HISTORY_DAYS = 7;
+const KOL_SIGNAL_HISTORY_LIMIT = "1000";
+const KOL_SIGNALS_INCREMENTAL_LIMIT = "100";
+const LOCAL_REST_ENDPOINT = `http://127.0.0.1:3001/kol-message-ai-results?limit=${KOL_SIGNAL_HISTORY_LIMIT}`;
+const LOCAL_INCREMENTAL_ENDPOINT = `http://127.0.0.1:3001/kol-message-ai-results/success-after?limit=${KOL_SIGNALS_INCREMENTAL_LIMIT}`;
 const DEFAULT_SOURCE_NAME = "KOL 信源";
 const KOL_SOURCE_NAME_BY_ID: Record<string, string> = {
   "34": "大镖客合约群",
@@ -226,7 +228,7 @@ export async function fetchKolSignals(): Promise<StructuredSignal[]> {
   }
 
   try {
-    const response = await fetch(endpoint.url, { cache: "no-store" });
+    const response = await fetch(appendKolSignalsHistoryParams(endpoint.url), { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`KOL signal source failed: ${response.status} ${response.statusText}`);
     }
@@ -914,7 +916,11 @@ function resolveKolSignalsEndpoint(): ResolvedKolSignalEndpoint | null {
     return { shouldFallbackOnFailure: false, url: CONFIGURED_REST_ENDPOINT };
   }
 
-  const configuredApiBaseEndpoint = createKolSignalsEndpoint(CONFIGURED_API_BASE_URL, KOL_SIGNALS_REST_PATH);
+  const configuredApiBaseEndpoint = createKolSignalsEndpoint(
+    CONFIGURED_API_BASE_URL,
+    KOL_SIGNALS_REST_PATH,
+    KOL_SIGNAL_HISTORY_LIMIT,
+  );
   if (configuredApiBaseEndpoint) {
     return { shouldFallbackOnFailure: false, url: configuredApiBaseEndpoint };
   }
@@ -924,7 +930,11 @@ function resolveKolSignalsEndpoint(): ResolvedKolSignalEndpoint | null {
     return { shouldFallbackOnFailure: true, url: localEndpoint };
   }
 
-  const defaultRemoteEndpoint = createKolSignalsEndpoint(DEFAULT_REMOTE_API_BASE_URL, KOL_SIGNALS_REST_PATH);
+  const defaultRemoteEndpoint = createKolSignalsEndpoint(
+    DEFAULT_REMOTE_API_BASE_URL,
+    KOL_SIGNALS_REST_PATH,
+    KOL_SIGNAL_HISTORY_LIMIT,
+  );
   return defaultRemoteEndpoint ? { shouldFallbackOnFailure: false, url: defaultRemoteEndpoint } : null;
 }
 
@@ -936,6 +946,7 @@ function resolveKolSignalsIncrementalEndpoint(): ResolvedKolSignalEndpoint | nul
   const configuredApiBaseEndpoint = createKolSignalsEndpoint(
     CONFIGURED_API_BASE_URL,
     KOL_SIGNALS_INCREMENTAL_PATH,
+    KOL_SIGNALS_INCREMENTAL_LIMIT,
   );
   if (configuredApiBaseEndpoint) {
     return { shouldFallbackOnFailure: false, url: configuredApiBaseEndpoint };
@@ -949,11 +960,12 @@ function resolveKolSignalsIncrementalEndpoint(): ResolvedKolSignalEndpoint | nul
   const defaultRemoteEndpoint = createKolSignalsEndpoint(
     DEFAULT_REMOTE_API_BASE_URL,
     KOL_SIGNALS_INCREMENTAL_PATH,
+    KOL_SIGNALS_INCREMENTAL_LIMIT,
   );
   return defaultRemoteEndpoint ? { shouldFallbackOnFailure: false, url: defaultRemoteEndpoint } : null;
 }
 
-function createKolSignalsEndpoint(apiBaseUrl: string | undefined, path: string, limit = KOL_SIGNALS_LIMIT): string | null {
+function createKolSignalsEndpoint(apiBaseUrl: string | undefined, path: string, limit: string): string | null {
   if (!apiBaseUrl) {
     return null;
   }
@@ -969,10 +981,21 @@ function createKolSignalsEndpoint(apiBaseUrl: string | undefined, path: string, 
   }
 }
 
+function appendKolSignalsHistoryParams(endpoint: string): string {
+  const url = new URL(endpoint, "https://smartkline.local");
+  url.searchParams.set("since", createKolSignalsHistorySinceParam());
+  url.searchParams.set("limit", KOL_SIGNAL_HISTORY_LIMIT);
+  return endpoint.startsWith("/") ? `${url.pathname}${url.search}` : url.toString();
+}
+
 function appendKolSignalsSinceParam(endpoint: string, createdAt: string): string {
   const url = new URL(endpoint, "https://smartkline.local");
   url.searchParams.set("since", createdAt);
   return endpoint.startsWith("/") ? `${url.pathname}${url.search}` : url.toString();
+}
+
+function createKolSignalsHistorySinceParam(): string {
+  return new Date(Date.now() - KOL_SIGNAL_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString();
 }
 
 function normalizeKolSignalsApiBaseUrl(apiBaseUrl: string): string {

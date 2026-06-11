@@ -182,8 +182,8 @@ ten monitored event types, and the QQQ / SPY / NVDA / TSLA / COIN / MSTR / IBIT
 前端已适配后端 KOL 成功交易信号列表接口和增量 REST 接口。真实接口模式下，如果页面运行在 `localhost` / `127.0.0.1`，会默认请求：
 
 ```text
-Initial:     http://127.0.0.1:3001/kol-message-ai-results?limit=50
-Incremental: http://127.0.0.1:3001/kol-message-ai-results/success-after?since={latest_created_at}&limit=50
+Initial:     http://127.0.0.1:3001/kol-message-ai-results?since={seven_days_ago}&limit=1000
+Incremental: http://127.0.0.1:3001/kol-message-ai-results/success-after?since={latest_created_at}&limit=100
 ```
 
 ## Development mock data
@@ -201,16 +201,16 @@ NEXT_PUBLIC_KOL_SIGNALS_API_BASE_URL=https://api.smartkline.com/kol
 前端会基于该 base URL 请求：
 
 ```text
-Initial:     https://api.smartkline.com/kol/kol-message-ai-results?limit=50
-Incremental: https://api.smartkline.com/kol/kol-message-ai-results/success-after?since={latest_created_at}&limit=50
+Initial:     https://api.smartkline.com/kol/kol-message-ai-results?since={seven_days_ago}&limit=1000
+Incremental: https://api.smartkline.com/kol/kol-message-ai-results/success-after?since={latest_created_at}&limit=100
 ```
 
-The page loads the latest 50 successful KOL result messages once on first render,
-then polls the incremental REST endpoint every 30 seconds with the latest loaded
-message time:
+The page loads the last 7 days of successful KOL result messages once on first
+render, then polls the incremental REST endpoint every 30 seconds with the
+latest loaded message time:
 
 ```text
-GET /kol-message-ai-results/success-after?since={latest_created_at}&limit=50
+GET /kol-message-ai-results/success-after?since={latest_created_at}&limit=100
 ```
 
 The incremental endpoint returns only successful messages after `since`, so the
@@ -242,7 +242,7 @@ https://api.smartkline.com/kol
 如果后端路径不是默认路径，也可以继续通过完整 endpoint 覆盖：
 
 ```bash
-NEXT_PUBLIC_KOL_SIGNALS_ENDPOINT=https://api.smartkline.com/kol/kol-message-ai-results?limit=50
+NEXT_PUBLIC_KOL_SIGNALS_ENDPOINT=https://api.smartkline.com/kol/kol-message-ai-results
 ```
 
 本地可复制示例环境变量文件后按需调整：
