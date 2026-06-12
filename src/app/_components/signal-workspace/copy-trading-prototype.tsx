@@ -809,6 +809,10 @@ function StrategyDetailView({
   const [detail, setDetail] = useState<TradingFoxStrategyDetail | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [syncRatioPercent, setSyncRatioPercent] = useState("100");
+  const [syncError, setSyncError] = useState("");
+  const [syncMessage, setSyncMessage] = useState("");
+  const [isSyncingPositions, setIsSyncingPositions] = useState(false);
   const strategyCopy = copy.workspace.accountCenter.strategy;
 
   useEffect(() => {
@@ -818,16 +822,9 @@ function StrategyDetailView({
       setIsLoading(true);
       setError("");
       try {
-        const response = await fetch(`/api/tradingfox/copy-strategies/${encodeURIComponent(strategy.id)}`, {
-          cache: "no-store",
-          credentials: "same-origin",
-        });
-        const payload = await response.json() as TradingFoxStrategyDetail | { error?: string };
-        if (!response.ok) {
-          throw new Error("error" in payload && payload.error ? payload.error : `Strategy detail failed with status ${response.status}.`);
-        }
+        const nextDetail = await requestStrategyDetail(strategy.id);
         if (isMounted) {
-          setDetail(payload as TradingFoxStrategyDetail);
+          setDetail(nextDetail);
         }
       } catch (loadError) {
         if (isMounted) {
@@ -848,14 +845,33 @@ function StrategyDetailView({
   }, [strategy.id]);
 
   const liveStrategy = detail?.strategy ?? strategy;
-  const signalSourceCount = detail?.signalSources.length ?? 0;
-  const orderCount = detail?.orderHistory?.items.length ?? 0;
-  const sourceOrderCount = detail?.orderHistory?.signalSourceOrders.length ?? 0;
+  const parsedSyncRatioPercent = Number(syncRatioPercent);
+  const canSyncPositions = Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
+  const orderItems = detail?.orderHistory?.items ?? [];
+
+  const syncPositions = async () => {
+    if (!canSyncPositions) {
+      return;
+    }
+
+    setIsSyncingPositions(true);
+    setSyncError("");
+    setSyncMessage("");
+    try {
+      const nextDetail = await requestStrategyPositionSync(liveStrategy.id, parsedSyncRatioPercent);
+      setDetail(nextDetail);
+      setSyncMessage(strategyCopy.syncPositionsSuccess);
+    } catch (syncPositionsError) {
+      setSyncError(syncPositionsError instanceof Error ? syncPositionsError.message : "Position sync failed.");
+    } finally {
+      setIsSyncingPositions(false);
+    }
+  };
 
   return (
     <section className="space-y-4">
       <div className={getModalSectionClassName(isDarkTheme)}>
-        <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onBack}>← Back</button>
+        <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onBack}>← {strategyCopy.back}</button>
         <div className="mt-4 flex items-start gap-3">
           <SourceAvatar isDarkTheme={isDarkTheme} name={liveStrategy.traderName} url={liveStrategy.avatarUrl} />
           <div className="min-w-0 flex-1">
@@ -864,69 +880,115 @@ function StrategyDetailView({
               <span className={getStrategyStatusClassName(isDarkTheme, liveStrategy.status)}>{getStrategyStatusLabel(strategyCopy, liveStrategy.status)}</span>
             </div>
             <p className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
-              Trader #{liveStrategy.id} · {liveStrategy.platform} · {liveStrategy.apiAccountName}
+              #{liveStrategy.id} · {liveStrategy.platform} · {liveStrategy.apiAccountName}
             </p>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-          <MiniMetric isDarkTheme={isDarkTheme} label="Equity" value={formatDetailNumber(detail?.account?.equity)} />
-          <MiniMetric isDarkTheme={isDarkTheme} label="Signal sources" value={String(signalSourceCount)} />
-          <MiniMetric isDarkTheme={isDarkTheme} label="Trader orders" value={String(orderCount)} />
-          <MiniMetric isDarkTheme={isDarkTheme} label="Source orders" value={String(sourceOrderCount)} />
-          <MiniMetric isDarkTheme={isDarkTheme} label={copy.workspace.accountCenter.copyTrading.takeProfit} value={`${liveStrategy.takeProfitPercent}%`} />
-          <MiniMetric isDarkTheme={isDarkTheme} label={copy.workspace.accountCenter.copyTrading.stopLoss} value={`${liveStrategy.stopLossPercent}%`} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.accountEquity} value={formatDetailNumber(detail?.account?.equity)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={String(detail?.positions.length ?? liveStrategy.positionsCount)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.signalSourceCount} value={String(detail?.signalSources.length ?? 0)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.traderOrders} value={String(orderItems.length)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.runtimeState} value={detail?.trader.runtimeState ?? detail?.trader.runtime?.state ?? "--"} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.configRevision} value={detail ? String(detail.trader.configRevision) : "--"} />
         </div>
       </div>
 
       {isLoading ? (
-        <div className={getModalSectionClassName(isDarkTheme)}>Loading strategy detail…</div>
+        <div className={getModalSectionClassName(isDarkTheme)}>{strategyCopy.loadingDetail}</div>
       ) : error ? (
         <div className={isDarkTheme ? "rounded-[24px] border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100" : "rounded-[24px] border border-rose-100 bg-rose-50 p-4 text-sm text-rose-700"}>{error}</div>
       ) : detail ? (
         <>
           <section className={getModalSectionClassName(isDarkTheme)}>
-            <h3 className="text-sm font-black">Runtime</h3>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-              <MiniMetric isDarkTheme={isDarkTheme} label="Desired" value={detail.trader.desiredState ?? (detail.trader.enabled ? "enabled" : "disabled")} />
-              <MiniMetric isDarkTheme={isDarkTheme} label="Runtime" value={detail.trader.runtimeState ?? detail.trader.runtime?.state ?? "no_runtime"} />
-              <MiniMetric isDarkTheme={isDarkTheme} label="Config rev" value={String(detail.trader.configRevision)} />
-              <MiniMetric isDarkTheme={isDarkTheme} label="Leverage" value={`${formatDetailNumber(detail.trader.config.leverage)}x`} />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h3 className="text-sm font-black">{strategyCopy.syncPositions}</h3>
+                <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-500" : "mt-1 text-xs leading-5 text-slate-500"}>{strategyCopy.syncPositionsHint}</p>
+              </div>
+              <div className="flex gap-2">
+                <div className="relative w-28">
+                  <input
+                    className={isDarkTheme ? "h-10 w-full rounded-xl border border-white/[0.075] bg-white/[0.035] px-3 pr-7 text-sm font-black text-slate-100 outline-none transition focus:border-sky-400/45" : "h-10 w-full rounded-xl border border-[#D5E4EF] bg-white px-3 pr-7 text-sm font-black text-slate-950 outline-none transition focus:border-[#7DBEFF]"}
+                    inputMode="decimal"
+                    placeholder={strategyCopy.ratioPlaceholder}
+                    value={syncRatioPercent}
+                    onChange={(event) => setSyncRatioPercent(event.target.value)}
+                  />
+                  <span className={isDarkTheme ? "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500" : "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400"}>%</span>
+                </div>
+                <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canSyncPositions} type="button" onClick={syncPositions}>
+                  {isSyncingPositions ? strategyCopy.syncingPositions : strategyCopy.syncPositions}
+                </button>
+              </div>
             </div>
-            {detail.trader.statusMessage ? <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-amber-200" : "mt-3 text-xs leading-5 text-amber-700"}>{detail.trader.statusMessage}</p> : null}
+            {syncMessage ? <p className={isDarkTheme ? "mt-3 text-xs text-emerald-200" : "mt-3 text-xs text-emerald-700"}>{syncMessage}</p> : null}
+            {syncError ? <p className="mt-3 text-xs text-rose-500">{syncError}</p> : null}
           </section>
 
           <section className={getModalSectionClassName(isDarkTheme)}>
-            <h3 className="text-sm font-black">Signal sources</h3>
+            <h3 className="text-sm font-black">{strategyCopy.copyPositions}</h3>
+            {detail.positionsError ? <p className="mt-2 text-xs text-rose-500">{detail.positionsError}</p> : null}
+            <div className="mt-3 grid gap-2">
+              {detail.positions.length > 0 ? detail.positions.map((position, index) => (
+                <PositionCard
+                  key={`${position.symbol}-${position.side}-${index}`}
+                  contractsLabel={strategyCopy.contracts}
+                  entryLabel={strategyCopy.entryPrice}
+                  isDarkTheme={isDarkTheme}
+                  leverageLabel={strategyCopy.leverage}
+                  markLabel={strategyCopy.markPrice}
+                  pnlLabel={strategyCopy.unrealizedPnl}
+                  position={position}
+                  sideLabel={strategyCopy.positionSide}
+                />
+              )) : <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.copyPositionsEmpty}</div>}
+            </div>
+          </section>
+
+          <section className={getModalSectionClassName(isDarkTheme)}>
+            <h3 className="text-sm font-black">{strategyCopy.signalSourcePositions}</h3>
             {detail.signalSourcesError ? <p className="mt-2 text-xs text-rose-500">{detail.signalSourcesError}</p> : null}
             <div className="mt-3 grid gap-2">
               {detail.signalSources.length > 0 ? detail.signalSources.map((source) => (
                 <div key={source.signalSourceId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#F8FAFC] p-3"}>
                   <div className="text-sm font-black">{source.name || source.signalSourceId}</div>
-                  <div className={isDarkTheme ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-slate-500"}>{source.signalSourceId} · {source.status || "not returned"}</div>
+                  <div className={isDarkTheme ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-slate-500"}>{source.signalSourceId} · {source.status || "--"}</div>
                   <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                    <MiniMetric isDarkTheme={isDarkTheme} label="Margin" value={formatDetailNumber(source.marginBalance)} />
-                    <MiniMetric isDarkTheme={isDarkTheme} label="Follow" value={source.followSide || "both"} />
+                    <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.margin} value={formatDetailNumber(source.marginBalance)} />
+                    <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.followSide} value={source.followSide || "both"} />
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {source.positions.length > 0 ? source.positions.map((position, index) => (
+                      <SignalSourcePositionCard
+                        key={`${source.signalSourceId}-${position.symbol}-${position.positionSide}-${index}`}
+                        entryLabel={strategyCopy.entryPrice}
+                        isDarkTheme={isDarkTheme}
+                        leverageLabel={strategyCopy.leverage}
+                        markLabel={strategyCopy.markPrice}
+                        position={position}
+                        sideLabel={strategyCopy.positionSide}
+                      />
+                    )) : <div className={isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
                   </div>
                 </div>
-              )) : <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>No runtime signal source positions returned.</div>}
+              )) : <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
             </div>
           </section>
 
           <section className={getModalSectionClassName(isDarkTheme)}>
-            <h3 className="text-sm font-black">Positions & orders</h3>
-            {detail.positionsError ? <p className="mt-2 text-xs text-rose-500">{detail.positionsError}</p> : null}
-            {detail.orderHistoryError ? <p className="mt-2 text-xs text-rose-500">{detail.orderHistoryError}</p> : null}
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-              <MiniMetric isDarkTheme={isDarkTheme} label="Trader positions" value={String(detail.positions.length)} />
-              <MiniMetric isDarkTheme={isDarkTheme} label="Trade logs" value={String(detail.orderHistory?.tradeLogs.length ?? 0)} />
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-black">{strategyCopy.tradeHistory}</h3>
+              <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{orderItems.length}</span>
             </div>
+            {detail.orderHistoryError ? <p className="mt-2 text-xs text-rose-500">{detail.orderHistoryError}</p> : null}
             <div className="mt-3 grid gap-2">
-              {(detail.orderHistory?.items ?? []).slice(0, 5).map((order) => (
+              {orderItems.length > 0 ? orderItems.slice(0, 20).map((order) => (
                 <div key={order.clientOrderId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] px-3 py-2 text-xs" : "rounded-2xl bg-[#F8FAFC] px-3 py-2 text-xs"}>
-                  <div className="font-black">{order.symbol} · {order.side.toUpperCase()} · {order.status || "unknown"}</div>
-                  <div className={isDarkTheme ? "mt-1 text-slate-500" : "mt-1 text-slate-500"}>{formatDetailNumber(order.price)} · {new Date(order.timestamp).toLocaleString()}</div>
+                  <div className="font-black">{order.symbol} · {order.side.toUpperCase()} · {order.status || "--"}</div>
+                  <div className={isDarkTheme ? "mt-1 text-slate-500" : "mt-1 text-slate-500"}>{formatDetailNumber(order.price)} · {formatDetailDate(order.timestamp)}</div>
                 </div>
-              ))}
+              )) : <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.noTradeHistory}</div>}
             </div>
           </section>
 
@@ -946,12 +1008,115 @@ function StrategyDetailView({
   );
 }
 
+async function requestStrategyDetail(strategyId: string): Promise<TradingFoxStrategyDetail> {
+  const response = await fetch(`/api/tradingfox/copy-strategies/${encodeURIComponent(strategyId)}`, {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  const payload = await response.json() as TradingFoxStrategyDetail | { error?: string };
+  if (!response.ok) {
+    throw new Error("error" in payload && payload.error ? payload.error : `Strategy detail failed with status ${response.status}.`);
+  }
+  return payload as TradingFoxStrategyDetail;
+}
+
+async function requestStrategyPositionSync(strategyId: string, ratioPercent: number): Promise<TradingFoxStrategyDetail> {
+  const response = await fetch(`/api/tradingfox/copy-strategies/${encodeURIComponent(strategyId)}/sync-positions`, {
+    body: JSON.stringify({ ratioPercent }),
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  const payload = await response.json() as TradingFoxStrategyDetail | { error?: string };
+  if (!response.ok) {
+    throw new Error("error" in payload && payload.error ? payload.error : `Position sync failed with status ${response.status}.`);
+  }
+  return payload as TradingFoxStrategyDetail;
+}
+
+function PositionCard({
+  contractsLabel,
+  entryLabel,
+  isDarkTheme,
+  leverageLabel,
+  markLabel,
+  pnlLabel,
+  position,
+  sideLabel,
+}: {
+  contractsLabel: string;
+  entryLabel: string;
+  isDarkTheme: boolean;
+  leverageLabel: string;
+  markLabel: string;
+  pnlLabel: string;
+  position: NonNullable<TradingFoxStrategyDetail["positions"]>[number];
+  sideLabel: string;
+}) {
+  return (
+    <div className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#F8FAFC] p-3"}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-black">{position.symbol}</div>
+        <span className={isDarkTheme ? "rounded-full bg-sky-400/10 px-2 py-0.5 text-[10px] font-black text-sky-200" : "rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-black text-sky-700"}>{position.side || "--"}</span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+        <MiniMetric isDarkTheme={isDarkTheme} label={sideLabel} value={position.side || "--"} />
+        <MiniMetric isDarkTheme={isDarkTheme} label={leverageLabel} value={`${formatDetailNumber(position.leverage)}x`} />
+        <MiniMetric isDarkTheme={isDarkTheme} label={entryLabel} value={formatDetailNumber(position.entryPrice)} />
+        <MiniMetric isDarkTheme={isDarkTheme} label={markLabel} value={formatDetailNumber(position.markPrice)} />
+        <MiniMetric isDarkTheme={isDarkTheme} label={pnlLabel} value={formatDetailNumber(position.unrealizedPnl)} />
+        <MiniMetric isDarkTheme={isDarkTheme} label={contractsLabel} value={formatDetailNumber(position.contracts)} />
+      </div>
+    </div>
+  );
+}
+
+function SignalSourcePositionCard({
+  entryLabel,
+  isDarkTheme,
+  leverageLabel,
+  markLabel,
+  position,
+  sideLabel,
+}: {
+  entryLabel: string;
+  isDarkTheme: boolean;
+  leverageLabel: string;
+  markLabel: string;
+  position: TradingFoxStrategyDetail["signalSources"][number]["positions"][number];
+  sideLabel: string;
+}) {
+  return (
+    <div className={isDarkTheme ? "rounded-xl border border-white/[0.055] bg-[#111820] p-2" : "rounded-xl border border-[#E5EAF0] bg-white p-2"}>
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <div className="font-black">{position.symbol}</div>
+        <span className={position.skipTrade ? "text-amber-500" : isDarkTheme ? "text-emerald-300" : "text-emerald-700"}>{position.skipTrade ? "skip" : position.positionSide}</span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+        <MiniMetric isDarkTheme={isDarkTheme} label={sideLabel} value={position.positionSide || "--"} />
+        <MiniMetric isDarkTheme={isDarkTheme} label={leverageLabel} value={`${formatDetailNumber(position.leverage)}x`} />
+        <MiniMetric isDarkTheme={isDarkTheme} label={entryLabel} value={formatDetailNumber(position.entryPrice)} />
+        <MiniMetric isDarkTheme={isDarkTheme} label={markLabel} value={formatDetailNumber(position.markPrice)} />
+      </div>
+    </div>
+  );
+}
+
 function formatDetailNumber(value: unknown): string {
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(number)) {
     return "--";
   }
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(number);
+}
+
+function formatDetailDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "--";
+  }
+  return date.toLocaleString();
 }
 
 function PercentInput({

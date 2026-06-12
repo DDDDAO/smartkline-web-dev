@@ -166,6 +166,10 @@ export type CreateCopyStrategyInput = {
   stopLossPercent: number;
 };
 
+export type SyncCopyStrategyPositionsInput = {
+  ratioPercent?: unknown;
+};
+
 export class TradingFoxConfigError extends Error {
   constructor(message: string) {
     super(message);
@@ -353,6 +357,32 @@ export async function getTradingFoxCopyStrategyDetail(
     strategy,
     trader,
   };
+}
+
+export async function syncTradingFoxCopyStrategyPositions(
+  session: TelegramAuthSession,
+  strategyId: string,
+  input: SyncCopyStrategyPositionsInput,
+): Promise<TradingFoxStrategyDetail> {
+  const userId = tradingFoxUserIdFromSession(session);
+  const traderId = parsePositiveInteger(strategyId, "strategyId");
+  const ratioPercent = normalizePositiveNumber(input.ratioPercent);
+
+  if (ratioPercent === undefined) {
+    throw new TradingFoxApiError("ratioPercent must be a positive number.", 400);
+  }
+
+  const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
+  if (trader.userId !== userId || trader.traderType !== "COPY_TRADING") {
+    throw new TradingFoxApiError("Copy strategy not found.", 404);
+  }
+
+  await tradingFoxRequest<{ runtimeStatus?: TradingFoxRuntimeStatus }>(`/v1/traders/${traderId}/sync-positions`, {
+    body: JSON.stringify({ ratioPercent }),
+    method: "POST",
+  });
+
+  return getTradingFoxCopyStrategyDetail(session, strategyId);
 }
 
 export function tradingFoxUserIdFromSession(session: TelegramAuthSession): number {
