@@ -21,6 +21,7 @@ import { SymbolSearchInput } from "./symbol-search-input";
 
 const LATEST_CANDLE_BACKFILL_INTERVAL_MS = 60_000;
 const LATEST_CANDLE_BACKFILL_LIMIT = 3;
+const MARKET_CANDLE_UPDATE_NOTIFY_INTERVAL_MS = 1_000;
 const EMPTY_MARKET_CANDLES: readonly MarketCandle[] = [];
 const KlineChart = dynamic<KlineChartProps>(
   () => import("@/app/_components/kline-chart").then((module) => module.KlineChart),
@@ -115,6 +116,44 @@ export const RealtimeKlinePanel = memo(function RealtimeKlinePanel({
     const abortController = new AbortController();
     let unsubscribe: (() => void) | null = null;
     let latestBackfillIntervalId: number | null = null;
+    let realtimeCandleFrameId: number | null = null;
+    let pendingRealtimeCandle: MarketCandle | null = null;
+    let lastMarketCandleNotifiedAtMs = 0;
+
+    const notifyMarketCandleUpdate = (nextCandle: MarketCandle) => {
+      if (!onMarketCandleUpdate) {
+        return;
+      }
+
+      const nowMs = Date.now();
+      if (nowMs - lastMarketCandleNotifiedAtMs < MARKET_CANDLE_UPDATE_NOTIFY_INTERVAL_MS) {
+        return;
+      }
+
+      lastMarketCandleNotifiedAtMs = nowMs;
+      onMarketCandleUpdate({ candles: [nextCandle], interval, symbol });
+    };
+
+    const flushRealtimeCandle = () => {
+      realtimeCandleFrameId = null;
+      const nextCandle = pendingRealtimeCandle;
+      pendingRealtimeCandle = null;
+      if (!isActive || !nextCandle) {
+        return;
+      }
+
+      setCandles((currentCandles) => upsertCandle(currentCandles, nextCandle));
+      notifyMarketCandleUpdate(nextCandle);
+    };
+
+    const scheduleRealtimeCandle = (nextCandle: MarketCandle) => {
+      pendingRealtimeCandle = nextCandle;
+      if (realtimeCandleFrameId !== null) {
+        return;
+      }
+
+      realtimeCandleFrameId = window.requestAnimationFrame(flushRealtimeCandle);
+    };
 
     const backfillLatestCandles = () => {
       fetchHistoricalCandles(symbol, interval, {
@@ -167,8 +206,7 @@ export const RealtimeKlinePanel = memo(function RealtimeKlinePanel({
               return;
             }
 
-            setCandles((currentCandles) => upsertCandle(currentCandles, nextCandle));
-            onMarketCandleUpdate?.({ candles: [nextCandle], interval, symbol });
+            scheduleRealtimeCandle(nextCandle);
           },
         });
         latestBackfillIntervalId = window.setInterval(backfillLatestCandles, LATEST_CANDLE_BACKFILL_INTERVAL_MS);
@@ -184,6 +222,9 @@ export const RealtimeKlinePanel = memo(function RealtimeKlinePanel({
       abortController.abort();
       if (latestBackfillIntervalId !== null) {
         window.clearInterval(latestBackfillIntervalId);
+      }
+      if (realtimeCandleFrameId !== null) {
+        window.cancelAnimationFrame(realtimeCandleFrameId);
       }
       unsubscribe?.();
     };
