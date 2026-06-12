@@ -385,7 +385,7 @@ async function tradingFoxRequest<T>(path: string, init: RequestInit = {}): Promi
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(new URL(path, config.baseUrl), {
+  const response = await fetch(buildTradingFoxControlPlaneUrl(path, config.baseUrl), {
     ...init,
     cache: "no-store",
     headers,
@@ -400,6 +400,10 @@ async function tradingFoxRequest<T>(path: string, init: RequestInit = {}): Promi
   }
 
   return await response.json() as T;
+}
+
+function buildTradingFoxControlPlaneUrl(path: string, baseUrl: string): URL {
+  return new URL(path.replace(/^\/+/u, ""), baseUrl);
 }
 
 function resolveTradingFoxConfig() {
