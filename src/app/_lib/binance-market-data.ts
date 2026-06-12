@@ -91,7 +91,7 @@ export async function fetchUsdtPerpetualMarkets(): Promise<MarketSymbol[]> {
   const exchangeInfo = await response.json() as BinanceExchangeInfo;
   const exchangeSymbols = exchangeInfo.symbols ?? [];
   const marketSymbols = exchangeSymbols
-    .filter((symbol) => symbol.contractType === "PERPETUAL" && symbol.quoteAsset === "USDT" && symbol.status === "TRADING")
+    .filter(isBinanceUsdtPerpetualTradingSymbol)
     .map((symbol) => `${symbol.baseAsset}/USDT:USDT`)
     .sort((left, right) => left.localeCompare(right));
 
@@ -100,6 +100,19 @@ export async function fetchUsdtPerpetualMarkets(): Promise<MarketSymbol[]> {
   }
 
   return marketSymbols;
+}
+
+export function isBinanceUsdtPerpetualTradingSymbol(
+  symbol: BinanceExchangeSymbol,
+): boolean {
+  /**
+   * Binance lists some chartable USDT-M markets, such as SPCXUSDT, as
+   * TRADIFI_PERPETUAL instead of plain PERPETUAL. The chart/search surface
+   * should include every trading USDT-settled perpetual contract family.
+   */
+  return symbol.contractType.trim().toUpperCase().endsWith("PERPETUAL")
+    && symbol.quoteAsset.trim().toUpperCase() === "USDT"
+    && symbol.status.trim().toUpperCase() === "TRADING";
 }
 
 export async function fetchHistoricalCandles(

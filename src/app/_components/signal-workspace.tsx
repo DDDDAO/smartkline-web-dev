@@ -2254,7 +2254,7 @@ function BrandLogo({
   language: WorkspaceLanguage;
 }) {
   const wrapperClassName =
-    "motion-fx-1-brand flex h-[42px] max-w-[122px] shrink-0 items-center gap-[6px] overflow-hidden rounded-xl px-0 py-1 sm:h-[54px] sm:max-w-none sm:gap-[7px]";
+    "motion-fx-1-brand flex h-[42px] max-w-[min(46vw,156px)] shrink-0 items-center gap-[6px] overflow-hidden rounded-xl px-0 py-1 sm:h-[54px] sm:max-w-none sm:gap-[7px]";
   const isEnglish = language === "en-US";
   const logoAlt = copy.workspace.brandAlt;
   const wordmarkSrc = isEnglish
