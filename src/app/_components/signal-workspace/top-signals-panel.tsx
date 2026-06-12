@@ -945,7 +945,7 @@ function TopSignalSourceCard({
                 {panelCopy.tradeHistory}: {model.events.length}
               </span>
             </div>
-            <div className="signal-card-field-layer mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div className="signal-card-field-layer mt-3 grid gap-2 text-xs sm:grid-cols-2">
               <SignalField isDarkTheme={isDarkTheme} label={panelCopy.margin} value={formatCurrency(model.trader.margin_balance)} />
               <SignalField isDarkTheme={isDarkTheme} label={panelCopy.notional} value={formatCurrency(totalNotionalValue)} />
               <SignalField isDarkTheme={isDarkTheme} label={panelCopy.totalLeverage} value={formatLeverage(totalLeverage)} />
@@ -1481,6 +1481,22 @@ function groupBy<T>(items: readonly T[], keyOf: (item: T) => string): Map<string
 }
 
 function compareSourceModels(left: TopSignalSourceModel, right: TopSignalSourceModel): number {
+  const leftPnlRatio = calculateSourceModelPnlRatio(left);
+  const rightPnlRatio = calculateSourceModelPnlRatio(right);
+  if (leftPnlRatio !== null || rightPnlRatio !== null) {
+    if (leftPnlRatio === null) {
+      return 1;
+    }
+
+    if (rightPnlRatio === null) {
+      return -1;
+    }
+
+    if (leftPnlRatio !== rightPnlRatio) {
+      return rightPnlRatio - leftPnlRatio;
+    }
+  }
+
   if (left.positions.length !== right.positions.length) {
     return right.positions.length - left.positions.length;
   }
@@ -1492,6 +1508,13 @@ function compareSourceModels(left: TopSignalSourceModel, right: TopSignalSourceM
   }
 
   return left.trader.name.localeCompare(right.trader.name);
+}
+
+function calculateSourceModelPnlRatio(model: TopSignalSourceModel): number | null {
+  return calculateAggregatePnlRatio(
+    sumPositionUnrealizedPnlAmount(model.positions),
+    sumPositionNotionalValue(model.positions),
+  );
 }
 
 function comparePositions(left: CopyTradingPosition, right: CopyTradingPosition): number {
