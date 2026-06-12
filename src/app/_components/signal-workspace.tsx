@@ -2170,12 +2170,15 @@ function WorkspaceTopNavigation({
   onThemeToggle: () => void;
 }) {
   const headerClassName = isDarkTheme
-    ? "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-6 border-b border-white/[0.075] bg-[#0B0E11]/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap"
-    : "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-6 border-b border-[#E5EAF0] bg-white/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap";
+    ? "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-white/[0.075] bg-[#0B0E11]/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap lg:gap-6"
+    : "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-[#E5EAF0] bg-white/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap lg:gap-6";
+  const actionRailClassName = isDarkTheme
+    ? "relative flex shrink-0 items-center justify-end gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-1 sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0"
+    : "relative flex shrink-0 items-center justify-end gap-1 rounded-full border border-[#E5EAF0] bg-[#F8FAFC] p-1 shadow-sm sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none";
 
   return (
     <header className={headerClassName}>
-      <div className="flex min-w-0 items-center gap-8">
+      <div className="flex min-w-0 flex-1 items-center gap-8 lg:flex-none">
         <BrandLogo copy={copy} isDarkTheme={isDarkTheme} language={language} />
       </div>
       <div className="order-3 flex w-full min-w-0 items-center gap-7 overflow-x-auto lg:order-none lg:w-auto lg:flex-1">
@@ -2197,7 +2200,7 @@ function WorkspaceTopNavigation({
           />
         </nav>
       </div>
-      <div className="relative flex items-center gap-2">
+      <div className={actionRailClassName}>
         <GuideIconButton
           copy={copy}
           isDarkTheme={isDarkTheme}
@@ -2251,7 +2254,7 @@ function BrandLogo({
   language: WorkspaceLanguage;
 }) {
   const wrapperClassName =
-    "motion-fx-1-brand flex h-[54px] shrink-0 items-center gap-[7px] overflow-hidden rounded-xl px-0 py-1";
+    "motion-fx-1-brand flex h-[42px] max-w-[122px] shrink-0 items-center gap-[6px] overflow-hidden rounded-xl px-0 py-1 sm:h-[54px] sm:max-w-none sm:gap-[7px]";
   const isEnglish = language === "en-US";
   const logoAlt = copy.workspace.brandAlt;
   const wordmarkSrc = isEnglish
@@ -2269,7 +2272,7 @@ function BrandLogo({
         unoptimized
         alt=""
         aria-hidden="true"
-        className="h-[39.6px] w-[39.6px] shrink-0 object-contain"
+        className="h-8 w-8 shrink-0 object-contain sm:h-[39.6px] sm:w-[39.6px]"
         height={64}
         src="/logo-mark.svg"
         width={64}
@@ -2278,7 +2281,7 @@ function BrandLogo({
         priority
         unoptimized
         alt={logoAlt}
-        className="h-[39.6px] w-auto object-contain object-left"
+        className="h-8 w-auto object-contain object-left sm:h-[39.6px]"
         height={64}
         src={wordmarkSrc}
         width={isEnglish ? 240 : 160}
@@ -2328,8 +2331,8 @@ function GuideIconButton({
   onGuideOpen: () => void;
 }) {
   const className = isDarkTheme
-    ? "group motion-fx-1-nav-button flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/[0.075] bg-white/[0.035] px-0 text-sm font-medium text-slate-300 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out hover:w-[104px] hover:border-white/[0.11] hover:bg-white/[0.08] hover:px-3 hover:text-slate-50 active:scale-[0.98] focus-visible:w-[104px] focus-visible:px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-    : "group motion-fx-1-nav-button flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[#E5EAF0] bg-white px-0 text-sm font-medium text-slate-500 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out hover:w-[104px] hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:px-3 hover:text-slate-950 active:scale-[0.98] focus-visible:w-[104px] focus-visible:px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#229ED9]";
+    ? "group motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/[0.075] bg-white/[0.035] px-0 text-sm font-medium text-slate-300 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:h-10 sm:w-10 sm:hover:w-[104px] sm:hover:border-white/[0.11] sm:hover:bg-white/[0.08] sm:hover:px-3 sm:hover:text-slate-50 sm:focus-visible:w-[104px] sm:focus-visible:px-3"
+    : "group motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#E5EAF0] bg-white px-0 text-sm font-medium text-slate-500 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#229ED9] sm:h-10 sm:w-10 sm:hover:w-[104px] sm:hover:border-[#B7E8FC] sm:hover:bg-[#EAF8FE]/70 sm:hover:px-3 sm:hover:text-slate-950 sm:focus-visible:w-[104px] sm:focus-visible:px-3";
 
   return (
     <button
@@ -2340,7 +2343,7 @@ function GuideIconButton({
       onClick={onGuideOpen}
     >
       <GuideSparkIcon className="h-4 w-4 shrink-0" />
-      <span className="ml-0 max-w-0 overflow-hidden whitespace-nowrap text-xs font-normal opacity-0 transition-[max-width,opacity,margin] duration-200 ease-out group-hover:ml-2 group-hover:max-w-16 group-hover:opacity-100 group-focus-visible:ml-2 group-focus-visible:max-w-16 group-focus-visible:opacity-100">
+      <span className="ml-0 max-w-0 overflow-hidden whitespace-nowrap text-xs font-normal opacity-0 transition-[max-width,opacity,margin] duration-200 ease-out sm:group-hover:ml-2 sm:group-hover:max-w-16 sm:group-hover:opacity-100 sm:group-focus-visible:ml-2 sm:group-focus-visible:max-w-16 sm:group-focus-visible:opacity-100">
         {copy.workspace.guide}
       </span>
     </button>
@@ -2359,8 +2362,8 @@ function LanguageToggleButton({
   onLanguageToggle: () => void;
 }) {
   const className = isDarkTheme
-    ? "motion-fx-1-nav-button flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/[0.075] bg-white/[0.035] text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50"
-    : "motion-fx-1-nav-button flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[#E5EAF0] bg-white text-slate-600 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:text-[#007DB8]";
+    ? "motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/[0.075] bg-white/[0.035] text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50 sm:h-10 sm:w-10"
+    : "motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#E5EAF0] bg-white text-slate-600 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:text-[#007DB8] sm:h-10 sm:w-10";
 
   return (
     <button
@@ -2387,8 +2390,8 @@ function AnimatedThemeToggler({
   onThemeToggle: () => void;
 }) {
   const className = isDarkTheme
-    ? `motion-fx-1-nav-button ${isCollapsed ? "grid h-10 w-10 place-items-center" : "flex h-10 w-full items-center gap-3 px-2.5"} rounded-full border border-white/[0.075] bg-white/[0.035] text-sm font-medium text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50`
-    : `motion-fx-1-nav-button ${isCollapsed ? "grid h-10 w-10 place-items-center" : "flex h-10 w-full items-center gap-3 px-2.5"} rounded-full border border-[#E5EAF0] bg-white text-sm font-medium text-slate-500 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:text-slate-950`;
+    ? `motion-fx-1-nav-button ${isCollapsed ? "grid h-8 w-8 place-items-center sm:h-10 sm:w-10" : "flex h-10 w-full items-center gap-3 px-2.5"} rounded-full border border-white/[0.075] bg-white/[0.035] text-sm font-medium text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50`
+    : `motion-fx-1-nav-button ${isCollapsed ? "grid h-8 w-8 place-items-center sm:h-10 sm:w-10" : "flex h-10 w-full items-center gap-3 px-2.5"} rounded-full border border-[#E5EAF0] bg-white text-sm font-medium text-slate-500 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:text-slate-950`;
 
   return (
     <button
@@ -2471,8 +2474,8 @@ function PnlColorModeToggleButton({
   onToggle: () => void;
 }) {
   const className = isDarkTheme
-    ? "motion-fx-1-nav-button grid h-10 w-10 place-items-center rounded-full border border-white/[0.075] bg-white/[0.035] text-xs font-black text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50"
-    : "motion-fx-1-nav-button grid h-10 w-10 place-items-center rounded-full border border-[#E5EAF0] bg-white text-xs font-black text-slate-500 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:text-slate-950";
+    ? "motion-fx-1-nav-button grid h-8 w-8 place-items-center rounded-full border border-white/[0.075] bg-white/[0.035] text-xs font-black text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50 sm:h-10 sm:w-10"
+    : "motion-fx-1-nav-button grid h-8 w-8 place-items-center rounded-full border border-[#E5EAF0] bg-white text-xs font-black text-slate-500 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:text-slate-950 sm:h-10 sm:w-10";
   const title = pnlColorMode === "positiveGreen"
     ? copy.workspace.pnlColorSwitchToPositiveRed
     : copy.workspace.pnlColorSwitchToPositiveGreen;
