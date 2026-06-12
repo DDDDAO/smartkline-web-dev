@@ -96,6 +96,7 @@ const MAX_VISIBLE_KOL_SIGNAL_HISTORY = 1_000;
 const NOTIFICATION_DISMISS_MS = 6_500;
 const KOL_SIGNAL_POLL_INTERVAL_MS = 30_000;
 const TOP_SIGNALS_POLL_INTERVAL_MS = 60_000;
+const PAPER_POSITION_PRICE_UPDATE_INTERVAL_MS = 1_000;
 const TOP_SIGNAL_PRICE_UPDATE_INTERVAL_MS = 3_000;
 const COMPACT_LAYOUT_MEDIA_QUERY = "(max-width: 1023px)";
 const PNL_COLOR_MODE_STORAGE_KEY = "smartkline:pnl-color-mode";
@@ -292,7 +293,9 @@ export function SignalWorkspace() {
   );
   const {
     latestPricesBySymbol: paperPositionMiniTickerPricesBySymbol,
-  } = useBinanceMiniTickerPrices(paperPositionMiniTickerSymbols);
+  } = useBinanceMiniTickerPrices(paperPositionMiniTickerSymbols, {
+    updateIntervalMs: PAPER_POSITION_PRICE_UPDATE_INTERVAL_MS,
+  });
   const paperPositionsBySignalId = useMemo(() => {
     const recordsBySignalId: Record<string, PaperPositionRecord> = {};
 

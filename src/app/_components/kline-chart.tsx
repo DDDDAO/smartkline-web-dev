@@ -246,10 +246,11 @@ export function KlineChart({
 
   useEffect(() => {
     const updateCountdown = () => {
-      const countdownText = formatKlineCandleCountdown(candles.at(-1) ?? null, interval);
+      const latestCandle = candlesRef.current.at(-1) ?? null;
+      const countdownText = formatKlineCandleCountdown(latestCandle, interval);
       currentCandleCountdownTextRef.current = countdownText;
       renderCurrentPriceTag({
-        candle: candles.at(-1) ?? null,
+        candle: latestCandle,
         countdownText,
         element: currentPriceTagRef.current,
         metrics: chartMetricsRef.current,
@@ -262,7 +263,7 @@ export function KlineChart({
     const intervalId = window.setInterval(updateCountdown, CANDLE_COUNTDOWN_UPDATE_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [candles, interval, isCompactLayout, priceColorMode]);
+  }, [interval]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -330,6 +331,8 @@ export function KlineChart({
 
     let overlayRenderFrameId: number | null = null;
     let tradePointRenderFrameId: number | null = null;
+    let crosshairRenderFrameId: number | null = null;
+    let pendingCrosshairParam: MouseEventParams<Time> | null = null;
     const renderChartOverlays = () => {
       const drawableSignal = activeSignalDrawingReadyRef.current
         ? activeSignalRef.current
@@ -447,7 +450,7 @@ export function KlineChart({
       setTradeMarkerTooltip(nextTooltip);
     };
 
-    const handleCrosshairMove = (param: MouseEventParams<Time>) => {
+    const renderCrosshairMove = (param: MouseEventParams<Time>) => {
       renderHoveredCandleInfo({
         candles: candlesRef.current,
         element: hoveredCandleInfoElement,
@@ -479,6 +482,22 @@ export function KlineChart({
       });
     };
 
+    const handleCrosshairMove = (param: MouseEventParams<Time>) => {
+      pendingCrosshairParam = param;
+      if (crosshairRenderFrameId !== null) {
+        return;
+      }
+
+      crosshairRenderFrameId = window.requestAnimationFrame(() => {
+        crosshairRenderFrameId = null;
+        const nextParam = pendingCrosshairParam;
+        pendingCrosshairParam = null;
+        if (nextParam) {
+          renderCrosshairMove(nextParam);
+        }
+      });
+    };
+
     chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
     chart.subscribeClick(handleChartClick);
     chart.subscribeCrosshairMove(handleCrosshairMove);
@@ -494,6 +513,9 @@ export function KlineChart({
       }
       if (tradePointRenderFrameId !== null) {
         window.cancelAnimationFrame(tradePointRenderFrameId);
+      }
+      if (crosshairRenderFrameId !== null) {
+        window.cancelAnimationFrame(crosshairRenderFrameId);
       }
       hideHoveredCandleInfo(hoveredCandleInfoElement);
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
@@ -1360,18 +1382,12 @@ function resolveIncrementalCandleUpdateStartIndex(
   previousCandles: readonly MarketCandle[],
   nextCandles: readonly MarketCandle[],
 ): number {
-  if (previousCandles.length === 0) {
+  if (previousCandles.length === 0 || nextCandles.length < previousCandles.length) {
     return -1;
   }
 
-  if (nextCandles.length < previousCandles.length) {
+  if (previousCandles[0]?.sourceTimeMs !== nextCandles[0]?.sourceTimeMs) {
     return -1;
-  }
-
-  for (let index = 0; index < previousCandles.length; index += 1) {
-    if (previousCandles[index].sourceTimeMs !== nextCandles[index]?.sourceTimeMs) {
-      return -1;
-    }
   }
 
   const previousLastCandle = previousCandles.at(-1);
@@ -1385,13 +1401,23 @@ function resolveIncrementalCandleUpdateStartIndex(
     }
   }
 
-  for (let index = 0; index < previousCandles.length; index += 1) {
-    if (!areMarketCandlesEqual(previousCandles[index], nextCandles[index])) {
-      return index;
-    }
+  let changedStartIndex = Math.min(previousCandles.length, nextCandles.length) - 1;
+  while (
+    changedStartIndex >= 0
+    && areMarketCandlesEqual(previousCandles[changedStartIndex], nextCandles[changedStartIndex])
+  ) {
+    changedStartIndex -= 1;
   }
 
-  return previousCandles.length;
+  if (changedStartIndex === -1) {
+    return previousCandles.length;
+  }
+
+  if (previousCandles[changedStartIndex].sourceTimeMs !== nextCandles[changedStartIndex]?.sourceTimeMs) {
+    return -1;
+  }
+
+  return changedStartIndex;
 }
 
 function areMarketCandlesEqual(left: MarketCandle, right: MarketCandle): boolean {
