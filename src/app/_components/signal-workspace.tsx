@@ -193,8 +193,11 @@ export function SignalWorkspace() {
   const [isApiSetupOpen, setIsApiSetupOpen] = useState(false);
   const [prototypeApiConnection, setPrototypeApiConnection] =
     useState<PrototypeApiConnection>({
-      accountName: "Binance #1",
+      accountName: "Mock Exchange #1",
       connectedAtLabel: "",
+      exchangePlatform: "Mock",
+      isMock: true,
+      mockMarginBalance: null,
       status: "empty",
     });
   const [prototypeStrategies, setPrototypeStrategies] = useState<
@@ -392,6 +395,9 @@ export function SignalWorkspace() {
       setPrototypeApiConnection({
         accountName: "Mock Exchange #1",
         connectedAtLabel: "",
+        exchangePlatform: "Mock",
+        isMock: true,
+        mockMarginBalance: null,
         status: "empty",
       });
       setPrototypeStrategies([]);
@@ -411,11 +417,17 @@ export function SignalWorkspace() {
       ? {
         accountName: account.connector.name,
         connectedAtLabel: formatTradingFoxDateLabel(account.connector.updatedAt, language),
+        exchangePlatform: account.connector.exchangePlatform,
+        isMock: account.connector.isMock,
+        mockMarginBalance: account.connector.mockMarginBalance ?? null,
         status: "connected",
       }
       : {
         accountName: "Mock Exchange #1",
         connectedAtLabel: "",
+        exchangePlatform: "Mock",
+        isMock: true,
+        mockMarginBalance: null,
         status: "empty",
       });
     setPrototypeStrategies(account.strategies);
@@ -520,6 +532,9 @@ export function SignalWorkspace() {
         setPrototypeApiConnection({
           accountName: "Mock Exchange #1",
           connectedAtLabel: "",
+          exchangePlatform: "Mock",
+          isMock: true,
+          mockMarginBalance: null,
           status: "empty",
         });
         setPrototypeStrategies([]);
@@ -1363,7 +1378,7 @@ export function SignalWorkspace() {
     setCopyTradingTarget(target);
   }, [authMe.isLoggedIn, prototypeApiConnection.status, prototypeStrategies, startTelegramLogin]);
 
-  const handlePrototypeConnectionSave = useCallback(async (accountName: string) => {
+  const handlePrototypeConnectionSave = useCallback(async (input: { accountName: string; mockMarginBalance: number }) => {
     if (!authMe.isLoggedIn) {
       startTelegramLogin();
       return;
@@ -1372,14 +1387,17 @@ export function SignalWorkspace() {
     setIsTradingFoxLoading(true);
     try {
       const account = await requestTradingFoxAccount("/api/tradingfox/connectors/mock", {
-        body: JSON.stringify({ accountName }),
+        body: JSON.stringify({
+          accountName: input.accountName,
+          mockMarginBalance: input.mockMarginBalance,
+        }),
         method: "POST",
       });
       applyTradingFoxAccount(account);
       setWorkspaceNotification({
         id: `api-connected-${Date.now()}`,
         message: copyRef.current.workspace.accountCenter.apiSetup.connectedToast,
-        meta: account.connector?.name ?? accountName,
+        meta: account.connector?.name ?? input.accountName,
         title: copyRef.current.workspace.accountCenter.api.title,
       });
 
@@ -1391,7 +1409,7 @@ export function SignalWorkspace() {
       setWorkspaceNotification({
         id: `api-connect-error-${Date.now()}`,
         message: getTradingFoxErrorMessage(error),
-        meta: accountName,
+        meta: input.accountName,
         title: copyRef.current.workspace.accountCenter.api.title,
       });
     } finally {
