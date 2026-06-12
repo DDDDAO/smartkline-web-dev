@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
+import type { TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
 import type { CopyTradingTrader } from "@/app/_types/copy-trading";
 import { SourceAvatar } from "./card-ui";
 
@@ -39,14 +41,18 @@ type AccountCenterPrototypeProps = {
   apiConnection: PrototypeApiConnection;
   copy: WorkspaceCopy;
   isApiSetupOpen: boolean;
+  isAuthLoading: boolean;
   isCoveredByModal?: boolean;
   isDarkTheme: boolean;
   isOpen: boolean;
   strategies: readonly PrototypeStrategy[];
+  telegramUser: TelegramSessionUser | null;
   onApiSetupOpen: () => void;
   onApiSetupOpenChange: (isOpen: boolean) => void;
   onClose: () => void;
   onConnectionSave: (accountName: string) => void;
+  onLogin: () => void;
+  onLogout: () => void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => void;
 };
 
@@ -66,7 +72,7 @@ type CopyTradingPrototypeModalProps = {
 const WHITELIST_IP = "192.0.0.1";
 
 const EXCHANGES = [
-  { id: "binance", defaultAccountName: "Binance #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api" },
+  { id: "binance", defaultAccountName: "Binance #1", enabled: false, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api" },
   { id: "mockExchange", defaultAccountName: "Mock Exchange #1", enabled: true, fallback: "MX", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
   { id: "binanceDemo", defaultAccountName: "Binance Demo #1", enabled: true, fallback: "BD", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
   { id: "okx", defaultAccountName: "OKX #1", enabled: false, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api" },
@@ -83,18 +89,25 @@ export function AccountCenterPrototype({
   apiConnection,
   copy,
   isApiSetupOpen,
+  isAuthLoading,
   isCoveredByModal = false,
   isDarkTheme,
   isOpen,
   strategies,
+  telegramUser,
   onApiSetupOpen,
   onApiSetupOpenChange,
   onClose,
   onConnectionSave,
+  onLogin,
+  onLogout,
   onStrategyStatusChange,
 }: AccountCenterPrototypeProps) {
   const accountCopy = copy.workspace.accountCenter;
   const isDrawerModal = !isApiSetupOpen && !isCoveredByModal;
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
+  const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
+
 
   return (
     <>
@@ -132,17 +145,40 @@ export function AccountCenterPrototype({
                 </button>
               </div>
               <div className={isDarkTheme ? "mt-5 flex items-center gap-3 rounded-3xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-5 flex items-center gap-3 rounded-3xl border border-[#E5EAF0] bg-white p-3 shadow-sm"}>
-                <div className={isDarkTheme ? "grid h-12 w-12 place-items-center rounded-2xl bg-sky-400/15 text-sm font-black text-sky-200" : "grid h-12 w-12 place-items-center rounded-2xl bg-[#EAF8FE] text-sm font-black text-[#008DCC]"}>
-                  SK
-                </div>
+                <TelegramUserAvatar
+                  isDarkTheme={isDarkTheme}
+                  size="large"
+                  user={telegramUser}
+                />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-black">{accountCopy.user.demoName}</div>
-                  <div className={isDarkTheme ? "mt-0.5 truncate text-xs text-slate-500" : "mt-0.5 truncate text-xs text-slate-500"}>{accountCopy.user.demoSubtitle}</div>
+                  <div className="truncate text-sm font-black">{getTelegramUserDisplayName(telegramUser, accountCopy.user.demoName)}</div>
+                  <div className={isDarkTheme ? "mt-0.5 truncate text-xs text-slate-500" : "mt-0.5 truncate text-xs text-slate-500"}>
+                    {telegramUser?.username ? `@${telegramUser.username}` : accountCopy.user.demoSubtitle}
+                  </div>
                 </div>
+                {telegramUser ? (
+                  <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onLogout}>
+                    {accountCopy.user.logoutAction}
+                  </button>
+                ) : (
+                  <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={isAuthLoading} type="button" onClick={onLogin}>
+                    {isAuthLoading ? accountCopy.user.loading : accountCopy.user.loginAction}
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+              {selectedStrategy ? (
+                <StrategyDetailView
+                  copy={copy}
+                  isDarkTheme={isDarkTheme}
+                  strategy={selectedStrategy}
+                  onBack={() => setSelectedStrategyId(null)}
+                  onStrategyStatusChange={onStrategyStatusChange}
+                />
+              ) : (
+                <>
               <section className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -189,6 +225,7 @@ export function AccountCenterPrototype({
                       copy={copy}
                       isDarkTheme={isDarkTheme}
                       strategy={strategy}
+                      onOpenDetail={setSelectedStrategyId}
                       onStrategyStatusChange={onStrategyStatusChange}
                     />
                   )) : (
@@ -198,6 +235,8 @@ export function AccountCenterPrototype({
                   )}
                 </div>
               </section>
+                </>
+              )}
             </div>
 
             <div className={isDarkTheme ? "border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-xs leading-5 text-slate-500 sm:px-5" : "border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-xs leading-5 text-slate-500 sm:px-5"}>
@@ -211,7 +250,7 @@ export function AccountCenterPrototype({
         <ExchangeApiSetupLayer
           key={apiConnection.accountName}
           copy={copy}
-          initialAccountName={apiConnection.accountName}
+          initialAccountName={apiConnection.status === "connected" ? apiConnection.accountName : ""}
           isDarkTheme={isDarkTheme}
           onClose={() => onApiSetupOpenChange(false)}
           onSave={(accountName) => {
@@ -346,11 +385,15 @@ export function CopyTradingPrototypeModal({
 
 export function AccountEntryButton({
   copy,
+  isAuthLoading,
   isDarkTheme,
+  telegramUser,
   onOpen,
 }: {
   copy: WorkspaceCopy;
+  isAuthLoading: boolean;
   isDarkTheme: boolean;
+  telegramUser: TelegramSessionUser | null;
   onOpen: () => void;
 }) {
   const accountCopy = copy.workspace.accountCenter;
@@ -360,15 +403,67 @@ export function AccountEntryButton({
 
   return (
     <button aria-label={accountCopy.drawer.openAccount} className={className} type="button" onClick={onOpen}>
-      <span className={isDarkTheme ? "grid h-7 w-7 place-items-center rounded-full bg-sky-400/15 text-[10px] font-black text-sky-200 sm:h-8 sm:w-8 sm:text-[11px]" : "grid h-7 w-7 place-items-center rounded-full bg-[#EAF8FE] text-[10px] font-black text-[#008DCC] sm:h-8 sm:w-8 sm:text-[11px]"}>
-        SK
-      </span>
+      <TelegramUserAvatar
+        isDarkTheme={isDarkTheme}
+        size="compact"
+        user={telegramUser}
+      />
       <span className="hidden min-w-0 sm:block">
-        <span className="block max-w-[112px] truncate text-xs font-black leading-tight">{accountCopy.user.demoName}</span>
-        <span className={isDarkTheme ? "block max-w-[112px] truncate text-[10px] font-bold leading-tight text-slate-500" : "block max-w-[112px] truncate text-[10px] font-bold leading-tight text-slate-500"}>{accountCopy.user.demoSubtitle}</span>
+        <span className="block max-w-[112px] truncate text-xs font-black leading-tight">
+          {isAuthLoading ? accountCopy.user.loading : getTelegramUserDisplayName(telegramUser, accountCopy.user.loginAction)}
+        </span>
+        <span className={isDarkTheme ? "block max-w-[112px] truncate text-[10px] font-bold leading-tight text-slate-500" : "block max-w-[112px] truncate text-[10px] font-bold leading-tight text-slate-500"}>
+          {telegramUser?.username ? `@${telegramUser.username}` : accountCopy.user.demoSubtitle}
+        </span>
       </span>
     </button>
   );
+}
+
+function TelegramUserAvatar({
+  isDarkTheme,
+  size,
+  user,
+}: {
+  isDarkTheme: boolean;
+  size: "compact" | "large";
+  user: TelegramSessionUser | null;
+}) {
+  const baseClassName = size === "large"
+    ? "grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-cover bg-center text-sm font-black"
+    : "grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-cover bg-center text-[10px] font-black sm:h-8 sm:w-8 sm:text-[11px]";
+  const colorClassName = isDarkTheme
+    ? "bg-sky-400/15 text-sky-200"
+    : "bg-[#EAF8FE] text-[#008DCC]";
+  const avatarStyle = user?.avatarUrl ? { backgroundImage: `url("${user.avatarUrl}")` } : undefined;
+
+  return (
+    <span
+      aria-hidden="true"
+      className={`${baseClassName} ${colorClassName}`}
+      style={avatarStyle}
+    >
+      {user?.avatarUrl ? null : getTelegramUserInitials(user)}
+    </span>
+  );
+}
+
+function getTelegramUserDisplayName(user: TelegramSessionUser | null, fallback: string): string {
+  return user?.username ? `@${user.username}` : (user?.name ?? fallback);
+}
+
+function getTelegramUserInitials(user: TelegramSessionUser | null): string {
+  const label = user?.username ?? user?.name ?? "SK";
+  const letters = label
+    .replace(/^@/u, "")
+    .split(/\s+/u)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return letters || "SK";
 }
 
 function ExchangeApiSetupLayer({
@@ -384,7 +479,7 @@ function ExchangeApiSetupLayer({
   onClose: () => void;
   onSave: (accountName: string) => void;
 }) {
-  const [selectedExchangeId, setSelectedExchangeId] = useState<PrototypeExchangeId>("binance");
+  const [selectedExchangeId, setSelectedExchangeId] = useState<PrototypeExchangeId>("mockExchange");
   const selectedExchange = getExchangeById(selectedExchangeId);
   const [accountName, setAccountName] = useState(initialAccountName || selectedExchange.defaultAccountName);
   const [apiKey, setApiKey] = useState("");
@@ -394,10 +489,8 @@ function ExchangeApiSetupLayer({
   const accountCopy = copy.workspace.accountCenter;
   const isDemoExchange = selectedExchange.mode === "demo";
 
-  const canTest = accountName.trim().length > 0 && (isDemoExchange || (apiKey.trim().length > 0 && secret.trim().length > 0));
-  const saveMockConnection = () => {
-    onSave(getExchangeById("mockExchange").defaultAccountName);
-  };
+  const canTest = !isDemoExchange && accountName.trim().length > 0 && apiKey.trim().length > 0 && secret.trim().length > 0;
+  const canSave = isDemoExchange || hasTestedConnection;
   const chooseExchange = (exchange: PrototypeExchange) => {
     if (!exchange.enabled) {
       return;
@@ -455,7 +548,7 @@ function ExchangeApiSetupLayer({
           </header>
 
           <div className="kol-scroll-area min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
-            <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
               <aside className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3"}>
                 <div className={isDarkTheme ? "px-1 pb-2 text-xs font-black text-slate-300" : "px-1 pb-2 text-xs font-black text-slate-700"}>
                   {accountCopy.apiSetup.selectExchange}
@@ -470,11 +563,11 @@ function ExchangeApiSetupLayer({
                       onClick={() => chooseExchange(exchange)}
                     >
                       <ExchangeIcon enabled={exchange.enabled} exchange={exchange} isDarkTheme={isDarkTheme} />
-                      <span className="min-w-0 flex-1 truncate text-sm font-black">{getExchangeName(accountCopy, exchange.id)}</span>
+                      <span className="min-w-0 flex-1 whitespace-nowrap text-sm font-black">{getExchangeName(accountCopy, exchange.id)}</span>
                       {exchange.mode === "demo" ? (
-                        <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>{accountCopy.apiSetup.demoBadge}</span>
+                        <span className={isDarkTheme ? "shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-300" : "shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>{accountCopy.apiSetup.demoBadge}</span>
                       ) : !exchange.enabled ? (
-                        <span className={isDarkTheme ? "text-[10px] font-bold text-slate-500" : "text-[10px] font-bold text-slate-400"}>{accountCopy.apiSetup.comingSoon}</span>
+                        <span className={isDarkTheme ? "shrink-0 text-[10px] font-bold text-slate-500" : "shrink-0 text-[10px] font-bold text-slate-400"}>{accountCopy.apiSetup.comingSoon}</span>
                       ) : null}
                     </button>
                   ))}
@@ -557,27 +650,22 @@ function ExchangeApiSetupLayer({
           </div>
 
           <footer className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5"}>
-            <button
-              className={isDarkTheme ? "inline-flex min-h-10 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 text-sm font-black text-emerald-200 transition hover:bg-emerald-400/15" : "inline-flex min-h-10 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 px-4 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"}
-              type="button"
-              onClick={saveMockConnection}
-            >
-              {accountCopy.apiSetup.simulateTest}
-            </button>
             <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onClose}>{copy.common.close}</button>
-            <button
-              className={hasTestedConnection
-                ? isDarkTheme ? "inline-flex min-h-10 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 text-sm font-black text-emerald-200" : "inline-flex min-h-10 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 px-4 text-sm font-black text-emerald-700"
-                : getSoftButtonClassName(isDarkTheme)}
-              disabled={!canTest}
-              type="button"
-              onClick={() => setHasTestedConnection(true)}
-            >
-              {hasTestedConnection ? accountCopy.apiSetup.tested : accountCopy.apiSetup.test}
-            </button>
+            {!isDemoExchange ? (
+              <button
+                className={hasTestedConnection
+                  ? isDarkTheme ? "inline-flex min-h-10 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 text-sm font-black text-emerald-200" : "inline-flex min-h-10 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 px-4 text-sm font-black text-emerald-700"
+                  : getSoftButtonClassName(isDarkTheme)}
+                disabled={!canTest}
+                type="button"
+                onClick={() => setHasTestedConnection(true)}
+              >
+                {hasTestedConnection ? accountCopy.apiSetup.tested : accountCopy.apiSetup.test}
+              </button>
+            ) : null}
             <button
               className={getPrimaryButtonClassName(isDarkTheme)}
-              disabled={!hasTestedConnection}
+              disabled={!canSave}
               type="button"
               onClick={() => onSave(accountName.trim() || selectedExchange.defaultAccountName)}
             >
@@ -594,11 +682,13 @@ function PrototypeStrategyCard({
   copy,
   isDarkTheme,
   strategy,
+  onOpenDetail,
   onStrategyStatusChange,
 }: {
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
   strategy: PrototypeStrategy;
+  onOpenDetail: (strategyId: string) => void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => void;
 }) {
   const strategyCopy = copy.workspace.accountCenter.strategy;
@@ -606,6 +696,11 @@ function PrototypeStrategyCard({
 
   return (
     <article className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] p-3" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
+      <button
+        className="block w-full text-left"
+        type="button"
+        onClick={() => onOpenDetail(strategy.id)}
+      >
       <div className="flex items-start gap-3">
         <SourceAvatar isDarkTheme={isDarkTheme} name={strategy.traderName} url={strategy.avatarUrl} />
         <div className="min-w-0 flex-1">
@@ -627,6 +722,7 @@ function PrototypeStrategyCard({
       <p className={isDarkTheme ? "mt-3 text-[11px] leading-5 text-slate-500" : "mt-3 text-[11px] leading-5 text-slate-500"}>
         {strategyCopy.stopNote}
       </p>
+      </button>
       <div className="mt-3 flex flex-wrap gap-2">
         {strategy.status === "running" ? (
           <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(strategy.id, "paused")}>{strategyCopy.pause}</button>
@@ -639,6 +735,167 @@ function PrototypeStrategyCard({
       </div>
     </article>
   );
+}
+
+function StrategyDetailView({
+  copy,
+  isDarkTheme,
+  strategy,
+  onBack,
+  onStrategyStatusChange,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  strategy: PrototypeStrategy;
+  onBack: () => void;
+  onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => void;
+}) {
+  const [detail, setDetail] = useState<TradingFoxStrategyDetail | null>(null);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const strategyCopy = copy.workspace.accountCenter.strategy;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadDetail = async () => {
+      setIsLoading(true);
+      setError("");
+      try {
+        const response = await fetch(`/api/tradingfox/copy-strategies/${encodeURIComponent(strategy.id)}`, {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        const payload = await response.json() as TradingFoxStrategyDetail | { error?: string };
+        if (!response.ok) {
+          throw new Error("error" in payload && payload.error ? payload.error : `Strategy detail failed with status ${response.status}.`);
+        }
+        if (isMounted) {
+          setDetail(payload as TradingFoxStrategyDetail);
+        }
+      } catch (loadError) {
+        if (isMounted) {
+          setError(loadError instanceof Error ? loadError.message : "Strategy detail failed.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadDetail();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [strategy.id]);
+
+  const liveStrategy = detail?.strategy ?? strategy;
+  const signalSourceCount = detail?.signalSources.length ?? 0;
+  const orderCount = detail?.orderHistory?.items.length ?? 0;
+  const sourceOrderCount = detail?.orderHistory?.signalSourceOrders.length ?? 0;
+
+  return (
+    <section className="space-y-4">
+      <div className={getModalSectionClassName(isDarkTheme)}>
+        <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onBack}>← Back</button>
+        <div className="mt-4 flex items-start gap-3">
+          <SourceAvatar isDarkTheme={isDarkTheme} name={liveStrategy.traderName} url={liveStrategy.avatarUrl} />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <h3 className="truncate text-lg font-black">{liveStrategy.traderName}</h3>
+              <span className={getStrategyStatusClassName(isDarkTheme, liveStrategy.status)}>{getStrategyStatusLabel(strategyCopy, liveStrategy.status)}</span>
+            </div>
+            <p className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
+              Trader #{liveStrategy.id} · {liveStrategy.platform} · {liveStrategy.apiAccountName}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+          <MiniMetric isDarkTheme={isDarkTheme} label="Equity" value={formatDetailNumber(detail?.account?.equity)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label="Signal sources" value={String(signalSourceCount)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label="Trader orders" value={String(orderCount)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label="Source orders" value={String(sourceOrderCount)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={copy.workspace.accountCenter.copyTrading.takeProfit} value={`${liveStrategy.takeProfitPercent}%`} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={copy.workspace.accountCenter.copyTrading.stopLoss} value={`${liveStrategy.stopLossPercent}%`} />
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className={getModalSectionClassName(isDarkTheme)}>Loading strategy detail…</div>
+      ) : error ? (
+        <div className={isDarkTheme ? "rounded-[24px] border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100" : "rounded-[24px] border border-rose-100 bg-rose-50 p-4 text-sm text-rose-700"}>{error}</div>
+      ) : detail ? (
+        <>
+          <section className={getModalSectionClassName(isDarkTheme)}>
+            <h3 className="text-sm font-black">Runtime</h3>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <MiniMetric isDarkTheme={isDarkTheme} label="Desired" value={detail.trader.desiredState ?? (detail.trader.enabled ? "enabled" : "disabled")} />
+              <MiniMetric isDarkTheme={isDarkTheme} label="Runtime" value={detail.trader.runtimeState ?? detail.trader.runtime?.state ?? "no_runtime"} />
+              <MiniMetric isDarkTheme={isDarkTheme} label="Config rev" value={String(detail.trader.configRevision)} />
+              <MiniMetric isDarkTheme={isDarkTheme} label="Leverage" value={`${formatDetailNumber(detail.trader.config.leverage)}x`} />
+            </div>
+            {detail.trader.statusMessage ? <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-amber-200" : "mt-3 text-xs leading-5 text-amber-700"}>{detail.trader.statusMessage}</p> : null}
+          </section>
+
+          <section className={getModalSectionClassName(isDarkTheme)}>
+            <h3 className="text-sm font-black">Signal sources</h3>
+            {detail.signalSourcesError ? <p className="mt-2 text-xs text-rose-500">{detail.signalSourcesError}</p> : null}
+            <div className="mt-3 grid gap-2">
+              {detail.signalSources.length > 0 ? detail.signalSources.map((source) => (
+                <div key={source.signalSourceId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#F8FAFC] p-3"}>
+                  <div className="text-sm font-black">{source.name || source.signalSourceId}</div>
+                  <div className={isDarkTheme ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-slate-500"}>{source.signalSourceId} · {source.status || "not returned"}</div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                    <MiniMetric isDarkTheme={isDarkTheme} label="Margin" value={formatDetailNumber(source.marginBalance)} />
+                    <MiniMetric isDarkTheme={isDarkTheme} label="Follow" value={source.followSide || "both"} />
+                  </div>
+                </div>
+              )) : <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>No runtime signal source positions returned.</div>}
+            </div>
+          </section>
+
+          <section className={getModalSectionClassName(isDarkTheme)}>
+            <h3 className="text-sm font-black">Positions & orders</h3>
+            {detail.positionsError ? <p className="mt-2 text-xs text-rose-500">{detail.positionsError}</p> : null}
+            {detail.orderHistoryError ? <p className="mt-2 text-xs text-rose-500">{detail.orderHistoryError}</p> : null}
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <MiniMetric isDarkTheme={isDarkTheme} label="Trader positions" value={String(detail.positions.length)} />
+              <MiniMetric isDarkTheme={isDarkTheme} label="Trade logs" value={String(detail.orderHistory?.tradeLogs.length ?? 0)} />
+            </div>
+            <div className="mt-3 grid gap-2">
+              {(detail.orderHistory?.items ?? []).slice(0, 5).map((order) => (
+                <div key={order.clientOrderId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] px-3 py-2 text-xs" : "rounded-2xl bg-[#F8FAFC] px-3 py-2 text-xs"}>
+                  <div className="font-black">{order.symbol} · {order.side.toUpperCase()} · {order.status || "unknown"}</div>
+                  <div className={isDarkTheme ? "mt-1 text-slate-500" : "mt-1 text-slate-500"}>{formatDetailNumber(order.price)} · {new Date(order.timestamp).toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="flex flex-wrap gap-2">
+            {liveStrategy.status === "running" ? (
+              <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(liveStrategy.id, "paused")}>{strategyCopy.pause}</button>
+            ) : liveStrategy.status === "paused" ? (
+              <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(liveStrategy.id, "running")}>{strategyCopy.resume}</button>
+            ) : null}
+            {liveStrategy.status !== "stopped" ? (
+              <button className={getDangerButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(liveStrategy.id, "stopped")}>{strategyCopy.stop}</button>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function formatDetailNumber(value: unknown): string {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) {
+    return "--";
+  }
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(number);
 }
 
 function PercentInput({
@@ -774,19 +1031,19 @@ function getModalSectionClassName(isDarkTheme: boolean): string {
 function getExchangeButtonClassName(isDarkTheme: boolean, enabled: boolean, isSelected: boolean): string {
   if (enabled && isSelected) {
     return isDarkTheme
-      ? "flex min-w-[160px] items-center gap-3 rounded-2xl lg:w-full border border-sky-400/30 bg-sky-400/10 px-3 py-3 text-left text-sky-100 shadow-[0_0_0_3px_rgba(56,189,248,0.10)]"
-      : "flex min-w-[160px] items-center gap-3 rounded-2xl lg:w-full border border-[#B7E8FC] bg-[#EAF8FE] px-3 py-3 text-left text-[#007DB8] shadow-[0_0_0_3px_rgba(22,175,245,0.10)]";
+      ? "flex min-w-[220px] items-center gap-3 rounded-2xl lg:w-full border border-sky-400/30 bg-sky-400/10 px-3 py-3 text-left text-sky-100 shadow-[0_0_0_3px_rgba(56,189,248,0.10)]"
+      : "flex min-w-[220px] items-center gap-3 rounded-2xl lg:w-full border border-[#B7E8FC] bg-[#EAF8FE] px-3 py-3 text-left text-[#007DB8] shadow-[0_0_0_3px_rgba(22,175,245,0.10)]";
   }
 
   if (enabled) {
     return isDarkTheme
-      ? "flex min-w-[160px] items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-300 transition hover:border-white/[0.075] hover:bg-white/[0.055]"
-      : "flex min-w-[160px] items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-700 transition hover:border-[#E5EAF0] hover:bg-white";
+      ? "flex min-w-[220px] items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-300 transition hover:border-white/[0.075] hover:bg-white/[0.055]"
+      : "flex min-w-[220px] items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-700 transition hover:border-[#E5EAF0] hover:bg-white";
   }
 
   return isDarkTheme
-    ? "flex min-w-[160px] cursor-not-allowed items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-500 opacity-55"
-    : "flex min-w-[160px] cursor-not-allowed items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-500 opacity-60";
+    ? "flex min-w-[220px] cursor-not-allowed items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-500 opacity-55"
+    : "flex min-w-[220px] cursor-not-allowed items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-500 opacity-60";
 }
 
 function getSoftButtonClassName(isDarkTheme: boolean): string {

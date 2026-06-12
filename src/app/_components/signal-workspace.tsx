@@ -91,6 +91,8 @@ import {
   type PrototypeStrategyStatus,
 } from "./signal-workspace/copy-trading-prototype";
 import { TopSignalsPanel, type PnlColorMode } from "./signal-workspace/top-signals-panel";
+import type { TelegramAuthMeResponse } from "@/app/_lib/auth/telegram-auth";
+import type { TradingFoxAccountResponse } from "@/app/_lib/tradingfox-control-plane";
 
 const MAX_VISIBLE_KOL_SIGNAL_HISTORY = 1_000;
 const NOTIFICATION_DISMISS_MS = 6_500;
@@ -105,6 +107,14 @@ const TELEGRAM_DISCUSSION_GROUP_URL =
 const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
 const EMPTY_MARKET_SYMBOL_LIST: readonly string[] = [];
 const EMPTY_STRUCTURED_SIGNALS: readonly StructuredSignal[] = [];
+const LOGGED_OUT_AUTH_ME: TelegramAuthMeResponse = {
+  botBinding: "unbound",
+  communityBinding: "unverified",
+  isLoggedIn: false,
+  notificationPermission: "none",
+  sourceBindingCount: 0,
+  telegramUser: null,
+};
 const WORKSPACE_TAB_ROUTE_SEGMENTS: Readonly<Record<WorkspaceProductTab, string>> = {
   intel: "kol",
   kolFollow: "kol-square",
@@ -176,6 +186,9 @@ export function SignalWorkspace() {
     useState<PaperPositionMarketCandleUpdate | null>(null);
   const [workspaceNotification, setWorkspaceNotification] =
     useState<WorkspaceNotification | null>(null);
+  const [authMe, setAuthMe] = useState<TelegramAuthMeResponse>(LOGGED_OUT_AUTH_ME);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isTradingFoxLoading, setIsTradingFoxLoading] = useState(false);
   const [isAccountCenterOpen, setIsAccountCenterOpen] = useState(false);
   const [isApiSetupOpen, setIsApiSetupOpen] = useState(false);
   const [prototypeApiConnection, setPrototypeApiConnection] =
@@ -364,6 +377,49 @@ export function SignalWorkspace() {
   const handleTelegramDiscussionJoin = useCallback(() => {
     openExternalTelegramUrl(TELEGRAM_DISCUSSION_GROUP_URL);
   }, []);
+  const startTelegramLogin = useCallback(() => {
+    const redirectPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.assign(`/api/auth/login?redirect=${encodeURIComponent(redirectPath)}`);
+  }, []);
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        credentials: "same-origin",
+        method: "POST",
+      });
+    } finally {
+      setAuthMe(LOGGED_OUT_AUTH_ME);
+      setPrototypeApiConnection({
+        accountName: "Mock Exchange #1",
+        connectedAtLabel: "",
+        status: "empty",
+      });
+      setPrototypeStrategies([]);
+      setIsAccountCenterOpen(false);
+    }
+  }, []);
+  const handleAccountEntry = useCallback(() => {
+    if (authMe.isLoggedIn) {
+      setIsAccountCenterOpen(true);
+      return;
+    }
+
+    startTelegramLogin();
+  }, [authMe.isLoggedIn, startTelegramLogin]);
+  const applyTradingFoxAccount = useCallback((account: TradingFoxAccountResponse) => {
+    setPrototypeApiConnection(account.connector
+      ? {
+        accountName: account.connector.name,
+        connectedAtLabel: formatTradingFoxDateLabel(account.connector.updatedAt, language),
+        status: "connected",
+      }
+      : {
+        accountName: "Mock Exchange #1",
+        connectedAtLabel: "",
+        status: "empty",
+      });
+    setPrototypeStrategies(account.strategies);
+  }, [language]);
 
   const handleCommunityModalJoin = useCallback(() => {
     handleTelegramDiscussionJoin();
@@ -416,6 +472,88 @@ export function SignalWorkspace() {
   useEffect(() => {
     copyRef.current = copy;
   }, [copy]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const refreshAuth = async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        if (!response.ok) {
+          throw new Error("Unable to load auth session.");
+        }
+
+        const nextAuthMe = await response.json() as TelegramAuthMeResponse;
+        if (isMounted) {
+          setAuthMe(nextAuthMe);
+        }
+      } catch {
+        if (isMounted) {
+          setAuthMe(LOGGED_OUT_AUTH_ME);
+        }
+      } finally {
+        if (isMounted) {
+          setIsAuthLoading(false);
+        }
+      }
+    };
+
+    void refreshAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTradingFoxAccount = async () => {
+      if (isAuthLoading) {
+        return;
+      }
+
+      if (!authMe.isLoggedIn) {
+        setPrototypeApiConnection({
+          accountName: "Mock Exchange #1",
+          connectedAtLabel: "",
+          status: "empty",
+        });
+        setPrototypeStrategies([]);
+        return;
+      }
+
+      setIsTradingFoxLoading(true);
+      try {
+        const account = await requestTradingFoxAccount("/api/tradingfox/account");
+        if (isMounted) {
+          applyTradingFoxAccount(account);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setWorkspaceNotification({
+            id: `tradingfox-account-error-${Date.now()}`,
+            message: getTradingFoxErrorMessage(error),
+            meta: "TradingFox",
+            title: copyRef.current.workspace.accountCenter.api.title,
+          });
+        }
+      } finally {
+        if (isMounted) {
+          setIsTradingFoxLoading(false);
+        }
+      }
+    };
+
+    void loadTradingFoxAccount();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [applyTradingFoxAccount, authMe.isLoggedIn, isAuthLoading]);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -1195,6 +1333,11 @@ export function SignalWorkspace() {
   }, []);
 
   const handleCopyTradingRequest = useCallback((target: CopyTradingPrototypeTarget) => {
+    if (!authMe.isLoggedIn) {
+      startTelegramLogin();
+      return;
+    }
+
     const existingStrategy = prototypeStrategies.find((strategy) =>
       strategy.traderId === target.trader.trader_id && strategy.status !== "stopped",
     );
@@ -1218,33 +1361,43 @@ export function SignalWorkspace() {
     }
 
     setCopyTradingTarget(target);
-  }, [prototypeApiConnection.status, prototypeStrategies]);
+  }, [authMe.isLoggedIn, prototypeApiConnection.status, prototypeStrategies, startTelegramLogin]);
 
-  const handlePrototypeConnectionSave = useCallback((accountName: string) => {
-    const connectedAtLabel = new Date().toLocaleString(language, {
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      month: "2-digit",
-    });
-
-    setPrototypeApiConnection({
-      accountName,
-      connectedAtLabel,
-      status: "connected",
-    });
-    setWorkspaceNotification({
-      id: `api-connected-${Date.now()}`,
-      message: copyRef.current.workspace.accountCenter.apiSetup.connectedToast,
-      meta: accountName,
-      title: copyRef.current.workspace.accountCenter.api.title,
-    });
-
-    if (pendingCopyTradingTarget) {
-      setCopyTradingTarget(pendingCopyTradingTarget);
-      setPendingCopyTradingTarget(null);
+  const handlePrototypeConnectionSave = useCallback(async (accountName: string) => {
+    if (!authMe.isLoggedIn) {
+      startTelegramLogin();
+      return;
     }
-  }, [language, pendingCopyTradingTarget]);
+
+    setIsTradingFoxLoading(true);
+    try {
+      const account = await requestTradingFoxAccount("/api/tradingfox/connectors/mock", {
+        body: JSON.stringify({ accountName }),
+        method: "POST",
+      });
+      applyTradingFoxAccount(account);
+      setWorkspaceNotification({
+        id: `api-connected-${Date.now()}`,
+        message: copyRef.current.workspace.accountCenter.apiSetup.connectedToast,
+        meta: account.connector?.name ?? accountName,
+        title: copyRef.current.workspace.accountCenter.api.title,
+      });
+
+      if (pendingCopyTradingTarget) {
+        setCopyTradingTarget(pendingCopyTradingTarget);
+        setPendingCopyTradingTarget(null);
+      }
+    } catch (error) {
+      setWorkspaceNotification({
+        id: `api-connect-error-${Date.now()}`,
+        message: getTradingFoxErrorMessage(error),
+        meta: accountName,
+        title: copyRef.current.workspace.accountCenter.api.title,
+      });
+    } finally {
+      setIsTradingFoxLoading(false);
+    }
+  }, [applyTradingFoxAccount, authMe.isLoggedIn, pendingCopyTradingTarget, startTelegramLogin]);
 
   const handleApiSetupOpenChange = useCallback((isOpen: boolean) => {
     setIsApiSetupOpen(isOpen);
@@ -1253,58 +1406,79 @@ export function SignalWorkspace() {
     }
   }, []);
 
-  const handlePrototypeStrategyStart = useCallback((input: {
+  const handlePrototypeStrategyStart = useCallback(async (input: {
     stopLossPercent: number;
     takeProfitPercent: number;
     target: CopyTradingPrototypeTarget;
   }) => {
-    const createdAtLabel = new Date().toLocaleString(language, {
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      month: "2-digit",
-    });
+    if (!authMe.isLoggedIn) {
+      startTelegramLogin();
+      return;
+    }
 
-    const nextStrategy: PrototypeStrategy = {
-      apiAccountName: prototypeApiConnection.accountName,
-      avatarUrl: input.target.trader.avatar,
-      createdAtLabel,
-      eventsCount: input.target.eventsCount,
-      id: `prototype-copy-${input.target.trader.trader_id}-${Date.now()}`,
-      platform: input.target.trader.platform,
-      positionsCount: input.target.positionsCount,
-      status: "running",
-      stopLossPercent: input.stopLossPercent,
-      takeProfitPercent: input.takeProfitPercent,
-      traderId: input.target.trader.trader_id,
-      traderName: input.target.trader.name,
-    };
+    setIsTradingFoxLoading(true);
+    try {
+      const account = await requestTradingFoxAccount("/api/tradingfox/copy-strategies", {
+        body: JSON.stringify({
+          avatarUrl: input.target.trader.avatar,
+          eventsCount: input.target.eventsCount,
+          platform: input.target.trader.platform,
+          positionsCount: input.target.positionsCount,
+          signalSourceId: input.target.trader.trader_id,
+          stopLossPercent: input.stopLossPercent,
+          takeProfitPercent: input.takeProfitPercent,
+          traderName: input.target.trader.name,
+        }),
+        method: "POST",
+      });
+      applyTradingFoxAccount(account);
+      setCopyTradingTarget(null);
+      setIsAccountCenterOpen(true);
+      setWorkspaceNotification({
+        id: `copy-strategy-created-${Date.now()}`,
+        message: copyRef.current.workspace.accountCenter.apiSetup.connectedToast,
+        meta: input.target.trader.name,
+        title: copyRef.current.workspace.accountCenter.copyTrading.start,
+      });
+    } catch (error) {
+      setWorkspaceNotification({
+        id: `copy-strategy-error-${Date.now()}`,
+        message: getTradingFoxErrorMessage(error),
+        meta: input.target.trader.name,
+        title: copyRef.current.workspace.accountCenter.copyTrading.start,
+      });
+    } finally {
+      setIsTradingFoxLoading(false);
+    }
+  }, [applyTradingFoxAccount, authMe.isLoggedIn, startTelegramLogin]);
 
-    setPrototypeStrategies((currentStrategies) => {
-      const hasActiveStrategy = currentStrategies.some((strategy) =>
-        strategy.traderId === input.target.trader.trader_id && strategy.status !== "stopped",
-      );
-
-      if (hasActiveStrategy) {
-        return currentStrategies;
-      }
-
-      return [nextStrategy, ...currentStrategies];
-    });
-    setCopyTradingTarget(null);
-    setIsAccountCenterOpen(true);
-  }, [language, prototypeApiConnection.accountName]);
-
-  const handlePrototypeStrategyStatusChange = useCallback((
+  const handlePrototypeStrategyStatusChange = useCallback(async (
     strategyId: string,
     status: PrototypeStrategyStatus,
   ) => {
+    const previousStrategies = prototypeStrategies;
     setPrototypeStrategies((currentStrategies) =>
       currentStrategies.map((strategy) =>
         strategy.id === strategyId ? { ...strategy, status } : strategy,
       ),
     );
-  }, []);
+
+    try {
+      const account = await requestTradingFoxAccount(`/api/tradingfox/copy-strategies/${encodeURIComponent(strategyId)}`, {
+        body: JSON.stringify({ status }),
+        method: "PATCH",
+      });
+      applyTradingFoxAccount(account);
+    } catch (error) {
+      setPrototypeStrategies(previousStrategies);
+      setWorkspaceNotification({
+        id: `copy-strategy-status-error-${Date.now()}`,
+        message: getTradingFoxErrorMessage(error),
+        meta: strategyId,
+        title: copyRef.current.workspace.accountCenter.strategy.title,
+      });
+    }
+  }, [applyTradingFoxAccount, prototypeStrategies]);
 
   const openCommunityConversion = useCallback((signal: StructuredSignal) => {
     handleSignalSelect(signal);
@@ -1360,7 +1534,9 @@ export function SignalWorkspace() {
           language={language}
           notification={workspaceNotification}
           pnlColorMode={pnlColorMode}
-          onAccountOpen={() => setIsAccountCenterOpen(true)}
+          telegramUser={authMe.telegramUser}
+          isAuthLoading={isAuthLoading || isTradingFoxLoading}
+          onAccountOpen={handleAccountEntry}
           onCommunityOpen={handleTelegramDiscussionJoin}
           onGuideOpen={startOnboardingGuide}
           onLanguageToggle={toggleLanguage}
@@ -1535,13 +1711,17 @@ export function SignalWorkspace() {
         copy={copy}
         isApiSetupOpen={isApiSetupOpen}
         isCoveredByModal={Boolean(copyTradingTarget)}
+        isAuthLoading={isAuthLoading || isTradingFoxLoading}
         isDarkTheme={isDarkTheme}
         isOpen={isAccountCenterOpen}
+        telegramUser={authMe.telegramUser}
         strategies={prototypeStrategies}
         onApiSetupOpen={() => setIsApiSetupOpen(true)}
         onApiSetupOpenChange={handleApiSetupOpenChange}
         onClose={() => setIsAccountCenterOpen(false)}
         onConnectionSave={handlePrototypeConnectionSave}
+        onLogin={startTelegramLogin}
+        onLogout={handleLogout}
         onStrategyStatusChange={handlePrototypeStrategyStatusChange}
       />
       <CopyTradingPrototypeModal
@@ -1607,6 +1787,42 @@ function createWorkspaceRouteUrl(input: {
   const path = `${routePrefix}/${tabSegment}/${encodeURIComponent(symbolSegment)}`;
   const query = queryParams.toString();
   return query ? `${path}?${query}` : path;
+}
+
+async function requestTradingFoxAccount(path: string, init?: RequestInit): Promise<TradingFoxAccountResponse> {
+  const response = await fetch(path, {
+    ...init,
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      ...init?.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const errorPayload = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(errorPayload?.error || `TradingFox request failed with status ${response.status}.`);
+  }
+
+  return await response.json() as TradingFoxAccountResponse;
+}
+
+function getTradingFoxErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "TradingFox request failed.";
+}
+
+function formatTradingFoxDateLabel(value: string, language: WorkspaceLanguage): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toLocaleString(language, {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "2-digit",
+  });
 }
 
 function readWorkspaceRouteStateFromLocation(): WorkspaceRouteState {
@@ -2148,6 +2364,8 @@ function WorkspaceTopNavigation({
   language,
   notification,
   pnlColorMode,
+  telegramUser,
+  isAuthLoading,
   onCommunityOpen,
   onGuideOpen,
   onLanguageToggle,
@@ -2163,6 +2381,8 @@ function WorkspaceTopNavigation({
   language: WorkspaceLanguage;
   notification: WorkspaceNotification | null;
   pnlColorMode: PnlColorMode;
+  telegramUser: TelegramAuthMeResponse["telegramUser"];
+  isAuthLoading: boolean;
   onAccountOpen: () => void;
   onCommunityOpen: () => void;
   onGuideOpen: () => void;
@@ -2229,7 +2449,9 @@ function WorkspaceTopNavigation({
         />
         <AccountEntryButton
           copy={copy}
+          isAuthLoading={isAuthLoading}
           isDarkTheme={isDarkTheme}
+          telegramUser={telegramUser}
           onOpen={onAccountOpen}
         />
         {notification ? (
