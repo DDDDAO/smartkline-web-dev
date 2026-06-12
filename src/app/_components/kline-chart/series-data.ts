@@ -3,7 +3,7 @@ import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { MarketCandle } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
-import type { ChartTheme } from "@/app/_components/kline-chart/types";
+import type { ChartTheme, PriceColorMode } from "@/app/_components/kline-chart/types";
 
 const PRICE_AXIS_SIGNIFICANT_DIGITS = 6;
 const priceAxisNumberFormatter = new Intl.NumberFormat("en-US", {
@@ -17,13 +17,17 @@ export const KLINE_PRICE_FORMAT = {
   type: "custom",
 } satisfies PriceFormat;
 
-export function toVolumeData(candle: MarketCandle, theme: ChartTheme): HistogramData {
+export function toVolumeData(candle: MarketCandle, theme: ChartTheme, priceColorMode: PriceColorMode = "positiveGreen"): HistogramData {
+  const isUpCandle = candle.close >= candle.open;
+  const green = theme === "light" ? "rgba(47, 189, 133, 0.22)" : "rgba(47, 189, 133, 0.34)";
+  const red = theme === "light" ? "rgba(246, 70, 93, 0.22)" : "rgba(246, 70, 93, 0.34)";
+  const up = priceColorMode === "positiveGreen" ? green : red;
+  const down = priceColorMode === "positiveGreen" ? red : green;
+
   return {
     time: candle.time,
     value: candle.volume,
-    color: candle.close >= candle.open
-      ? theme === "light" ? "rgba(47, 189, 133, 0.22)" : "rgba(47, 189, 133, 0.34)"
-      : theme === "light" ? "rgba(246, 70, 93, 0.22)" : "rgba(246, 70, 93, 0.34)",
+    color: isUpCandle ? up : down,
   };
 }
 
@@ -40,8 +44,11 @@ export function createSignalPriceLines(
   paperPosition: PaperPositionRecord | null,
   currentCandle: MarketCandle | undefined,
   language: WorkspaceLanguage = "zh-CN",
+  priceColorMode: PriceColorMode = "positiveGreen",
 ): CreatePriceLineOptions[] {
   const copy = getWorkspaceCopy(language);
+  const currentCandleUpColor = priceColorMode === "positiveGreen" ? "#2FBD85" : "#F6465D";
+  const currentCandleDownColor = priceColorMode === "positiveGreen" ? "#F6465D" : "#2FBD85";
   const lines: CreatePriceLineOptions[] = [];
 
   if (signal && paperPosition?.status !== "exited") {
@@ -66,7 +73,7 @@ export function createSignalPriceLines(
   if (currentCandle !== undefined) {
     lines.push({
       price: currentCandle.close,
-      color: currentCandle.close >= currentCandle.open ? "#2FBD85" : "#F6465D",
+      color: currentCandle.close >= currentCandle.open ? currentCandleUpColor : currentCandleDownColor,
       lineWidth: 1,
       lineStyle: LineStyle.Dotted,
       axisLabelVisible: false,

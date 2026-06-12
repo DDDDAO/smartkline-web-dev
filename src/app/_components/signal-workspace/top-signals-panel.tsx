@@ -1,6 +1,8 @@
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { COPY_TRADING_RADAR_TRADE_LIMIT, isActiveCopyTradingTrader } from "@/app/_lib/copy-trading-radar-api";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { PriceColorMode } from "@/app/_components/kline-chart/types";
+import type { CopyTradingPrototypeTarget } from "./copy-trading-prototype";
 import type {
   CopyTradingDirection,
   CopyTradingEvent,
@@ -13,12 +15,15 @@ import type {
 import type { KolSignalSourceStatus } from "./types";
 import { FavoriteStarButton, SignalField, SourceAvatar, SymbolIcon } from "./card-ui";
 
+export type PnlColorMode = PriceColorMode;
+
 type TopSignalsPanelProps = {
   activeSourceId: string;
   activeTradeEventId: string;
   copy: WorkspaceCopy;
   headerAction?: ReactNode;
   isDarkTheme: boolean;
+  pnlColorMode: PnlColorMode;
   snapshot: CopyTradingRadarSnapshot | null;
   sourceFilterId: string;
   sourceStatus: KolSignalSourceStatus;
@@ -28,6 +33,7 @@ type TopSignalsPanelProps = {
   onSourceFilterChange: (sourceId: string) => void;
   onSourceSelect: (sourceId: string) => void;
   onSourceWatchToggle?: (trader: CopyTradingTrader) => void;
+  onCopyTradingRequest?: (target: CopyTradingPrototypeTarget) => void;
   onTradeHistoryLoadMore?: (input: {
     limit: number;
     offset: number;
@@ -63,6 +69,7 @@ export function TopSignalsPanel({
   copy,
   headerAction,
   isDarkTheme,
+  pnlColorMode,
   snapshot,
   sourceFilterId,
   sourceStatus,
@@ -72,6 +79,7 @@ export function TopSignalsPanel({
   onSourceFilterChange,
   onSourceSelect,
   onSourceWatchToggle,
+  onCopyTradingRequest,
   onTradeHistoryLoadMore,
   onTradeSelect,
 }: TopSignalsPanelProps) {
@@ -438,6 +446,7 @@ export function TopSignalsPanel({
               isDarkTheme={isDarkTheme}
               isFlipped={isFlipped}
               isWatchlisted={watchlistedSourceIds?.has(model.trader.trader_id) ?? false}
+              pnlColorMode={pnlColorMode}
               canLoadMoreRemoteTrades={Boolean(onTradeHistoryLoadMore)
                 && model.events.length >= COPY_TRADING_RADAR_TRADE_LIMIT
                 && !exhaustedTradeHistorySourceIds.has(model.trader.trader_id)}
@@ -462,6 +471,11 @@ export function TopSignalsPanel({
               onTradeListMount={(element) => rememberTradeListElement(model.trader.trader_id, element)}
               onTradeRowMount={rememberTradeRowElement}
               onWatchToggle={onSourceWatchToggle ? () => onSourceWatchToggle(model.trader) : undefined}
+              onCopyTradingRequest={onCopyTradingRequest ? () => onCopyTradingRequest({
+                eventsCount: model.events.length,
+                positionsCount: model.positions.length,
+                trader: model.trader,
+              }) : undefined}
               onTradeSelect={onTradeSelect}
             />
           );
@@ -777,6 +791,7 @@ function TopSignalSourceCard({
   isLoadingMoreTrades,
   isWatchlisted,
   model,
+  pnlColorMode,
   positionPageOffset,
   spotlightTradeEventId,
   tradePageOffset,
@@ -790,6 +805,7 @@ function TopSignalSourceCard({
   onTradeListMount,
   onTradeRowMount,
   onWatchToggle,
+  onCopyTradingRequest,
   onTradeSelect,
 }: {
   activeTradeEventId: string;
@@ -803,6 +819,7 @@ function TopSignalSourceCard({
   isLoadingMoreTrades: boolean;
   isWatchlisted: boolean;
   model: TopSignalSourceModel;
+  pnlColorMode: PnlColorMode;
   positionPageOffset: number;
   spotlightTradeEventId: string;
   tradePageOffset: number;
@@ -816,6 +833,7 @@ function TopSignalSourceCard({
   onTradeListMount?: (element: HTMLDivElement | null) => void;
   onTradeRowMount?: (eventId: string, element: HTMLButtonElement | null) => void;
   onWatchToggle?: () => void;
+  onCopyTradingRequest?: () => void;
   onTradeSelect: (event: CopyTradingEvent) => void;
 }) {
   const panelCopy = copy.workspace.topSignals;
@@ -858,6 +876,15 @@ function TopSignalSourceCard({
     lockedCardHeight,
     shouldLockCardHeight,
   });
+  const totalNotionalValue = sumPositionNotionalValue(model.positions);
+  const totalPositionMarginValue = sumPositionMarginValue(model.positions);
+  const totalLeverage = calculateTotalLeverage({
+    accountMarginValue: model.trader.margin_balance,
+    positionMarginValue: totalPositionMarginValue,
+    totalNotionalValue,
+  });
+  const totalUnrealizedPnlAmount = sumPositionUnrealizedPnlAmount(model.positions);
+  const aggregatePnlRatio = calculateAggregatePnlRatio(totalUnrealizedPnlAmount, totalNotionalValue);
 
   useLayoutEffect(() => {
     if (isFlipped || !shouldLockCardHeight) {
@@ -920,7 +947,14 @@ function TopSignalSourceCard({
             </div>
             <div className="signal-card-field-layer mt-3 grid grid-cols-2 gap-2 text-xs">
               <SignalField isDarkTheme={isDarkTheme} label={panelCopy.margin} value={formatCurrency(model.trader.margin_balance)} />
-              <SignalField isDarkTheme={isDarkTheme} label={panelCopy.notional} value={formatCurrency(sumPositionNotionalValue(model.positions))} />
+              <SignalField isDarkTheme={isDarkTheme} label={panelCopy.notional} value={formatCurrency(totalNotionalValue)} />
+              <SignalField isDarkTheme={isDarkTheme} label={panelCopy.totalLeverage} value={formatLeverage(totalLeverage)} />
+              <SignalField
+                isDarkTheme={isDarkTheme}
+                label={panelCopy.unrealizedPnlWithRatio}
+                value={formatPnlWithRatio(totalUnrealizedPnlAmount, aggregatePnlRatio)}
+                valueClassName={getPnlFieldClassName(isDarkTheme, totalUnrealizedPnlAmount, pnlColorMode)}
+              />
             </div>
             <div className={isDarkTheme ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3"}>
               <div className="flex items-center justify-between gap-3">
@@ -935,6 +969,7 @@ function TopSignalSourceCard({
                         key={position.position_id}
                         copy={copy}
                         isDarkTheme={isDarkTheme}
+                        pnlColorMode={pnlColorMode}
                         position={position}
                         onPositionSelect={onPositionSelect}
                       />
@@ -964,6 +999,13 @@ function TopSignalSourceCard({
                 ) : null}
               </div>
             </div>
+            {onCopyTradingRequest ? (
+              <TopSignalCopyTradingAction
+                copy={copy}
+                isDarkTheme={isDarkTheme}
+                onClick={onCopyTradingRequest}
+              />
+            ) : null}
           </div>
         </div>
 
@@ -1022,6 +1064,13 @@ function TopSignalSourceCard({
               <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-3 text-xs text-slate-400" : "mt-2 rounded-2xl border border-[#E5EAF0] bg-white px-3 py-3 text-xs text-slate-500"}>
                 {copy.paper.loading}
               </div>
+            ) : null}
+            {onCopyTradingRequest ? (
+              <TopSignalCopyTradingAction
+                copy={copy}
+                isDarkTheme={isDarkTheme}
+                onClick={onCopyTradingRequest}
+              />
             ) : null}
           </div>
         </div>
@@ -1241,8 +1290,57 @@ function SourceHeader({
   );
 }
 
-function PositionRow({ copy, isDarkTheme, position, onPositionSelect }: { copy: WorkspaceCopy; isDarkTheme: boolean; position: CopyTradingPosition; onPositionSelect: (position: CopyTradingPosition) => void }) {
+function TopSignalCopyTradingAction({
+  copy,
+  isDarkTheme,
+  onClick,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  onClick: () => void;
+}) {
   const panelCopy = copy.workspace.topSignals;
+  const buttonClassName = isDarkTheme
+    ? "motion-fx-3-raw-button mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-sky-400/20 bg-sky-400/10 px-3 py-3 text-left text-sky-100 transition hover:border-sky-300/30 hover:bg-sky-400/15"
+    : "motion-fx-3-raw-button mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-[#B7E8FC] bg-[#EAF8FE] px-3 py-3 text-left text-[#007DB8] transition hover:border-[#93D6F7] hover:bg-[#DDF4FF]";
+
+  return (
+    <button
+      className={buttonClassName}
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-black">{panelCopy.copyTradingCta}</span>
+        <span className={isDarkTheme ? "mt-0.5 block text-[11px] font-bold text-sky-200/70" : "mt-0.5 block text-[11px] font-bold text-[#008DCC]/70"}>{panelCopy.copyTradingMeta}</span>
+      </span>
+      <span aria-hidden="true" className={isDarkTheme ? "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sky-300/15 text-base font-black text-sky-200" : "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-base font-black text-[#008DCC]"}>
+        →
+      </span>
+    </button>
+  );
+}
+
+function PositionRow({
+  copy,
+  isDarkTheme,
+  pnlColorMode,
+  position,
+  onPositionSelect,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  pnlColorMode: PnlColorMode;
+  position: CopyTradingPosition;
+  onPositionSelect: (position: CopyTradingPosition) => void;
+}) {
+  const panelCopy = copy.workspace.topSignals;
+  const unrealizedPnlAmount = calculatePositionUnrealizedPnlAmount(position);
+  const pnlToneValue = unrealizedPnlAmount ?? position.unrealized_pnl;
   const rowClassName = isDarkTheme
     ? "block min-h-[74px] w-full min-w-0 appearance-none overflow-hidden rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-2 text-left transition hover:border-sky-500/30 hover:bg-white/[0.055]"
     : "block min-h-[74px] w-full min-w-0 appearance-none overflow-hidden rounded-2xl border border-[#E5EAF0] bg-white px-3 py-2 text-left transition hover:border-[#B7E8FC] hover:bg-[#F4FBFF]";
@@ -1268,12 +1366,12 @@ function PositionRow({ copy, isDarkTheme, position, onPositionSelect }: { copy: 
             {panelCopy.entry} {formatPrice(position.entry_price)} · {panelCopy.mark} {formatPrice(position.current_price)}
           </div>
           <div className={isDarkTheme ? "mt-1 truncate text-[10px] font-medium text-slate-500" : "mt-1 truncate text-[10px] font-medium text-slate-400"}>
-            {panelCopy.quantity} {formatQuantity(position.quantity)} · {panelCopy.notional} {formatCurrency(position.notional_value)}
+            {panelCopy.quantity} {formatQuantity(position.quantity)} · {panelCopy.notional} {formatCurrency(position.notional_value)} · {formatPercent(position.position_size_ratio)}
           </div>
         </div>
         <div className="shrink-0 pl-1 text-right">
-          <div className={getPnlClassName(isDarkTheme, position.unrealized_pnl)}>{formatSignedPercent(position.unrealized_pnl)}</div>
-          <div className={isDarkTheme ? "mt-1 text-[10px] text-slate-500" : "mt-1 text-[10px] text-slate-400"}>{formatPercent(position.position_size_ratio)}</div>
+          <div className={getPnlClassName(isDarkTheme, pnlToneValue, pnlColorMode)}>{formatSignedCurrency(unrealizedPnlAmount)}</div>
+          <div className={getPnlRatioClassName(isDarkTheme, position.unrealized_pnl, pnlColorMode)}>{formatSignedPercent(position.unrealized_pnl)}</div>
         </div>
       </div>
     </button>
@@ -1512,16 +1610,56 @@ function getTradeEventRowClassName(isDarkTheme: boolean, isActive: boolean, isSp
   return `${baseClassName}${activeClassName}${spotlightClassName}${riskClassName}`;
 }
 
-function getPnlClassName(isDarkTheme: boolean, value: number): string {
-  if (value > 0) {
-    return isDarkTheme ? "text-xs font-black text-emerald-300" : "text-xs font-black text-emerald-600";
+function getPnlClassName(isDarkTheme: boolean, value: number | null, pnlColorMode: PnlColorMode): string {
+  if (value !== null && value > 0) {
+    return getPositivePnlTextClassName(isDarkTheme, pnlColorMode, "text-xs");
   }
 
-  if (value < 0) {
-    return isDarkTheme ? "text-xs font-black text-rose-300" : "text-xs font-black text-rose-600";
+  if (value !== null && value < 0) {
+    return getNegativePnlTextClassName(isDarkTheme, pnlColorMode, "text-xs");
   }
 
   return isDarkTheme ? "text-xs font-black text-slate-300" : "text-xs font-black text-slate-600";
+}
+
+function getPnlFieldClassName(isDarkTheme: boolean, value: number | null, pnlColorMode: PnlColorMode): string {
+  if (value !== null && value > 0) {
+    return getPositivePnlTextClassName(isDarkTheme, pnlColorMode, "mt-1 truncate");
+  }
+
+  if (value !== null && value < 0) {
+    return getNegativePnlTextClassName(isDarkTheme, pnlColorMode, "mt-1 truncate");
+  }
+
+  return isDarkTheme ? "mt-1 truncate text-slate-200" : "mt-1 truncate text-slate-800";
+}
+
+function getPnlRatioClassName(isDarkTheme: boolean, value: number | null, pnlColorMode: PnlColorMode): string {
+  if (value !== null && value > 0) {
+    return getPositivePnlTextClassName(isDarkTheme, pnlColorMode, "mt-1 text-[10px]");
+  }
+
+  if (value !== null && value < 0) {
+    return getNegativePnlTextClassName(isDarkTheme, pnlColorMode, "mt-1 text-[10px]");
+  }
+
+  return isDarkTheme ? "mt-1 text-[10px] text-slate-500" : "mt-1 text-[10px] text-slate-400";
+}
+
+function getPositivePnlTextClassName(isDarkTheme: boolean, pnlColorMode: PnlColorMode, prefixClassName: string): string {
+  const colorClassName = pnlColorMode === "positiveGreen"
+    ? isDarkTheme ? "text-emerald-300" : "text-emerald-600"
+    : isDarkTheme ? "text-rose-300" : "text-rose-600";
+
+  return `${prefixClassName} font-black ${colorClassName}`;
+}
+
+function getNegativePnlTextClassName(isDarkTheme: boolean, pnlColorMode: PnlColorMode, prefixClassName: string): string {
+  const colorClassName = pnlColorMode === "positiveGreen"
+    ? isDarkTheme ? "text-rose-300" : "text-rose-600"
+    : isDarkTheme ? "text-emerald-300" : "text-emerald-600";
+
+  return `${prefixClassName} font-black ${colorClassName}`;
 }
 
 function formatDirection(direction: CopyTradingDirection, copy: WorkspaceCopy): string {
@@ -1538,6 +1676,36 @@ function formatCurrency(value: number | null): string {
   }
 
   return `$${formatCompactNumber(value)}`;
+}
+
+function formatSignedCurrency(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  if (value === 0) {
+    return "$0";
+  }
+
+  const prefix = value > 0 ? "+" : "-";
+  return `${prefix}$${formatCompactNumber(Math.abs(value))}`;
+}
+
+function formatLeverage(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  return `${value.toLocaleString("en-US", { maximumFractionDigits: value >= 10 ? 1 : 2 })}x`;
+}
+
+function formatPnlWithRatio(amount: number | null, ratio: number | null): string {
+  if (amount === null) {
+    return "--";
+  }
+
+  const ratioText = ratio === null ? "" : ` (${formatSignedPercent(ratio)})`;
+  return `${formatSignedCurrency(amount)}${ratioText}`;
 }
 
 function formatPrice(value: number | null): string {
@@ -1576,8 +1744,13 @@ function formatSignedPercent(value: number): string {
     return "--";
   }
 
-  const prefix = value > 0 ? "+" : "";
-  return `${prefix}${(value * 100).toFixed(2)}%`;
+  const normalizedValue = Math.abs(value) < 0.00005 ? 0 : value;
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+    signDisplay: "exceptZero",
+    style: "percent",
+  }).format(normalizedValue);
 }
 
 function formatDisplayTime(value: string): string {
@@ -1603,4 +1776,108 @@ function sumPositionNotionalValue(positions: readonly CopyTradingPosition[]): nu
   }, 0);
 
   return positions.length > 0 ? total : null;
+}
+
+function calculateTotalLeverage(input: {
+  accountMarginValue: number | null;
+  positionMarginValue: number | null;
+  totalNotionalValue: number | null;
+}): number | null {
+  const { accountMarginValue, positionMarginValue, totalNotionalValue } = input;
+  if (totalNotionalValue === null || totalNotionalValue <= 0) {
+    return null;
+  }
+
+  const marginBase = getPositiveFiniteNumber(accountMarginValue) ?? getPositiveFiniteNumber(positionMarginValue);
+  if (marginBase === null) {
+    return null;
+  }
+
+  return totalNotionalValue / marginBase;
+}
+
+function calculateAggregatePnlRatio(pnlAmount: number | null, marginValue: number | null): number | null {
+  if (pnlAmount === null) {
+    return null;
+  }
+
+  const marginBase = getPositiveFiniteNumber(marginValue);
+  if (marginBase === null) {
+    return null;
+  }
+
+  return pnlAmount / marginBase;
+}
+
+function sumPositionMarginValue(positions: readonly CopyTradingPosition[]): number | null {
+  let hasMargin = false;
+  const total = positions.reduce((sum, position) => {
+    const marginValue = calculatePositionMarginValue(position);
+    if (marginValue === null) {
+      return sum;
+    }
+
+    hasMargin = true;
+    return sum + marginValue;
+  }, 0);
+
+  return hasMargin ? total : null;
+}
+
+function sumPositionUnrealizedPnlAmount(positions: readonly CopyTradingPosition[]): number | null {
+  let hasPnl = false;
+  const total = positions.reduce((sum, position) => {
+    const pnlAmount = calculatePositionUnrealizedPnlAmount(position);
+    if (pnlAmount === null) {
+      return sum;
+    }
+
+    hasPnl = true;
+    return sum + pnlAmount;
+  }, 0);
+
+  return hasPnl ? total : null;
+}
+
+function calculatePositionUnrealizedPnlAmount(position: CopyTradingPosition): number | null {
+  if (
+    position.entry_price !== null
+    && position.current_price !== null
+    && Number.isFinite(position.entry_price)
+    && Number.isFinite(position.current_price)
+    && Number.isFinite(position.quantity)
+  ) {
+    const signedPriceMove = position.direction === "long"
+      ? position.current_price - position.entry_price
+      : position.entry_price - position.current_price;
+
+    return signedPriceMove * Math.abs(position.quantity);
+  }
+
+  if (!Number.isFinite(position.unrealized_pnl) || !Number.isFinite(position.notional_value)) {
+    return null;
+  }
+
+  return position.notional_value * position.unrealized_pnl;
+}
+
+function calculatePositionMarginValue(position: CopyTradingPosition): number | null {
+  const snapshotMargin = getPositiveFiniteNumber(position.margin_snapshot);
+  if (snapshotMargin !== null) {
+    return snapshotMargin;
+  }
+
+  if (!Number.isFinite(position.notional_value) || !Number.isFinite(position.leverage) || position.leverage <= 0) {
+    return null;
+  }
+
+  return position.notional_value / position.leverage;
+}
+
+function getPositiveFiniteNumber(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+
+  return value;
 }

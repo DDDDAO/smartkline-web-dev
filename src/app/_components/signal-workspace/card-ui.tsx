@@ -247,12 +247,23 @@ function formatTelegramMessageDateTime(createdAt: string): string {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
-export function SignalField({ isDarkTheme, label, value }: { isDarkTheme: boolean; label: string; value: string }) {
+export function SignalField({
+  isDarkTheme,
+  label,
+  value,
+  valueClassName,
+}: {
+  isDarkTheme: boolean;
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
   const valueRef = useRef<HTMLDivElement | null>(null);
   const [isValueTruncated, setIsValueTruncated] = useState(false);
   const fieldClassName = isDarkTheme
     ? "signal-field-card group relative rounded-2xl border border-white/[0.075] bg-white/[0.035] px-2 py-2"
     : "signal-field-card group relative rounded-2xl border border-[#E5EAF0] bg-white px-2 py-2";
+  const defaultValueClassName = isDarkTheme ? "mt-1 truncate text-slate-200" : "mt-1 truncate text-slate-800";
   const tooltipClassName = isDarkTheme
     ? "motion-fx-9-tooltip signal-field-tooltip pointer-events-none invisible absolute left-0 top-0 min-h-full w-full rounded-2xl border border-white/[0.10] bg-[#181A20] px-2 py-2 text-xs leading-4 text-slate-100 opacity-0 shadow-[0_14px_36px_rgba(0,0,0,0.34)] group-hover:visible group-hover:opacity-100"
     : "motion-fx-9-tooltip signal-field-tooltip pointer-events-none invisible absolute left-0 top-0 min-h-full w-full rounded-2xl border border-[#E5EAF0] bg-white px-2 py-2 text-xs leading-4 text-slate-800 opacity-0 shadow-[0_14px_36px_rgba(15,23,42,0.14)] group-hover:visible group-hover:opacity-100";
@@ -277,7 +288,7 @@ export function SignalField({ isDarkTheme, label, value }: { isDarkTheme: boolea
   return (
     <div className={fieldClassName} aria-label={isValueTruncated ? `${label}: ${value}` : undefined}>
       <div className={isDarkTheme ? "text-slate-500" : "text-slate-400"}>{label}</div>
-      <div ref={valueRef} className={isDarkTheme ? "mt-1 truncate text-slate-200" : "mt-1 truncate text-slate-800"}>{value}</div>
+      <div ref={valueRef} className={valueClassName ?? defaultValueClassName}>{value}</div>
       {isValueTruncated ? (
         <div className={tooltipClassName} role="tooltip">
           <div className={isDarkTheme ? "text-slate-500" : "text-slate-400"}>{label}</div>

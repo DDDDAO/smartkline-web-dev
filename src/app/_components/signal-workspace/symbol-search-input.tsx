@@ -63,7 +63,10 @@ export function SymbolSearchInput({
         className={`pointer-events-none absolute left-4 top-[15px] h-3.5 w-3.5 -translate-y-1/2 text-slate-400 transition-opacity lg:top-[18px] ${isOpen ? "opacity-100" : "opacity-0"}`}
       />
       <input
+        aria-label={copy.realtime.searchPlaceholder}
         className={inputClassName}
+        id="signal-workspace-symbol-search"
+        name="signal-workspace-symbol-search"
         placeholder={copy.realtime.searchPlaceholder}
         value={query}
         onChange={(event) => {

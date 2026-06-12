@@ -1,4 +1,5 @@
 export type ChartTheme = "light" | "dark";
+export type PriceColorMode = "positiveGreen" | "positiveRed";
 
 export type ChartTimeFocusRequest = {
   key: string;
