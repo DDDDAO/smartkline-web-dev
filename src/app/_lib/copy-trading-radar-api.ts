@@ -1,7 +1,4 @@
-import {
-  fetchHistoricalCandles,
-  fetchUsdtPerpetualMarkPrices,
-} from "@/app/_lib/binance-market-data";
+import { fetchHistoricalCandles } from "@/app/_lib/binance-market-data";
 import type { MarketCandle, MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type {
@@ -235,8 +232,7 @@ export async function fetchCopyTradingRadarSnapshot(): Promise<CopyTradingRadarS
   try {
     const radarResponse = await requestSignalCenterJson<SignalCenterRadarSnapshotResponse>(`/v1/copy-trading-radar?sourceLimit=${COPY_TRADING_RADAR_SOURCE_LIMIT}&tradeLimit=${COPY_TRADING_RADAR_TRADE_LIMIT}&includeSkipped=false`);
     const runtimeData = normalizeRadarRuntimeData(radarResponse.sources ?? []);
-    const fallbackMarkPrices = await fetchRuntimeDataFallbackMarkPrices(runtimeData);
-    return adaptSignalCenterRuntimeData(runtimeData, radarResponse.updatedAt ?? undefined, fallbackMarkPrices);
+    return adaptSignalCenterRuntimeData(runtimeData, radarResponse.updatedAt ?? undefined);
   } catch {
     /**
      * Older Signal Center deployments do not expose the aggregated radar
@@ -256,8 +252,7 @@ export async function fetchCopyTradingRadarSnapshot(): Promise<CopyTradingRadarS
   if (runtimeData.length === 0) {
     throw new Error("Signal Center returned sources, but no positions or trades could be loaded.");
   }
-  const fallbackMarkPrices = await fetchRuntimeDataFallbackMarkPrices(runtimeData);
-  return adaptSignalCenterRuntimeData(runtimeData, undefined, fallbackMarkPrices);
+  return adaptSignalCenterRuntimeData(runtimeData);
 }
 
 export async function fetchCopyTradingSourceTradeHistoryPage({
@@ -519,6 +514,34 @@ export function createCopyTradingTradeMarkers(snapshot: CopyTradingRadarSnapshot
     .sort((left, right) => left.sourceTimeMs - right.sourceTimeMs || compareNullableNumbers(left.price, right.price));
 }
 
+export function applyCopyTradingLatestPrices(
+  snapshot: CopyTradingRadarSnapshot,
+  latestPricesBySymbol: Readonly<Record<string, number>>,
+): CopyTradingRadarSnapshot {
+  if (Object.keys(latestPricesBySymbol).length === 0) {
+    return snapshot;
+  }
+
+  let didUpdatePositionPrice = false;
+  const priceUpdatedPositions = snapshot.positions.map((position) => {
+    const latestPrice = latestPricesBySymbol[normalizeSignalCenterSymbolKey(position.symbol)];
+    const nextPosition = applyLatestPriceToCopyTradingPosition(position, latestPrice);
+    if (nextPosition !== position) {
+      didUpdatePositionPrice = true;
+    }
+    return nextPosition;
+  });
+
+  if (!didUpdatePositionPrice) {
+    return snapshot;
+  }
+
+  return {
+    ...snapshot,
+    positions: recalculateCopyTradingPositionSizeRatios(priceUpdatedPositions),
+  };
+}
+
 export function getCopyTradingEventChartSignalId(eventId: string): string {
   return `copy-radar:${eventId}`;
 }
@@ -596,41 +619,16 @@ function normalizeRadarRuntimeData(runtimeSources: readonly SignalCenterRadarSou
   });
 }
 
-async function fetchRuntimeDataFallbackMarkPrices(
-  runtimeData: readonly SourceRuntimeData[],
-): Promise<ReadonlyMap<string, number>> {
-  const symbols = Array.from(new Set(
-    runtimeData.flatMap(({ positions }) =>
-      positions
-        .filter((position) => Math.abs(parseNumber(position.qty) ?? 0) > 0)
-        .filter((position) => readSignalCenterPositionMarkPrice(position) === null)
-        .filter((position) => derivePositionPriceFromNotional(position, Math.abs(parseNumber(position.qty) ?? 0)) === null)
-        .map((position) => position.key.symbol),
-    ),
-  ));
-
-  if (symbols.length === 0) {
-    return new Map();
-  }
-
-  try {
-    return await fetchUsdtPerpetualMarkPrices(symbols);
-  } catch {
-    return new Map();
-  }
-}
-
 function adaptSignalCenterRuntimeData(
   runtimeData: SourceRuntimeData[],
   updatedAtSource: Date | string = new Date(),
-  fallbackMarkPricesBySymbol: ReadonlyMap<string, number> = new Map(),
 ): CopyTradingRadarSnapshot {
   const updatedAtDate = updatedAtSource instanceof Date ? updatedAtSource : new Date(updatedAtSource);
   const safeUpdatedAtDate = Number.isFinite(updatedAtDate.getTime()) ? updatedAtDate : new Date();
   const updatedAt = normalizeTimestamp(safeUpdatedAtDate.toISOString());
   const traders = runtimeData.map(({ positions, source, trades }, index) => adaptSignalCenterTrader(source, positions, trades, index));
   const positions = runtimeData.flatMap(({ positions: snapshots, source }) =>
-    adaptSignalCenterPositions(source, snapshots, fallbackMarkPricesBySymbol),
+    adaptSignalCenterPositions(source, snapshots),
   );
   const positionsBySourceAndSymbol = createPositionLookup(positions);
   const events = runtimeData.flatMap(({ source, trades }) => adaptSignalCenterTrades(source, trades, positionsBySourceAndSymbol));
@@ -698,7 +696,6 @@ function createSignalCenterSourceFromTrader(trader: CopyTradingTrader): SignalCe
 function adaptSignalCenterPositions(
   source: SignalCenterSignalSource,
   snapshots: readonly SignalCenterPositionSnapshot[],
-  fallbackMarkPricesBySymbol: ReadonlyMap<string, number>,
 ): CopyTradingPosition[] {
   const nonZeroSnapshots = snapshots.filter((snapshot) => Math.abs(parseNumber(snapshot.qty) ?? 0) > 0);
   const totalNotional = nonZeroSnapshots.reduce((sum, snapshot) => sum + estimatePositionNotional(snapshot), 0);
@@ -709,7 +706,6 @@ function adaptSignalCenterPositions(
     const entryPrice = readSignalCenterPositionEntryPrice(snapshot);
     const currentPrice = readSignalCenterPositionMarkPrice(snapshot)
       ?? derivePositionPriceFromNotional(snapshot, qty)
-      ?? fallbackMarkPricesBySymbol.get(normalizeSignalCenterSymbolKey(snapshot.key.symbol))
       ?? null;
     const direction = normalizeCopyTradingDirection(snapshot.key.side);
     const leverage = snapshot.leverage ?? 1;
@@ -756,6 +752,72 @@ function estimatePositionNotional(snapshot: SignalCenterPositionSnapshot): numbe
   const markPrice = Math.abs(readSignalCenterPositionMarkPrice(snapshot) ?? 0);
   const entryPrice = Math.abs(readSignalCenterPositionEntryPrice(snapshot) ?? 0);
   return qty * (markPrice > 0 ? markPrice : entryPrice);
+}
+
+function applyLatestPriceToCopyTradingPosition(
+  position: CopyTradingPosition,
+  latestPriceValue: unknown,
+): CopyTradingPosition {
+  const latestPrice = parsePositiveNumber(latestPriceValue);
+  if (latestPrice === null) {
+    return position;
+  }
+
+  const nextNotional = position.quantity > 0
+    ? latestPrice * position.quantity
+    : position.notional_value;
+  const nextPnlRatio = calculatePositionPnlRatio(
+    position.direction,
+    position.entry_price,
+    latestPrice,
+    position.leverage,
+  );
+  const nextUnrealizedPnl = nextPnlRatio ?? position.unrealized_pnl;
+
+  if (
+    position.current_price === latestPrice
+    && position.notional_value === nextNotional
+    && position.unrealized_pnl === nextUnrealizedPnl
+  ) {
+    return position;
+  }
+
+  return {
+    ...position,
+    current_price: latestPrice,
+    notional_value: nextNotional,
+    unrealized_pnl: nextUnrealizedPnl,
+  };
+}
+
+function recalculateCopyTradingPositionSizeRatios(
+  positions: readonly CopyTradingPosition[],
+): CopyTradingPosition[] {
+  const totalNotionalByTrader = new Map<string, number>();
+  for (const position of positions) {
+    if (Number.isFinite(position.notional_value) && position.notional_value > 0) {
+      totalNotionalByTrader.set(
+        position.trader_id,
+        (totalNotionalByTrader.get(position.trader_id) ?? 0) + position.notional_value,
+      );
+    }
+  }
+
+  return positions.map((position) => {
+    const totalNotional = totalNotionalByTrader.get(position.trader_id) ?? 0;
+    const nextPositionSizeRatio = totalNotional > 0
+      ? clampPercent(position.notional_value / totalNotional)
+      : 0;
+
+    if (position.position_size_ratio === nextPositionSizeRatio) {
+      return position;
+    }
+
+    return {
+      ...position,
+      position_size_ratio: nextPositionSizeRatio,
+    };
+  });
 }
 
 function derivePositionPriceFromNotional(
