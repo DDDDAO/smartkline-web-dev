@@ -17,6 +17,9 @@ export type CopyTradingPrototypeTarget = {
 export type PrototypeApiConnection = {
   accountName: string;
   connectedAtLabel: string;
+  exchangePlatform: string;
+  isMock: boolean;
+  mockMarginBalance: number | null;
   status: "empty" | "connected";
 };
 
@@ -50,7 +53,7 @@ type AccountCenterPrototypeProps = {
   onApiSetupOpen: () => void;
   onApiSetupOpenChange: (isOpen: boolean) => void;
   onClose: () => void;
-  onConnectionSave: (accountName: string) => void;
+  onConnectionSave: (input: { accountName: string; mockMarginBalance: number }) => void;
   onLogin: () => void;
   onLogout: () => void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => void;
@@ -74,7 +77,7 @@ const WHITELIST_IP = "192.0.0.1";
 const EXCHANGES = [
   { id: "binance", defaultAccountName: "Binance #1", enabled: false, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api" },
   { id: "mockExchange", defaultAccountName: "Mock Exchange #1", enabled: true, fallback: "MX", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
-  { id: "binanceDemo", defaultAccountName: "Binance Demo #1", enabled: true, fallback: "BD", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
+  { id: "binanceDemo", defaultAccountName: "Binance Demo #1", enabled: false, fallback: "BD", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
   { id: "okx", defaultAccountName: "OKX #1", enabled: false, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api" },
   { id: "hyperliquid", defaultAccountName: "Hyperliquid #1", enabled: false, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api" },
   { id: "aster", defaultAccountName: "Aster #1", enabled: false, fallback: "AS", logoPath: "/exchanges/aster/brand/icon.png", mode: "api" },
@@ -195,15 +198,35 @@ export function AccountCenterPrototype({
                   </span>
                 </div>
                 {apiConnection.status === "connected" ? (
-                  <div className={isDarkTheme ? "mt-4 rounded-2xl border border-emerald-400/10 bg-emerald-400/[0.06] p-3" : "mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3"}>
-                    <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
-                      <div>
-                        <div className="text-sm font-black">{apiConnection.accountName}</div>
-                        <div className={isDarkTheme ? "mt-1 text-xs text-emerald-200/75" : "mt-1 text-xs text-emerald-700/75"}>{apiConnection.connectedAtLabel}</div>
+                  <div className={isDarkTheme ? "mt-4 rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.06] p-3" : "mt-4 rounded-3xl border border-emerald-100 bg-emerald-50/70 p-3"}>
+                    <div className="flex items-start gap-3">
+                      <div className={isDarkTheme ? "grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-400/10 text-xs font-black text-emerald-200" : "grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-xs font-black text-emerald-700 shadow-sm"}>
+                        MX
                       </div>
-                      <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
-                        {accountCopy.api.bindAction}
-                      </button>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <div className="truncate text-sm font-black">{apiConnection.accountName}</div>
+                          <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
+                            {accountCopy.api.mockBadge}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <MiniMetric isDarkTheme={isDarkTheme} label={accountCopy.api.accountType} value={apiConnection.exchangePlatform || accountCopy.exchanges.mockExchange} />
+                          <MiniMetric
+                            isDarkTheme={isDarkTheme}
+                            label={accountCopy.api.mockBalance}
+                            value={formatMockBalance(apiConnection.mockMarginBalance)}
+                          />
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                          <div className={isDarkTheme ? "text-xs text-emerald-200/70" : "text-xs text-emerald-700/75"}>
+                            {accountCopy.api.updatedAt}: {apiConnection.connectedAtLabel || "--"}
+                          </div>
+                          <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
+                            {accountCopy.api.editAction}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -251,10 +274,11 @@ export function AccountCenterPrototype({
           key={apiConnection.accountName}
           copy={copy}
           initialAccountName={apiConnection.status === "connected" ? apiConnection.accountName : ""}
+          initialMockMarginBalance={apiConnection.mockMarginBalance}
           isDarkTheme={isDarkTheme}
           onClose={() => onApiSetupOpenChange(false)}
-          onSave={(accountName) => {
-            onConnectionSave(accountName);
+          onSave={(input) => {
+            onConnectionSave(input);
             onApiSetupOpenChange(false);
           }}
         />
@@ -469,28 +493,33 @@ function getTelegramUserInitials(user: TelegramSessionUser | null): string {
 function ExchangeApiSetupLayer({
   copy,
   initialAccountName,
+  initialMockMarginBalance,
   isDarkTheme,
   onClose,
   onSave,
 }: {
   copy: WorkspaceCopy;
   initialAccountName: string;
+  initialMockMarginBalance: number | null;
   isDarkTheme: boolean;
   onClose: () => void;
-  onSave: (accountName: string) => void;
+  onSave: (input: { accountName: string; mockMarginBalance: number }) => void;
 }) {
   const [selectedExchangeId, setSelectedExchangeId] = useState<PrototypeExchangeId>("mockExchange");
   const selectedExchange = getExchangeById(selectedExchangeId);
   const [accountName, setAccountName] = useState(initialAccountName || selectedExchange.defaultAccountName);
+  const [mockMarginBalance, setMockMarginBalance] = useState(String(initialMockMarginBalance ?? 10000));
   const [apiKey, setApiKey] = useState("");
   const [secret, setSecret] = useState("");
   const [hasTestedConnection, setHasTestedConnection] = useState(false);
   const [hasCopiedIp, setHasCopiedIp] = useState(false);
   const accountCopy = copy.workspace.accountCenter;
   const isDemoExchange = selectedExchange.mode === "demo";
+  const parsedMockMarginBalance = Number(mockMarginBalance);
+  const hasValidMockMarginBalance = Number.isFinite(parsedMockMarginBalance) && parsedMockMarginBalance > 0;
 
   const canTest = !isDemoExchange && accountName.trim().length > 0 && apiKey.trim().length > 0 && secret.trim().length > 0;
-  const canSave = isDemoExchange || hasTestedConnection;
+  const canSave = isDemoExchange ? accountName.trim().length > 0 && hasValidMockMarginBalance : hasTestedConnection;
   const chooseExchange = (exchange: PrototypeExchange) => {
     if (!exchange.enabled) {
       return;
@@ -564,10 +593,10 @@ function ExchangeApiSetupLayer({
                     >
                       <ExchangeIcon enabled={exchange.enabled} exchange={exchange} isDarkTheme={isDarkTheme} />
                       <span className="min-w-0 flex-1 whitespace-nowrap text-sm font-black">{getExchangeName(accountCopy, exchange.id)}</span>
-                      {exchange.mode === "demo" ? (
-                        <span className={isDarkTheme ? "shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-300" : "shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>{accountCopy.apiSetup.demoBadge}</span>
-                      ) : !exchange.enabled ? (
+                      {!exchange.enabled ? (
                         <span className={isDarkTheme ? "shrink-0 text-[10px] font-bold text-slate-500" : "shrink-0 text-[10px] font-bold text-slate-400"}>{accountCopy.apiSetup.comingSoon}</span>
+                      ) : exchange.mode === "demo" ? (
+                        <span className={isDarkTheme ? "shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-300" : "shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>{accountCopy.apiSetup.demoBadge}</span>
                       ) : null}
                     </button>
                   ))}
@@ -607,6 +636,30 @@ function ExchangeApiSetupLayer({
                     </p>
                     <div className={isDarkTheme ? "mt-3 rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.07] px-3 py-3 text-xs leading-5 text-emerald-100/85" : "mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800"}>
                       {accountCopy.apiSetup.demoRiskNote}
+                    </div>
+                    <div className="mt-4">
+                      <PrototypeInput
+                        autoComplete="off"
+                        fieldName="mock-margin-balance"
+                        inputMode="decimal"
+                        isDarkTheme={isDarkTheme}
+                        label={accountCopy.apiSetup.mockMarginBalance}
+                        placeholder={accountCopy.apiSetup.mockMarginBalancePlaceholder}
+                        value={mockMarginBalance}
+                        onChange={setMockMarginBalance}
+                      />
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {[10000, 50000, 100000].map((amount) => (
+                          <button
+                            key={amount}
+                            className={getSoftButtonClassName(isDarkTheme)}
+                            type="button"
+                            onClick={() => setMockMarginBalance(String(amount))}
+                          >
+                            {formatMockBalance(amount)}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </section>
                 ) : (
@@ -667,7 +720,10 @@ function ExchangeApiSetupLayer({
               className={getPrimaryButtonClassName(isDarkTheme)}
               disabled={!canSave}
               type="button"
-              onClick={() => onSave(accountName.trim() || selectedExchange.defaultAccountName)}
+              onClick={() => onSave({
+                accountName: accountName.trim() || selectedExchange.defaultAccountName,
+                mockMarginBalance: hasValidMockMarginBalance ? parsedMockMarginBalance : 10000,
+              })}
             >
               {accountCopy.apiSetup.save}
             </button>
@@ -937,6 +993,7 @@ function PercentInput({
 function PrototypeInput({
   autoComplete,
   fieldName,
+  inputMode,
   isDarkTheme,
   label,
   placeholder,
@@ -946,6 +1003,7 @@ function PrototypeInput({
 }: {
   autoComplete?: string;
   fieldName: string;
+  inputMode?: "decimal" | "numeric" | "text";
   isDarkTheme: boolean;
   label: string;
   placeholder?: string;
@@ -962,6 +1020,7 @@ function PrototypeInput({
         autoComplete={autoComplete}
         className={isDarkTheme ? "mt-2 h-12 w-full rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 text-sm font-semibold text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-sky-400/45" : "mt-2 h-12 w-full rounded-2xl border border-[#D5E4EF] bg-white px-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#7DBEFF]"}
         id={id}
+        inputMode={inputMode}
         name={id}
         placeholder={placeholder}
         type={type}
@@ -970,6 +1029,13 @@ function PrototypeInput({
       />
     </label>
   );
+}
+
+function formatMockBalance(value: number | null): string {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return "--";
+  }
+  return `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
 function MiniMetric({ isDarkTheme, label, value }: { isDarkTheme: boolean; label: string; value: string }) {

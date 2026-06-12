@@ -161,12 +161,17 @@ const zh = {
   workspace: {
     accountCenter: {
       api: {
+        accountType: "账户类型",
         bindAction: "绑定模拟交易",
         connected: "已连接",
         connectedDescription: "已绑定模拟交易账户，可用于一键跟单。",
+        editAction: "调整配置",
         empty: "未绑定",
         emptyDescription: "登录后绑定模拟交易账户，才能从顶级信号创建跟单策略。",
+        mockBadge: "模拟",
+        mockBalance: "模拟金额",
         title: "模拟交易",
+        updatedAt: "更新时间",
       },
       apiSetup: {
         accountName: "账户名称",
@@ -184,6 +189,8 @@ const zh = {
         enabledExchange: "可配置",
         guide: "查看教程",
         mockExchangeDescription: "使用内置模拟交易所快速验证一键跟单流程，不依赖外部交易所权限。",
+        mockMarginBalance: "模拟账户金额",
+        mockMarginBalancePlaceholder: "例如 10000",
         noKeysRequired: "无需密钥",
         register: "注册（手续费折扣）",
         save: "保存配置",
@@ -598,12 +605,17 @@ const en: WorkspaceCopy = {
   workspace: {
     accountCenter: {
       api: {
+        accountType: "Account type",
         bindAction: "Bind Paper Trading",
         connected: "Connected",
         connectedDescription: "Paper trading account is connected and available for copy trading.",
+        editAction: "Edit config",
         empty: "Not bound",
         emptyDescription: "Log in and bind a paper trading account before creating a copy strategy from Top Signals.",
+        mockBadge: "Mock",
+        mockBalance: "Paper balance",
         title: "Paper Trading",
+        updatedAt: "Updated",
       },
       apiSetup: {
         accountName: "Account name",
@@ -621,6 +633,8 @@ const en: WorkspaceCopy = {
         enabledExchange: "Enabled",
         guide: "View guide",
         mockExchangeDescription: "Use the built-in mock exchange to test the one-click copy flow without external exchange permissions.",
+        mockMarginBalance: "Paper account balance",
+        mockMarginBalancePlaceholder: "e.g. 10000",
         noKeysRequired: "No keys required",
         register: "Register (fee discount)",
         save: "Save config",
