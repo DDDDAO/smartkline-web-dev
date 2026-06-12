@@ -6,15 +6,20 @@ import {
 } from "@/app/_lib/binance-market-data";
 
 type BinanceMiniTickerPriceRecord = Record<string, number>;
+type BinanceMiniTickerPriceOptions = {
+  updateIntervalMs?: number;
+};
 const EMPTY_BINANCE_MINI_TICKER_PRICE_RECORD: BinanceMiniTickerPriceRecord = {};
 
 export function useBinanceMiniTickerPrices(
   symbols: readonly string[],
+  options: BinanceMiniTickerPriceOptions = {},
 ): {
   error: string | null;
   isConnected: boolean;
   latestPricesBySymbol: BinanceMiniTickerPriceRecord;
 } {
+  const updateIntervalMs = Math.max(0, Math.floor(options.updateIntervalMs ?? 0));
   const symbolKey = useMemo(() => createNormalizedSymbolKey(symbols), [symbols]);
   const normalizedSymbols = useMemo(() => parseNormalizedSymbolKey(symbolKey), [symbolKey]);
   const [latestPricesBySymbol, setLatestPricesBySymbol] = useState<BinanceMiniTickerPriceRecord>({});
@@ -28,17 +33,54 @@ export function useBinanceMiniTickerPrices(
     }
 
     let isActive = true;
+    let pendingPricesBySymbol: BinanceMiniTickerPriceRecord | null = null;
+    let lastAppliedAtMs = 0;
+    let flushTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    const commitPrices = (nextPricesBySymbol: BinanceMiniTickerPriceRecord) => {
+      if (!isActive) {
+        return;
+      }
+
+      lastAppliedAtMs = Date.now();
+      setLatestPricesBySymbol((currentPricesBySymbol) =>
+        arePriceRecordsEqual(currentPricesBySymbol, nextPricesBySymbol)
+          ? currentPricesBySymbol
+          : nextPricesBySymbol,
+      );
+    };
+    const flushPendingPrices = () => {
+      if (flushTimeoutId !== null) {
+        clearTimeout(flushTimeoutId);
+        flushTimeoutId = null;
+      }
+
+      const nextPricesBySymbol = pendingPricesBySymbol;
+      pendingPricesBySymbol = null;
+      if (nextPricesBySymbol) {
+        commitPrices(nextPricesBySymbol);
+      }
+    };
     const applyPrices = (prices: BinanceMiniTickerPriceSnapshot) => {
       if (!isActive) {
         return;
       }
 
       const nextPricesBySymbol = selectPricesBySymbol(prices, normalizedSymbols);
-      setLatestPricesBySymbol((currentPricesBySymbol) =>
-        arePriceRecordsEqual(currentPricesBySymbol, nextPricesBySymbol)
-          ? currentPricesBySymbol
-          : nextPricesBySymbol,
-      );
+      if (updateIntervalMs <= 0) {
+        commitPrices(nextPricesBySymbol);
+        return;
+      }
+
+      pendingPricesBySymbol = nextPricesBySymbol;
+      const elapsedMs = Date.now() - lastAppliedAtMs;
+      if (elapsedMs >= updateIntervalMs) {
+        flushPendingPrices();
+        return;
+      }
+
+      if (flushTimeoutId === null) {
+        flushTimeoutId = setTimeout(flushPendingPrices, updateIntervalMs - elapsedMs);
+      }
     };
 
     const unsubscribe = subscribeToBinanceAllMarketMiniTickers({
@@ -64,9 +106,12 @@ export function useBinanceMiniTickerPrices(
 
     return () => {
       isActive = false;
+      if (flushTimeoutId !== null) {
+        clearTimeout(flushTimeoutId);
+      }
       unsubscribe();
     };
-  }, [hasSymbols, normalizedSymbols]);
+  }, [hasSymbols, normalizedSymbols, updateIntervalMs]);
 
   return {
     error: hasSymbols ? error : null,

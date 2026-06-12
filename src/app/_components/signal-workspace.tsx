@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { markets } from "@/app/_lib/demo-data";
 import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
@@ -81,16 +81,29 @@ import {
   WorkspaceProductTabs,
   type WorkspaceProductTab,
 } from "./signal-workspace/product-tabs";
-import { TopSignalsPanel } from "./signal-workspace/top-signals-panel";
+import {
+  AccountCenterPrototype,
+  AccountEntryButton,
+  CopyTradingPrototypeModal,
+  type CopyTradingPrototypeTarget,
+  type PrototypeApiConnection,
+  type PrototypeStrategy,
+  type PrototypeStrategyStatus,
+} from "./signal-workspace/copy-trading-prototype";
+import { TopSignalsPanel, type PnlColorMode } from "./signal-workspace/top-signals-panel";
 
 const MAX_VISIBLE_KOL_SIGNAL_HISTORY = 1_000;
 const NOTIFICATION_DISMISS_MS = 6_500;
 const KOL_SIGNAL_POLL_INTERVAL_MS = 30_000;
 const TOP_SIGNALS_POLL_INTERVAL_MS = 60_000;
+const TOP_SIGNAL_PRICE_UPDATE_INTERVAL_MS = 3_000;
 const COMPACT_LAYOUT_MEDIA_QUERY = "(max-width: 1023px)";
+const PNL_COLOR_MODE_STORAGE_KEY = "smartkline:pnl-color-mode";
 const TELEGRAM_DISCUSSION_GROUP_URL =
   process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
 const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
+const EMPTY_MARKET_SYMBOL_LIST: readonly string[] = [];
+const EMPTY_STRUCTURED_SIGNALS: readonly StructuredSignal[] = [];
 const WORKSPACE_TAB_ROUTE_SEGMENTS: Readonly<Record<WorkspaceProductTab, string>> = {
   intel: "kol",
   kolFollow: "kol-square",
@@ -122,6 +135,8 @@ export function SignalWorkspace() {
   const [chartFocusTimeRequest, setChartFocusTimeRequest] =
     useState<ChartTimeFocusRequest | null>(null);
   const [theme, setTheme] = useState<ChartTheme>("light");
+  const [pnlColorMode, setPnlColorMode] = useState<PnlColorMode>("positiveGreen");
+  const [isPnlColorModeHydrated, setIsPnlColorModeHydrated] = useState(false);
   const [language, setLanguage] = useState<WorkspaceLanguage>("zh-CN");
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isMobileKolSheetOpen, setIsMobileKolSheetOpen] = useState(false);
@@ -160,6 +175,21 @@ export function SignalWorkspace() {
     useState<PaperPositionMarketCandleUpdate | null>(null);
   const [workspaceNotification, setWorkspaceNotification] =
     useState<WorkspaceNotification | null>(null);
+  const [isAccountCenterOpen, setIsAccountCenterOpen] = useState(false);
+  const [isApiSetupOpen, setIsApiSetupOpen] = useState(false);
+  const [prototypeApiConnection, setPrototypeApiConnection] =
+    useState<PrototypeApiConnection>({
+      accountName: "Binance #1",
+      connectedAtLabel: "",
+      status: "empty",
+    });
+  const [prototypeStrategies, setPrototypeStrategies] = useState<
+    PrototypeStrategy[]
+  >([]);
+  const [copyTradingTarget, setCopyTradingTarget] =
+    useState<CopyTradingPrototypeTarget | null>(null);
+  const [pendingCopyTradingTarget, setPendingCopyTradingTarget] =
+    useState<CopyTradingPrototypeTarget | null>(null);
   const [kolSignalSourceStatus, setKolSignalSourceStatus] =
     useState<KolSignalSourceStatus>({
       error: null,
@@ -178,7 +208,14 @@ export function SignalWorkspace() {
     signals.find((signal) => signal.id === activeSignalId) ??
     signals[0] ??
     null;
+  const isIntelTab = activeProductTab === "intel";
+  const isTopSignalsTab = activeProductTab === "topSignals";
+  const shouldUsePaperPositions = !isTopSignalsTab;
   const kolSignals = useMemo(() => sortSignalsForKolPanel(signals), [signals]);
+  const paperPositionSignals = useMemo(
+    () => shouldUsePaperPositions ? signals : EMPTY_STRUCTURED_SIGNALS,
+    [shouldUsePaperPositions, signals],
+  );
   const watchlistedKolSourceKeys = useMemo(
     () => new Set(watchlist.kolSources.map((source) => source.key)),
     [watchlist.kolSources],
@@ -187,18 +224,26 @@ export function SignalWorkspace() {
     () => new Set(watchlist.topSignalSources.map((source) => source.id)),
     [watchlist.topSignalSources],
   );
-  const topSignalMiniTickerSymbols = useMemo(
-    () => topSignalsSnapshot?.positions.map((position) => position.symbol) ?? [],
-    [topSignalsSnapshot],
-  );
+  const topSignalMiniTickerSymbols = useMemo(() => {
+    if (!isTopSignalsTab || !topSignalsSnapshot) {
+      return EMPTY_MARKET_SYMBOL_LIST;
+    }
+
+    return Array.from(new Set(topSignalsSnapshot.positions.map((position) => position.symbol)));
+  }, [isTopSignalsTab, topSignalsSnapshot]);
   const {
     latestPricesBySymbol: topSignalMiniTickerPricesBySymbol,
-  } = useBinanceMiniTickerPrices(topSignalMiniTickerSymbols);
+  } = useBinanceMiniTickerPrices(topSignalMiniTickerSymbols, {
+    updateIntervalMs: TOP_SIGNAL_PRICE_UPDATE_INTERVAL_MS,
+  });
+  const deferredTopSignalMiniTickerPricesBySymbol = useDeferredValue(
+    topSignalMiniTickerPricesBySymbol,
+  );
   const topSignalsDisplaySnapshot = useMemo(
     () => topSignalsSnapshot
-      ? applyCopyTradingLatestPrices(topSignalsSnapshot, topSignalMiniTickerPricesBySymbol)
+      ? applyCopyTradingLatestPrices(topSignalsSnapshot, deferredTopSignalMiniTickerPricesBySymbol)
       : null,
-    [topSignalMiniTickerPricesBySymbol, topSignalsSnapshot],
+    [deferredTopSignalMiniTickerPricesBySymbol, topSignalsSnapshot],
   );
   const topSignalsActiveSourceIds = useMemo(
     () => new Set(topSignalsSnapshot?.traders.filter(isActiveCopyTradingTrader).map((trader) => trader.trader_id) ?? []),
@@ -231,16 +276,19 @@ export function SignalWorkspace() {
     () => createTopSignalsSignalBiasSummary(topSignalsSnapshot, symbol),
     [symbol, topSignalsSnapshot],
   );
-  const shouldLoadTopSignalsSnapshot = activeProductTab === "topSignals";
+  const shouldLoadTopSignalsSnapshot = isTopSignalsTab;
 
   const {
     candlesBySymbol: paperPositionCandlesBySymbol,
     errorsBySymbol: paperPositionErrorsBySymbol,
     latestPricesBySymbol: paperPositionLatestPricesBySymbol,
-  } = usePaperPositionCandles(signals, latestMarketCandleUpdate);
+  } = usePaperPositionCandles(
+    paperPositionSignals,
+    shouldUsePaperPositions ? latestMarketCandleUpdate : null,
+  );
   const paperPositionMiniTickerSymbols = useMemo(
-    () => signals.map((signal) => signal.symbol),
-    [signals],
+    () => paperPositionSignals.map((signal) => signal.symbol),
+    [paperPositionSignals],
   );
   const {
     latestPricesBySymbol: paperPositionMiniTickerPricesBySymbol,
@@ -248,7 +296,7 @@ export function SignalWorkspace() {
   const paperPositionsBySignalId = useMemo(() => {
     const recordsBySignalId: Record<string, PaperPositionRecord> = {};
 
-    for (const signal of signals) {
+    for (const signal of paperPositionSignals) {
       const candles = paperPositionCandlesBySymbol[signal.symbol];
       if (candles && candles.length > 0) {
         const miniTickerPrice = readBinanceMiniTickerPrice(
@@ -271,7 +319,7 @@ export function SignalWorkspace() {
     paperPositionCandlesBySymbol,
     paperPositionLatestPricesBySymbol,
     paperPositionMiniTickerPricesBySymbol,
-    signals,
+    paperPositionSignals,
   ]);
   const activeChartPaperPosition = activeSignal
     ? (paperPositionsBySignalId[activeSignal.id] ?? null)
@@ -321,6 +369,9 @@ export function SignalWorkspace() {
 
   const toggleTheme = () =>
     setTheme((currentTheme) => (currentTheme === "light" ? "dark" : "light"));
+  const togglePnlColorMode = () => {
+    setPnlColorMode((currentMode) => currentMode === "positiveGreen" ? "positiveRed" : "positiveGreen");
+  };
   const setWorkspaceLanguage = useCallback((nextLanguage: WorkspaceLanguage) => {
     setLanguage(nextLanguage);
     try {
@@ -383,6 +434,25 @@ export function SignalWorkspace() {
         }
       } catch {
         // Keep the default language when local storage is unavailable.
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      try {
+        const storedMode = window.localStorage.getItem(PNL_COLOR_MODE_STORAGE_KEY);
+        if (isPnlColorMode(storedMode)) {
+          setPnlColorMode(storedMode);
+        } else if (storedMode !== null) {
+          window.localStorage.removeItem(PNL_COLOR_MODE_STORAGE_KEY);
+        }
+      } catch {
+        // Keep the default PnL color mode when local storage is unavailable.
+      } finally {
+        setIsPnlColorModeHydrated(true);
       }
     }, 0);
 
@@ -475,6 +545,18 @@ export function SignalWorkspace() {
       // Ignore storage failures in private browsing or restricted webviews.
     }
   }, [activeProductTab, isProductTabHydrated]);
+
+  useEffect(() => {
+    if (!isPnlColorModeHydrated) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(PNL_COLOR_MODE_STORAGE_KEY, pnlColorMode);
+    } catch {
+      // Ignore storage failures in private browsing or restricted webviews.
+    }
+  }, [isPnlColorModeHydrated, pnlColorMode]);
 
   const updateWorkspaceRouteUrl = useCallback((
     mode: "push" | "replace",
@@ -1109,6 +1191,118 @@ export function SignalWorkspace() {
     });
   }, []);
 
+  const handleCopyTradingRequest = useCallback((target: CopyTradingPrototypeTarget) => {
+    const existingStrategy = prototypeStrategies.find((strategy) =>
+      strategy.traderId === target.trader.trader_id && strategy.status !== "stopped",
+    );
+
+    if (existingStrategy) {
+      setIsAccountCenterOpen(true);
+      setWorkspaceNotification({
+        id: `copy-strategy-existing-${Date.now()}`,
+        message: copyRef.current.workspace.accountCenter.copyTrading.existingStrategy,
+        meta: `${existingStrategy.traderName} · ${existingStrategy.apiAccountName}`,
+        title: copyRef.current.workspace.accountCenter.strategy.title,
+      });
+      return;
+    }
+
+    if (prototypeApiConnection.status !== "connected") {
+      setPendingCopyTradingTarget(target);
+      setIsAccountCenterOpen(true);
+      setIsApiSetupOpen(true);
+      return;
+    }
+
+    setCopyTradingTarget(target);
+  }, [prototypeApiConnection.status, prototypeStrategies]);
+
+  const handlePrototypeConnectionSave = useCallback((accountName: string) => {
+    const connectedAtLabel = new Date().toLocaleString(language, {
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      month: "2-digit",
+    });
+
+    setPrototypeApiConnection({
+      accountName,
+      connectedAtLabel,
+      status: "connected",
+    });
+    setWorkspaceNotification({
+      id: `api-connected-${Date.now()}`,
+      message: copyRef.current.workspace.accountCenter.apiSetup.connectedToast,
+      meta: accountName,
+      title: copyRef.current.workspace.accountCenter.api.title,
+    });
+
+    if (pendingCopyTradingTarget) {
+      setCopyTradingTarget(pendingCopyTradingTarget);
+      setPendingCopyTradingTarget(null);
+    }
+  }, [language, pendingCopyTradingTarget]);
+
+  const handleApiSetupOpenChange = useCallback((isOpen: boolean) => {
+    setIsApiSetupOpen(isOpen);
+    if (!isOpen) {
+      setPendingCopyTradingTarget(null);
+    }
+  }, []);
+
+  const handlePrototypeStrategyStart = useCallback((input: {
+    stopLossPercent: number;
+    takeProfitPercent: number;
+    target: CopyTradingPrototypeTarget;
+  }) => {
+    const createdAtLabel = new Date().toLocaleString(language, {
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      month: "2-digit",
+    });
+
+    const nextStrategy: PrototypeStrategy = {
+      apiAccountName: prototypeApiConnection.accountName,
+      avatarUrl: input.target.trader.avatar,
+      createdAtLabel,
+      eventsCount: input.target.eventsCount,
+      id: `prototype-copy-${input.target.trader.trader_id}-${Date.now()}`,
+      platform: input.target.trader.platform,
+      positionsCount: input.target.positionsCount,
+      status: "running",
+      stopLossPercent: input.stopLossPercent,
+      takeProfitPercent: input.takeProfitPercent,
+      traderId: input.target.trader.trader_id,
+      traderName: input.target.trader.name,
+    };
+
+    setPrototypeStrategies((currentStrategies) => {
+      const hasActiveStrategy = currentStrategies.some((strategy) =>
+        strategy.traderId === input.target.trader.trader_id && strategy.status !== "stopped",
+      );
+
+      if (hasActiveStrategy) {
+        return currentStrategies;
+      }
+
+      return [nextStrategy, ...currentStrategies];
+    });
+    setCopyTradingTarget(null);
+    setIsAccountCenterOpen(true);
+  }, [language, prototypeApiConnection.accountName]);
+
+  const handlePrototypeStrategyStatusChange = useCallback((
+    strategyId: string,
+    status: PrototypeStrategyStatus,
+  ) => {
+    setPrototypeStrategies((currentStrategies) =>
+      currentStrategies.map((strategy) =>
+        strategy.id === strategyId ? { ...strategy, status } : strategy,
+      ),
+    );
+  }, []);
+
   const openCommunityConversion = useCallback((signal: StructuredSignal) => {
     handleSignalSelect(signal);
     setIsCommunityConversionOpen(true);
@@ -1124,16 +1318,32 @@ export function SignalWorkspace() {
     [handleSignalSelect],
   );
 
-  const isIntelTab = activeProductTab === "intel";
-  const isTopSignalsTab = activeProductTab === "topSignals";
   const isChartSplitProductTab = isIntelTab || isTopSignalsTab;
   const chartActiveSignal = isIntelTab ? activeSignal : null;
   const chartActivePaperPosition = isIntelTab ? activeChartPaperPosition : null;
-  const chartSignals = isIntelTab ? signals : [];
+  const chartSignals = isIntelTab ? signals : EMPTY_STRUCTURED_SIGNALS;
+  const chartTopSignalsTradeMarkers = useMemo(() => {
+    if (!isTopSignalsTab) {
+      return EMPTY_COPY_TRADING_TRADE_MARKERS;
+    }
+
+    return topSignalsTradeMarkers.filter((marker) => marker.symbol === symbol);
+  }, [isTopSignalsTab, symbol, topSignalsTradeMarkers]);
   const chartTradeMarkers = isTopSignalsTab
-    ? topSignalsTradeMarkers
+    ? chartTopSignalsTradeMarkers
     : EMPTY_COPY_TRADING_TRADE_MARKERS;
   const chartFocusTime = isTopSignalsTab ? chartFocusTimeRequest : null;
+  const handleIntervalChange = useCallback((nextInterval: KlineInterval) => {
+    setChartFocusSignalRequestKey(null);
+    setChartFocusTimeRequest(null);
+    setInterval(nextInterval);
+  }, []);
+  const handleFocusSignalRequestHandled = useCallback(() => {
+    setChartFocusSignalRequestKey(null);
+  }, []);
+  const handleFocusTimeRequestHandled = useCallback(() => {
+    setChartFocusTimeRequest(null);
+  }, []);
 
   return (
     <main className={pageClassName} data-compact-ui>
@@ -1146,11 +1356,14 @@ export function SignalWorkspace() {
           isDarkTheme={isDarkTheme}
           language={language}
           notification={workspaceNotification}
+          pnlColorMode={pnlColorMode}
+          onAccountOpen={() => setIsAccountCenterOpen(true)}
           onCommunityOpen={handleTelegramDiscussionJoin}
           onGuideOpen={startOnboardingGuide}
           onLanguageToggle={toggleLanguage}
           onNotificationDismiss={() => setWorkspaceNotification(null)}
           onProductTabChange={handleProductTabChange}
+          onPnlColorModeToggle={togglePnlColorMode}
           onThemeToggle={toggleTheme}
         />
       </div>
@@ -1174,25 +1387,18 @@ export function SignalWorkspace() {
                 language={language}
                 isCompactLayout={isCompactLayout}
                 marketOptions={marketOptions}
+                priceColorMode={pnlColorMode}
                 signalBiasSummary={isTopSignalsTab ? topSignalsSignalBiasSummary : null}
                 symbol={symbol}
                 signals={chartSignals}
                 theme={theme}
                 tradeMarkers={chartTradeMarkers}
-                onIntervalChange={(nextInterval) => {
-                  setChartFocusSignalRequestKey(null);
-                  setChartFocusTimeRequest(null);
-                  setInterval(nextInterval);
-                }}
+                onIntervalChange={handleIntervalChange}
                 onSymbolChange={handleSymbolChange}
                 onSignalSelect={handleSignalSelect}
-                onFocusSignalRequestHandled={() =>
-                  setChartFocusSignalRequestKey(null)
-                }
-                onFocusTimeRequestHandled={() =>
-                  setChartFocusTimeRequest(null)
-                }
-                onMarketCandleUpdate={setLatestMarketCandleUpdate}
+                onFocusSignalRequestHandled={handleFocusSignalRequestHandled}
+                onFocusTimeRequestHandled={handleFocusTimeRequestHandled}
+                onMarketCandleUpdate={isIntelTab ? setLatestMarketCandleUpdate : undefined}
                 onTradeMarkerSelect={isTopSignalsTab ? handleTopSignalTradeMarkerSelect : undefined}
               />
             </div>
@@ -1241,6 +1447,7 @@ export function SignalWorkspace() {
                       />
                     }
                     isDarkTheme={isDarkTheme}
+                    pnlColorMode={pnlColorMode}
                     snapshot={topSignalsDisplaySnapshot}
                     sourceFilterId={effectiveTopSignalsSourceFilterId}
                     sourceStatus={topSignalsSourceStatus}
@@ -1249,6 +1456,7 @@ export function SignalWorkspace() {
                     onSourceFilterChange={handleTopSignalSourceFilterChange}
                     onSourceSelect={handleTopSignalSourceSelect}
                     onSourceWatchToggle={handleTopSignalSourceWatchToggle}
+                    onCopyTradingRequest={handleCopyTradingRequest}
                     onTradeHistoryLoadMore={handleTopSignalTradeHistoryLoadMore}
                     onTradeSelect={handleTopSignalTradeSelect}
                   />
@@ -1304,6 +1512,7 @@ export function SignalWorkspace() {
           isCompactLayout={isCompactLayout}
           isDarkTheme={isDarkTheme}
           isOpen={isMobileTopSignalsSheetOpen}
+          pnlColorMode={pnlColorMode}
           snapshot={topSignalsDisplaySnapshot}
           sourceFilterId={effectiveTopSignalsSourceFilterId}
           sourceStatus={topSignalsSourceStatus}
@@ -1313,10 +1522,34 @@ export function SignalWorkspace() {
           onSourceFilterChange={handleTopSignalSourceFilterChange}
           onSourceSelect={handleTopSignalSourceSelect}
           onSourceWatchToggle={handleTopSignalSourceWatchToggle}
+          onCopyTradingRequest={handleCopyTradingRequest}
           onTradeHistoryLoadMore={handleTopSignalTradeHistoryLoadMore}
           onTradeSelect={handleTopSignalTradeSelect}
         />
       ) : null}
+      <AccountCenterPrototype
+        apiConnection={prototypeApiConnection}
+        copy={copy}
+        isApiSetupOpen={isApiSetupOpen}
+        isCoveredByModal={Boolean(copyTradingTarget)}
+        isDarkTheme={isDarkTheme}
+        isOpen={isAccountCenterOpen}
+        strategies={prototypeStrategies}
+        onApiSetupOpen={() => setIsApiSetupOpen(true)}
+        onApiSetupOpenChange={handleApiSetupOpenChange}
+        onClose={() => setIsAccountCenterOpen(false)}
+        onConnectionSave={handlePrototypeConnectionSave}
+        onStrategyStatusChange={handlePrototypeStrategyStatusChange}
+      />
+      <CopyTradingPrototypeModal
+        key={copyTradingTarget?.trader.trader_id ?? "empty"}
+        apiConnection={prototypeApiConnection}
+        copy={copy}
+        isDarkTheme={isDarkTheme}
+        target={copyTradingTarget}
+        onClose={() => setCopyTradingTarget(null)}
+        onStart={handlePrototypeStrategyStart}
+      />
       <OnboardingGuide
         copy={copy.onboarding}
         isCompactLayout={isCompactLayout}
@@ -1632,6 +1865,7 @@ function MobileTopSignalsBottomSheet({
   isCompactLayout,
   isDarkTheme,
   isOpen,
+  pnlColorMode,
   snapshot,
   sourceFilterId,
   sourceStatus,
@@ -1641,6 +1875,7 @@ function MobileTopSignalsBottomSheet({
   onSourceFilterChange,
   onSourceSelect,
   onSourceWatchToggle,
+  onCopyTradingRequest,
   onTradeHistoryLoadMore,
   onTradeSelect,
 }: {
@@ -1650,6 +1885,7 @@ function MobileTopSignalsBottomSheet({
   isCompactLayout: boolean;
   isDarkTheme: boolean;
   isOpen: boolean;
+  pnlColorMode: PnlColorMode;
   snapshot: CopyTradingRadarSnapshot | null;
   sourceFilterId: string;
   sourceStatus: KolSignalSourceStatus;
@@ -1659,6 +1895,7 @@ function MobileTopSignalsBottomSheet({
   onSourceFilterChange: (sourceId: string) => void;
   onSourceSelect: (sourceId: string) => void;
   onSourceWatchToggle: (trader: CopyTradingTrader) => void;
+  onCopyTradingRequest: (target: CopyTradingPrototypeTarget) => void;
   onTradeHistoryLoadMore: (input: {
     limit: number;
     offset: number;
@@ -1704,6 +1941,7 @@ function MobileTopSignalsBottomSheet({
               </button>
             }
             isDarkTheme={isDarkTheme}
+            pnlColorMode={pnlColorMode}
             snapshot={snapshot}
             sourceFilterId={sourceFilterId}
             sourceStatus={sourceStatus}
@@ -1716,6 +1954,10 @@ function MobileTopSignalsBottomSheet({
             onSourceFilterChange={onSourceFilterChange}
             onSourceSelect={onSourceSelect}
             onSourceWatchToggle={onSourceWatchToggle}
+            onCopyTradingRequest={(target) => {
+              onCopyTradingRequest(target);
+              onOpenChange(false);
+            }}
             onTradeHistoryLoadMore={onTradeHistoryLoadMore}
             onTradeSelect={(event) => {
               onTradeSelect(event);
@@ -1902,11 +2144,14 @@ function WorkspaceTopNavigation({
   isDarkTheme,
   language,
   notification,
+  pnlColorMode,
   onCommunityOpen,
   onGuideOpen,
   onLanguageToggle,
   onNotificationDismiss,
+  onAccountOpen,
   onProductTabChange,
+  onPnlColorModeToggle,
   onThemeToggle,
 }: {
   activeProductTab: WorkspaceProductTab;
@@ -1914,11 +2159,14 @@ function WorkspaceTopNavigation({
   isDarkTheme: boolean;
   language: WorkspaceLanguage;
   notification: WorkspaceNotification | null;
+  pnlColorMode: PnlColorMode;
+  onAccountOpen: () => void;
   onCommunityOpen: () => void;
   onGuideOpen: () => void;
   onLanguageToggle: () => void;
   onNotificationDismiss: () => void;
   onProductTabChange: (tab: WorkspaceProductTab) => void;
+  onPnlColorModeToggle: () => void;
   onThemeToggle: () => void;
 }) {
   const headerClassName = isDarkTheme
@@ -1961,11 +2209,22 @@ function WorkspaceTopNavigation({
           isDarkTheme={isDarkTheme}
           onThemeToggle={onThemeToggle}
         />
+        <PnlColorModeToggleButton
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          pnlColorMode={pnlColorMode}
+          onToggle={onPnlColorModeToggle}
+        />
         <LanguageToggleButton
           copy={copy}
           isDarkTheme={isDarkTheme}
           language={language}
           onLanguageToggle={onLanguageToggle}
+        />
+        <AccountEntryButton
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          onOpen={onAccountOpen}
         />
         {notification ? (
           <div className="fixed right-5 top-20 z-[65] w-[min(390px,calc(100vw-2rem))]">
@@ -2193,6 +2452,47 @@ function ThemeToggleIcon({ isDarkTheme }: { isDarkTheme: boolean }) {
     <SunIcon className="h-4 w-4" />
   ) : (
     <MoonIcon className="h-4 w-4" />
+  );
+}
+
+function isPnlColorMode(value: unknown): value is PnlColorMode {
+  return value === "positiveGreen" || value === "positiveRed";
+}
+
+function PnlColorModeToggleButton({
+  copy,
+  isDarkTheme,
+  pnlColorMode,
+  onToggle,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  pnlColorMode: PnlColorMode;
+  onToggle: () => void;
+}) {
+  const className = isDarkTheme
+    ? "motion-fx-1-nav-button grid h-10 w-10 place-items-center rounded-full border border-white/[0.075] bg-white/[0.035] text-xs font-black text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50"
+    : "motion-fx-1-nav-button grid h-10 w-10 place-items-center rounded-full border border-[#E5EAF0] bg-white text-xs font-black text-slate-500 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:text-slate-950";
+  const title = pnlColorMode === "positiveGreen"
+    ? copy.workspace.pnlColorSwitchToPositiveRed
+    : copy.workspace.pnlColorSwitchToPositiveGreen;
+  const leadingClassName = pnlColorMode === "positiveGreen" ? "text-emerald-500" : "text-rose-500";
+  const trailingClassName = pnlColorMode === "positiveGreen" ? "text-rose-500" : "text-emerald-500";
+
+  return (
+    <button
+      aria-label={title}
+      className={className}
+      title={title}
+      type="button"
+      onClick={onToggle}
+    >
+      <span aria-hidden="true" className="flex items-center gap-0.5">
+        <span className={leadingClassName}>+</span>
+        <span className="text-slate-400">/</span>
+        <span className={trailingClassName}>−</span>
+      </span>
+    </button>
   );
 }
 

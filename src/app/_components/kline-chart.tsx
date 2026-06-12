@@ -24,7 +24,7 @@ import { createSignalEventRenderKey, renderSignalEventLabels } from "./kline-cha
 import { createSignalFocusRequestKey } from "./kline-chart/signal-focus";
 import { SignalPriceRayPrimitive } from "./kline-chart/signal-price-ray-primitive";
 import { readTradePointMarkerId, TradePointPrimitive, type KlineTradePointMarker } from "./kline-chart/trade-point-primitive";
-import type { ChartTheme, ChartTimeFocusRequest, KlineSignalBiasSummary } from "./kline-chart/types";
+import type { ChartTheme, ChartTimeFocusRequest, KlineSignalBiasSummary, PriceColorMode } from "./kline-chart/types";
 import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { SignalAiSummary } from "@/app/_lib/signal-ai-summary";
@@ -47,6 +47,7 @@ export type KlineChartProps = {
   isCompactLayout?: boolean;
   isLoadingOlderHistory: boolean;
   language: WorkspaceLanguage;
+  priceColorMode: PriceColorMode;
   signalBiasSummary?: KlineSignalBiasSummary | null;
   theme: ChartTheme;
   tradeMarkers: readonly KlineTradePointMarker[];
@@ -104,6 +105,7 @@ type HoveredCandleInfoPair = {
 };
 
 type HoveredCandleInfoChildren = {
+  amplitude: HoveredCandleInfoPair;
   close: HoveredCandleInfoPair;
   high: HoveredCandleInfoPair;
   low: HoveredCandleInfoPair;
@@ -168,6 +170,7 @@ export function KlineChart({
   isCompactLayout = false,
   isLoadingOlderHistory,
   language,
+  priceColorMode,
   signalBiasSummary = null,
   theme,
   tradeMarkers,
@@ -203,18 +206,20 @@ export function KlineChart({
   const candlesRef = useRef(candles);
   const renderedCandlesRef = useRef<readonly MarketCandle[]>([]);
   const renderedThemeRef = useRef<ChartTheme>(theme);
+  const renderedPriceColorModeRef = useRef<PriceColorMode>(priceColorMode);
   const activePaperPositionRef = useRef(activePaperPosition);
   const activeSignalRef = useRef(activeSignal);
   const activeSignalDrawingReadyRef = useRef(activeSignalDrawingReady);
   const chartMetricsRef = useRef(chartMetrics);
   const themeRef = useRef(theme);
+  const priceColorModeRef = useRef(priceColorMode);
   const languageRef = useRef(language);
   const currentCandleCountdownTextRef = useRef("");
   const onEventSignalSelectRef = useRef(onEventSignalSelect);
   const onTradeMarkerSelectRef = useRef(onTradeMarkerSelect);
   const handledFocusSignalRequestKeyRef = useRef<string | null>(null);
   const handledFocusTimeRequestKeyRef = useRef<string | null>(null);
-  const eventLabelRenderKey = `${createSignalEventRenderKey(candles, eventSignals, theme, language, activeSignal?.id ?? null)}:${isCompactLayout ? "compact" : "desktop"}`;
+  const eventLabelRenderKey = `${createSignalEventRenderKey(candles, eventSignals, theme, language, activeSignal?.id ?? null)}:${priceColorMode}:${isCompactLayout ? "compact" : "desktop"}`;
 
   useEffect(() => {
     tradeMarkerTooltipRef.current = tradeMarkerTooltip;
@@ -233,10 +238,11 @@ export function KlineChart({
     activeSignalDrawingReadyRef.current = activeSignalDrawingReady;
     chartMetricsRef.current = chartMetrics;
     themeRef.current = theme;
+    priceColorModeRef.current = priceColorMode;
     languageRef.current = language;
     onEventSignalSelectRef.current = onEventSignalSelect;
     onTradeMarkerSelectRef.current = onTradeMarkerSelect;
-  }, [activePaperPosition, activeSignal, activeSignalDrawingReady, canLoadOlderHistory, candles, chartMetrics, eventSignals, isLoadingOlderHistory, language, onEventSignalSelect, onLoadOlderHistory, onTradeMarkerSelect, theme, tradeMarkers]);
+  }, [activePaperPosition, activeSignal, activeSignalDrawingReady, canLoadOlderHistory, candles, chartMetrics, eventSignals, isLoadingOlderHistory, language, onEventSignalSelect, onLoadOlderHistory, onTradeMarkerSelect, priceColorMode, theme, tradeMarkers]);
 
   useEffect(() => {
     const updateCountdown = () => {
@@ -247,6 +253,7 @@ export function KlineChart({
         countdownText,
         element: currentPriceTagRef.current,
         metrics: chartMetricsRef.current,
+        priceColorMode: priceColorModeRef.current,
         series: candleSeriesRef.current,
       });
     };
@@ -255,7 +262,7 @@ export function KlineChart({
     const intervalId = window.setInterval(updateCountdown, CANDLE_COUNTDOWN_UPDATE_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [candles, interval, isCompactLayout]);
+  }, [candles, interval, isCompactLayout, priceColorMode]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -264,7 +271,7 @@ export function KlineChart({
     }
 
     const hoveredCandleInfoElement = hoveredCandleInfoRef.current;
-    const palette = createChartPalette(themeRef.current);
+    const palette = createChartPalette(themeRef.current, priceColorModeRef.current);
     const currentChartMetrics = chartMetricsRef.current;
     const chart = createChart(container, {
       autoSize: true,
@@ -366,6 +373,7 @@ export function KlineChart({
         countdownText: currentCandleCountdownTextRef.current,
         element: currentPriceTagRef.current,
         metrics: chartMetricsRef.current,
+        priceColorMode: priceColorModeRef.current,
         series: candleSeries,
       });
       renderHiddenSignalHint({
@@ -445,6 +453,7 @@ export function KlineChart({
         element: hoveredCandleInfoElement,
         language: languageRef.current,
         param,
+        priceColorMode: priceColorModeRef.current,
         series: candleSeries,
         theme: themeRef.current,
       });
@@ -502,6 +511,7 @@ export function KlineChart({
       hasFittedContentRef.current = false;
       renderedCandlesRef.current = [];
       renderedThemeRef.current = themeRef.current;
+      renderedPriceColorModeRef.current = priceColorModeRef.current;
     };
   }, [isCompactLayout]);
 
@@ -512,7 +522,7 @@ export function KlineChart({
       return;
     }
 
-    const palette = createChartPalette(theme);
+    const palette = createChartPalette(theme, priceColorMode);
     const currentChartMetrics = chartMetricsRef.current;
 
     chart.applyOptions({
@@ -554,7 +564,7 @@ export function KlineChart({
       wickUpColor: palette.up,
       wickDownColor: palette.down,
     });
-  }, [isCompactLayout, theme]);
+  }, [isCompactLayout, priceColorMode, theme]);
 
   useEffect(() => {
     if (!candleSeriesRef.current || !volumeSeriesRef.current) {
@@ -576,17 +586,20 @@ export function KlineChart({
         countdownText: "",
         element: currentPriceTagRef.current,
         metrics: chartMetricsRef.current,
+        priceColorMode,
         series: candleSeriesRef.current,
       });
       renderHiddenSignalHint({ element: hiddenSignalHintRef.current, isDarkTheme: theme === "dark", isVisible: false });
       hasFittedContentRef.current = false;
       renderedCandlesRef.current = [];
       renderedThemeRef.current = theme;
+      renderedPriceColorModeRef.current = priceColorMode;
       return;
     }
 
     const previousCandles = renderedCandlesRef.current;
     const hasThemeChanged = renderedThemeRef.current !== theme;
+    const hasPriceColorModeChanged = renderedPriceColorModeRef.current !== priceColorMode;
     const previousVisibleRange = chartRef.current?.timeScale().getVisibleLogicalRange() ?? null;
     const preservedVisibleRange = resolveVisibleLogicalRangeAfterCandlesChange({
       nextCandles: candles,
@@ -596,8 +609,9 @@ export function KlineChart({
 
     applyCandlesToSeries({
       candleSeries: candleSeriesRef.current,
-      forceReplace: hasThemeChanged,
+      forceReplace: hasThemeChanged || hasPriceColorModeChanged,
       nextCandles: candles,
+      priceColorMode,
       previousCandles,
       theme,
       volumeSeries: volumeSeriesRef.current,
@@ -607,6 +621,7 @@ export function KlineChart({
       countdownText: currentCandleCountdownTextRef.current,
       element: currentPriceTagRef.current,
       metrics: chartMetricsRef.current,
+      priceColorMode,
       series: candleSeriesRef.current,
     });
 
@@ -625,7 +640,8 @@ export function KlineChart({
 
     renderedCandlesRef.current = candles;
     renderedThemeRef.current = theme;
-  }, [candles, isCompactLayout, theme]);
+    renderedPriceColorModeRef.current = priceColorMode;
+  }, [candles, isCompactLayout, priceColorMode, theme]);
 
   useEffect(() => {
     const drawableSignal = activeSignalDrawingReadyRef.current
@@ -679,6 +695,7 @@ export function KlineChart({
       drawablePaperPosition,
       candles.at(-1),
       language,
+      priceColorMode,
     ).map((line) => series.createPriceLine(line));
 
     signalRayPrimitiveRef.current?.applyOptions({
@@ -720,7 +737,7 @@ export function KlineChart({
       series,
       signal: drawableSignal,
     });
-  }, [activePaperPosition, activeSignal, activeSignalDrawingReady, candles, isCompactLayout, language, theme, tradeMarkers]);
+  }, [activePaperPosition, activeSignal, activeSignalDrawingReady, candles, isCompactLayout, language, priceColorMode, theme, tradeMarkers]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -891,10 +908,11 @@ function renderHoveredCandleInfo(input: {
   element: HTMLDivElement | null;
   language: WorkspaceLanguage;
   param: MouseEventParams<Time>;
+  priceColorMode: PriceColorMode;
   series: ISeriesApi<"Candlestick">;
   theme: ChartTheme;
 }): void {
-  const { candles, element, language, param, series, theme } = input;
+  const { candles, element, language, param, priceColorMode, series, theme } = input;
   if (!element || !param.point) {
     hideHoveredCandleInfo(element);
     return;
@@ -909,7 +927,8 @@ function renderHoveredCandleInfo(input: {
   const labels = getHoveredCandleLabels(language);
   const change = candle.close - candle.open;
   const changeRatio = candle.open !== 0 ? change / candle.open : null;
-  const valueColor = getHoveredCandleValueColor(change, theme);
+  const amplitudeRatio = candle.open !== 0 ? (candle.high - candle.low) / candle.open : null;
+  const valueColor = getHoveredCandleValueColor(change, theme, priceColorMode);
   const labelColor = theme === "dark" ? "#E5E7EB" : "#111827";
   const children = ensureHoveredCandleInfoChildren(element);
 
@@ -925,6 +944,7 @@ function renderHoveredCandleInfo(input: {
   setHoveredCandlePair(children.high, labels.high, formatKlineOhlcValue(candle.high), labelColor, valueColor);
   setHoveredCandlePair(children.low, labels.low, formatKlineOhlcValue(candle.low), labelColor, valueColor);
   setHoveredCandlePair(children.close, labels.close, formatKlineOhlcValue(candle.close), labelColor, valueColor);
+  setHoveredCandlePair(children.amplitude, labels.amplitude, formatKlinePercent(amplitudeRatio), labelColor, valueColor);
   children.change.textContent = `${formatSignedKlineDelta(change)} (${formatSignedKlinePercent(changeRatio)})`;
   children.change.style.color = valueColor;
 }
@@ -978,6 +998,7 @@ function ensureHoveredCandleInfoChildren(element: HTMLDivElement): HoveredCandle
   const high = createHoveredCandleInfoPair("high");
   const low = createHoveredCandleInfoPair("low");
   const close = createHoveredCandleInfoPair("close");
+  const amplitude = createHoveredCandleInfoPair("amplitude");
   const change = document.createElement("span");
   change.dataset.ohlcChange = "true";
   change.style.display = "inline-block";
@@ -988,10 +1009,11 @@ function ensureHoveredCandleInfoChildren(element: HTMLDivElement): HoveredCandle
     high,
     low,
     close,
+    amplitude,
     change,
   };
 
-  element.replaceChildren(open.group, high.group, low.group, close.group, change);
+  element.replaceChildren(open.group, high.group, low.group, close.group, amplitude.group, change);
   hoveredCandleInfoChildrenByElement.set(element, children);
   return children;
 }
@@ -1026,21 +1048,21 @@ function setHoveredCandlePair(
   pair.value.style.color = valueColor;
 }
 
-function getHoveredCandleLabels(language: WorkspaceLanguage): { close: string; high: string; low: string; open: string } {
+function getHoveredCandleLabels(language: WorkspaceLanguage): { amplitude: string; close: string; high: string; low: string; open: string } {
   if (language === "en-US") {
-    return { close: "C=", high: "H=", low: "L=", open: "O=" };
+    return { amplitude: "Amp=", close: "C=", high: "H=", low: "L=", open: "O=" };
   }
 
-  return { close: "收=", high: "高=", low: "低=", open: "开=" };
+  return { amplitude: "振幅=", close: "收=", high: "高=", low: "低=", open: "开=" };
 }
 
-function getHoveredCandleValueColor(change: number, theme: ChartTheme): string {
+function getHoveredCandleValueColor(change: number, theme: ChartTheme, priceColorMode: PriceColorMode): string {
   if (change > 0) {
-    return createChartPalette(theme).up;
+    return createChartPalette(theme, priceColorMode).up;
   }
 
   if (change < 0) {
-    return createChartPalette(theme).down;
+    return createChartPalette(theme, priceColorMode).down;
   }
 
   return theme === "dark" ? "#CBD5E1" : "#334155";
@@ -1066,6 +1088,14 @@ function formatSignedKlinePercent(value: number | null): string {
 
   const prefix = value > 0 ? "+" : value < 0 ? "-" : "";
   return `${prefix}${(Math.abs(value) * 100).toFixed(2)}%`;
+}
+
+function formatKlinePercent(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  return `${(value * 100).toFixed(2)}%`;
 }
 
 function TradeMarkerTooltip({
@@ -1283,6 +1313,7 @@ function applyCandlesToSeries(input: {
   candleSeries: ISeriesApi<"Candlestick">;
   forceReplace: boolean;
   nextCandles: readonly MarketCandle[];
+  priceColorMode: PriceColorMode;
   previousCandles: readonly MarketCandle[];
   theme: ChartTheme;
   volumeSeries: ISeriesApi<"Histogram">;
@@ -1291,6 +1322,7 @@ function applyCandlesToSeries(input: {
     candleSeries,
     forceReplace,
     nextCandles,
+    priceColorMode,
     previousCandles,
     theme,
     volumeSeries,
@@ -1301,7 +1333,7 @@ function applyCandlesToSeries(input: {
 
   if (incrementalUpdateStartIndex === -1) {
     candleSeries.setData(nextCandles.slice());
-    volumeSeries.setData(nextCandles.map((candle) => toVolumeData(candle, theme)));
+    volumeSeries.setData(nextCandles.map((candle) => toVolumeData(candle, theme, priceColorMode)));
     return;
   }
 
@@ -1312,7 +1344,7 @@ function applyCandlesToSeries(input: {
   const changedCandleCount = nextCandles.length - incrementalUpdateStartIndex;
   if (changedCandleCount > MAX_INCREMENTAL_CANDLE_UPDATES) {
     candleSeries.setData(nextCandles.slice());
-    volumeSeries.setData(nextCandles.map((candle) => toVolumeData(candle, theme)));
+    volumeSeries.setData(nextCandles.map((candle) => toVolumeData(candle, theme, priceColorMode)));
     return;
   }
 
@@ -1320,7 +1352,7 @@ function applyCandlesToSeries(input: {
     const nextCandle = nextCandles[index];
     const isHistoricalUpdate = index < previousCandles.length - 1;
     candleSeries.update(nextCandle, isHistoricalUpdate);
-    volumeSeries.update(toVolumeData(nextCandle, theme), isHistoricalUpdate);
+    volumeSeries.update(toVolumeData(nextCandle, theme, priceColorMode), isHistoricalUpdate);
   }
 }
 
@@ -1378,9 +1410,10 @@ function renderCurrentPriceTag(input: {
   countdownText: string;
   element: HTMLDivElement | null;
   metrics: KlineChartMetrics;
+  priceColorMode: PriceColorMode;
   series: ISeriesApi<"Candlestick"> | null;
 }): void {
-  const { candle, countdownText, element, metrics, series } = input;
+  const { candle, countdownText, element, metrics, priceColorMode, series } = input;
   const container = element?.parentElement;
   if (!element || !container || !series || !candle || !countdownText) {
     hideCurrentPriceTag(element);
@@ -1393,7 +1426,7 @@ function renderCurrentPriceTag(input: {
     return;
   }
 
-  const tagColor = getCurrentCandleColor(candle);
+  const tagColor = getCurrentCandleColor(candle, priceColorMode);
   const containerHeight = container.clientHeight;
   const top = clampNumber(
     coordinate - metrics.currentPriceTagHeight / 2,
@@ -1470,8 +1503,11 @@ function hideCurrentPriceTag(element: HTMLDivElement | null): void {
   element.style.opacity = "0";
 }
 
-function getCurrentCandleColor(candle: MarketCandle): string {
-  return candle.close >= candle.open ? "#2FBD85" : "#F6465D";
+function getCurrentCandleColor(candle: MarketCandle, priceColorMode: PriceColorMode): string {
+  const up = priceColorMode === "positiveGreen" ? "#2FBD85" : "#F6465D";
+  const down = priceColorMode === "positiveGreen" ? "#F6465D" : "#2FBD85";
+
+  return candle.close >= candle.open ? up : down;
 }
 
 function clampNumber(value: number, min: number, max: number): number {

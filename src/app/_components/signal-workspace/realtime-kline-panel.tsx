@@ -1,5 +1,5 @@
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { intervals } from "@/app/_lib/demo-data";
 import { createSignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
@@ -12,7 +12,7 @@ import {
   upsertCandles,
 } from "@/app/_lib/binance-market-data";
 import type { KlineChartProps } from "@/app/_components/kline-chart";
-import type { ChartTheme, ChartTimeFocusRequest, KlineSignalBiasSummary } from "@/app/_components/kline-chart/types";
+import type { ChartTheme, ChartTimeFocusRequest, KlineSignalBiasSummary, PriceColorMode } from "@/app/_components/kline-chart/types";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { CopyTradingTradeMarker } from "@/app/_types/copy-trading";
 import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
@@ -27,7 +27,7 @@ const KlineChart = dynamic<KlineChartProps>(
   { loading: () => null },
 );
 
-export function RealtimeKlinePanel({
+export const RealtimeKlinePanel = memo(function RealtimeKlinePanel({
   activePaperPosition,
   activeSignal,
   focusSignalRequestKey,
@@ -37,6 +37,7 @@ export function RealtimeKlinePanel({
   interval,
   language,
   marketOptions,
+  priceColorMode,
   signalBiasSummary,
   symbol,
   signals,
@@ -59,6 +60,7 @@ export function RealtimeKlinePanel({
   interval: KlineInterval;
   language: WorkspaceLanguage;
   marketOptions: readonly MarketSymbol[];
+  priceColorMode: PriceColorMode;
   signalBiasSummary?: KlineSignalBiasSummary | null;
   symbol: MarketSymbol;
   signals: readonly StructuredSignal[];
@@ -69,7 +71,7 @@ export function RealtimeKlinePanel({
   onSignalSelect: (signal: StructuredSignal) => void;
   onFocusSignalRequestHandled: () => void;
   onFocusTimeRequestHandled?: () => void;
-  onMarketCandleUpdate: (update: { candles: readonly MarketCandle[]; interval: KlineInterval; symbol: MarketSymbol }) => void;
+  onMarketCandleUpdate?: (update: { candles: readonly MarketCandle[]; interval: KlineInterval; symbol: MarketSymbol }) => void;
   onTradeMarkerSelect?: (marker: CopyTradingTradeMarker) => void;
 }) {
   const [candles, setCandles] = useState<MarketCandle[]>([]);
@@ -126,7 +128,7 @@ export function RealtimeKlinePanel({
 
           if (latestCandles.length > 0) {
             setCandles((currentCandles) => upsertCandles(currentCandles, latestCandles));
-            onMarketCandleUpdate({ candles: latestCandles, interval, symbol });
+            onMarketCandleUpdate?.({ candles: latestCandles, interval, symbol });
           }
           setLoadError(null);
         })
@@ -166,7 +168,7 @@ export function RealtimeKlinePanel({
             }
 
             setCandles((currentCandles) => upsertCandle(currentCandles, nextCandle));
-            onMarketCandleUpdate({ candles: [nextCandle], interval, symbol });
+            onMarketCandleUpdate?.({ candles: [nextCandle], interval, symbol });
           },
         });
         latestBackfillIntervalId = window.setInterval(backfillLatestCandles, LATEST_CANDLE_BACKFILL_INTERVAL_MS);
@@ -264,6 +266,7 @@ export function RealtimeKlinePanel({
           interval={interval}
           isCompactLayout={isCompactLayout}
           isLoadingOlderHistory={isLoadingOlderHistory}
+          priceColorMode={priceColorMode}
           signalBiasSummary={signalBiasSummary ?? null}
           theme={theme}
           tradeMarkers={chartTradeMarkers}
@@ -291,7 +294,7 @@ export function RealtimeKlinePanel({
       </div>
     </section>
   );
-}
+});
 
 function KlineLoadingOverlay({ isDarkTheme }: { isDarkTheme: boolean }) {
   const shellClassName = isDarkTheme

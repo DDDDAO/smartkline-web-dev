@@ -449,7 +449,7 @@ function createMockPositionSnapshot(
   const currentPrice = readLatestReferencePrice(marketReferences[blueprint.symbol]);
   const entryPrice = roundMarketPrice(currentPrice * blueprint.entryPriceRatio);
   const marginSnapshot = blueprint.notional / blueprint.leverage;
-  const pnlRatio = calculateMockPositionPnlRatio(blueprint.direction, entryPrice, currentPrice, blueprint.leverage);
+  const pnlRatio = calculateMockPositionPnlRatio(blueprint.direction, entryPrice, currentPrice);
 
   return {
     key: {
@@ -714,8 +714,8 @@ function adaptSignalCenterPositions(
     const marginSnapshot = Math.abs(readSignalCenterPositionMarginSnapshot(snapshot) ?? 0);
     const reportedUnrealizedPnl = readSignalCenterPositionUnrealizedPnl(snapshot);
     const effectiveNotional = notional > 0 ? notional : effectiveCurrentPrice > 0 ? effectiveCurrentPrice * qty : effectiveEntryPrice * qty;
-    const pnlBase = marginSnapshot > 0 ? marginSnapshot : effectiveNotional > 0 && leverage ? effectiveNotional / leverage : Math.max(1, effectiveEntryPrice * qty);
-    const derivedPnlRatio = calculatePositionPnlRatio(direction, entryPrice, currentPrice, leverage);
+    const pnlBase = effectiveNotional > 0 ? effectiveNotional : Math.max(1, effectiveEntryPrice * qty);
+    const derivedPnlRatio = calculatePositionPnlRatio(direction, entryPrice, currentPrice);
     const reportedPnlRatio = reportedUnrealizedPnl !== null && pnlBase > 0
       ? reportedUnrealizedPnl / pnlBase
       : null;
@@ -770,7 +770,6 @@ function applyLatestPriceToCopyTradingPosition(
     position.direction,
     position.entry_price,
     latestPrice,
-    position.leverage,
   );
   const nextUnrealizedPnl = nextPnlRatio ?? position.unrealized_pnl;
 
@@ -1253,16 +1252,14 @@ function calculateMockPositionPnlRatio(
   direction: CopyTradingDirection,
   entryPrice: number,
   currentPrice: number,
-  leverage: number,
 ): number {
-  return calculatePositionPnlRatio(direction, entryPrice, currentPrice, leverage) ?? 0;
+  return calculatePositionPnlRatio(direction, entryPrice, currentPrice) ?? 0;
 }
 
 function calculatePositionPnlRatio(
   direction: CopyTradingDirection,
   entryPrice: number | null,
   currentPrice: number | null,
-  leverage: number,
 ): number | null {
   if (entryPrice === null || currentPrice === null || entryPrice <= 0 || currentPrice <= 0) {
     return null;
@@ -1271,7 +1268,7 @@ function calculatePositionPnlRatio(
   const priceMove = direction === "long"
     ? currentPrice / entryPrice - 1
     : entryPrice / currentPrice - 1;
-  return clampSignedRatio(priceMove * leverage);
+  return clampSignedRatio(priceMove);
 }
 
 async function requestSignalCenterJson<T>(path: string): Promise<T> {
