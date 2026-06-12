@@ -303,7 +303,13 @@ export async function updateTradingFoxCopyStrategyStatus(
   strategyId: string,
   status: "running" | "paused" | "stopped",
 ): Promise<TradingFoxAccountResponse> {
+  const userId = tradingFoxUserIdFromSession(session);
   const traderId = parsePositiveInteger(strategyId, "strategyId");
+  const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
+
+  if (trader.userId !== userId || trader.traderType !== "COPY_TRADING") {
+    throw new TradingFoxApiError("Copy strategy not found.", 404);
+  }
 
   if (status === "running") {
     await tradingFoxRequest<{ runtimeStatus?: TradingFoxRuntimeStatus }>(`/v1/traders/${traderId}/start`, {
@@ -488,7 +494,7 @@ function firstSignalSourceConfig(config: Record<string, unknown>): Record<string
 
 function mapBackendStrategyStatus(trader: TradingFoxTrader): "running" | "paused" | "stopped" {
   if (!trader.enabled || trader.displayStatus === "disabled") {
-    return "stopped";
+    return "paused";
   }
   if (trader.displayStatus === "running" || trader.runtimeState === "running") {
     return "running";

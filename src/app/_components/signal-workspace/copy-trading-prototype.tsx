@@ -56,7 +56,7 @@ type AccountCenterPrototypeProps = {
   onConnectionSave: (input: { accountName: string; mockMarginBalance: number }) => void;
   onLogin: () => void;
   onLogout: () => void;
-  onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => void;
+  onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 };
 
 type CopyTradingPrototypeModalProps = {
@@ -745,7 +745,7 @@ function PrototypeStrategyCard({
   isDarkTheme: boolean;
   strategy: PrototypeStrategy;
   onOpenDetail: (strategyId: string) => void;
-  onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => void;
+  onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
   const strategyCopy = copy.workspace.accountCenter.strategy;
   const statusLabel = getStrategyStatusLabel(strategyCopy, strategy.status);
@@ -782,12 +782,9 @@ function PrototypeStrategyCard({
       <div className="mt-3 flex flex-wrap gap-2">
         {strategy.status === "running" ? (
           <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(strategy.id, "paused")}>{strategyCopy.pause}</button>
-        ) : strategy.status === "paused" ? (
+        ) : (
           <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(strategy.id, "running")}>{strategyCopy.resume}</button>
-        ) : null}
-        {strategy.status !== "stopped" ? (
-          <button className={getDangerButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(strategy.id, "stopped")}>{strategyCopy.stop}</button>
-        ) : null}
+        )}
       </div>
     </article>
   );
@@ -804,7 +801,7 @@ function StrategyDetailView({
   isDarkTheme: boolean;
   strategy: PrototypeStrategy;
   onBack: () => void;
-  onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => void;
+  onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
   const [detail, setDetail] = useState<TradingFoxStrategyDetail | null>(null);
   const [error, setError] = useState("");
@@ -813,6 +810,7 @@ function StrategyDetailView({
   const [syncError, setSyncError] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
   const [isSyncingPositions, setIsSyncingPositions] = useState(false);
+  const [isUpdatingLifecycle, setIsUpdatingLifecycle] = useState(false);
   const strategyCopy = copy.workspace.accountCenter.strategy;
 
   useEffect(() => {
@@ -846,7 +844,7 @@ function StrategyDetailView({
 
   const liveStrategy = detail?.strategy ?? strategy;
   const parsedSyncRatioPercent = Number(syncRatioPercent);
-  const canSyncPositions = Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
+  const canSyncPositions = Boolean(detail?.trader.enabled) && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
   const orderItems = detail?.orderHistory?.items ?? [];
 
   const syncPositions = async () => {
@@ -865,6 +863,19 @@ function StrategyDetailView({
       setSyncError(syncPositionsError instanceof Error ? syncPositionsError.message : "Position sync failed.");
     } finally {
       setIsSyncingPositions(false);
+    }
+  };
+
+  const updateLifecycle = async (status: PrototypeStrategyStatus) => {
+    setIsUpdatingLifecycle(true);
+    setSyncError("");
+    try {
+      await onStrategyStatusChange(liveStrategy.id, status);
+      setDetail(await requestStrategyDetail(liveStrategy.id));
+    } catch (lifecycleError) {
+      setSyncError(lifecycleError instanceof Error ? lifecycleError.message : "Strategy lifecycle update failed.");
+    } finally {
+      setIsUpdatingLifecycle(false);
     }
   };
 
@@ -994,13 +1005,10 @@ function StrategyDetailView({
 
           <div className="flex flex-wrap gap-2">
             {liveStrategy.status === "running" ? (
-              <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(liveStrategy.id, "paused")}>{strategyCopy.pause}</button>
-            ) : liveStrategy.status === "paused" ? (
-              <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(liveStrategy.id, "running")}>{strategyCopy.resume}</button>
-            ) : null}
-            {liveStrategy.status !== "stopped" ? (
-              <button className={getDangerButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(liveStrategy.id, "stopped")}>{strategyCopy.stop}</button>
-            ) : null}
+              <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("paused")}>{strategyCopy.pause}</button>
+            ) : (
+              <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("running")}>{strategyCopy.resume}</button>
+            )}
           </div>
         </>
       ) : null}
@@ -1281,12 +1289,6 @@ function getSoftButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "inline-flex min-h-9 items-center justify-center rounded-xl border border-white/[0.075] bg-white/[0.04] px-3 text-xs font-black text-slate-200 transition hover:bg-white/[0.08]"
     : "inline-flex min-h-9 items-center justify-center rounded-xl border border-[#D5E4EF] bg-white px-3 text-xs font-black text-slate-700 transition hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
-}
-
-function getDangerButtonClassName(isDarkTheme: boolean): string {
-  return isDarkTheme
-    ? "inline-flex min-h-9 items-center justify-center rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 text-xs font-black text-rose-200 transition hover:bg-rose-400/15"
-    : "inline-flex min-h-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 px-3 text-xs font-black text-rose-700 transition hover:bg-rose-100";
 }
 
 function getIconButtonClassName(isDarkTheme: boolean): string {
