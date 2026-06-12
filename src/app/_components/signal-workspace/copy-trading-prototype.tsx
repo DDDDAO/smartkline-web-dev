@@ -110,11 +110,11 @@ export function AccountCenterPrototype({
             aria-label={accountCopy.drawer.title}
             aria-modal={isDrawerModal ? true : undefined}
             className={isDarkTheme
-              ? "fixed bottom-0 right-0 top-0 z-[90] flex w-[min(440px,100vw)] flex-col border-l border-white/[0.08] bg-[#0F141B] text-slate-100 shadow-[-24px_0_70px_rgba(0,0,0,0.42)]"
-              : "fixed bottom-0 right-0 top-0 z-[90] flex w-[min(440px,100vw)] flex-col border-l border-[#E5EAF0] bg-[#FAFBFD] text-slate-950 shadow-[-24px_0_70px_rgba(15,23,42,0.18)]"}
+              ? "fixed inset-x-0 bottom-0 z-[90] flex max-h-[92dvh] flex-col overflow-hidden rounded-t-[28px] border-t border-white/[0.08] bg-[#0F141B] text-slate-100 shadow-[0_-24px_70px_rgba(0,0,0,0.42)] sm:bottom-0 sm:left-auto sm:right-0 sm:top-0 sm:max-h-none sm:w-[min(440px,100vw)] sm:rounded-none sm:border-l sm:border-t-0 sm:shadow-[-24px_0_70px_rgba(0,0,0,0.42)]"
+              : "fixed inset-x-0 bottom-0 z-[90] flex max-h-[92dvh] flex-col overflow-hidden rounded-t-[28px] border-t border-[#E5EAF0] bg-[#FAFBFD] text-slate-950 shadow-[0_-24px_70px_rgba(15,23,42,0.18)] sm:bottom-0 sm:left-auto sm:right-0 sm:top-0 sm:max-h-none sm:w-[min(440px,100vw)] sm:rounded-none sm:border-l sm:border-t-0 sm:shadow-[-24px_0_70px_rgba(15,23,42,0.18)]"}
             role="dialog"
           >
-            <div className={isDarkTheme ? "border-b border-white/[0.075] px-5 py-5" : "border-b border-[#E5EAF0] px-5 py-5"}>
+            <div className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-black tracking-tight">{accountCopy.drawer.title}</h2>
@@ -142,7 +142,7 @@ export function AccountCenterPrototype({
               </div>
             </div>
 
-            <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
+            <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
               <section className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -160,7 +160,7 @@ export function AccountCenterPrototype({
                 </div>
                 {apiConnection.status === "connected" ? (
                   <div className={isDarkTheme ? "mt-4 rounded-2xl border border-emerald-400/10 bg-emerald-400/[0.06] p-3" : "mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3"}>
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
                       <div>
                         <div className="text-sm font-black">{apiConnection.accountName}</div>
                         <div className={isDarkTheme ? "mt-1 text-xs text-emerald-200/75" : "mt-1 text-xs text-emerald-700/75"}>{apiConnection.connectedAtLabel}</div>
@@ -200,7 +200,7 @@ export function AccountCenterPrototype({
               </section>
             </div>
 
-            <div className={isDarkTheme ? "border-t border-white/[0.075] px-5 py-4 text-xs leading-5 text-slate-500" : "border-t border-[#E5EAF0] px-5 py-4 text-xs leading-5 text-slate-500"}>
+            <div className={isDarkTheme ? "border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-xs leading-5 text-slate-500 sm:px-5" : "border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-xs leading-5 text-slate-500 sm:px-5"}>
               {accountCopy.drawer.riskNote}
             </div>
           </aside>
@@ -260,11 +260,11 @@ export function CopyTradingPrototypeModal({
       <section
         aria-label={accountCopy.copyTrading.modalTitle}
         aria-modal="true"
-        className="fixed inset-x-3 top-1/2 z-[100] mx-auto max-h-[min(720px,calc(100dvh-2rem))] max-w-[520px] -translate-y-1/2 overflow-hidden rounded-[28px] shadow-[0_28px_90px_rgba(15,23,42,0.24)]"
+        className="fixed inset-x-0 bottom-0 z-[100] max-h-[92dvh] overflow-hidden rounded-t-[28px] shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(720px,calc(100dvh-2rem))] sm:max-w-[520px] sm:-translate-y-1/2 sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"
         role="dialog"
       >
-        <div className={isDarkTheme ? "border border-white/[0.085] bg-[#111820] text-slate-100" : "border border-[#D5E4EF] bg-white text-slate-950"}>
-          <div className={isDarkTheme ? "border-b border-white/[0.075] px-5 py-5" : "border-b border-[#E5EAF0] px-5 py-5"}>
+        <div className={isDarkTheme ? "flex max-h-[92dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[min(720px,calc(100dvh-2rem))]" : "flex max-h-[92dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[min(720px,calc(100dvh-2rem))]"}>
+          <div className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>{accountCopy.copyTrading.copyMode}</div>
@@ -287,14 +287,14 @@ export function CopyTradingPrototypeModal({
             </div>
           </div>
 
-          <div className="space-y-4 px-5 py-5">
+          <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
             <label className="block">
               <span className={getLabelClassName(isDarkTheme)}>{accountCopy.copyTrading.apiSelect}</span>
               <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold" : "mt-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold"}>
                 {apiConnection.status === "connected" ? apiConnection.accountName : accountCopy.copyTrading.apiRequired}
               </div>
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <PercentInput
                 copyLabel={accountCopy.copyTrading.takeProfit}
                 fieldName="take-profit"
@@ -318,7 +318,7 @@ export function CopyTradingPrototypeModal({
             </div>
           </div>
 
-          <div className={isDarkTheme ? "flex items-center justify-end gap-2 border-t border-white/[0.075] px-5 py-4" : "flex items-center justify-end gap-2 border-t border-[#E5EAF0] px-5 py-4"}>
+          <div className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5"}>
             <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onClose}>{copy.common.close}</button>
             <button
               className={getPrimaryButtonClassName(isDarkTheme)}
@@ -430,14 +430,14 @@ function ExchangeApiSetupLayer({
       <section
         aria-label={accountCopy.apiSetup.title}
         aria-modal="true"
-        className="fixed inset-x-3 top-1/2 z-[115] mx-auto max-h-[min(820px,calc(100dvh-2rem))] max-w-[760px] -translate-y-1/2 overflow-hidden rounded-[30px] shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
+        className="fixed inset-x-0 bottom-0 z-[115] max-h-[94dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(820px,calc(100dvh-2rem))] sm:max-w-[760px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
         role="dialog"
       >
         <form
-          className={isDarkTheme ? "flex max-h-[min(820px,calc(100dvh-2rem))] flex-col border border-white/[0.085] bg-[#111820] text-slate-100" : "flex max-h-[min(820px,calc(100dvh-2rem))] flex-col border border-[#D5E4EF] bg-white text-slate-950"}
+          className={isDarkTheme ? "flex max-h-[94dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[min(820px,calc(100dvh-2rem))]" : "flex max-h-[94dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[min(820px,calc(100dvh-2rem))]"}
           onSubmit={(event) => event.preventDefault()}
         >
-          <header className={isDarkTheme ? "border-b border-white/[0.075] px-5 py-5" : "border-b border-[#E5EAF0] px-5 py-5"}>
+          <header className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>
@@ -454,13 +454,13 @@ function ExchangeApiSetupLayer({
             </div>
           </header>
 
-          <div className="kol-scroll-area min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          <div className="kol-scroll-area min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
             <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
               <aside className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3"}>
                 <div className={isDarkTheme ? "px-1 pb-2 text-xs font-black text-slate-300" : "px-1 pb-2 text-xs font-black text-slate-700"}>
                   {accountCopy.apiSetup.selectExchange}
                 </div>
-                <div className="grid gap-2">
+                <div className="kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:overflow-visible lg:pb-0">
                   {EXCHANGES.map((exchange) => (
                     <button
                       key={exchange.id}
@@ -556,7 +556,7 @@ function ExchangeApiSetupLayer({
             </div>
           </div>
 
-          <footer className={isDarkTheme ? "flex flex-wrap items-center justify-end gap-2 border-t border-white/[0.075] px-5 py-4" : "flex flex-wrap items-center justify-end gap-2 border-t border-[#E5EAF0] px-5 py-4"}>
+          <footer className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5"}>
             <button
               className={isDarkTheme ? "inline-flex min-h-10 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 text-sm font-black text-emerald-200 transition hover:bg-emerald-400/15" : "inline-flex min-h-10 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 px-4 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"}
               type="button"
@@ -774,19 +774,19 @@ function getModalSectionClassName(isDarkTheme: boolean): string {
 function getExchangeButtonClassName(isDarkTheme: boolean, enabled: boolean, isSelected: boolean): string {
   if (enabled && isSelected) {
     return isDarkTheme
-      ? "flex w-full items-center gap-3 rounded-2xl border border-sky-400/30 bg-sky-400/10 px-3 py-3 text-left text-sky-100 shadow-[0_0_0_3px_rgba(56,189,248,0.10)]"
-      : "flex w-full items-center gap-3 rounded-2xl border border-[#B7E8FC] bg-[#EAF8FE] px-3 py-3 text-left text-[#007DB8] shadow-[0_0_0_3px_rgba(22,175,245,0.10)]";
+      ? "flex min-w-[160px] items-center gap-3 rounded-2xl lg:w-full border border-sky-400/30 bg-sky-400/10 px-3 py-3 text-left text-sky-100 shadow-[0_0_0_3px_rgba(56,189,248,0.10)]"
+      : "flex min-w-[160px] items-center gap-3 rounded-2xl lg:w-full border border-[#B7E8FC] bg-[#EAF8FE] px-3 py-3 text-left text-[#007DB8] shadow-[0_0_0_3px_rgba(22,175,245,0.10)]";
   }
 
   if (enabled) {
     return isDarkTheme
-      ? "flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-3 text-left text-slate-300 transition hover:border-white/[0.075] hover:bg-white/[0.055]"
-      : "flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-3 text-left text-slate-700 transition hover:border-[#E5EAF0] hover:bg-white";
+      ? "flex min-w-[160px] items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-300 transition hover:border-white/[0.075] hover:bg-white/[0.055]"
+      : "flex min-w-[160px] items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-700 transition hover:border-[#E5EAF0] hover:bg-white";
   }
 
   return isDarkTheme
-    ? "flex w-full cursor-not-allowed items-center gap-3 rounded-2xl border border-transparent px-3 py-3 text-left text-slate-500 opacity-55"
-    : "flex w-full cursor-not-allowed items-center gap-3 rounded-2xl border border-transparent px-3 py-3 text-left text-slate-500 opacity-60";
+    ? "flex min-w-[160px] cursor-not-allowed items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-500 opacity-55"
+    : "flex min-w-[160px] cursor-not-allowed items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-500 opacity-60";
 }
 
 function getSoftButtonClassName(isDarkTheme: boolean): string {

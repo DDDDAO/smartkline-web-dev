@@ -945,7 +945,7 @@ function TopSignalSourceCard({
                 {panelCopy.tradeHistory}: {model.events.length}
               </span>
             </div>
-            <div className="signal-card-field-layer mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div className="signal-card-field-layer mt-3 grid gap-2 text-xs sm:grid-cols-2">
               <SignalField isDarkTheme={isDarkTheme} label={panelCopy.margin} value={formatCurrency(model.trader.margin_balance)} />
               <SignalField isDarkTheme={isDarkTheme} label={panelCopy.notional} value={formatCurrency(totalNotionalValue)} />
               <SignalField isDarkTheme={isDarkTheme} label={panelCopy.totalLeverage} value={formatLeverage(totalLeverage)} />
