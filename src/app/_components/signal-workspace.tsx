@@ -11,6 +11,7 @@ import {
   fetchKolSignalsAfter,
 } from "@/app/_lib/kol-signal-api";
 import {
+  applyCopyTradingLatestPrices,
   createCopyTradingTradeMarkers,
   createMarketAlignedMockCopyTradingRadarSnapshot,
   fetchCopyTradingRadarSnapshot,
@@ -49,6 +50,10 @@ import {
   usePaperPositionCandles,
 } from "./signal-workspace/use-paper-position-candles";
 import {
+  readBinanceMiniTickerPrice,
+  useBinanceMiniTickerPrices,
+} from "./signal-workspace/use-binance-mini-ticker-prices";
+import {
   createSignalFocusRequestKey,
   type ChartTheme,
 } from "@/app/_components/kline-chart";
@@ -86,13 +91,25 @@ const COMPACT_LAYOUT_MEDIA_QUERY = "(max-width: 1023px)";
 const TELEGRAM_DISCUSSION_GROUP_URL =
   process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
 const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
-
+const WORKSPACE_TAB_ROUTE_SEGMENTS: Readonly<Record<WorkspaceProductTab, string>> = {
+  intel: "kol",
+  kolFollow: "kol-square",
+  topSignals: "signal",
+};
 
 type WorkspaceNotification = {
   id: string;
   message: string;
   meta: string;
   title: string;
+};
+
+type WorkspaceRouteState = {
+  signalId: string;
+  symbol: MarketSymbol | null;
+  tab: WorkspaceProductTab | null;
+  topSignalSourceId: string;
+  topSignalTradeEventId: string;
 };
 
 export function SignalWorkspace() {
@@ -132,6 +149,8 @@ export function SignalWorkspace() {
     useState("");
   const [topSignalsSourceFilterId, setTopSignalsSourceFilterId] =
     useState("all");
+  const [explicitTopSignalSourceId, setExplicitTopSignalSourceId] =
+    useState("");
   const [topSignalsSourceStatus, setTopSignalsSourceStatus] =
     useState<KolSignalSourceStatus>({
       error: null,
@@ -153,6 +172,7 @@ export function SignalWorkspace() {
   const rightPanelExitTimeoutRef = useRef<number | null>(null);
   const onboardingOpenTimeoutRef = useRef<number | null>(null);
   const hasEvaluatedAutoOnboardingRef = useRef(false);
+  const pendingRouteTopSignalTradeEventIdRef = useRef("");
 
   const activeSignal =
     signals.find((signal) => signal.id === activeSignalId) ??
@@ -166,6 +186,19 @@ export function SignalWorkspace() {
   const watchlistedTopSignalSourceIds = useMemo(
     () => new Set(watchlist.topSignalSources.map((source) => source.id)),
     [watchlist.topSignalSources],
+  );
+  const topSignalMiniTickerSymbols = useMemo(
+    () => topSignalsSnapshot?.positions.map((position) => position.symbol) ?? [],
+    [topSignalsSnapshot],
+  );
+  const {
+    latestPricesBySymbol: topSignalMiniTickerPricesBySymbol,
+  } = useBinanceMiniTickerPrices(topSignalMiniTickerSymbols);
+  const topSignalsDisplaySnapshot = useMemo(
+    () => topSignalsSnapshot
+      ? applyCopyTradingLatestPrices(topSignalsSnapshot, topSignalMiniTickerPricesBySymbol)
+      : null,
+    [topSignalMiniTickerPricesBySymbol, topSignalsSnapshot],
   );
   const topSignalsActiveSourceIds = useMemo(
     () => new Set(topSignalsSnapshot?.traders.filter(isActiveCopyTradingTrader).map((trader) => trader.trader_id) ?? []),
@@ -205,18 +238,29 @@ export function SignalWorkspace() {
     errorsBySymbol: paperPositionErrorsBySymbol,
     latestPricesBySymbol: paperPositionLatestPricesBySymbol,
   } = usePaperPositionCandles(signals, latestMarketCandleUpdate);
+  const paperPositionMiniTickerSymbols = useMemo(
+    () => signals.map((signal) => signal.symbol),
+    [signals],
+  );
+  const {
+    latestPricesBySymbol: paperPositionMiniTickerPricesBySymbol,
+  } = useBinanceMiniTickerPrices(paperPositionMiniTickerSymbols);
   const paperPositionsBySignalId = useMemo(() => {
     const recordsBySignalId: Record<string, PaperPositionRecord> = {};
 
     for (const signal of signals) {
       const candles = paperPositionCandlesBySymbol[signal.symbol];
       if (candles && candles.length > 0) {
+        const miniTickerPrice = readBinanceMiniTickerPrice(
+          paperPositionMiniTickerPricesBySymbol,
+          signal.symbol,
+        );
         recordsBySignalId[signal.id] = computePaperPositionRecord(
           signal,
           candles,
           {
             currentPriceOverride:
-              paperPositionLatestPricesBySymbol[signal.symbol] ?? null,
+              miniTickerPrice ?? paperPositionLatestPricesBySymbol[signal.symbol] ?? null,
           },
         );
       }
@@ -226,6 +270,7 @@ export function SignalWorkspace() {
   }, [
     paperPositionCandlesBySymbol,
     paperPositionLatestPricesBySymbol,
+    paperPositionMiniTickerPricesBySymbol,
     signals,
   ]);
   const activeChartPaperPosition = activeSignal
@@ -286,6 +331,33 @@ export function SignalWorkspace() {
   }, []);
   const toggleLanguage = () =>
     setWorkspaceLanguage(language === "zh-CN" ? "en-US" : "zh-CN");
+  const applyWorkspaceRouteState = useCallback((
+    routeState: WorkspaceRouteState,
+    fallbackTab?: WorkspaceProductTab,
+  ) => {
+    const nextTab = routeState.tab ?? fallbackTab;
+    if (nextTab) {
+      setActiveProductTab(nextTab);
+    }
+
+    if (routeState.symbol) {
+      setSymbol(routeState.symbol);
+    }
+
+    if (routeState.signalId) {
+      setActiveSignalId(routeState.signalId);
+    }
+
+    if (routeState.tab === "topSignals") {
+      setTopSignalsSourceFilterId(routeState.topSignalSourceId || "all");
+      setActiveTopSignalSourceId(routeState.topSignalSourceId);
+      setExplicitTopSignalSourceId(routeState.topSignalSourceId);
+      setActiveTopSignalTradeEventId(routeState.topSignalTradeEventId);
+      pendingRouteTopSignalTradeEventIdRef.current = routeState.topSignalTradeEventId;
+    } else {
+      pendingRouteTopSignalTradeEventIdRef.current = "";
+    }
+  }, []);
 
   useEffect(() => {
     copyRef.current = copy;
@@ -319,6 +391,13 @@ export function SignalWorkspace() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
+      const routeState = readWorkspaceRouteStateFromLocation();
+      if (routeState.tab) {
+        applyWorkspaceRouteState(routeState);
+        setIsProductTabHydrated(true);
+        return;
+      }
+
       try {
         const storedProductTab = window.localStorage.getItem(
           WORKSPACE_PRODUCT_TAB_STORAGE_KEY,
@@ -336,7 +415,7 @@ export function SignalWorkspace() {
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, []);
+  }, [applyWorkspaceRouteState]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -396,6 +475,73 @@ export function SignalWorkspace() {
       // Ignore storage failures in private browsing or restricted webviews.
     }
   }, [activeProductTab, isProductTabHydrated]);
+
+  const updateWorkspaceRouteUrl = useCallback((
+    mode: "push" | "replace",
+    overrides?: {
+      tab?: WorkspaceProductTab;
+      symbol?: MarketSymbol;
+      signalId?: string;
+      topSignalSourceId?: string;
+      topSignalTradeEventId?: string;
+    },
+  ) => {
+    if (!isProductTabHydrated) {
+      return;
+    }
+
+    const nextTab = overrides?.tab ?? activeProductTab;
+    const hasTopSignalSourceOverride = Object.prototype.hasOwnProperty.call(
+      overrides ?? {},
+      "topSignalSourceId",
+    );
+    const nextTopSignalSourceId = hasTopSignalSourceOverride
+      ? (overrides?.topSignalSourceId ?? "")
+      : explicitTopSignalSourceId
+        || (topSignalsSourceFilterId !== "all" ? topSignalsSourceFilterId : "");
+    const hasTopSignalTradeOverride = Object.prototype.hasOwnProperty.call(
+      overrides ?? {},
+      "topSignalTradeEventId",
+    );
+    const nextTopSignalTradeEventId = hasTopSignalTradeOverride
+      ? (overrides?.topSignalTradeEventId ?? "")
+      : activeTopSignalTradeEventId;
+    const nextUrl = createWorkspaceRouteUrl({
+      activeSignalId: overrides?.signalId ?? activeSignalId,
+      currentPathname: window.location.pathname,
+      symbol: overrides?.symbol ?? symbol,
+      tab: nextTab,
+      topSignalSourceId: nextTopSignalSourceId,
+      topSignalTradeEventId: nextTopSignalTradeEventId,
+    });
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    if (currentUrl === nextUrl) {
+      return;
+    }
+
+    window.history[mode === "push" ? "pushState" : "replaceState"](null, "", nextUrl);
+  }, [
+    activeProductTab,
+    activeSignalId,
+    activeTopSignalTradeEventId,
+    explicitTopSignalSourceId,
+    isProductTabHydrated,
+    symbol,
+    topSignalsSourceFilterId,
+  ]);
+
+  useEffect(() => {
+    updateWorkspaceRouteUrl("replace");
+  }, [updateWorkspaceRouteUrl]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      applyWorkspaceRouteState(readWorkspaceRouteStateFromLocation(), "intel");
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [applyWorkspaceRouteState]);
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
@@ -682,6 +828,43 @@ export function SignalWorkspace() {
     };
   }, [shouldLoadTopSignalsSnapshot]);
 
+  useEffect(() => {
+    const pendingTradeEventId = pendingRouteTopSignalTradeEventIdRef.current;
+    if (
+      activeProductTab !== "topSignals"
+      || !topSignalsSnapshot
+      || !pendingTradeEventId
+      || pendingTradeEventId !== activeTopSignalTradeEventId
+    ) {
+      return;
+    }
+
+    const event = topSignalsSnapshot.events.find(
+      (snapshotEvent) => snapshotEvent.event_id === pendingTradeEventId,
+    );
+    pendingRouteTopSignalTradeEventIdRef.current = "";
+    if (!event) {
+      return;
+    }
+
+    const eventTimeMs = Date.parse(event.occurred_at);
+    const nextSymbol = toCopyTradingMarketSymbol(event.symbol);
+    setActiveTopSignalSourceId(event.trader_id);
+    setExplicitTopSignalSourceId(event.trader_id);
+    setSymbol(nextSymbol);
+    if (Number.isFinite(eventTimeMs)) {
+      setChartFocusSignalRequestKey(null);
+      setChartFocusTimeRequest({
+        key: `top-signal-route:${event.event_id}:${eventTimeMs}`,
+        sourceTimeMs: eventTimeMs,
+      });
+    }
+  }, [
+    activeProductTab,
+    activeTopSignalTradeEventId,
+    topSignalsSnapshot,
+  ]);
+
   const toggleRightPanel = () => {
     if (isRightPanelExiting) {
       return;
@@ -706,8 +889,12 @@ export function SignalWorkspace() {
       setChartFocusTimeRequest(null);
       setActiveSignalId(signal.id);
       setSymbol(signal.symbol);
+      updateWorkspaceRouteUrl("replace", {
+        signalId: signal.id,
+        symbol: signal.symbol,
+      });
     },
-    [],
+    [updateWorkspaceRouteUrl],
   );
 
   const handleSymbolChange = useCallback(
@@ -719,37 +906,81 @@ export function SignalWorkspace() {
       setActiveSignalId(nextSignal?.id ?? "");
       if (activeProductTab === "topSignals") {
         setActiveTopSignalTradeEventId("");
+        pendingRouteTopSignalTradeEventIdRef.current = "";
       }
+      updateWorkspaceRouteUrl("replace", {
+        signalId: nextSignal?.id ?? "",
+        symbol: nextSymbol,
+        topSignalTradeEventId: activeProductTab === "topSignals" ? "" : undefined,
+      });
     },
-    [activeProductTab, signals],
+    [activeProductTab, signals, updateWorkspaceRouteUrl],
   );
+
+  const handleProductTabChange = useCallback((nextTab: WorkspaceProductTab) => {
+    setActiveProductTab(nextTab);
+    if (nextTab !== "topSignals") {
+      pendingRouteTopSignalTradeEventIdRef.current = "";
+    }
+    updateWorkspaceRouteUrl("push", { tab: nextTab });
+  }, [updateWorkspaceRouteUrl]);
 
   const handleTopSignalSourceSelect = useCallback((sourceId: string) => {
     setActiveTopSignalSourceId(sourceId);
+    setExplicitTopSignalSourceId(sourceId);
     setActiveTopSignalTradeEventId("");
-  }, []);
+    pendingRouteTopSignalTradeEventIdRef.current = "";
+    updateWorkspaceRouteUrl("replace", {
+      tab: "topSignals",
+      topSignalSourceId: sourceId,
+      topSignalTradeEventId: "",
+    });
+  }, [updateWorkspaceRouteUrl]);
 
   const handleTopSignalSourceFilterChange = useCallback((sourceId: string) => {
     setTopSignalsSourceFilterId(sourceId);
+    setExplicitTopSignalSourceId(sourceId === "all" ? "" : sourceId);
+    pendingRouteTopSignalTradeEventIdRef.current = "";
     if (sourceId !== "all") {
       setActiveTopSignalSourceId(sourceId);
       setActiveTopSignalTradeEventId("");
+    } else {
+      setActiveTopSignalTradeEventId("");
     }
-  }, []);
+    updateWorkspaceRouteUrl("replace", {
+      tab: "topSignals",
+      topSignalSourceId: sourceId === "all" ? "" : sourceId,
+      topSignalTradeEventId: "",
+    });
+  }, [updateWorkspaceRouteUrl]);
 
   const handleTopSignalPositionSelect = useCallback((position: CopyTradingPosition) => {
+    const nextSymbol = toCopyTradingMarketSymbol(position.symbol);
     setActiveTopSignalSourceId(position.trader_id);
+    setExplicitTopSignalSourceId(position.trader_id);
     setActiveTopSignalTradeEventId("");
+    pendingRouteTopSignalTradeEventIdRef.current = "";
     setChartFocusSignalRequestKey(null);
     setChartFocusTimeRequest(null);
-    setSymbol(toCopyTradingMarketSymbol(position.symbol));
-  }, []);
+    setSymbol(nextSymbol);
+    updateWorkspaceRouteUrl("replace", {
+      symbol: nextSymbol,
+      tab: "topSignals",
+      topSignalSourceId: position.trader_id,
+      topSignalTradeEventId: "",
+    });
+  }, [updateWorkspaceRouteUrl]);
 
   const handleTopSignalTradeSelect = useCallback((event: CopyTradingEvent) => {
     const eventTimeMs = Date.parse(event.occurred_at);
     const nextSymbol = toCopyTradingMarketSymbol(event.symbol);
     setActiveTopSignalSourceId(event.trader_id);
+    setExplicitTopSignalSourceId(event.trader_id);
+    if (topSignalsActiveSourceIds.has(event.trader_id)) {
+      setTopSignalsSourceFilterId(event.trader_id);
+    }
     setActiveTopSignalTradeEventId(event.event_id);
+    pendingRouteTopSignalTradeEventIdRef.current = "";
     setChartFocusSignalRequestKey(null);
     setSymbol(nextSymbol);
 
@@ -761,7 +992,13 @@ export function SignalWorkspace() {
     } else {
       setChartFocusTimeRequest(null);
     }
-  }, []);
+    updateWorkspaceRouteUrl("replace", {
+      symbol: nextSymbol,
+      tab: "topSignals",
+      topSignalSourceId: event.trader_id,
+      topSignalTradeEventId: event.event_id,
+    });
+  }, [topSignalsActiveSourceIds, updateWorkspaceRouteUrl]);
 
   const handleTopSignalTradeHistoryLoadMore = useCallback(async ({
     limit,
@@ -913,7 +1150,7 @@ export function SignalWorkspace() {
           onGuideOpen={startOnboardingGuide}
           onLanguageToggle={toggleLanguage}
           onNotificationDismiss={() => setWorkspaceNotification(null)}
-          onProductTabChange={setActiveProductTab}
+          onProductTabChange={handleProductTabChange}
           onThemeToggle={toggleTheme}
         />
       </div>
@@ -1004,7 +1241,7 @@ export function SignalWorkspace() {
                       />
                     }
                     isDarkTheme={isDarkTheme}
-                    snapshot={topSignalsSnapshot}
+                    snapshot={topSignalsDisplaySnapshot}
                     sourceFilterId={effectiveTopSignalsSourceFilterId}
                     sourceStatus={topSignalsSourceStatus}
                     watchlistedSourceIds={watchlistedTopSignalSourceIds}
@@ -1067,7 +1304,7 @@ export function SignalWorkspace() {
           isCompactLayout={isCompactLayout}
           isDarkTheme={isDarkTheme}
           isOpen={isMobileTopSignalsSheetOpen}
-          snapshot={topSignalsSnapshot}
+          snapshot={topSignalsDisplaySnapshot}
           sourceFilterId={effectiveTopSignalsSourceFilterId}
           sourceStatus={topSignalsSourceStatus}
           watchlistedSourceIds={watchlistedTopSignalSourceIds}
@@ -1103,6 +1340,118 @@ export function SignalWorkspace() {
       ) : null}
     </main>
   );
+}
+
+function createWorkspaceRouteUrl(input: {
+  activeSignalId: string;
+  currentPathname: string;
+  symbol: MarketSymbol;
+  tab: WorkspaceProductTab;
+  topSignalSourceId: string;
+  topSignalTradeEventId: string;
+}): string {
+  const routePrefix = getWorkspaceRoutePrefix(input.currentPathname);
+  const tabSegment = WORKSPACE_TAB_ROUTE_SEGMENTS[input.tab];
+  const symbolSegment = encodeMarketSymbolForRoute(input.symbol);
+  const queryParams = new URLSearchParams();
+
+  if (input.tab === "intel" && input.activeSignalId) {
+    queryParams.set("signal", input.activeSignalId);
+  }
+
+  if (input.tab === "topSignals") {
+    if (input.topSignalSourceId) {
+      queryParams.set("source", input.topSignalSourceId);
+    }
+    if (input.topSignalTradeEventId) {
+      queryParams.set("trade", input.topSignalTradeEventId);
+    }
+  }
+
+  const path = `${routePrefix}/${tabSegment}/${encodeURIComponent(symbolSegment)}`;
+  const query = queryParams.toString();
+  return query ? `${path}?${query}` : path;
+}
+
+function readWorkspaceRouteStateFromLocation(): WorkspaceRouteState {
+  if (typeof window === "undefined") {
+    return createEmptyWorkspaceRouteState();
+  }
+
+  return readWorkspaceRouteState(
+    window.location.pathname,
+    window.location.search,
+  );
+}
+
+function readWorkspaceRouteState(
+  pathname: string,
+  search: string,
+): WorkspaceRouteState {
+  const segments = pathname.split("/").filter(Boolean);
+  const routeStartIndex = segments[0] === "zh" ? 1 : 0;
+  const tab = workspaceTabFromRouteSegment(segments[routeStartIndex] ?? "");
+  if (!tab) {
+    return createEmptyWorkspaceRouteState();
+  }
+
+  const rawSymbolSegment = segments[routeStartIndex + 1] ?? "";
+  const symbol = rawSymbolSegment
+    ? toCopyTradingMarketSymbol(safeDecodeRouteSegment(rawSymbolSegment))
+    : null;
+  const queryParams = new URLSearchParams(search);
+
+  return {
+    signalId: tab === "intel" ? (queryParams.get("signal")?.trim() ?? "") : "",
+    symbol,
+    tab,
+    topSignalSourceId: tab === "topSignals" ? (queryParams.get("source")?.trim() ?? "") : "",
+    topSignalTradeEventId: tab === "topSignals" ? (queryParams.get("trade")?.trim() ?? "") : "",
+  };
+}
+
+function createEmptyWorkspaceRouteState(): WorkspaceRouteState {
+  return {
+    signalId: "",
+    symbol: null,
+    tab: null,
+    topSignalSourceId: "",
+    topSignalTradeEventId: "",
+  };
+}
+
+function workspaceTabFromRouteSegment(segment: string): WorkspaceProductTab | null {
+  const normalizedSegment = segment.trim().toLowerCase();
+  for (const [tab, routeSegment] of Object.entries(WORKSPACE_TAB_ROUTE_SEGMENTS)) {
+    if (routeSegment === normalizedSegment) {
+      return tab as WorkspaceProductTab;
+    }
+  }
+
+  return null;
+}
+
+function getWorkspaceRoutePrefix(pathname: string): string {
+  const firstSegment = pathname.split("/").filter(Boolean)[0] ?? "";
+  return firstSegment === "zh" ? "/zh" : "";
+}
+
+function encodeMarketSymbolForRoute(symbol: MarketSymbol): string {
+  const normalizedSymbol = symbol.trim().toUpperCase();
+  const perpetualMatch = /^([^/]+)\/([^:]+)(?::[^:]+)?$/u.exec(normalizedSymbol);
+  if (perpetualMatch) {
+    return `${perpetualMatch[1]}${perpetualMatch[2]}`;
+  }
+
+  return normalizedSymbol.replace(/[^A-Z0-9]/gu, "");
+}
+
+function safeDecodeRouteSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
 }
 
 function useCompactLayout(): boolean {
