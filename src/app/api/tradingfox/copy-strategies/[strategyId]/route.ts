@@ -1,5 +1,5 @@
 import { connection, NextRequest, NextResponse } from "next/server";
-import { getTradingFoxCopyStrategyDetail, updateTradingFoxCopyStrategyStatus } from "@/app/_lib/tradingfox-control-plane";
+import { deleteTradingFoxCopyStrategy, getTradingFoxCopyStrategyDetail, updateTradingFoxCopyStrategyStatus } from "@/app/_lib/tradingfox-control-plane";
 import { requireTradingFoxSession, tradingFoxErrorResponse } from "../../_session";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +32,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "status must be running, paused, or stopped." }, { status: 400 });
     }
     return NextResponse.json(await updateTradingFoxCopyStrategyStatus(session, strategyId, payload.status));
+  } catch (error) {
+    return tradingFoxErrorResponse(error);
+  }
+}
+
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  await connection();
+
+  try {
+    const session = await requireTradingFoxSession(request);
+    const { strategyId } = await context.params;
+    return NextResponse.json(await deleteTradingFoxCopyStrategy(session, strategyId));
   } catch (error) {
     return tradingFoxErrorResponse(error);
   }
