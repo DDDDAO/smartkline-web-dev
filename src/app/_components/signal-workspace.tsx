@@ -1495,6 +1495,7 @@ export function SignalWorkspace() {
         meta: strategyId,
         title: copyRef.current.workspace.accountCenter.strategy.title,
       });
+      throw error;
     }
   }, [applyTradingFoxAccount, prototypeStrategies]);
 

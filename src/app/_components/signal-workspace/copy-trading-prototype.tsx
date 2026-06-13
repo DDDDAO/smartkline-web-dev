@@ -900,9 +900,13 @@ function StrategyDetailView({
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={String(detail?.positions.length ?? liveStrategy.positionsCount)} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.signalSourceCount} value={String(detail?.signalSources.length ?? 0)} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.traderOrders} value={String(orderItems.length)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.desiredState} value={detail?.trader.desiredState ?? (detail?.trader.enabled ? "enabled" : "disabled")} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.runtimeState} value={detail?.trader.runtimeState ?? detail?.trader.runtime?.state ?? "--"} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.configRevision} value={detail ? String(detail.trader.configRevision) : "--"} />
         </div>
+        {detail?.trader.statusMessage ? (
+          <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-amber-200" : "mt-3 text-xs leading-5 text-amber-700"}>{detail.trader.statusMessage}</p>
+        ) : null}
       </div>
 
       {isLoading ? (
@@ -935,6 +939,7 @@ function StrategyDetailView({
             </div>
             {syncMessage ? <p className={isDarkTheme ? "mt-3 text-xs text-emerald-200" : "mt-3 text-xs text-emerald-700"}>{syncMessage}</p> : null}
             {syncError ? <p className="mt-3 text-xs text-rose-500">{syncError}</p> : null}
+            {!detail.trader.enabled ? <p className={isDarkTheme ? "mt-3 text-xs text-amber-200" : "mt-3 text-xs text-amber-700"}>{strategyCopy.syncPositionsDisabled}</p> : null}
           </section>
 
           <section className={getModalSectionClassName(isDarkTheme)}>
