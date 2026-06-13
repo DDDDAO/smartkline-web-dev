@@ -1743,6 +1743,7 @@ export function SignalWorkspace() {
         apiConnections={prototypeApiConnections}
         copy={copy}
         isDarkTheme={isDarkTheme}
+        strategies={prototypeStrategies}
         target={copyTradingTarget}
         onClose={() => setCopyTradingTarget(null)}
         onStart={handlePrototypeStrategyStart}

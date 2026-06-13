@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import * as SelectPrimitive from "@radix-ui/react-select";
+import { useEffect, useMemo, useState } from "react";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
 import type { TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
@@ -68,6 +69,7 @@ type CopyTradingPrototypeModalProps = {
   apiConnections: readonly PrototypeApiConnection[];
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
+  strategies: readonly PrototypeStrategy[];
   target: CopyTradingPrototypeTarget | null;
   onClose: () => void;
   onStart: (input: {
@@ -445,6 +447,7 @@ export function CopyTradingPrototypeModal({
   apiConnections,
   copy,
   isDarkTheme,
+  strategies,
   target,
   onClose,
   onStart,
@@ -456,8 +459,16 @@ export function CopyTradingPrototypeModal({
 
   const parsedTakeProfit = Number(takeProfitPercent);
   const parsedStopLoss = Number(stopLossPercent);
-  const selectedApiConnection = apiConnections.find((connection) => String(connection.id) === selectedConnectorId) ?? apiConnection;
+  const occupiedConnectorIds = useMemo(() => new Set(strategies
+    .filter((strategy) => strategy.status !== "stopped")
+    .map((strategy) => strategy.exchangeConnectorId)), [strategies]);
+  const availableApiConnections = useMemo(() => apiConnections.filter((connection) =>
+    connection.status === "connected" && !occupiedConnectorIds.has(connection.id),
+  ), [apiConnections, occupiedConnectorIds]);
+  const selectedApiConnection = availableApiConnections.find((connection) => String(connection.id) === selectedConnectorId) ?? availableApiConnections[0] ?? null;
+  const selectedTradingAccountId = selectedApiConnection ? String(selectedApiConnection.id) : "";
   const canStart = Boolean(target)
+    && selectedApiConnection !== null
     && selectedApiConnection.status === "connected"
     && Number.isFinite(parsedTakeProfit)
     && Number.isFinite(parsedStopLoss)
@@ -509,21 +520,17 @@ export function CopyTradingPrototypeModal({
           <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
             <label className="block">
               <span className={getLabelClassName(isDarkTheme)}>{accountCopy.copyTrading.apiSelect}</span>
-              {apiConnections.length > 0 ? (
-                <select
-                  className={isDarkTheme ? "mt-2 h-12 w-full rounded-2xl border border-white/[0.075] bg-[#111820] px-3 text-sm font-bold text-slate-100 outline-none transition focus:border-sky-400/45" : "mt-2 h-12 w-full rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 text-sm font-bold text-slate-950 outline-none transition focus:border-[#7DBEFF]"}
-                  value={selectedConnectorId}
-                  onChange={(event) => setSelectedConnectorId(event.target.value)}
-                >
-                  {apiConnections.map((connection) => (
-                    <option key={connection.id} value={connection.id}>
-                      {connection.accountName} · {formatMockBalance(connection.mockMarginBalance)}
-                    </option>
-                  ))}
-                </select>
+              {availableApiConnections.length > 0 ? (
+                <TradingAccountSelect
+                  accountCopy={accountCopy}
+                  connections={availableApiConnections}
+                  isDarkTheme={isDarkTheme}
+                  value={selectedTradingAccountId}
+                  onChange={setSelectedConnectorId}
+                />
               ) : (
                 <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold" : "mt-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold"}>
-                  {accountCopy.copyTrading.apiRequired}
+                  {apiConnections.length > 0 ? accountCopy.copyTrading.noAvailableAccount : accountCopy.copyTrading.apiRequired}
                 </div>
               )}
             </label>
@@ -559,6 +566,9 @@ export function CopyTradingPrototypeModal({
               type="button"
               onClick={() => {
                 if (!canStart) {
+                  return;
+                }
+                if (!selectedApiConnection) {
                   return;
                 }
                 onStart({
@@ -614,6 +624,89 @@ function ApiConnectionCard({
         </div>
       </div>
     </div>
+  );
+}
+
+function TradingAccountSelect({
+  accountCopy,
+  connections,
+  isDarkTheme,
+  value,
+  onChange,
+}: {
+  accountCopy: WorkspaceCopy["workspace"]["accountCenter"];
+  connections: readonly PrototypeApiConnection[];
+  isDarkTheme: boolean;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const selectedConnection = connections.find((connection) => String(connection.id) === value) ?? connections[0];
+
+  return (
+    <SelectPrimitive.Root value={value} onValueChange={onChange}>
+      <SelectPrimitive.Trigger
+        className={isDarkTheme
+          ? "mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-left text-sm font-bold text-slate-100 outline-none transition hover:bg-white/[0.055] focus:border-sky-400/45 focus:ring-2 focus:ring-sky-400/10 data-[placeholder]:text-slate-500"
+          : "mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-[#D5E4EF] bg-white px-3 py-2 text-left text-sm font-bold text-slate-950 shadow-sm outline-none transition hover:bg-[#F8FAFC] focus:border-[#7DBEFF] focus:ring-2 focus:ring-[#16AFF5]/10 data-[placeholder]:text-slate-400"}
+      >
+        <TradingAccountOptionContent accountCopy={accountCopy} connection={selectedConnection} isDarkTheme={isDarkTheme} />
+        <SelectPrimitive.Icon asChild>
+          <span aria-hidden="true" className={isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-400"}>⌄</span>
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          className={isDarkTheme
+            ? "z-[130] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
+            : "z-[130] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
+          position="popper"
+          sideOffset={8}
+        >
+          <SelectPrimitive.Viewport className="grid gap-1">
+            {connections.map((connection) => (
+              <SelectPrimitive.Item
+                key={connection.id}
+                className={isDarkTheme
+                  ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-sky-400/10 data-[state=checked]:text-sky-100"
+                  : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-[#F8FAFC] data-[state=checked]:bg-[#EAF8FE] data-[state=checked]:text-[#007DB8]"}
+                value={String(connection.id)}
+              >
+                <SelectPrimitive.ItemText asChild>
+                  <TradingAccountOptionContent accountCopy={accountCopy} connection={connection} isDarkTheme={isDarkTheme} />
+                </SelectPrimitive.ItemText>
+                <SelectPrimitive.ItemIndicator className="text-xs font-black">✓</SelectPrimitive.ItemIndicator>
+              </SelectPrimitive.Item>
+            ))}
+          </SelectPrimitive.Viewport>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
+  );
+}
+
+function TradingAccountOptionContent({
+  accountCopy,
+  connection,
+  isDarkTheme,
+}: {
+  accountCopy: WorkspaceCopy["workspace"]["accountCenter"];
+  connection: PrototypeApiConnection;
+  isDarkTheme: boolean;
+}) {
+  return (
+    <span className="flex min-w-0 flex-1 items-center gap-2">
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-black">{connection.accountName}</span>
+        <span className={isDarkTheme ? "mt-0.5 block truncate text-xs font-semibold text-slate-500" : "mt-0.5 block truncate text-xs font-semibold text-slate-500"}>
+          {connection.exchangePlatform || accountCopy.exchanges.mockExchange} · {formatMockBalance(connection.mockMarginBalance)}
+        </span>
+      </span>
+      {connection.isMock ? (
+        <span className={isDarkTheme ? "shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
+          {accountCopy.api.mockBadge}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -857,68 +950,71 @@ function ExchangeApiSetupLayer({
                     <div className={isDarkTheme ? "mt-3 rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.07] px-3 py-3 text-xs leading-5 text-emerald-100/85" : "mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800"}>
                       {accountCopy.apiSetup.demoRiskNote}
                     </div>
-                    <div className="mt-4">
-                      <PrototypeInput
-                        autoComplete="off"
-                        fieldName="mock-margin-balance"
-                        inputMode="decimal"
-                        isDarkTheme={isDarkTheme}
-                        label={accountCopy.apiSetup.mockMarginBalance}
-                        placeholder={accountCopy.apiSetup.mockMarginBalancePlaceholder}
-                        value={mockMarginBalance}
-                        onChange={updateMockMarginBalance}
-                      />
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {MOCK_MARGIN_BALANCE_PRESETS.map((amount) => (
-                          <button
-                            key={amount}
-                            className={getSoftButtonClassName(isDarkTheme)}
-                            type="button"
-                            onClick={() => setMockMarginBalance(String(amount))}
-                          >
-                            {formatMockBalance(amount)}
-                          </button>
-                        ))}
+                    <div className="mt-4 grid gap-3">
+                      <PrototypeInput autoComplete="off" fieldName="account-name" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.accountName} value={accountName} onChange={setAccountName} />
+                      <div>
+                        <PrototypeInput
+                          autoComplete="off"
+                          fieldName="mock-margin-balance"
+                          inputMode="decimal"
+                          isDarkTheme={isDarkTheme}
+                          label={accountCopy.apiSetup.mockMarginBalance}
+                          placeholder={accountCopy.apiSetup.mockMarginBalancePlaceholder}
+                          value={mockMarginBalance}
+                          onChange={updateMockMarginBalance}
+                        />
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {MOCK_MARGIN_BALANCE_PRESETS.map((amount) => (
+                            <button
+                              key={amount}
+                              className={getSoftButtonClassName(isDarkTheme)}
+                              type="button"
+                              onClick={() => setMockMarginBalance(String(amount))}
+                            >
+                              {formatMockBalance(amount)}
+                            </button>
+                          ))}
+                        </div>
+                        <p className={isDarkTheme ? "mt-2 text-xs leading-5 text-slate-500" : "mt-2 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.mockMarginBalanceLimit}</p>
                       </div>
-                      <p className={isDarkTheme ? "mt-2 text-xs leading-5 text-slate-500" : "mt-2 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.mockMarginBalanceLimit}</p>
                     </div>
+                    <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-slate-500" : "mt-3 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.sensitiveNote}</p>
                   </section>
                 ) : (
-                  <section className={getModalSectionClassName(isDarkTheme)}>
-                    <div className={getLabelClassName(isDarkTheme)}>{accountCopy.apiSetup.whitelistIp}</div>
-                    <div className="mt-3 flex gap-2">
-                      <div className={isDarkTheme ? "min-w-0 flex-1 rounded-2xl border border-white/[0.075] bg-[#0F141B] px-3 py-3 font-mono text-sm font-black tracking-wide text-slate-100" : "min-w-0 flex-1 rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC] px-3 py-3 font-mono text-sm font-black tracking-wide text-slate-900"}>
-                        {WHITELIST_IP}
+                  <>
+                    <section className={getModalSectionClassName(isDarkTheme)}>
+                      <div className={getLabelClassName(isDarkTheme)}>{accountCopy.apiSetup.whitelistIp}</div>
+                      <div className="mt-3 flex gap-2">
+                        <div className={isDarkTheme ? "min-w-0 flex-1 rounded-2xl border border-white/[0.075] bg-[#0F141B] px-3 py-3 font-mono text-sm font-black tracking-wide text-slate-100" : "min-w-0 flex-1 rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC] px-3 py-3 font-mono text-sm font-black tracking-wide text-slate-900"}>
+                          {WHITELIST_IP}
+                        </div>
+                        <button
+                          aria-label={accountCopy.apiSetup.copyWhitelistIp}
+                          className={getIconButtonClassName(isDarkTheme)}
+                          title={accountCopy.apiSetup.copyWhitelistIp}
+                          type="button"
+                          onClick={() => {
+                            setHasCopiedIp(true);
+                            void navigator.clipboard?.writeText(WHITELIST_IP);
+                          }}
+                        >
+                          {hasCopiedIp ? "✓" : "□"}
+                        </button>
                       </div>
-                      <button
-                        aria-label={accountCopy.apiSetup.copyWhitelistIp}
-                        className={getIconButtonClassName(isDarkTheme)}
-                        title={accountCopy.apiSetup.copyWhitelistIp}
-                        type="button"
-                        onClick={() => {
-                          setHasCopiedIp(true);
-                          void navigator.clipboard?.writeText(WHITELIST_IP);
-                        }}
-                      >
-                        {hasCopiedIp ? "✓" : "□"}
-                      </button>
-                    </div>
-                  </section>
-                )}
+                    </section>
 
-                <section className={getModalSectionClassName(isDarkTheme)}>
-                  <h3 className="text-base font-black">{isDemoExchange ? accountCopy.apiSetup.demoAccountTitle : accountCopy.api.title}</h3>
-                  <div className="mt-4 grid gap-3">
-                    <PrototypeInput autoComplete="off" fieldName="account-name" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.accountName} value={accountName} onChange={setAccountName} />
-                    {!isDemoExchange ? (
-                      <>
+                    <section className={getModalSectionClassName(isDarkTheme)}>
+                      <h3 className="text-base font-black">{accountCopy.api.title}</h3>
+                      <div className="mt-4 grid gap-3">
+                        <PrototypeInput autoComplete="off" fieldName="account-name" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.accountName} value={accountName} onChange={setAccountName} />
                         <PrototypeInput autoComplete="off" fieldName="api-key" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiKey} placeholder={accountCopy.apiSetup.apiKeyPlaceholder} value={apiKey} onChange={setApiKey} />
                         <PrototypeInput autoComplete="new-password" fieldName="secret" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.secret} placeholder={accountCopy.apiSetup.secretPlaceholder} type="password" value={secret} onChange={setSecret} />
-                      </>
-                    ) : null}
-                  </div>
-                  <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-slate-500" : "mt-3 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.sensitiveNote}</p>
-                </section>
+                      </div>
+                      <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-slate-500" : "mt-3 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.sensitiveNote}</p>
+                    </section>
+                  </>
+                )}
+
               </main>
             </div>
           </div>
