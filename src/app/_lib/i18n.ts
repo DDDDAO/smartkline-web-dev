@@ -162,6 +162,7 @@ const zh = {
     accountCenter: {
       api: {
         accountType: "账户类型",
+        addAction: "新增模拟账户",
         bindAction: "绑定模拟交易",
         connected: "已连接",
         connectedDescription: "已绑定模拟交易账户，可用于一键跟单。",
@@ -244,6 +245,9 @@ const zh = {
         contracts: "合约数量",
         copyPositions: "跟单策略仓位",
         copyPositionsEmpty: "当前没有返回跟单策略仓位。",
+        delete: "删除",
+        deleteSuccess: "跟单策略已删除。",
+        deleting: "删除中",
         desiredState: "目标状态",
         empty: "还没有跟单策略。可从顶级信号卡片底部点击一键跟单创建。",
         entryPrice: "入场价",
@@ -269,6 +273,7 @@ const zh = {
         stopNote: "暂停只会停止后续跟随，不会自动平仓；可随时重新启用。",
         stopped: "已停止",
         syncPositions: "同步仓位",
+        syncPositionsDisabled: "当前策略未启用，启用后才能同步仓位。",
         syncPositionsHint: "启用状态下可按输入比例同步当前信号源仓位，例如 100 表示 100% 等比同步。",
         syncPositionsSuccess: "仓位同步请求已发送。",
         syncingPositions: "同步中",
@@ -636,6 +641,7 @@ const en: WorkspaceCopy = {
     accountCenter: {
       api: {
         accountType: "Account type",
+        addAction: "Add paper account",
         bindAction: "Bind Paper Trading",
         connected: "Connected",
         connectedDescription: "Paper trading account is connected and available for copy trading.",
@@ -718,6 +724,9 @@ const en: WorkspaceCopy = {
         contracts: "Contracts",
         copyPositions: "Copy strategy positions",
         copyPositionsEmpty: "No copy strategy positions returned.",
+        delete: "Delete",
+        deleteSuccess: "Copy strategy deleted.",
+        deleting: "Deleting",
         desiredState: "Desired",
         empty: "No copy strategies yet. Use the one-click copy action at the bottom of a Top Signals card.",
         entryPrice: "Entry",
@@ -743,6 +752,7 @@ const en: WorkspaceCopy = {
         stopNote: "Pausing only disables future following and does not close positions; the strategy can be enabled again.",
         stopped: "Stopped",
         syncPositions: "Sync positions",
+        syncPositionsDisabled: "This strategy is not enabled. Enable it before syncing positions.",
         syncPositionsHint: "When enabled, sync current signal source positions by ratio. For example, 100 means 100% proportional sync.",
         syncPositionsSuccess: "Position sync request sent.",
         syncingPositions: "Syncing",

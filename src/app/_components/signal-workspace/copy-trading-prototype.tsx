@@ -16,6 +16,7 @@ export type CopyTradingPrototypeTarget = {
 
 export type PrototypeApiConnection = {
   accountName: string;
+  id: number;
   connectedAtLabel: string;
   exchangePlatform: string;
   isMock: boolean;
@@ -27,6 +28,7 @@ export type PrototypeStrategyStatus = "running" | "paused" | "stopped";
 
 export type PrototypeStrategy = {
   apiAccountName: string;
+  exchangeConnectorId: number;
   avatarUrl: string;
   createdAtLabel: string;
   eventsCount: number;
@@ -42,6 +44,7 @@ export type PrototypeStrategy = {
 
 type AccountCenterPrototypeProps = {
   apiConnection: PrototypeApiConnection;
+  apiConnections: readonly PrototypeApiConnection[];
   copy: WorkspaceCopy;
   isApiSetupOpen: boolean;
   isAuthLoading: boolean;
@@ -56,16 +59,19 @@ type AccountCenterPrototypeProps = {
   onConnectionSave: (input: { accountName: string; mockMarginBalance: number }) => void;
   onLogin: () => void;
   onLogout: () => void;
+  onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 };
 
 type CopyTradingPrototypeModalProps = {
   apiConnection: PrototypeApiConnection;
+  apiConnections: readonly PrototypeApiConnection[];
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
   target: CopyTradingPrototypeTarget | null;
   onClose: () => void;
   onStart: (input: {
+    exchangeConnectorId: number;
     stopLossPercent: number;
     takeProfitPercent: number;
     target: CopyTradingPrototypeTarget;
@@ -90,6 +96,7 @@ type PrototypeExchangeId = PrototypeExchange["id"];
 
 export function AccountCenterPrototype({
   apiConnection,
+  apiConnections,
   copy,
   isApiSetupOpen,
   isAuthLoading,
@@ -104,6 +111,7 @@ export function AccountCenterPrototype({
   onConnectionSave,
   onLogin,
   onLogout,
+  onStrategyDelete,
   onStrategyStatusChange,
 }: AccountCenterPrototypeProps) {
   const accountCopy = copy.workspace.accountCenter;
@@ -178,6 +186,7 @@ export function AccountCenterPrototype({
                   isDarkTheme={isDarkTheme}
                   strategy={selectedStrategy}
                   onBack={() => setSelectedStrategyId(null)}
+                  onStrategyDelete={onStrategyDelete}
                   onStrategyStatusChange={onStrategyStatusChange}
                 />
               ) : (
@@ -197,37 +206,19 @@ export function AccountCenterPrototype({
                     {apiConnection.status === "connected" ? accountCopy.api.connected : accountCopy.api.empty}
                   </span>
                 </div>
-                {apiConnection.status === "connected" ? (
-                  <div className={isDarkTheme ? "mt-4 rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.06] p-3" : "mt-4 rounded-3xl border border-emerald-100 bg-emerald-50/70 p-3"}>
-                    <div className="flex items-start gap-3">
-                      <div className={isDarkTheme ? "grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-400/10 text-xs font-black text-emerald-200" : "grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-xs font-black text-emerald-700 shadow-sm"}>
-                        MX
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          <div className="truncate text-sm font-black">{apiConnection.accountName}</div>
-                          <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
-                            {accountCopy.api.mockBadge}
-                          </span>
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <MiniMetric isDarkTheme={isDarkTheme} label={accountCopy.api.accountType} value={apiConnection.exchangePlatform || accountCopy.exchanges.mockExchange} />
-                          <MiniMetric
-                            isDarkTheme={isDarkTheme}
-                            label={accountCopy.api.mockBalance}
-                            value={formatMockBalance(apiConnection.mockMarginBalance)}
-                          />
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                          <div className={isDarkTheme ? "text-xs text-emerald-200/70" : "text-xs text-emerald-700/75"}>
-                            {accountCopy.api.updatedAt}: {apiConnection.connectedAtLabel || "--"}
-                          </div>
-                          <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
-                            {accountCopy.api.editAction}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                {apiConnections.length > 0 ? (
+                  <div className="mt-4 grid gap-3">
+                    {apiConnections.map((connection) => (
+                      <ApiConnectionCard
+                        key={connection.id}
+                        accountCopy={accountCopy}
+                        apiConnection={connection}
+                        isDarkTheme={isDarkTheme}
+                      />
+                    ))}
+                    <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
+                      {accountCopy.api.addAction}
+                    </button>
                   </div>
                 ) : (
                   <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
@@ -249,6 +240,7 @@ export function AccountCenterPrototype({
                       isDarkTheme={isDarkTheme}
                       strategy={strategy}
                       onOpenDetail={setSelectedStrategyId}
+                      onStrategyDelete={onStrategyDelete}
                       onStrategyStatusChange={onStrategyStatusChange}
                     />
                   )) : (
@@ -289,6 +281,7 @@ export function AccountCenterPrototype({
 
 export function CopyTradingPrototypeModal({
   apiConnection,
+  apiConnections,
   copy,
   isDarkTheme,
   target,
@@ -296,13 +289,15 @@ export function CopyTradingPrototypeModal({
   onStart,
 }: CopyTradingPrototypeModalProps) {
   const [takeProfitPercent, setTakeProfitPercent] = useState("20");
+  const [selectedConnectorId, setSelectedConnectorId] = useState(String(apiConnection.id));
   const [stopLossPercent, setStopLossPercent] = useState("10");
   const accountCopy = copy.workspace.accountCenter;
 
   const parsedTakeProfit = Number(takeProfitPercent);
   const parsedStopLoss = Number(stopLossPercent);
+  const selectedApiConnection = apiConnections.find((connection) => String(connection.id) === selectedConnectorId) ?? apiConnection;
   const canStart = Boolean(target)
-    && apiConnection.status === "connected"
+    && selectedApiConnection.status === "connected"
     && Number.isFinite(parsedTakeProfit)
     && Number.isFinite(parsedStopLoss)
     && parsedTakeProfit > 0
@@ -353,9 +348,23 @@ export function CopyTradingPrototypeModal({
           <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
             <label className="block">
               <span className={getLabelClassName(isDarkTheme)}>{accountCopy.copyTrading.apiSelect}</span>
-              <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold" : "mt-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold"}>
-                {apiConnection.status === "connected" ? apiConnection.accountName : accountCopy.copyTrading.apiRequired}
-              </div>
+              {apiConnections.length > 0 ? (
+                <select
+                  className={isDarkTheme ? "mt-2 h-12 w-full rounded-2xl border border-white/[0.075] bg-[#111820] px-3 text-sm font-bold text-slate-100 outline-none transition focus:border-sky-400/45" : "mt-2 h-12 w-full rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 text-sm font-bold text-slate-950 outline-none transition focus:border-[#7DBEFF]"}
+                  value={selectedConnectorId}
+                  onChange={(event) => setSelectedConnectorId(event.target.value)}
+                >
+                  {apiConnections.map((connection) => (
+                    <option key={connection.id} value={connection.id}>
+                      {connection.accountName} · {formatMockBalance(connection.mockMarginBalance)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold" : "mt-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold"}>
+                  {accountCopy.copyTrading.apiRequired}
+                </div>
+              )}
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <PercentInput
@@ -392,6 +401,7 @@ export function CopyTradingPrototypeModal({
                   return;
                 }
                 onStart({
+                  exchangeConnectorId: selectedApiConnection.id,
                   stopLossPercent: parsedStopLoss,
                   takeProfitPercent: parsedTakeProfit,
                   target,
@@ -404,6 +414,45 @@ export function CopyTradingPrototypeModal({
         </div>
       </section>
     </>
+  );
+}
+
+function ApiConnectionCard({
+  accountCopy,
+  apiConnection,
+  isDarkTheme,
+}: {
+  accountCopy: WorkspaceCopy["workspace"]["accountCenter"];
+  apiConnection: PrototypeApiConnection;
+  isDarkTheme: boolean;
+}) {
+  return (
+    <div className={isDarkTheme ? "rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.06] p-3" : "rounded-3xl border border-emerald-100 bg-emerald-50/70 p-3"}>
+      <div className="flex items-start gap-3">
+        <div className={isDarkTheme ? "grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-400/10 text-xs font-black text-emerald-200" : "grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-xs font-black text-emerald-700 shadow-sm"}>
+          MX
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="truncate text-sm font-black">{apiConnection.accountName}</div>
+            <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
+              {accountCopy.api.mockBadge}
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <MiniMetric isDarkTheme={isDarkTheme} label={accountCopy.api.accountType} value={apiConnection.exchangePlatform || accountCopy.exchanges.mockExchange} />
+            <MiniMetric
+              isDarkTheme={isDarkTheme}
+              label={accountCopy.api.mockBalance}
+              value={formatMockBalance(apiConnection.mockMarginBalance)}
+            />
+          </div>
+          <div className={isDarkTheme ? "mt-3 text-xs text-emerald-200/70" : "mt-3 text-xs text-emerald-700/75"}>
+            #{apiConnection.id} · {accountCopy.api.updatedAt}: {apiConnection.connectedAtLabel || "--"}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -739,12 +788,14 @@ function PrototypeStrategyCard({
   isDarkTheme,
   strategy,
   onOpenDetail,
+  onStrategyDelete,
   onStrategyStatusChange,
 }: {
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
   strategy: PrototypeStrategy;
   onOpenDetail: (strategyId: string) => void;
+  onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
   const strategyCopy = copy.workspace.accountCenter.strategy;
@@ -785,6 +836,7 @@ function PrototypeStrategyCard({
         ) : (
           <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(strategy.id, "running")}>{strategyCopy.resume}</button>
         )}
+        <button className={getDangerButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyDelete(strategy.id)}>{strategyCopy.delete}</button>
       </div>
     </article>
   );
@@ -795,12 +847,14 @@ function StrategyDetailView({
   isDarkTheme,
   strategy,
   onBack,
+  onStrategyDelete,
   onStrategyStatusChange,
 }: {
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
   strategy: PrototypeStrategy;
   onBack: () => void;
+  onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
   const [detail, setDetail] = useState<TradingFoxStrategyDetail | null>(null);
@@ -811,6 +865,7 @@ function StrategyDetailView({
   const [syncMessage, setSyncMessage] = useState("");
   const [isSyncingPositions, setIsSyncingPositions] = useState(false);
   const [isUpdatingLifecycle, setIsUpdatingLifecycle] = useState(false);
+  const [isDeletingStrategy, setIsDeletingStrategy] = useState(false);
   const strategyCopy = copy.workspace.accountCenter.strategy;
 
   useEffect(() => {
@@ -879,6 +934,19 @@ function StrategyDetailView({
     }
   };
 
+  const deleteStrategy = async () => {
+    setIsDeletingStrategy(true);
+    setSyncError("");
+    try {
+      await onStrategyDelete(liveStrategy.id);
+      onBack();
+    } catch (deleteError) {
+      setSyncError(deleteError instanceof Error ? deleteError.message : "Strategy delete failed.");
+    } finally {
+      setIsDeletingStrategy(false);
+    }
+  };
+
   return (
     <section className="space-y-4">
       <div className={getModalSectionClassName(isDarkTheme)}>
@@ -900,9 +968,13 @@ function StrategyDetailView({
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={String(detail?.positions.length ?? liveStrategy.positionsCount)} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.signalSourceCount} value={String(detail?.signalSources.length ?? 0)} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.traderOrders} value={String(orderItems.length)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.desiredState} value={detail?.trader.desiredState ?? (detail?.trader.enabled ? "enabled" : "disabled")} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.runtimeState} value={detail?.trader.runtimeState ?? detail?.trader.runtime?.state ?? "--"} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.configRevision} value={detail ? String(detail.trader.configRevision) : "--"} />
         </div>
+        {detail?.trader.statusMessage ? (
+          <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-amber-200" : "mt-3 text-xs leading-5 text-amber-700"}>{detail.trader.statusMessage}</p>
+        ) : null}
       </div>
 
       {isLoading ? (
@@ -935,6 +1007,7 @@ function StrategyDetailView({
             </div>
             {syncMessage ? <p className={isDarkTheme ? "mt-3 text-xs text-emerald-200" : "mt-3 text-xs text-emerald-700"}>{syncMessage}</p> : null}
             {syncError ? <p className="mt-3 text-xs text-rose-500">{syncError}</p> : null}
+            {!detail.trader.enabled ? <p className={isDarkTheme ? "mt-3 text-xs text-amber-200" : "mt-3 text-xs text-amber-700"}>{strategyCopy.syncPositionsDisabled}</p> : null}
           </section>
 
           <section className={getModalSectionClassName(isDarkTheme)}>
@@ -1009,6 +1082,7 @@ function StrategyDetailView({
             ) : (
               <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("running")}>{strategyCopy.resume}</button>
             )}
+            <button className={getDangerButtonClassName(isDarkTheme)} disabled={isDeletingStrategy} type="button" onClick={() => void deleteStrategy()}>{isDeletingStrategy ? strategyCopy.deleting : strategyCopy.delete}</button>
           </div>
         </>
       ) : null}
@@ -1289,6 +1363,12 @@ function getSoftButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "inline-flex min-h-9 items-center justify-center rounded-xl border border-white/[0.075] bg-white/[0.04] px-3 text-xs font-black text-slate-200 transition hover:bg-white/[0.08]"
     : "inline-flex min-h-9 items-center justify-center rounded-xl border border-[#D5E4EF] bg-white px-3 text-xs font-black text-slate-700 transition hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+}
+
+function getDangerButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "inline-flex min-h-9 items-center justify-center rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 text-xs font-black text-rose-200 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-45"
+    : "inline-flex min-h-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 px-3 text-xs font-black text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-45";
 }
 
 function getIconButtonClassName(isDarkTheme: boolean): string {

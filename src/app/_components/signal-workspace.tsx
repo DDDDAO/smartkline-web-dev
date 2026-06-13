@@ -92,7 +92,7 @@ import {
 } from "./signal-workspace/copy-trading-prototype";
 import { TopSignalsPanel, type PnlColorMode } from "./signal-workspace/top-signals-panel";
 import type { TelegramAuthMeResponse } from "@/app/_lib/auth/telegram-auth";
-import type { TradingFoxAccountResponse } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxAccountResponse, TradingFoxConnector } from "@/app/_lib/tradingfox-control-plane";
 
 const MAX_VISIBLE_KOL_SIGNAL_HISTORY = 1_000;
 const NOTIFICATION_DISMISS_MS = 6_500;
@@ -191,15 +191,8 @@ export function SignalWorkspace() {
   const [isTradingFoxLoading, setIsTradingFoxLoading] = useState(false);
   const [isAccountCenterOpen, setIsAccountCenterOpen] = useState(false);
   const [isApiSetupOpen, setIsApiSetupOpen] = useState(false);
-  const [prototypeApiConnection, setPrototypeApiConnection] =
-    useState<PrototypeApiConnection>({
-      accountName: "Mock Exchange #1",
-      connectedAtLabel: "",
-      exchangePlatform: "Mock",
-      isMock: true,
-      mockMarginBalance: null,
-      status: "empty",
-    });
+  const [prototypeApiConnections, setPrototypeApiConnections] = useState<PrototypeApiConnection[]>([]);
+  const prototypeApiConnection = prototypeApiConnections[0] ?? createEmptyPrototypeApiConnection();
   const [prototypeStrategies, setPrototypeStrategies] = useState<
     PrototypeStrategy[]
   >([]);
@@ -392,14 +385,7 @@ export function SignalWorkspace() {
       });
     } finally {
       setAuthMe(LOGGED_OUT_AUTH_ME);
-      setPrototypeApiConnection({
-        accountName: "Mock Exchange #1",
-        connectedAtLabel: "",
-        exchangePlatform: "Mock",
-        isMock: true,
-        mockMarginBalance: null,
-        status: "empty",
-      });
+      setPrototypeApiConnections([]);
       setPrototypeStrategies([]);
       setIsAccountCenterOpen(false);
     }
@@ -413,23 +399,8 @@ export function SignalWorkspace() {
     startTelegramLogin();
   }, [authMe.isLoggedIn, startTelegramLogin]);
   const applyTradingFoxAccount = useCallback((account: TradingFoxAccountResponse) => {
-    setPrototypeApiConnection(account.connector
-      ? {
-        accountName: account.connector.name,
-        connectedAtLabel: formatTradingFoxDateLabel(account.connector.updatedAt, language),
-        exchangePlatform: account.connector.exchangePlatform,
-        isMock: account.connector.isMock,
-        mockMarginBalance: account.connector.mockMarginBalance ?? null,
-        status: "connected",
-      }
-      : {
-        accountName: "Mock Exchange #1",
-        connectedAtLabel: "",
-        exchangePlatform: "Mock",
-        isMock: true,
-        mockMarginBalance: null,
-        status: "empty",
-      });
+    const connectors = account.connectors ?? (account.connector ? [account.connector] : []);
+    setPrototypeApiConnections(connectors.map((connector) => mapTradingFoxConnectorToPrototypeConnection(connector, language)));
     setPrototypeStrategies(account.strategies);
   }, [language]);
 
@@ -529,14 +500,7 @@ export function SignalWorkspace() {
       }
 
       if (!authMe.isLoggedIn) {
-        setPrototypeApiConnection({
-          accountName: "Mock Exchange #1",
-          connectedAtLabel: "",
-          exchangePlatform: "Mock",
-          isMock: true,
-          mockMarginBalance: null,
-          status: "empty",
-        });
+        setPrototypeApiConnections([]);
         setPrototypeStrategies([]);
         return;
       }
@@ -1425,6 +1389,7 @@ export function SignalWorkspace() {
   }, []);
 
   const handlePrototypeStrategyStart = useCallback(async (input: {
+    exchangeConnectorId: number;
     stopLossPercent: number;
     takeProfitPercent: number;
     target: CopyTradingPrototypeTarget;
@@ -1442,6 +1407,7 @@ export function SignalWorkspace() {
           eventsCount: input.target.eventsCount,
           platform: input.target.trader.platform,
           positionsCount: input.target.positionsCount,
+          exchangeConnectorId: input.exchangeConnectorId,
           signalSourceId: input.target.trader.trader_id,
           stopLossPercent: input.stopLossPercent,
           takeProfitPercent: input.takeProfitPercent,
@@ -1495,6 +1461,34 @@ export function SignalWorkspace() {
         meta: strategyId,
         title: copyRef.current.workspace.accountCenter.strategy.title,
       });
+      throw error;
+    }
+  }, [applyTradingFoxAccount, prototypeStrategies]);
+
+  const handlePrototypeStrategyDelete = useCallback(async (strategyId: string) => {
+    const previousStrategies = prototypeStrategies;
+    setPrototypeStrategies((currentStrategies) => currentStrategies.filter((strategy) => strategy.id !== strategyId));
+
+    try {
+      const account = await requestTradingFoxAccount(`/api/tradingfox/copy-strategies/${encodeURIComponent(strategyId)}`, {
+        method: "DELETE",
+      });
+      applyTradingFoxAccount(account);
+      setWorkspaceNotification({
+        id: `copy-strategy-delete-${Date.now()}`,
+        message: copyRef.current.workspace.accountCenter.strategy.deleteSuccess,
+        meta: strategyId,
+        title: copyRef.current.workspace.accountCenter.strategy.title,
+      });
+    } catch (error) {
+      setPrototypeStrategies(previousStrategies);
+      setWorkspaceNotification({
+        id: `copy-strategy-delete-error-${Date.now()}`,
+        message: getTradingFoxErrorMessage(error),
+        meta: strategyId,
+        title: copyRef.current.workspace.accountCenter.strategy.title,
+      });
+      throw error;
     }
   }, [applyTradingFoxAccount, prototypeStrategies]);
 
@@ -1726,6 +1720,7 @@ export function SignalWorkspace() {
       ) : null}
       <AccountCenterPrototype
         apiConnection={prototypeApiConnection}
+        apiConnections={prototypeApiConnections}
         copy={copy}
         isApiSetupOpen={isApiSetupOpen}
         isCoveredByModal={Boolean(copyTradingTarget)}
@@ -1740,11 +1735,13 @@ export function SignalWorkspace() {
         onConnectionSave={handlePrototypeConnectionSave}
         onLogin={startTelegramLogin}
         onLogout={handleLogout}
+        onStrategyDelete={handlePrototypeStrategyDelete}
         onStrategyStatusChange={handlePrototypeStrategyStatusChange}
       />
       <CopyTradingPrototypeModal
         key={copyTradingTarget?.trader.trader_id ?? "empty"}
         apiConnection={prototypeApiConnection}
+        apiConnections={prototypeApiConnections}
         copy={copy}
         isDarkTheme={isDarkTheme}
         target={copyTradingTarget}
@@ -1828,6 +1825,33 @@ async function requestTradingFoxAccount(path: string, init?: RequestInit): Promi
 
 function getTradingFoxErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "TradingFox request failed.";
+}
+
+function createEmptyPrototypeApiConnection(): PrototypeApiConnection {
+  return {
+    accountName: "Mock Exchange #1",
+    connectedAtLabel: "",
+    exchangePlatform: "Mock",
+    id: 0,
+    isMock: true,
+    mockMarginBalance: null,
+    status: "empty",
+  };
+}
+
+function mapTradingFoxConnectorToPrototypeConnection(
+  connector: TradingFoxConnector,
+  language: WorkspaceLanguage,
+): PrototypeApiConnection {
+  return {
+    accountName: connector.name,
+    connectedAtLabel: formatTradingFoxDateLabel(connector.updatedAt, language),
+    exchangePlatform: connector.exchangePlatform,
+    id: connector.id,
+    isMock: connector.isMock,
+    mockMarginBalance: connector.mockMarginBalance ?? null,
+    status: "connected",
+  };
 }
 
 function formatTradingFoxDateLabel(value: string, language: WorkspaceLanguage): string {

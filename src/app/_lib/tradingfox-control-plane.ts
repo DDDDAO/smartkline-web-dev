@@ -51,6 +51,7 @@ export type TradingFoxRuntimeStatus = {
 
 export type TradingFoxCopyStrategy = {
   apiAccountName: string;
+  exchangeConnectorId: number;
   avatarUrl: string;
   createdAtLabel: string;
   eventsCount: number;
@@ -66,6 +67,7 @@ export type TradingFoxCopyStrategy = {
 
 export type TradingFoxAccountResponse = {
   connector: TradingFoxConnector | null;
+  connectors: TradingFoxConnector[];
   strategies: TradingFoxCopyStrategy[];
 };
 
@@ -156,6 +158,7 @@ export type CreateMockConnectorInput = {
 };
 
 export type CreateCopyStrategyInput = {
+  exchangeConnectorId?: unknown;
   signalSourceId: string;
   traderName: string;
   platform: string;
@@ -193,11 +196,13 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
     tradingFoxRequest<{ items: TradingFoxConnector[] }>(`/v1/exchange-connectors?userId=${userId}&dead=false`),
     tradingFoxRequest<{ items: TradingFoxTrader[] }>(`/v1/traders?userId=${userId}&traderType=COPY_TRADING`),
   ]);
-  const connector = pickActiveMockConnector(connectors.items);
+  const activeMockConnectors = pickActiveMockConnectors(connectors.items);
+  const connectorById = new Map(activeMockConnectors.map((connector) => [connector.id, connector]));
 
   return {
-    connector,
-    strategies: traders.items.map((trader) => mapCopyStrategy(trader, connector)).filter((strategy) => strategy !== null),
+    connector: activeMockConnectors[0] ?? null,
+    connectors: activeMockConnectors,
+    strategies: traders.items.map((trader) => mapCopyStrategy(trader, connectorById.get(trader.exchangeConnectorId) ?? null)).filter((strategy) => strategy !== null),
   };
 }
 
@@ -209,32 +214,18 @@ export async function createTradingFoxMockConnector(
   const accountName = normalizeOptionalText(input.accountName) || "Mock Exchange #1";
   const mockMarginBalance = normalizePositiveNumber(input.mockMarginBalance) ?? DEFAULT_MOCK_MARGIN_BALANCE;
 
-  const existing = await tradingFoxRequest<{ items: TradingFoxConnector[] }>(`/v1/exchange-connectors?userId=${userId}&dead=false`);
-  const activeMock = pickActiveMockConnector(existing.items);
-
-  if (activeMock) {
-    await tradingFoxRequest<TradingFoxConnector>(`/v1/exchange-connectors/${activeMock.id}`, {
-      body: JSON.stringify({
-        mockMarginBalance,
-        name: accountName,
-        positionSideDual: true,
-      }),
-      method: "PATCH",
-    });
-  } else {
-    await tradingFoxRequest<TradingFoxConnector>("/v1/exchange-connectors", {
-      body: JSON.stringify({
-        credentials: {},
-        exchangePlatform: "Mock",
-        isMock: true,
-        mockMarginBalance,
-        name: accountName,
-        positionSideDual: true,
-        userId,
-      }),
-      method: "POST",
-    });
-  }
+  await tradingFoxRequest<TradingFoxConnector>("/v1/exchange-connectors", {
+    body: JSON.stringify({
+      credentials: {},
+      exchangePlatform: "Mock",
+      isMock: true,
+      mockMarginBalance,
+      name: accountName,
+      positionSideDual: true,
+      userId,
+    }),
+    method: "POST",
+  });
 
   return getTradingFoxAccount(session);
 }
@@ -245,7 +236,10 @@ export async function createTradingFoxCopyStrategy(
 ): Promise<TradingFoxAccountResponse> {
   const userId = tradingFoxUserIdFromSession(session);
   const account = await getTradingFoxAccount(session);
-  const connector = account.connector;
+  const requestedConnectorId = normalizePositiveInteger(input.exchangeConnectorId);
+  const connector = requestedConnectorId
+    ? account.connectors.find((item) => item.id === requestedConnectorId) ?? null
+    : account.connector;
 
   if (!connector) {
     throw new TradingFoxApiError("Bind a paper trading account before creating a copy strategy.", 409);
@@ -322,6 +316,30 @@ export async function updateTradingFoxCopyStrategyStatus(
       method: "POST",
     });
   }
+
+  return getTradingFoxAccount(session);
+}
+
+export async function deleteTradingFoxCopyStrategy(
+  session: TelegramAuthSession,
+  strategyId: string,
+): Promise<TradingFoxAccountResponse> {
+  const userId = tradingFoxUserIdFromSession(session);
+  const traderId = parsePositiveInteger(strategyId, "strategyId");
+  const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
+
+  if (trader.userId !== userId || trader.traderType !== "COPY_TRADING") {
+    throw new TradingFoxApiError("Copy strategy not found.", 404);
+  }
+
+  if (trader.enabled) {
+    await tradingFoxRequest<{ runtimeStatus?: TradingFoxRuntimeStatus }>(`/v1/traders/${traderId}/stop`, {
+      body: JSON.stringify({ closePositions: false, stopType: "manual" }),
+      method: "POST",
+    });
+  }
+
+  await tradingFoxRequest<void>(`/v1/traders/${traderId}`, { method: "DELETE" });
 
   return getTradingFoxAccount(session);
 }
@@ -456,8 +474,10 @@ function resolveTradingFoxConfig() {
   };
 }
 
-function pickActiveMockConnector(connectors: TradingFoxConnector[]): TradingFoxConnector | null {
-  return connectors.find((connector) => !connector.dead && connector.exchangePlatform === "Mock" && connector.isMock) ?? null;
+function pickActiveMockConnectors(connectors: TradingFoxConnector[]): TradingFoxConnector[] {
+  return connectors
+    .filter((connector) => !connector.dead && connector.exchangePlatform === "Mock" && connector.isMock)
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
 }
 
 function mapCopyStrategy(trader: TradingFoxTrader, connector: TradingFoxConnector | null): TradingFoxCopyStrategy | null {
@@ -470,6 +490,7 @@ function mapCopyStrategy(trader: TradingFoxTrader, connector: TradingFoxConnecto
 
   return {
     apiAccountName: connector?.name ?? `Connector #${trader.exchangeConnectorId}`,
+    exchangeConnectorId: trader.exchangeConnectorId,
     avatarUrl: stringValue(metadata.avatarUrl),
     createdAtLabel: formatBackendDateLabel(trader.createdAt),
     eventsCount: numberValue(metadata.eventsCount),
@@ -543,6 +564,11 @@ function normalizeOptionalText(value: unknown): string {
 function normalizePositiveNumber(value: unknown): number | undefined {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) && number > 0 ? number : undefined;
+}
+
+function normalizePositiveInteger(value: unknown): number | undefined {
+  const number = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(number) && number > 0 ? number : undefined;
 }
 
 function normalizeNonNegativeInteger(value: unknown): number {
