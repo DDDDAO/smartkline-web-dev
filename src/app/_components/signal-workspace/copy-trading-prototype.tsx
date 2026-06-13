@@ -79,6 +79,8 @@ type CopyTradingPrototypeModalProps = {
 };
 
 const WHITELIST_IP = "192.0.0.1";
+const MOCK_MARGIN_BALANCE_MAX = 100000;
+const MOCK_MARGIN_BALANCE_PRESETS = [1000, 5000, 10000] as const;
 
 const EXCHANGES = [
   { id: "binance", defaultAccountName: "Binance #1", enabled: false, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api" },
@@ -317,7 +319,7 @@ export function AccountManagementPanel({
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
 
   return (
-    <section className="motion-fx-10-delay-1 motion-fx-10-reveal is-visible min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5 lg:px-6 lg:py-6">
+    <section className="kol-scroll-area h-full min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5 lg:px-6 lg:py-6">
       <div className="mx-auto grid w-full max-w-6xl gap-5">
         <header className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-5 text-slate-100" : "rounded-[28px] border border-[#E5EAF0] bg-white p-5 text-slate-950 shadow-sm"}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -724,10 +726,20 @@ function ExchangeApiSetupLayer({
   const accountCopy = copy.workspace.accountCenter;
   const isDemoExchange = selectedExchange.mode === "demo";
   const parsedMockMarginBalance = Number(mockMarginBalance);
-  const hasValidMockMarginBalance = Number.isFinite(parsedMockMarginBalance) && parsedMockMarginBalance > 0;
+  const hasValidMockMarginBalance = Number.isFinite(parsedMockMarginBalance) && parsedMockMarginBalance > 0 && parsedMockMarginBalance <= MOCK_MARGIN_BALANCE_MAX;
 
   const canTest = !isDemoExchange && accountName.trim().length > 0 && apiKey.trim().length > 0 && secret.trim().length > 0;
   const canSave = isDemoExchange ? accountName.trim().length > 0 && hasValidMockMarginBalance : hasTestedConnection;
+  const updateMockMarginBalance = (value: string) => {
+    const normalizedValue = value.replace(/[^\d.]/gu, "");
+    const parsedValue = Number(normalizedValue);
+    if (Number.isFinite(parsedValue) && parsedValue > MOCK_MARGIN_BALANCE_MAX) {
+      setMockMarginBalance(String(MOCK_MARGIN_BALANCE_MAX));
+      return;
+    }
+
+    setMockMarginBalance(normalizedValue);
+  };
   const chooseExchange = (exchange: PrototypeExchange) => {
     if (!exchange.enabled) {
       return;
@@ -854,10 +866,10 @@ function ExchangeApiSetupLayer({
                         label={accountCopy.apiSetup.mockMarginBalance}
                         placeholder={accountCopy.apiSetup.mockMarginBalancePlaceholder}
                         value={mockMarginBalance}
-                        onChange={setMockMarginBalance}
+                        onChange={updateMockMarginBalance}
                       />
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {[10000, 50000, 100000].map((amount) => (
+                        {MOCK_MARGIN_BALANCE_PRESETS.map((amount) => (
                           <button
                             key={amount}
                             className={getSoftButtonClassName(isDarkTheme)}
@@ -868,6 +880,7 @@ function ExchangeApiSetupLayer({
                           </button>
                         ))}
                       </div>
+                      <p className={isDarkTheme ? "mt-2 text-xs leading-5 text-slate-500" : "mt-2 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.mockMarginBalanceLimit}</p>
                     </div>
                   </section>
                 ) : (
