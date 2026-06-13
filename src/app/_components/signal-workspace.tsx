@@ -82,8 +82,8 @@ import {
   type WorkspaceProductTab,
 } from "./signal-workspace/product-tabs";
 import {
-  AccountCenterPrototype,
   AccountEntryButton,
+  AccountManagementPanel,
   CopyTradingPrototypeModal,
   type CopyTradingPrototypeTarget,
   type PrototypeApiConnection,
@@ -119,6 +119,7 @@ const WORKSPACE_TAB_ROUTE_SEGMENTS: Readonly<Record<WorkspaceProductTab, string>
   intel: "kol",
   kolFollow: "kol-square",
   topSignals: "signal",
+  accountManagement: "account",
 };
 
 type WorkspaceNotification = {
@@ -189,7 +190,6 @@ export function SignalWorkspace() {
   const [authMe, setAuthMe] = useState<TelegramAuthMeResponse>(LOGGED_OUT_AUTH_ME);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isTradingFoxLoading, setIsTradingFoxLoading] = useState(false);
-  const [isAccountCenterOpen, setIsAccountCenterOpen] = useState(false);
   const [isApiSetupOpen, setIsApiSetupOpen] = useState(false);
   const [prototypeApiConnections, setPrototypeApiConnections] = useState<PrototypeApiConnection[]>([]);
   const prototypeApiConnection = prototypeApiConnections[0] ?? createEmptyPrototypeApiConnection();
@@ -220,7 +220,8 @@ export function SignalWorkspace() {
     null;
   const isIntelTab = activeProductTab === "intel";
   const isTopSignalsTab = activeProductTab === "topSignals";
-  const shouldUsePaperPositions = !isTopSignalsTab;
+  const isAccountManagementTab = activeProductTab === "accountManagement";
+  const shouldUsePaperPositions = !isTopSignalsTab && !isAccountManagementTab;
   const kolSignals = useMemo(() => sortSignalsForKolPanel(signals), [signals]);
   const paperPositionSignals = useMemo(
     () => shouldUsePaperPositions ? signals : EMPTY_STRUCTURED_SIGNALS,
@@ -387,17 +388,8 @@ export function SignalWorkspace() {
       setAuthMe(LOGGED_OUT_AUTH_ME);
       setPrototypeApiConnections([]);
       setPrototypeStrategies([]);
-      setIsAccountCenterOpen(false);
     }
   }, []);
-  const handleAccountEntry = useCallback(() => {
-    if (authMe.isLoggedIn) {
-      setIsAccountCenterOpen(true);
-      return;
-    }
-
-    startTelegramLogin();
-  }, [authMe.isLoggedIn, startTelegramLogin]);
   const applyTradingFoxAccount = useCallback((account: TradingFoxAccountResponse) => {
     const connectors = account.connectors ?? (account.connector ? [account.connector] : []);
     setPrototypeApiConnections(connectors.map((connector) => mapTradingFoxConnectorToPrototypeConnection(connector, language)));
@@ -1127,6 +1119,15 @@ export function SignalWorkspace() {
     updateWorkspaceRouteUrl("push", { tab: nextTab });
   }, [updateWorkspaceRouteUrl]);
 
+  const handleAccountEntry = useCallback(() => {
+    if (authMe.isLoggedIn) {
+      handleProductTabChange("accountManagement");
+      return;
+    }
+
+    startTelegramLogin();
+  }, [authMe.isLoggedIn, handleProductTabChange, startTelegramLogin]);
+
   const handleTopSignalSourceSelect = useCallback((sourceId: string) => {
     setActiveTopSignalSourceId(sourceId);
     setExplicitTopSignalSourceId(sourceId);
@@ -1322,7 +1323,7 @@ export function SignalWorkspace() {
     );
 
     if (existingStrategy) {
-      setIsAccountCenterOpen(true);
+      handleProductTabChange("accountManagement");
       setWorkspaceNotification({
         id: `copy-strategy-existing-${Date.now()}`,
         message: copyRef.current.workspace.accountCenter.copyTrading.existingStrategy,
@@ -1334,13 +1335,13 @@ export function SignalWorkspace() {
 
     if (prototypeApiConnection.status !== "connected") {
       setPendingCopyTradingTarget(target);
-      setIsAccountCenterOpen(true);
+      handleProductTabChange("accountManagement");
       setIsApiSetupOpen(true);
       return;
     }
 
     setCopyTradingTarget(target);
-  }, [authMe.isLoggedIn, prototypeApiConnection.status, prototypeStrategies, startTelegramLogin]);
+  }, [authMe.isLoggedIn, handleProductTabChange, prototypeApiConnection.status, prototypeStrategies, startTelegramLogin]);
 
   const handlePrototypeConnectionSave = useCallback(async (input: { accountName: string; mockMarginBalance: number }) => {
     if (!authMe.isLoggedIn) {
@@ -1417,7 +1418,7 @@ export function SignalWorkspace() {
       });
       applyTradingFoxAccount(account);
       setCopyTradingTarget(null);
-      setIsAccountCenterOpen(true);
+      handleProductTabChange("accountManagement");
       setWorkspaceNotification({
         id: `copy-strategy-created-${Date.now()}`,
         message: copyRef.current.workspace.accountCenter.apiSetup.connectedToast,
@@ -1434,7 +1435,7 @@ export function SignalWorkspace() {
     } finally {
       setIsTradingFoxLoading(false);
     }
-  }, [applyTradingFoxAccount, authMe.isLoggedIn, startTelegramLogin]);
+  }, [applyTradingFoxAccount, authMe.isLoggedIn, handleProductTabChange, startTelegramLogin]);
 
   const handlePrototypeStrategyStatusChange = useCallback(async (
     strategyId: string,
@@ -1664,6 +1665,24 @@ export function SignalWorkspace() {
               />
             )}
           </section>
+        ) : isAccountManagementTab ? (
+          <AccountManagementPanel
+            apiConnection={prototypeApiConnection}
+            apiConnections={prototypeApiConnections}
+            copy={copy}
+            isApiSetupOpen={isApiSetupOpen}
+            isAuthLoading={isAuthLoading || isTradingFoxLoading}
+            isDarkTheme={isDarkTheme}
+            telegramUser={authMe.telegramUser}
+            strategies={prototypeStrategies}
+            onApiSetupOpen={() => setIsApiSetupOpen(true)}
+            onApiSetupOpenChange={handleApiSetupOpenChange}
+            onConnectionSave={handlePrototypeConnectionSave}
+            onLogin={startTelegramLogin}
+            onLogout={handleLogout}
+            onStrategyDelete={handlePrototypeStrategyDelete}
+            onStrategyStatusChange={handlePrototypeStrategyStatusChange}
+          />
         ) : (
           <KolFollowProductTab
             copy={copy}
@@ -1718,26 +1737,6 @@ export function SignalWorkspace() {
           onTradeSelect={handleTopSignalTradeSelect}
         />
       ) : null}
-      <AccountCenterPrototype
-        apiConnection={prototypeApiConnection}
-        apiConnections={prototypeApiConnections}
-        copy={copy}
-        isApiSetupOpen={isApiSetupOpen}
-        isCoveredByModal={Boolean(copyTradingTarget)}
-        isAuthLoading={isAuthLoading || isTradingFoxLoading}
-        isDarkTheme={isDarkTheme}
-        isOpen={isAccountCenterOpen}
-        telegramUser={authMe.telegramUser}
-        strategies={prototypeStrategies}
-        onApiSetupOpen={() => setIsApiSetupOpen(true)}
-        onApiSetupOpenChange={handleApiSetupOpenChange}
-        onClose={() => setIsAccountCenterOpen(false)}
-        onConnectionSave={handlePrototypeConnectionSave}
-        onLogin={startTelegramLogin}
-        onLogout={handleLogout}
-        onStrategyDelete={handlePrototypeStrategyDelete}
-        onStrategyStatusChange={handlePrototypeStrategyStatusChange}
-      />
       <CopyTradingPrototypeModal
         key={copyTradingTarget?.trader.trader_id ?? "empty"}
         apiConnection={prototypeApiConnection}

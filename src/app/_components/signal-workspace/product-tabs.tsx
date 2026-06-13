@@ -11,7 +11,7 @@ import {
   getSignalPaperPositionBadgeClass,
 } from "./paper-position-summary";
 
-export type WorkspaceProductTab = "intel" | "kolFollow" | "topSignals";
+export type WorkspaceProductTab = "intel" | "kolFollow" | "topSignals" | "accountManagement";
 
 export const WORKSPACE_PRODUCT_TAB_STORAGE_KEY = "smartkline:workspace-product-tab:v1";
 
@@ -19,6 +19,7 @@ export const WORKSPACE_PRODUCT_TABS: readonly WorkspaceProductTab[] = [
   "intel",
   "kolFollow",
   "topSignals",
+  "accountManagement",
 ];
 
 export function isWorkspaceProductTab(
