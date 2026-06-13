@@ -1799,7 +1799,9 @@ function createWorkspaceRouteUrl(input: {
     }
   }
 
-  const path = `${routePrefix}/${tabSegment}/${encodeURIComponent(symbolSegment)}`;
+  const path = shouldWorkspaceTabUseSymbolRoute(input.tab)
+    ? `${routePrefix}/${tabSegment}/${encodeURIComponent(symbolSegment)}`
+    : `${routePrefix}/${tabSegment}`;
   const query = queryParams.toString();
   return query ? `${path}?${query}` : path;
 }
@@ -1889,7 +1891,7 @@ function readWorkspaceRouteState(
     return createEmptyWorkspaceRouteState();
   }
 
-  const rawSymbolSegment = segments[routeStartIndex + 1] ?? "";
+  const rawSymbolSegment = shouldWorkspaceTabUseSymbolRoute(tab) ? (segments[routeStartIndex + 1] ?? "") : "";
   const symbol = rawSymbolSegment
     ? toCopyTradingMarketSymbol(safeDecodeRouteSegment(rawSymbolSegment))
     : null;
@@ -1923,6 +1925,10 @@ function workspaceTabFromRouteSegment(segment: string): WorkspaceProductTab | nu
   }
 
   return null;
+}
+
+function shouldWorkspaceTabUseSymbolRoute(tab: WorkspaceProductTab): boolean {
+  return tab !== "accountManagement";
 }
 
 function getWorkspaceRoutePrefix(pathname: string): string {
