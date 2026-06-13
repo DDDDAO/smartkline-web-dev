@@ -29,6 +29,7 @@ export type PrototypeStrategyStatus = "running" | "paused" | "stopped";
 
 export type PrototypeStrategy = {
   apiAccountName: string;
+  availableMargin?: number;
   exchangeConnectorId: number;
   avatarUrl: string;
   createdAtLabel: string;
@@ -41,6 +42,7 @@ export type PrototypeStrategy = {
   takeProfitPercent: number;
   traderId: string;
   traderName: string;
+  unrealizedPnl?: number;
 };
 
 type AccountCenterPrototypeProps = {
@@ -1091,8 +1093,8 @@ function PrototypeStrategyCard({
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
         <MiniMetric isDarkTheme={isDarkTheme} label={copy.workspace.topSignals.currentPositions} value={String(strategy.positionsCount)} />
         <MiniMetric isDarkTheme={isDarkTheme} label={copy.workspace.topSignals.tradeHistory} value={String(strategy.eventsCount)} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={copy.workspace.accountCenter.copyTrading.takeProfit} value={`${strategy.takeProfitPercent}%`} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={copy.workspace.accountCenter.copyTrading.stopLoss} value={`${strategy.stopLossPercent}%`} />
+        <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.availableMargin} value={formatDetailCurrency(strategy.availableMargin)} />
+        <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.unrealizedPnl} value={formatSignedDetailCurrency(strategy.unrealizedPnl)} valueClassName={getPnlClassName(isDarkTheme, numberOrZero(strategy.unrealizedPnl))} />
       </div>
       <p className={isDarkTheme ? "mt-3 text-[11px] leading-5 text-slate-500" : "mt-3 text-[11px] leading-5 text-slate-500"}>
         {strategyCopy.stopNote}
@@ -1169,7 +1171,7 @@ function StrategyDetailView({
   const parsedSyncRatioPercent = Number(syncRatioPercent);
   const canSyncPositions = Boolean(detail?.trader.enabled) && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
   const orderItems = detail?.orderHistory?.items ?? [];
-  const returnCurvePoints = detail ? buildReturnCurvePoints(detail.positions, detail.account?.equity) : [];
+  const returnCurvePoints = detail ? buildEquityCurvePoints(detail.accountInitialEquity, detail.account?.equity) : [];
 
   const syncPositions = async () => {
     if (!canSyncPositions) {
@@ -1313,7 +1315,6 @@ function StrategyDetailView({
               {detail.signalSources.length > 0 ? detail.signalSources.map((source) => (
                 <div key={source.signalSourceId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#F8FAFC] p-3"}>
                   <div className="text-sm font-black">{source.name || source.signalSourceId}</div>
-                  <div className={isDarkTheme ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-slate-500"}>{source.signalSourceId} · {source.status || "--"}</div>
                   <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                     <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.margin} value={formatDetailNumber(source.marginBalance)} />
                     <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.followSide} value={source.followSide || "both"} />
@@ -1332,14 +1333,9 @@ function StrategyDetailView({
               <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{orderItems.length}</span>
             </div>
             {detail.orderHistoryError ? <p className="mt-2 text-xs text-rose-500">{detail.orderHistoryError}</p> : null}
-            <div className="mt-3 grid gap-2">
-              {orderItems.length > 0 ? orderItems.slice(0, 20).map((order) => (
-                <div key={order.clientOrderId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] px-3 py-2 text-xs" : "rounded-2xl bg-[#F8FAFC] px-3 py-2 text-xs"}>
-                  <div className="font-black">{order.symbol} · {order.side.toUpperCase()} · {order.status || "--"}</div>
-                  <div className={isDarkTheme ? "mt-1 text-slate-500" : "mt-1 text-slate-500"}>{formatDetailNumber(order.price)} · {formatDetailDate(order.timestamp)}</div>
-                </div>
-              )) : <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.noTradeHistory}</div>}
-            </div>
+            {orderItems.length > 0 ? (
+              <TradeHistoryTable isDarkTheme={isDarkTheme} orders={orderItems.slice(0, 20)} strategyCopy={strategyCopy} />
+            ) : <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.noTradeHistory}</div>}
           </section>
 
         </>
@@ -1462,6 +1458,55 @@ function SignalSourcePositionTable({
   );
 }
 
+function TradeHistoryTable({
+  isDarkTheme,
+  orders,
+  strategyCopy,
+}: {
+  isDarkTheme: boolean;
+  orders: NonNullable<TradingFoxStrategyDetail["orderHistory"]>["items"];
+  strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
+}) {
+  return (
+    <div className="kol-scroll-area mt-3 overflow-x-auto">
+      <table className="min-w-[980px] w-full border-collapse text-left text-sm">
+        <thead>
+          <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#DDE8F0] text-xs font-black text-slate-500"}>
+            <th className="px-3 py-3">{strategyCopy.orderTime}</th>
+            <th className="px-3 py-3">{strategyCopy.orderSource}</th>
+            <th className="px-3 py-3">{strategyCopy.orderPair}</th>
+            <th className="px-3 py-3">{strategyCopy.orderSide}</th>
+            <th className="px-3 py-3">{strategyCopy.referencePrice}</th>
+            <th className="px-3 py-3">{strategyCopy.orderQuantity}</th>
+            <th className="px-3 py-3">{strategyCopy.notional}</th>
+            <th className="px-3 py-3">{strategyCopy.tradeStatus}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((order) => {
+            const price = numberOrZero(order.price);
+            const quantity = numberOrZero(order.contractAmount);
+            const notional = price * quantity;
+            return (
+              <tr key={order.clientOrderId} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0"}>
+                <td className="px-3 py-4 font-semibold">{formatDetailDate(order.timestamp)}</td>
+                <td className="px-3 py-4 font-semibold">{strategyCopy.orderSourceMe}</td>
+                <td className="px-3 py-4 font-black">{order.symbol}</td>
+                <td className={`px-3 py-4 font-black ${getSideClassName(isDarkTheme, order.side)}`}>{formatOrderSide(order.side, strategyCopy)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(order.price)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(order.contractAmount)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailCurrency(notional)}</td>
+                <td className={isDarkTheme ? "px-3 py-4 font-black text-emerald-300" : "px-3 py-4 font-black text-emerald-600"}>{formatOrderStatus(order.status, strategyCopy)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+
 function ReturnCurveChart({ isDarkTheme, points }: { isDarkTheme: boolean; points: readonly { label: string; value: number }[] }) {
   const values = points.map((point) => point.value);
   const minValue = Math.min(...values, 0);
@@ -1497,24 +1542,17 @@ function ReturnCurveChart({ isDarkTheme, points }: { isDarkTheme: boolean; point
   );
 }
 
-function buildReturnCurvePoints(positions: readonly TradingFoxPosition[], equity: number | undefined): { label: string; value: number }[] {
-  const pnlPositions = positions.filter((position) => Number.isFinite(Number(position.unrealizedPnl)));
-  if (pnlPositions.length === 0) {
+function buildEquityCurvePoints(initialEquity: number | undefined, currentEquity: number | undefined): { label: string; value: number }[] {
+  const initial = Number(initialEquity);
+  const current = Number(currentEquity);
+  if (!Number.isFinite(initial) || !Number.isFinite(current) || initial <= 0) {
     return [];
   }
 
-  const totalPnl = pnlPositions.reduce((sum, position) => sum + numberOrZero(position.unrealizedPnl), 0);
-  const currentEquity = numberOrZero(equity);
-  const baseEquity = currentEquity - totalPnl;
-  if (baseEquity <= 0) {
-    return [];
-  }
-
-  let cumulativePnl = 0;
-  return [{ label: "Start", value: 0 }, ...pnlPositions.map((position) => {
-    cumulativePnl += numberOrZero(position.unrealizedPnl);
-    return { label: position.symbol, value: (cumulativePnl / baseEquity) * 100 };
-  })];
+  return [
+    { label: "Start", value: 0 },
+    { label: "Now", value: ((current - initial) / initial) * 100 },
+  ];
 }
 
 function formatDetailNumber(value: unknown): string {
@@ -1571,6 +1609,25 @@ function formatPositionSide(value: string | undefined): string {
   }
   if (normalizedValue.includes("short") || normalizedValue.includes("sell")) {
     return "空头";
+  }
+  return value || "--";
+}
+
+function formatOrderSide(value: string | undefined, strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"]): string {
+  const normalizedValue = (value ?? "").toLowerCase();
+  if (normalizedValue.includes("buy")) {
+    return strategyCopy.orderOpenLong;
+  }
+  if (normalizedValue.includes("sell")) {
+    return strategyCopy.orderOpenShort;
+  }
+  return value || "--";
+}
+
+function formatOrderStatus(value: string | undefined, strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"]): string {
+  const normalizedValue = (value ?? "").toLowerCase();
+  if (normalizedValue === "closed" || normalizedValue === "filled") {
+    return strategyCopy.orderStatusCompleted;
   }
   return value || "--";
 }
@@ -1688,11 +1745,13 @@ function formatMockBalance(value: number | null): string {
   return `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
-function MiniMetric({ isDarkTheme, label, value }: { isDarkTheme: boolean; label: string; value: string }) {
+function MiniMetric({ isDarkTheme, label, value, valueClassName }: { isDarkTheme: boolean; label: string; value: string; valueClassName?: string }) {
+  const baseValueClassName = "mt-1 truncate text-xs font-black";
+  const defaultValueColorClassName = isDarkTheme ? "text-slate-100" : "text-slate-900";
   return (
     <div className={isDarkTheme ? "rounded-xl border border-white/[0.06] bg-white/[0.035] px-2 py-2" : "rounded-xl border border-[#E5EAF0] bg-white px-2 py-2"}>
       <div className={isDarkTheme ? "text-[10px] font-semibold text-slate-500" : "text-[10px] font-semibold text-slate-400"}>{label}</div>
-      <div className={isDarkTheme ? "mt-1 truncate text-xs font-black text-slate-100" : "mt-1 truncate text-xs font-black text-slate-900"}>{value}</div>
+      <div className={`${baseValueClassName} ${valueClassName ?? defaultValueColorClassName}`}>{value}</div>
     </div>
   );
 }
