@@ -51,6 +51,7 @@ export type TradingFoxRuntimeStatus = {
 
 export type TradingFoxCopyStrategy = {
   apiAccountName: string;
+  availableMargin?: number;
   exchangeConnectorId: number;
   avatarUrl: string;
   createdAtLabel: string;
@@ -63,6 +64,7 @@ export type TradingFoxCopyStrategy = {
   takeProfitPercent: number;
   traderId: string;
   traderName: string;
+  unrealizedPnl?: number;
 };
 
 export type TradingFoxAccountResponse = {
@@ -142,6 +144,7 @@ export type TradingFoxOrderHistory = {
 export type TradingFoxStrategyDetail = {
   account: TradingFoxAccountStatus | null;
   accountError?: string;
+  accountInitialEquity?: number;
   orderHistory: TradingFoxOrderHistory | null;
   orderHistoryError?: string;
   positions: TradingFoxPosition[];
@@ -198,11 +201,29 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
   ]);
   const activeMockConnectors = pickActiveMockConnectors(connectors.items);
   const connectorById = new Map(activeMockConnectors.map((connector) => [connector.id, connector]));
+  const strategies = await Promise.all(traders.items.map(async (trader) => {
+    const connector = connectorById.get(trader.exchangeConnectorId) ?? null;
+    const strategy = mapCopyStrategy(trader, connector);
+    if (!strategy) {
+      return null;
+    }
+
+    const [accountStatus, positions] = await Promise.all([
+      settleTradingFoxRequest<{ account: TradingFoxAccountStatus }>(`/v1/traders/${trader.id}/account-status`),
+      settleTradingFoxRequest<{ items: TradingFoxPosition[] }>(`/v1/traders/${trader.id}/positions`),
+    ]);
+
+    return {
+      ...strategy,
+      availableMargin: accountStatus.value?.account.usdtFree,
+      unrealizedPnl: positions.value?.items.reduce((sum, position) => sum + numberValue(position.unrealizedPnl), 0),
+    };
+  }));
 
   return {
     connector: activeMockConnectors[0] ?? null,
     connectors: activeMockConnectors,
-    strategies: traders.items.map((trader) => mapCopyStrategy(trader, connectorById.get(trader.exchangeConnectorId) ?? null)).filter((strategy) => strategy !== null),
+    strategies: strategies.filter((strategy) => strategy !== null),
   };
 }
 
@@ -357,7 +378,8 @@ export async function getTradingFoxCopyStrategyDetail(
     throw new TradingFoxApiError("Copy strategy not found.", 404);
   }
 
-  const strategy = mapCopyStrategy(trader, account.connector);
+  const connector = account.connectors.find((item) => item.id === trader.exchangeConnectorId) ?? account.connector;
+  const strategy = mapCopyStrategy(trader, connector);
   if (!strategy) {
     throw new TradingFoxApiError("Copy strategy not found.", 404);
   }
@@ -372,6 +394,7 @@ export async function getTradingFoxCopyStrategyDetail(
   return {
     account: accountStatus.value?.account ?? null,
     accountError: accountStatus.error,
+    accountInitialEquity: connector?.mockMarginBalance,
     orderHistory: orderHistory.value ?? null,
     orderHistoryError: orderHistory.error,
     positions: positions.value?.items ?? [],
