@@ -5,7 +5,7 @@ import * as SelectPrimitive from "@radix-ui/react-select";
 import { useEffect, useMemo, useState } from "react";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
-import type { TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxPosition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
 import type { CopyTradingTrader } from "@/app/_types/copy-trading";
 import { SourceAvatar } from "./card-ui";
 
@@ -1169,6 +1169,7 @@ function StrategyDetailView({
   const parsedSyncRatioPercent = Number(syncRatioPercent);
   const canSyncPositions = Boolean(detail?.trader.enabled) && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
   const orderItems = detail?.orderHistory?.items ?? [];
+  const returnCurvePoints = detail ? buildReturnCurvePoints(detail.positions, detail.account?.equity) : [];
 
   const syncPositions = async () => {
     if (!canSyncPositions) {
@@ -1219,26 +1220,33 @@ function StrategyDetailView({
     <section className="space-y-4">
       <div className={getModalSectionClassName(isDarkTheme)}>
         <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onBack}>← {strategyCopy.back}</button>
-        <div className="mt-4 flex items-start gap-3">
-          <SourceAvatar isDarkTheme={isDarkTheme} name={liveStrategy.traderName} url={liveStrategy.avatarUrl} />
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-2">
-              <h3 className="truncate text-lg font-black">{liveStrategy.traderName}</h3>
-              <span className={getStrategyStatusClassName(isDarkTheme, liveStrategy.status)}>{getStrategyStatusLabel(strategyCopy, liveStrategy.status)}</span>
+        <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <SourceAvatar isDarkTheme={isDarkTheme} name={liveStrategy.traderName} url={liveStrategy.avatarUrl} />
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h3 className="truncate text-lg font-black">{liveStrategy.traderName}</h3>
+                <span className={getStrategyStatusClassName(isDarkTheme, liveStrategy.status)}>{getStrategyStatusLabel(strategyCopy, liveStrategy.status)}</span>
+              </div>
+              <p className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
+                #{liveStrategy.id} · {liveStrategy.platform} · {liveStrategy.apiAccountName}
+              </p>
             </div>
-            <p className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
-              #{liveStrategy.id} · {liveStrategy.platform} · {liveStrategy.apiAccountName}
-            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2 lg:self-end">
+            {liveStrategy.status === "running" ? (
+              <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("paused")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.pause}</button>
+            ) : (
+              <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("running")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.resume}</button>
+            )}
+            <button className={getDangerButtonClassName(isDarkTheme)} disabled={isDeletingStrategy} type="button" onClick={() => void deleteStrategy()}>{isDeletingStrategy ? strategyCopy.deleting : strategyCopy.delete}</button>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.accountEquity} value={formatDetailNumber(detail?.account?.equity)} />
+        <div className="mt-4 grid grid-cols-2 gap-2 text-xs lg:grid-cols-4">
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.accountEquity} value={formatDetailCurrency(detail?.account?.equity)} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={String(detail?.positions.length ?? liveStrategy.positionsCount)} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.signalSourceCount} value={String(detail?.signalSources.length ?? 0)} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.traderOrders} value={String(orderItems.length)} />
-          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.desiredState} value={detail?.trader.desiredState ?? (detail?.trader.enabled ? "enabled" : "disabled")} />
-          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.runtimeState} value={detail?.trader.runtimeState ?? detail?.trader.runtime?.state ?? "--"} />
-          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.configRevision} value={detail ? String(detail.trader.configRevision) : "--"} />
         </div>
         {detail?.trader.statusMessage ? (
           <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-amber-200" : "mt-3 text-xs leading-5 text-amber-700"}>{detail.trader.statusMessage}</p>
@@ -1279,23 +1287,23 @@ function StrategyDetailView({
           </section>
 
           <section className={getModalSectionClassName(isDarkTheme)}>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-black">{strategyCopy.returnCurve}</h3>
+              <span className={getPnlClassName(isDarkTheme, returnCurvePoints.at(-1)?.value ?? 0)}>{formatSignedPercent(returnCurvePoints.at(-1)?.value ?? 0)}</span>
+            </div>
+            {returnCurvePoints.length > 1 ? (
+              <ReturnCurveChart isDarkTheme={isDarkTheme} points={returnCurvePoints} />
+            ) : (
+              <div className={isDarkTheme ? "mt-3 rounded-2xl bg-white/[0.035] px-3 py-4 text-sm text-slate-500" : "mt-3 rounded-2xl bg-[#F8FAFC] px-3 py-4 text-sm text-slate-500"}>{strategyCopy.returnCurveEmpty}</div>
+            )}
+          </section>
+
+          <section className={getModalSectionClassName(isDarkTheme)}>
             <h3 className="text-sm font-black">{strategyCopy.copyPositions}</h3>
             {detail.positionsError ? <p className="mt-2 text-xs text-rose-500">{detail.positionsError}</p> : null}
-            <div className="mt-3 grid gap-2">
-              {detail.positions.length > 0 ? detail.positions.map((position, index) => (
-                <PositionCard
-                  key={`${position.symbol}-${position.side}-${index}`}
-                  contractsLabel={strategyCopy.contracts}
-                  entryLabel={strategyCopy.entryPrice}
-                  isDarkTheme={isDarkTheme}
-                  leverageLabel={strategyCopy.leverage}
-                  markLabel={strategyCopy.markPrice}
-                  pnlLabel={strategyCopy.unrealizedPnl}
-                  position={position}
-                  sideLabel={strategyCopy.positionSide}
-                />
-              )) : <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.copyPositionsEmpty}</div>}
-            </div>
+            {detail.positions.length > 0 ? (
+              <CopyPositionTable isDarkTheme={isDarkTheme} positions={detail.positions} strategyCopy={strategyCopy} />
+            ) : <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.copyPositionsEmpty}</div>}
           </section>
 
           <section className={getModalSectionClassName(isDarkTheme)}>
@@ -1310,19 +1318,9 @@ function StrategyDetailView({
                     <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.margin} value={formatDetailNumber(source.marginBalance)} />
                     <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.followSide} value={source.followSide || "both"} />
                   </div>
-                  <div className="mt-3 grid gap-2">
-                    {source.positions.length > 0 ? source.positions.map((position, index) => (
-                      <SignalSourcePositionCard
-                        key={`${source.signalSourceId}-${position.symbol}-${position.positionSide}-${index}`}
-                        entryLabel={strategyCopy.entryPrice}
-                        isDarkTheme={isDarkTheme}
-                        leverageLabel={strategyCopy.leverage}
-                        markLabel={strategyCopy.markPrice}
-                        position={position}
-                        sideLabel={strategyCopy.positionSide}
-                      />
-                    )) : <div className={isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
-                  </div>
+                  {source.positions.length > 0 ? (
+                    <SignalSourcePositionTable isDarkTheme={isDarkTheme} positions={source.positions} strategyCopy={strategyCopy} />
+                  ) : <div className={isDarkTheme ? "mt-3 text-xs text-slate-500" : "mt-3 text-xs text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
                 </div>
               )) : <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
             </div>
@@ -1344,14 +1342,6 @@ function StrategyDetailView({
             </div>
           </section>
 
-          <div className="flex flex-wrap gap-2">
-            {liveStrategy.status === "running" ? (
-              <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("paused")}>{strategyCopy.pause}</button>
-            ) : (
-              <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("running")}>{strategyCopy.resume}</button>
-            )}
-            <button className={getDangerButtonClassName(isDarkTheme)} disabled={isDeletingStrategy} type="button" onClick={() => void deleteStrategy()}>{isDeletingStrategy ? strategyCopy.deleting : strategyCopy.delete}</button>
-          </div>
         </>
       ) : null}
     </section>
@@ -1385,72 +1375,146 @@ async function requestStrategyPositionSync(strategyId: string, ratioPercent: num
   return payload as TradingFoxStrategyDetail;
 }
 
-function PositionCard({
-  contractsLabel,
-  entryLabel,
+function CopyPositionTable({
   isDarkTheme,
-  leverageLabel,
-  markLabel,
-  pnlLabel,
-  position,
-  sideLabel,
+  positions,
+  strategyCopy,
 }: {
-  contractsLabel: string;
-  entryLabel: string;
   isDarkTheme: boolean;
-  leverageLabel: string;
-  markLabel: string;
-  pnlLabel: string;
-  position: NonNullable<TradingFoxStrategyDetail["positions"]>[number];
-  sideLabel: string;
+  positions: readonly TradingFoxPosition[];
+  strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
 }) {
   return (
-    <div className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#F8FAFC] p-3"}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm font-black">{position.symbol}</div>
-        <span className={isDarkTheme ? "rounded-full bg-sky-400/10 px-2 py-0.5 text-[10px] font-black text-sky-200" : "rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-black text-sky-700"}>{position.side || "--"}</span>
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-        <MiniMetric isDarkTheme={isDarkTheme} label={sideLabel} value={position.side || "--"} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={leverageLabel} value={`${formatDetailNumber(position.leverage)}x`} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={entryLabel} value={formatDetailNumber(position.entryPrice)} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={markLabel} value={formatDetailNumber(position.markPrice)} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={pnlLabel} value={formatDetailNumber(position.unrealizedPnl)} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={contractsLabel} value={formatDetailNumber(position.contracts)} />
+    <div className="kol-scroll-area mt-3 overflow-x-auto">
+      <table className="min-w-[860px] w-full border-collapse text-left text-sm">
+        <thead>
+          <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#DDE8F0] text-xs font-black text-slate-500"}>
+            <th className="px-3 py-3">Symbol</th>
+            <th className="px-3 py-3">{strategyCopy.positionSide}</th>
+            <th className="px-3 py-3">{strategyCopy.notional}</th>
+            <th className="px-3 py-3">{strategyCopy.contracts}</th>
+            <th className="px-3 py-3">{strategyCopy.leverage}</th>
+            <th className="px-3 py-3">{strategyCopy.entryPrice}</th>
+            <th className="px-3 py-3">{strategyCopy.markPrice}</th>
+            <th className="px-3 py-3">PNL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {positions.map((position, index) => {
+            const pnl = numberOrZero(position.unrealizedPnl);
+            return (
+              <tr key={`${position.symbol}-${position.side}-${index}`} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0"}>
+                <td className="px-3 py-4 font-black underline underline-offset-2">{position.symbol}</td>
+                <td className={`px-3 py-4 font-black ${getSideClassName(isDarkTheme, position.side)}`}>{formatPositionSide(position.side)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailCurrency(position.notional)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.contracts)}</td>
+                <td className="px-3 py-4 font-semibold">{formatLeverage(position.leverage)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.entryPrice)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.markPrice)}</td>
+                <td className={`px-3 py-4 font-black ${getPnlClassName(isDarkTheme, pnl)}`}>{formatSignedDetailCurrency(pnl)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SignalSourcePositionTable({
+  isDarkTheme,
+  positions,
+  strategyCopy,
+}: {
+  isDarkTheme: boolean;
+  positions: readonly TradingFoxStrategyDetail["signalSources"][number]["positions"][number][];
+  strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
+}) {
+  return (
+    <div className="kol-scroll-area mt-3 overflow-x-auto">
+      <table className="min-w-[760px] w-full border-collapse text-left text-sm">
+        <thead>
+          <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#DDE8F0] text-xs font-black text-slate-500"}>
+            <th className="px-3 py-3">Symbol</th>
+            <th className="px-3 py-3">{strategyCopy.positionSide}</th>
+            <th className="px-3 py-3">{strategyCopy.positionSize}</th>
+            <th className="px-3 py-3">{strategyCopy.leverage}</th>
+            <th className="px-3 py-3">{strategyCopy.entryPrice}</th>
+            <th className="px-3 py-3">{strategyCopy.markPrice}</th>
+            <th className="px-3 py-3">{strategyCopy.tradeStatus}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {positions.map((position, index) => (
+            <tr key={`${position.symbol}-${position.positionSide}-${index}`} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0"}>
+              <td className="px-3 py-4 font-black underline underline-offset-2">{position.symbol}</td>
+              <td className={`px-3 py-4 font-black ${getSideClassName(isDarkTheme, position.positionSide)}`}>{formatPositionSide(position.positionSide)}</td>
+              <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.positionSize)}</td>
+              <td className="px-3 py-4 font-semibold">{formatLeverage(position.leverage)}</td>
+              <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.entryPrice)}</td>
+              <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.markPrice)}</td>
+              <td className={position.skipTrade ? "px-3 py-4 font-black text-amber-500" : isDarkTheme ? "px-3 py-4 font-black text-emerald-300" : "px-3 py-4 font-black text-emerald-700"}>{position.skipTrade ? "skip" : "follow"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ReturnCurveChart({ isDarkTheme, points }: { isDarkTheme: boolean; points: readonly { label: string; value: number }[] }) {
+  const values = points.map((point) => point.value);
+  const minValue = Math.min(...values, 0);
+  const maxValue = Math.max(...values, 0);
+  const valueRange = maxValue - minValue || 1;
+  const width = 720;
+  const height = 160;
+  const paddingX = 16;
+  const paddingY = 18;
+  const linePoints = points.map((point, index) => {
+    const x = paddingX + (index / Math.max(points.length - 1, 1)) * (width - paddingX * 2);
+    const y = paddingY + ((maxValue - point.value) / valueRange) * (height - paddingY * 2);
+    return { ...point, x, y };
+  });
+  const path = linePoints.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
+  const zeroY = paddingY + ((maxValue - 0) / valueRange) * (height - paddingY * 2);
+  const lastPoint = linePoints.at(-1);
+
+  return (
+    <div className={isDarkTheme ? "mt-3 rounded-2xl border border-white/[0.06] bg-[#111820] p-3" : "mt-3 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
+      <svg className="h-40 w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Return curve">
+        <line x1={paddingX} x2={width - paddingX} y1={zeroY} y2={zeroY} stroke={isDarkTheme ? "rgba(148,163,184,0.28)" : "rgba(100,116,139,0.28)"} strokeDasharray="5 5" />
+        <path d={path} fill="none" stroke={lastPoint && lastPoint.value < 0 ? "#ff2d3d" : "#00c853"} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
+        {linePoints.map((point) => (
+          <circle key={`${point.label}-${point.x}`} cx={point.x} cy={point.y} fill={point.value < 0 ? "#ff2d3d" : "#00c853"} r="4" />
+        ))}
+      </svg>
+      <div className={isDarkTheme ? "mt-1 flex items-center justify-between text-xs font-bold text-slate-500" : "mt-1 flex items-center justify-between text-xs font-bold text-slate-500"}>
+        <span>{points[0]?.label ?? "--"}</span>
+        <span>{points.at(-1)?.label ?? "--"}</span>
       </div>
     </div>
   );
 }
 
-function SignalSourcePositionCard({
-  entryLabel,
-  isDarkTheme,
-  leverageLabel,
-  markLabel,
-  position,
-  sideLabel,
-}: {
-  entryLabel: string;
-  isDarkTheme: boolean;
-  leverageLabel: string;
-  markLabel: string;
-  position: TradingFoxStrategyDetail["signalSources"][number]["positions"][number];
-  sideLabel: string;
-}) {
-  return (
-    <div className={isDarkTheme ? "rounded-xl border border-white/[0.055] bg-[#111820] p-2" : "rounded-xl border border-[#E5EAF0] bg-white p-2"}>
-      <div className="flex items-center justify-between gap-3 text-xs">
-        <div className="font-black">{position.symbol}</div>
-        <span className={position.skipTrade ? "text-amber-500" : isDarkTheme ? "text-emerald-300" : "text-emerald-700"}>{position.skipTrade ? "skip" : position.positionSide}</span>
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-        <MiniMetric isDarkTheme={isDarkTheme} label={sideLabel} value={position.positionSide || "--"} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={leverageLabel} value={`${formatDetailNumber(position.leverage)}x`} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={entryLabel} value={formatDetailNumber(position.entryPrice)} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={markLabel} value={formatDetailNumber(position.markPrice)} />
-      </div>
-    </div>
-  );
+function buildReturnCurvePoints(positions: readonly TradingFoxPosition[], equity: number | undefined): { label: string; value: number }[] {
+  const pnlPositions = positions.filter((position) => Number.isFinite(Number(position.unrealizedPnl)));
+  if (pnlPositions.length === 0) {
+    return [];
+  }
+
+  const totalPnl = pnlPositions.reduce((sum, position) => sum + numberOrZero(position.unrealizedPnl), 0);
+  const currentEquity = numberOrZero(equity);
+  const baseEquity = currentEquity - totalPnl;
+  if (baseEquity <= 0) {
+    return [];
+  }
+
+  let cumulativePnl = 0;
+  return [{ label: "Start", value: 0 }, ...pnlPositions.map((position) => {
+    cumulativePnl += numberOrZero(position.unrealizedPnl);
+    return { label: position.symbol, value: (cumulativePnl / baseEquity) * 100 };
+  })];
 }
 
 function formatDetailNumber(value: unknown): string {
@@ -1459,6 +1523,77 @@ function formatDetailNumber(value: unknown): string {
     return "--";
   }
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(number);
+}
+
+function formatDetailCurrency(value: unknown): string {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) {
+    return "--";
+  }
+  return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(number)}`;
+}
+
+function formatSignedDetailCurrency(value: unknown): string {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) {
+    return "--";
+  }
+  const prefix = number > 0 ? "+" : "";
+  return `${prefix}${formatDetailCurrency(number)}`;
+}
+
+function formatSignedPercent(value: unknown): string {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) {
+    return "--";
+  }
+  const prefix = number > 0 ? "+" : "";
+  return `${prefix}${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(number)}%`;
+}
+
+function formatLeverage(value: unknown): string {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) {
+    return "--";
+  }
+  return `${formatDetailNumber(number)}x`;
+}
+
+function numberOrZero(value: unknown): number {
+  const number = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function formatPositionSide(value: string | undefined): string {
+  const normalizedValue = (value ?? "").toLowerCase();
+  if (normalizedValue.includes("long") || normalizedValue.includes("buy")) {
+    return "多头";
+  }
+  if (normalizedValue.includes("short") || normalizedValue.includes("sell")) {
+    return "空头";
+  }
+  return value || "--";
+}
+
+function getSideClassName(isDarkTheme: boolean, value: string | undefined): string {
+  const normalizedValue = (value ?? "").toLowerCase();
+  if (normalizedValue.includes("long") || normalizedValue.includes("buy")) {
+    return isDarkTheme ? "text-emerald-300" : "text-emerald-600";
+  }
+  if (normalizedValue.includes("short") || normalizedValue.includes("sell")) {
+    return "text-[#ff2d3d]";
+  }
+  return isDarkTheme ? "text-slate-300" : "text-slate-700";
+}
+
+function getPnlClassName(isDarkTheme: boolean, value: number): string {
+  if (value > 0) {
+    return isDarkTheme ? "text-emerald-300" : "text-emerald-600";
+  }
+  if (value < 0) {
+    return "text-[#ff2d3d]";
+  }
+  return isDarkTheme ? "text-slate-300" : "text-slate-700";
 }
 
 function formatDetailDate(value: string): string {

@@ -520,7 +520,7 @@ function mapBackendStrategyStatus(trader: TradingFoxTrader): "running" | "paused
   if (trader.displayStatus === "running" || trader.runtimeState === "running") {
     return "running";
   }
-  return "paused";
+  return "running";
 }
 
 function formatBackendDateLabel(value: string): string {
