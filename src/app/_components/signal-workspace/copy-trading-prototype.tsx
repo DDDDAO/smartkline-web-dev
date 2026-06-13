@@ -279,6 +279,165 @@ export function AccountCenterPrototype({
   );
 }
 
+export function AccountManagementPanel({
+  apiConnection,
+  apiConnections,
+  copy,
+  isApiSetupOpen,
+  isAuthLoading,
+  isDarkTheme,
+  strategies,
+  telegramUser,
+  onApiSetupOpen,
+  onApiSetupOpenChange,
+  onConnectionSave,
+  onLogin,
+  onLogout,
+  onStrategyDelete,
+  onStrategyStatusChange,
+}: {
+  apiConnection: PrototypeApiConnection;
+  apiConnections: readonly PrototypeApiConnection[];
+  copy: WorkspaceCopy;
+  isApiSetupOpen: boolean;
+  isAuthLoading: boolean;
+  isDarkTheme: boolean;
+  strategies: readonly PrototypeStrategy[];
+  telegramUser: TelegramSessionUser | null;
+  onApiSetupOpen: () => void;
+  onApiSetupOpenChange: (isOpen: boolean) => void;
+  onConnectionSave: (input: { accountName: string; mockMarginBalance: number }) => void;
+  onLogin: () => void;
+  onLogout: () => void;
+  onStrategyDelete: (strategyId: string) => Promise<void> | void;
+  onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
+}) {
+  const accountCopy = copy.workspace.accountCenter;
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
+  const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
+
+  return (
+    <section className="motion-fx-10-delay-1 motion-fx-10-reveal is-visible min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5 lg:px-6 lg:py-6">
+      <div className="mx-auto grid w-full max-w-6xl gap-5">
+        <header className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-5 text-slate-100" : "rounded-[28px] border border-[#E5EAF0] bg-white p-5 text-slate-950 shadow-sm"}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="text-2xl font-black tracking-tight">{accountCopy.drawer.title}</h1>
+              <p className={isDarkTheme ? "mt-2 max-w-2xl text-sm leading-6 text-slate-400" : "mt-2 max-w-2xl text-sm leading-6 text-slate-600"}>
+                {accountCopy.drawer.description}
+              </p>
+            </div>
+            {telegramUser ? (
+              <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onLogout}>
+                {accountCopy.user.logoutAction}
+              </button>
+            ) : (
+              <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={isAuthLoading} type="button" onClick={onLogin}>
+                {isAuthLoading ? accountCopy.user.loading : accountCopy.user.loginAction}
+              </button>
+            )}
+          </div>
+          <div className={isDarkTheme ? "mt-5 flex items-center gap-3 rounded-3xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-5 flex items-center gap-3 rounded-3xl border border-[#E5EAF0] bg-[#FAFBFD] p-3"}>
+            <TelegramUserAvatar isDarkTheme={isDarkTheme} size="large" user={telegramUser} />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-black">{getTelegramUserDisplayName(telegramUser, accountCopy.user.demoName)}</div>
+              <div className="mt-0.5 truncate text-xs text-slate-500">
+                {telegramUser?.username ? `@${telegramUser.username}` : accountCopy.user.demoSubtitle}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {selectedStrategy ? (
+          <StrategyDetailView
+            copy={copy}
+            isDarkTheme={isDarkTheme}
+            strategy={selectedStrategy}
+            onBack={() => setSelectedStrategyId(null)}
+            onStrategyDelete={onStrategyDelete}
+            onStrategyStatusChange={onStrategyStatusChange}
+          />
+        ) : (
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-black">{accountCopy.api.title}</h2>
+                  <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>
+                    {apiConnections.length > 0 ? accountCopy.api.connectedDescription : accountCopy.api.emptyDescription}
+                  </p>
+                </div>
+                <span className={apiConnections.length > 0
+                  ? isDarkTheme ? "rounded-full bg-emerald-400/15 px-2.5 py-1 text-[11px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700"
+                  : isDarkTheme ? "rounded-full bg-slate-700 px-2.5 py-1 text-[11px] font-black text-slate-300" : "rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600"}
+                >
+                  {apiConnections.length > 0 ? accountCopy.api.connected : accountCopy.api.empty}
+                </span>
+              </div>
+              <div className="mt-4 grid gap-3">
+                {apiConnections.length > 0 ? apiConnections.map((connection) => (
+                  <ApiConnectionCard
+                    key={connection.id}
+                    accountCopy={accountCopy}
+                    apiConnection={connection}
+                    isDarkTheme={isDarkTheme}
+                  />
+                )) : (
+                  <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-4 text-sm leading-5 text-slate-600"}>
+                    {accountCopy.api.emptyDescription}
+                  </div>
+                )}
+                <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
+                  {apiConnections.length > 0 ? accountCopy.api.addAction : accountCopy.api.bindAction}
+                </button>
+              </div>
+            </section>
+
+            <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-base font-black">{accountCopy.strategy.title}</h2>
+                <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{strategies.length}</span>
+              </div>
+              <div className="mt-3 grid gap-3">
+                {strategies.length > 0 ? strategies.map((strategy) => (
+                  <PrototypeStrategyCard
+                    key={strategy.id}
+                    copy={copy}
+                    isDarkTheme={isDarkTheme}
+                    strategy={strategy}
+                    onOpenDetail={setSelectedStrategyId}
+                    onStrategyDelete={onStrategyDelete}
+                    onStrategyStatusChange={onStrategyStatusChange}
+                  />
+                )) : (
+                  <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-4 text-sm leading-5 text-slate-600"}>
+                    {accountCopy.strategy.empty}
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+      </div>
+
+      {isApiSetupOpen ? (
+        <ExchangeApiSetupLayer
+          key={apiConnection.accountName}
+          copy={copy}
+          initialAccountName=""
+          initialMockMarginBalance={apiConnection.mockMarginBalance}
+          isDarkTheme={isDarkTheme}
+          onClose={() => onApiSetupOpenChange(false)}
+          onSave={(input) => {
+            onConnectionSave(input);
+            onApiSetupOpenChange(false);
+          }}
+        />
+      ) : null}
+    </section>
+  );
+}
+
 export function CopyTradingPrototypeModal({
   apiConnection,
   apiConnections,

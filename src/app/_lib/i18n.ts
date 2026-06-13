@@ -458,6 +458,11 @@ const zh = {
         label: "顶级信号",
         stageLabel: "",
       },
+      accountManagement: {
+        description: "管理登录账号、交易账户和跟单策略",
+        label: "账户管理",
+        stageLabel: "",
+      },
     },
     signalUpdateMessage: (count: number) => `已加载 ${count} 条新情报。`,
     signalUpdateMeta: "K线情报局 · 最新信号",
@@ -935,6 +940,11 @@ const en: WorkspaceCopy = {
       topSignals: {
         description: "All Signal Center source positions and trade points",
         label: "Top Signals",
+        stageLabel: "",
+      },
+      accountManagement: {
+        description: "Manage login, trading accounts, and copy strategies",
+        label: "Account",
         stageLabel: "",
       },
     },
