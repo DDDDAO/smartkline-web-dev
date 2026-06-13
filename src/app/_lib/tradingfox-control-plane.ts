@@ -51,7 +51,7 @@ export type TradingFoxRuntimeStatus = {
 
 export type TradingFoxCopyStrategy = {
   apiAccountName: string;
-  availableMargin?: number;
+  accountEquity?: number;
   exchangeConnectorId: number;
   avatarUrl: string;
   createdAtLabel: string;
@@ -215,7 +215,7 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
 
     return {
       ...strategy,
-      availableMargin: accountStatus.value?.account.usdtFree,
+      accountEquity: accountStatus.value?.account.equity,
       unrealizedPnl: positions.value?.items.reduce((sum, position) => sum + numberValue(position.unrealizedPnl), 0),
     };
   }));

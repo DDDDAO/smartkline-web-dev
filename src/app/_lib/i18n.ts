@@ -242,7 +242,6 @@ const zh = {
       },
       strategy: {
         accountEquity: "账户权益",
-        availableMargin: "剩余保证金",
         back: "返回",
         configRevision: "配置版本",
         contracts: "合约数量",
@@ -744,8 +743,7 @@ const en: WorkspaceCopy = {
         okx: "OKX",
       },
       strategy: {
-        accountEquity: "Equity",
-        availableMargin: "Available margin",
+        accountEquity: "Account equity",
         back: "Back",
         configRevision: "Config rev",
         contracts: "Contracts",
