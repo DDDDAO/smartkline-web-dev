@@ -1507,8 +1507,8 @@ function PositionSummaryPanel({
 
   return (
     <div className={containerClassName}>
-      <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
           <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount}>
             {summary.positionCount}
           </PositionSummaryMetric>
@@ -1538,14 +1538,14 @@ function PositionSummaryPanel({
             {formatSignedPercent(summary.totalPnlRate)}
           </PositionSummaryMetric>
         </div>
-        <div className="flex flex-col justify-between gap-6 text-left sm:flex-row sm:items-end sm:text-right">
-          <div className="flex flex-wrap gap-x-5 gap-y-2 sm:justify-end">
-            <span className={isDarkTheme ? "text-lg font-black text-emerald-300" : "text-lg font-black text-emerald-600"}>{strategyCopy.longRatio}:</span>
-            <span className="text-lg font-black text-[#ff2d3d]">{strategyCopy.shortRatio}:</span>
+        <div className={isDarkTheme ? "grid gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3 sm:grid-cols-2 xl:min-w-80" : "grid gap-3 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3 sm:grid-cols-2 xl:min-w-80"}>
+          <div className="min-w-0">
+            <div className={isDarkTheme ? "text-xs font-black text-emerald-300" : "text-xs font-black text-emerald-600"}>{strategyCopy.longRatio}</div>
+            <div className={isDarkTheme ? "mt-1 break-words text-2xl font-black leading-tight text-emerald-300" : "mt-1 break-words text-2xl font-black leading-tight text-emerald-600"}>{formatUnsignedPercent(summary.longRatio)}</div>
           </div>
-          <div className="flex flex-wrap gap-x-8 gap-y-2 sm:justify-end">
-            <span className={isDarkTheme ? "text-2xl font-black text-emerald-300" : "text-2xl font-black text-emerald-600"}>{formatUnsignedPercent(summary.longRatio)}</span>
-            <span className="text-2xl font-black text-[#ff2d3d]">{formatUnsignedPercent(summary.shortRatio)}</span>
+          <div className="min-w-0">
+            <div className="text-xs font-black text-[#ff2d3d]">{strategyCopy.shortRatio}</div>
+            <div className="mt-1 break-words text-2xl font-black leading-tight text-[#ff2d3d]">{formatUnsignedPercent(summary.shortRatio)}</div>
           </div>
         </div>
       </div>
@@ -1564,11 +1564,12 @@ function PositionSummaryMetric({
   label: string;
   valueClassName?: string;
 }) {
-  const labelClassName = isDarkTheme ? "text-sm font-medium text-slate-400" : "text-sm font-medium text-slate-800";
-  const defaultValueClassName = isDarkTheme ? "mt-2 flex items-baseline gap-0.5 text-2xl font-black text-slate-50" : "mt-2 flex items-baseline gap-0.5 text-2xl font-black text-slate-950";
+  const containerClassName = isDarkTheme ? "min-w-0 rounded-2xl bg-white/[0.035] p-3" : "min-w-0 rounded-2xl bg-[#F8FAFC] p-3";
+  const labelClassName = isDarkTheme ? "text-xs font-black text-slate-400" : "text-xs font-black text-slate-700";
+  const defaultValueClassName = isDarkTheme ? "mt-2 flex flex-wrap items-baseline gap-x-1 gap-y-0.5 break-words text-xl font-black leading-tight text-slate-50 sm:text-2xl" : "mt-2 flex flex-wrap items-baseline gap-x-1 gap-y-0.5 break-words text-xl font-black leading-tight text-slate-950 sm:text-2xl";
 
   return (
-    <div className="min-w-0">
+    <div className={containerClassName}>
       <div className={labelClassName}>{label}</div>
       <div className={`${defaultValueClassName} ${valueClassName ?? ""}`}>{children}</div>
     </div>
@@ -1840,7 +1841,7 @@ function SignalSourcePositionTable({
 }) {
   return (
     <div className="kol-scroll-area mt-3 overflow-x-auto">
-      <table className="min-w-[760px] w-full border-collapse text-left text-sm">
+      <table className="min-w-[860px] w-full border-collapse text-left text-sm">
         <thead>
           <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#DDE8F0] text-xs font-black text-slate-500"}>
             <th className="px-3 py-3">Symbol</th>
@@ -1849,21 +1850,26 @@ function SignalSourcePositionTable({
             <th className="px-3 py-3">{strategyCopy.leverage}</th>
             <th className="px-3 py-3">{strategyCopy.entryPrice}</th>
             <th className="px-3 py-3">{strategyCopy.markPrice}</th>
+            <th className="px-3 py-3">PNL</th>
             <th className="px-3 py-3">{strategyCopy.tradeStatus}</th>
           </tr>
         </thead>
         <tbody>
-          {positions.map((position, index) => (
-            <tr key={`${position.symbol}-${position.positionSide}-${index}`} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0"}>
-              <td className="px-3 py-4 font-black underline underline-offset-2">{position.symbol}</td>
-              <td className={`px-3 py-4 font-black ${getSideClassName(isDarkTheme, position.positionSide)}`}>{formatPositionSide(position.positionSide)}</td>
-              <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.positionSize)}</td>
-              <td className="px-3 py-4 font-semibold">{formatLeverage(position.leverage)}</td>
-              <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.entryPrice)}</td>
-              <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.markPrice)}</td>
-              <td className={position.skipTrade ? "px-3 py-4 font-black text-amber-500" : isDarkTheme ? "px-3 py-4 font-black text-emerald-300" : "px-3 py-4 font-black text-emerald-700"}>{position.skipTrade ? "skip" : "follow"}</td>
-            </tr>
-          ))}
+          {positions.map((position, index) => {
+            const pnl = getSignalSourcePositionPnl(position);
+            return (
+              <tr key={`${position.symbol}-${position.positionSide}-${index}`} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0"}>
+                <td className="px-3 py-4 font-black underline underline-offset-2">{position.symbol}</td>
+                <td className={`px-3 py-4 font-black ${getSideClassName(isDarkTheme, position.positionSide)}`}>{formatPositionSide(position.positionSide)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.positionSize)}</td>
+                <td className="px-3 py-4 font-semibold">{formatLeverage(position.leverage)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.entryPrice)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.markPrice)}</td>
+                <td className={`px-3 py-4 font-black ${getPnlClassName(isDarkTheme, pnl ?? 0)}`}>{formatSignedDetailCurrency(pnl)}</td>
+                <td className={position.skipTrade ? "px-3 py-4 font-black text-amber-500" : isDarkTheme ? "px-3 py-4 font-black text-emerald-300" : "px-3 py-4 font-black text-emerald-700"}>{position.skipTrade ? "skip" : "follow"}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
