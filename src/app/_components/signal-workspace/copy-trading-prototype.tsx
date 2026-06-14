@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
 import type { TradingFoxPosition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
@@ -17,6 +17,7 @@ export type CopyTradingPrototypeTarget = {
 
 export type PrototypeApiConnection = {
   accountName: string;
+  accountBalance: number | null;
   id: number;
   connectedAtLabel: string;
   exchangePlatform: string;
@@ -59,7 +60,7 @@ type AccountCenterPrototypeProps = {
   onApiSetupOpen: () => void;
   onApiSetupOpenChange: (isOpen: boolean) => void;
   onClose: () => void;
-  onConnectionSave: (input: { accountName: string; mockMarginBalance: number }) => void;
+  onConnectionSave: (input: PrototypeConnectionSaveInput) => void;
   onLogin: () => void;
   onLogout: () => void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
@@ -83,19 +84,28 @@ type CopyTradingPrototypeModalProps = {
 };
 
 const WHITELIST_IP = "192.0.0.1";
+const BINANCE_DEMO_API_MANAGEMENT_URL = "https://demo.binance.com/zh-CN/my/settings/api-management";
 const MOCK_MARGIN_BALANCE_MAX = 100000;
 const MOCK_MARGIN_BALANCE_PRESETS = [1000, 5000, 10000] as const;
 
+export type PrototypeConnectionSaveInput = {
+  accountName: string;
+  apiKey?: string;
+  exchangePlatform: string;
+  mockMarginBalance: number;
+  secret?: string;
+};
+
 const EXCHANGES = [
-  { id: "binance", defaultAccountName: "Binance #1", enabled: false, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api" },
-  { id: "mockExchange", defaultAccountName: "Mock Exchange #1", enabled: true, fallback: "MX", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
-  { id: "binanceDemo", defaultAccountName: "Binance Demo #1", enabled: false, fallback: "BD", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
-  { id: "okx", defaultAccountName: "OKX #1", enabled: false, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api" },
-  { id: "hyperliquid", defaultAccountName: "Hyperliquid #1", enabled: false, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api" },
-  { id: "aster", defaultAccountName: "Aster #1", enabled: false, fallback: "AS", logoPath: "/exchanges/aster/brand/icon.png", mode: "api" },
-  { id: "bitget", defaultAccountName: "Bitget #1", enabled: false, fallback: "BG", logoPath: "/exchanges/bitget/brand/icon.png", mode: "api" },
-  { id: "bybit", defaultAccountName: "Bybit #1", enabled: false, fallback: "BY", logoPath: "/exchanges/bybit/brand/icon.png", mode: "api" },
-  { id: "gate", defaultAccountName: "Gate #1", enabled: false, fallback: "GT", logoPath: "/exchanges/gate/brand/icon.png", mode: "api" },
+  { id: "binance", connectorExchangePlatform: "Binance", defaultAccountName: "Binance #1", enabled: false, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api" },
+  { id: "mockExchange", connectorExchangePlatform: "Mock", defaultAccountName: "Mock Exchange #1", enabled: true, fallback: "MX", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
+  { id: "binanceDemo", connectorExchangePlatform: "Binance", defaultAccountName: "Binance Demo #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
+  { id: "okx", connectorExchangePlatform: "OKX", defaultAccountName: "OKX #1", enabled: false, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api" },
+  { id: "hyperliquid", connectorExchangePlatform: "Hyperliquid", defaultAccountName: "Hyperliquid #1", enabled: false, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api" },
+  { id: "aster", connectorExchangePlatform: "Aster", defaultAccountName: "Aster #1", enabled: false, fallback: "AS", logoPath: "/exchanges/aster/brand/icon.png", mode: "api" },
+  { id: "bitget", connectorExchangePlatform: "Bitget", defaultAccountName: "Bitget #1", enabled: false, fallback: "BG", logoPath: "/exchanges/bitget/brand/icon.png", mode: "api" },
+  { id: "bybit", connectorExchangePlatform: "Bybit", defaultAccountName: "Bybit #1", enabled: false, fallback: "BY", logoPath: "/exchanges/bybit/brand/icon.png", mode: "api" },
+  { id: "gate", connectorExchangePlatform: "Gate", defaultAccountName: "Gate #1", enabled: false, fallback: "GT", logoPath: "/exchanges/gate/brand/icon.png", mode: "api" },
 ] as const;
 type PrototypeExchange = typeof EXCHANGES[number];
 type PrototypeExchangeId = PrototypeExchange["id"];
@@ -122,6 +132,7 @@ export function AccountCenterPrototype({
 }: AccountCenterPrototypeProps) {
   const accountCopy = copy.workspace.accountCenter;
   const isDrawerModal = !isApiSetupOpen && !isCoveredByModal;
+  const hasApiConnections = apiConnections.length > 0;
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
 
@@ -197,65 +208,65 @@ export function AccountCenterPrototype({
                 />
               ) : (
                 <>
-              <section className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-black">{accountCopy.api.title}</h3>
-                    <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>
-                      {apiConnection.status === "connected" ? accountCopy.api.connectedDescription : accountCopy.api.emptyDescription}
-                    </p>
-                  </div>
-                  <span className={apiConnection.status === "connected"
-                    ? isDarkTheme ? "rounded-full bg-emerald-400/15 px-2.5 py-1 text-[11px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700"
-                    : isDarkTheme ? "rounded-full bg-slate-700 px-2.5 py-1 text-[11px] font-black text-slate-300" : "rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600"}
-                  >
-                    {apiConnection.status === "connected" ? accountCopy.api.connected : accountCopy.api.empty}
-                  </span>
-                </div>
-                {apiConnections.length > 0 ? (
-                  <div className="mt-4 grid gap-3">
-                    {apiConnections.map((connection) => (
-                      <ApiConnectionCard
-                        key={connection.id}
-                        accountCopy={accountCopy}
-                        apiConnection={connection}
-                        isDarkTheme={isDarkTheme}
-                      />
-                    ))}
-                    <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
-                      {accountCopy.api.addAction}
-                    </button>
-                  </div>
-                ) : (
-                  <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
-                    {accountCopy.api.bindAction}
-                  </button>
-                )}
-              </section>
-
-              <section className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-black">{accountCopy.strategy.title}</h3>
-                  <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{strategies.length}</span>
-                </div>
-                <div className="mt-3 grid gap-3">
-                  {strategies.length > 0 ? strategies.map((strategy) => (
-                    <PrototypeStrategyCard
-                      key={strategy.id}
-                      copy={copy}
-                      isDarkTheme={isDarkTheme}
-                      strategy={strategy}
-                      onOpenDetail={setSelectedStrategyId}
-                      onStrategyDelete={onStrategyDelete}
-                      onStrategyStatusChange={onStrategyStatusChange}
-                    />
-                  )) : (
-                    <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-4 text-sm leading-5 text-slate-600"}>
-                      {accountCopy.strategy.empty}
+                  <section className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-black">{accountCopy.api.title}</h3>
+                        <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>
+                          {hasApiConnections ? accountCopy.api.connectedDescription : accountCopy.api.emptyDescription}
+                        </p>
+                      </div>
+                      <span className={hasApiConnections
+                        ? isDarkTheme ? "rounded-full bg-emerald-400/15 px-2.5 py-1 text-[11px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700"
+                        : isDarkTheme ? "rounded-full bg-slate-700 px-2.5 py-1 text-[11px] font-black text-slate-300" : "rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600"}
+                      >
+                        {hasApiConnections ? accountCopy.api.connected : accountCopy.api.empty}
+                      </span>
                     </div>
-                  )}
-                </div>
-              </section>
+                    {hasApiConnections ? (
+                      <div className="mt-4 grid gap-3">
+                        {apiConnections.map((connection) => (
+                          <ApiConnectionCard
+                            key={connection.id}
+                            accountCopy={accountCopy}
+                            apiConnection={connection}
+                            isDarkTheme={isDarkTheme}
+                          />
+                        ))}
+                        <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
+                          {accountCopy.api.addAction}
+                        </button>
+                      </div>
+                    ) : (
+                      <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
+                        {accountCopy.api.addAction}
+                      </button>
+                    )}
+                  </section>
+
+                  <section className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-black">{accountCopy.strategy.title}</h3>
+                      <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{strategies.length}</span>
+                    </div>
+                    <div className="mt-3 grid gap-3">
+                      {strategies.length > 0 ? strategies.map((strategy) => (
+                        <PrototypeStrategyCard
+                          key={strategy.id}
+                          copy={copy}
+                          isDarkTheme={isDarkTheme}
+                          strategy={strategy}
+                          onOpenDetail={setSelectedStrategyId}
+                          onStrategyDelete={onStrategyDelete}
+                          onStrategyStatusChange={onStrategyStatusChange}
+                        />
+                      )) : (
+                        <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-4 text-sm leading-5 text-slate-600"}>
+                          {accountCopy.strategy.empty}
+                        </div>
+                      )}
+                    </div>
+                  </section>
                 </>
               )}
             </div>
@@ -312,13 +323,14 @@ export function AccountManagementPanel({
   telegramUser: TelegramSessionUser | null;
   onApiSetupOpen: () => void;
   onApiSetupOpenChange: (isOpen: boolean) => void;
-  onConnectionSave: (input: { accountName: string; mockMarginBalance: number }) => void;
+  onConnectionSave: (input: PrototypeConnectionSaveInput) => void;
   onLogin: () => void;
   onLogout: () => void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
   const accountCopy = copy.workspace.accountCenter;
+  const hasApiConnections = apiConnections.length > 0;
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
 
@@ -370,18 +382,18 @@ export function AccountManagementPanel({
                 <div>
                   <h2 className="text-base font-black">{accountCopy.api.title}</h2>
                   <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>
-                    {apiConnections.length > 0 ? accountCopy.api.connectedDescription : accountCopy.api.emptyDescription}
+                    {hasApiConnections ? accountCopy.api.connectedDescription : accountCopy.api.emptyDescription}
                   </p>
                 </div>
-                <span className={apiConnections.length > 0
+                <span className={hasApiConnections
                   ? isDarkTheme ? "rounded-full bg-emerald-400/15 px-2.5 py-1 text-[11px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700"
                   : isDarkTheme ? "rounded-full bg-slate-700 px-2.5 py-1 text-[11px] font-black text-slate-300" : "rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600"}
                 >
-                  {apiConnections.length > 0 ? accountCopy.api.connected : accountCopy.api.empty}
+                  {hasApiConnections ? accountCopy.api.connected : accountCopy.api.empty}
                 </span>
               </div>
               <div className="mt-4 grid gap-3">
-                {apiConnections.length > 0 ? apiConnections.map((connection) => (
+                {hasApiConnections ? apiConnections.map((connection) => (
                   <ApiConnectionCard
                     key={connection.id}
                     accountCopy={accountCopy}
@@ -394,7 +406,7 @@ export function AccountManagementPanel({
                   </div>
                 )}
                 <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
-                  {apiConnections.length > 0 ? accountCopy.api.addAction : accountCopy.api.bindAction}
+                  {accountCopy.api.addAction}
                 </button>
               </div>
             </section>
@@ -599,25 +611,29 @@ function ApiConnectionCard({
   apiConnection: PrototypeApiConnection;
   isDarkTheme: boolean;
 }) {
+  const exchangeLabel = getConnectionExchangeLabel(accountCopy, apiConnection);
+
   return (
     <div className={isDarkTheme ? "rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.06] p-3" : "rounded-3xl border border-emerald-100 bg-emerald-50/70 p-3"}>
       <div className="flex items-start gap-3">
         <div className={isDarkTheme ? "grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-400/10 text-xs font-black text-emerald-200" : "grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-xs font-black text-emerald-700 shadow-sm"}>
-          MX
+          {getConnectionFallback(apiConnection)}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <div className="truncate text-sm font-black">{apiConnection.accountName}</div>
-            <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
-              {accountCopy.api.mockBadge}
-            </span>
+            {apiConnection.isMock ? (
+              <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
+                {accountCopy.api.mockBadge}
+              </span>
+            ) : null}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <MiniMetric isDarkTheme={isDarkTheme} label={accountCopy.api.accountType} value={apiConnection.exchangePlatform || accountCopy.exchanges.mockExchange} />
+            <MiniMetric isDarkTheme={isDarkTheme} label={accountCopy.api.accountType} value={exchangeLabel} />
             <MiniMetric
               isDarkTheme={isDarkTheme}
-              label={accountCopy.api.mockBalance}
-              value={formatMockBalance(apiConnection.mockMarginBalance)}
+              label={accountCopy.api.accountBalance}
+              value={formatAccountBalance(apiConnection.accountBalance)}
             />
           </div>
           <div className={isDarkTheme ? "mt-3 text-xs text-emerald-200/70" : "mt-3 text-xs text-emerald-700/75"}>
@@ -695,12 +711,14 @@ function TradingAccountOptionContent({
   connection: PrototypeApiConnection;
   isDarkTheme: boolean;
 }) {
+  const exchangeLabel = getConnectionExchangeLabel(accountCopy, connection);
+
   return (
     <span className="flex min-w-0 flex-1 items-center gap-2">
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-black">{connection.accountName}</span>
         <span className={isDarkTheme ? "mt-0.5 block truncate text-xs font-semibold text-slate-500" : "mt-0.5 block truncate text-xs font-semibold text-slate-500"}>
-          {connection.exchangePlatform || accountCopy.exchanges.mockExchange} · {formatMockBalance(connection.mockMarginBalance)}
+          {exchangeLabel} · {formatAccountBalance(connection.accountBalance)}
         </span>
       </span>
       {connection.isMock ? (
@@ -710,6 +728,47 @@ function TradingAccountOptionContent({
       ) : null}
     </span>
   );
+}
+
+function getConnectionExchangeLabel(
+  accountCopy: WorkspaceCopy["workspace"]["accountCenter"],
+  connection: PrototypeApiConnection,
+): string {
+  const exchange = getConnectionExchange(connection);
+
+  return exchange
+    ? getExchangeName(accountCopy, exchange.id)
+    : connection.exchangePlatform || accountCopy.exchanges.mockExchange;
+}
+
+function getConnectionFallback(connection: PrototypeApiConnection): string {
+  return getConnectionExchange(connection)?.fallback ?? createExchangeFallback(connection.exchangePlatform);
+}
+
+function getConnectionExchange(connection: PrototypeApiConnection): PrototypeExchange | null {
+  const normalizedPlatform = normalizeConnectionExchangePlatform(connection.exchangePlatform);
+  if (connection.isMock && isBinanceDemoConnectionPlatform(connection.exchangePlatform)) {
+    return getExchangeById("binanceDemo");
+  }
+
+  return EXCHANGES.find((exchange) =>
+    normalizeConnectionExchangePlatform(exchange.connectorExchangePlatform) === normalizedPlatform
+      && (connection.isMock ? exchange.mode === "demo" : exchange.mode === "api"),
+  ) ?? null;
+}
+
+function isBinanceDemoConnectionPlatform(value: string): boolean {
+  const normalizedPlatform = normalizeConnectionExchangePlatform(value);
+  return normalizedPlatform === "binance" || normalizedPlatform === "binancedemo" || normalizedPlatform === "bn";
+}
+
+function normalizeConnectionExchangePlatform(value: string): string {
+  return value.replace(/[\s_-]/gu, "").toLowerCase();
+}
+
+function createExchangeFallback(exchangePlatform: string): string {
+  const fallback = exchangePlatform.replace(/[^a-z0-9]/giu, "").slice(0, 2).toUpperCase();
+  return fallback || "API";
 }
 
 export function AccountEntryButton({
@@ -808,9 +867,9 @@ function ExchangeApiSetupLayer({
   initialMockMarginBalance: number | null;
   isDarkTheme: boolean;
   onClose: () => void;
-  onSave: (input: { accountName: string; mockMarginBalance: number }) => void;
+  onSave: (input: PrototypeConnectionSaveInput) => void;
 }) {
-  const [selectedExchangeId, setSelectedExchangeId] = useState<PrototypeExchangeId>("mockExchange");
+  const [selectedExchangeId, setSelectedExchangeId] = useState<PrototypeExchangeId>("binanceDemo");
   const selectedExchange = getExchangeById(selectedExchangeId);
   const [accountName, setAccountName] = useState(initialAccountName || selectedExchange.defaultAccountName);
   const [mockMarginBalance, setMockMarginBalance] = useState(String(initialMockMarginBalance ?? 10000));
@@ -820,11 +879,19 @@ function ExchangeApiSetupLayer({
   const [hasCopiedIp, setHasCopiedIp] = useState(false);
   const accountCopy = copy.workspace.accountCenter;
   const isDemoExchange = selectedExchange.mode === "demo";
+  const isBuiltInMockExchange = selectedExchange.id === "mockExchange";
+  const isBinanceDemoExchange = selectedExchange.id === "binanceDemo";
+  const requiresApiCredentials = !isBuiltInMockExchange;
   const parsedMockMarginBalance = Number(mockMarginBalance);
   const hasValidMockMarginBalance = Number.isFinite(parsedMockMarginBalance) && parsedMockMarginBalance > 0 && parsedMockMarginBalance <= MOCK_MARGIN_BALANCE_MAX;
+  const hasApiCredentials = apiKey.trim().length > 0 && secret.trim().length > 0;
 
-  const canTest = !isDemoExchange && accountName.trim().length > 0 && apiKey.trim().length > 0 && secret.trim().length > 0;
-  const canSave = isDemoExchange ? accountName.trim().length > 0 && hasValidMockMarginBalance : hasTestedConnection;
+  const canTest = !isDemoExchange && accountName.trim().length > 0 && hasApiCredentials;
+  const canSave = isBuiltInMockExchange
+    ? accountName.trim().length > 0 && hasValidMockMarginBalance
+    : isBinanceDemoExchange
+      ? accountName.trim().length > 0 && hasValidMockMarginBalance && hasApiCredentials
+      : hasTestedConnection;
   const updateMockMarginBalance = (value: string) => {
     const normalizedValue = value.replace(/[^\d.]/gu, "");
     const parsedValue = Number(normalizedValue);
@@ -930,9 +997,13 @@ function ExchangeApiSetupLayer({
                         </div>
                       </div>
                     </div>
-                    {isDemoExchange ? (
+                    {isBuiltInMockExchange ? (
                       <span className={isDarkTheme ? "rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-200" : "rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700"}>
                         {accountCopy.apiSetup.noKeysRequired}
+                      </span>
+                    ) : isBinanceDemoExchange ? (
+                      <span className={isDarkTheme ? "rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-200" : "rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700"}>
+                        {accountCopy.apiSetup.noWhitelistIpRequired}
                       </span>
                     ) : (
                       <div className="flex flex-wrap gap-2">
@@ -949,11 +1020,27 @@ function ExchangeApiSetupLayer({
                     <p className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
                       {selectedExchange.id === "mockExchange" ? accountCopy.apiSetup.mockExchangeDescription : accountCopy.apiSetup.binanceDemoDescription}
                     </p>
+                    {isBinanceDemoExchange ? (
+                      <a
+                        className={`${getSoftButtonClassName(isDarkTheme)} mt-3 w-fit`}
+                        href={BINANCE_DEMO_API_MANAGEMENT_URL}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        ↗ {accountCopy.apiSetup.binanceDemoApiManagement}
+                      </a>
+                    ) : null}
                     <div className={isDarkTheme ? "mt-3 rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.07] px-3 py-3 text-xs leading-5 text-emerald-100/85" : "mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800"}>
                       {accountCopy.apiSetup.demoRiskNote}
                     </div>
                     <div className="mt-4 grid gap-3">
                       <PrototypeInput autoComplete="off" fieldName="account-name" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.accountName} value={accountName} onChange={setAccountName} />
+                      {requiresApiCredentials ? (
+                        <>
+                          <PrototypeInput autoComplete="off" fieldName="api-key" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiKey} placeholder={accountCopy.apiSetup.apiKeyPlaceholder} value={apiKey} onChange={setApiKey} />
+                          <PrototypeInput autoComplete="new-password" fieldName="secret" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.secret} placeholder={accountCopy.apiSetup.secretPlaceholder} type="password" value={secret} onChange={setSecret} />
+                        </>
+                      ) : null}
                       <div>
                         <PrototypeInput
                           autoComplete="off"
@@ -973,7 +1060,7 @@ function ExchangeApiSetupLayer({
                               type="button"
                               onClick={() => setMockMarginBalance(String(amount))}
                             >
-                              {formatMockBalance(amount)}
+                              {formatAccountBalance(amount)}
                             </button>
                           ))}
                         </div>
@@ -1041,7 +1128,10 @@ function ExchangeApiSetupLayer({
               type="button"
               onClick={() => onSave({
                 accountName: accountName.trim() || selectedExchange.defaultAccountName,
+                apiKey: requiresApiCredentials ? apiKey.trim() : undefined,
+                exchangePlatform: selectedExchange.connectorExchangePlatform,
                 mockMarginBalance: hasValidMockMarginBalance ? parsedMockMarginBalance : 10000,
+                secret: requiresApiCredentials ? secret.trim() : undefined,
               })}
             >
               {accountCopy.apiSetup.save}
@@ -1171,7 +1261,6 @@ function StrategyDetailView({
   const parsedSyncRatioPercent = Number(syncRatioPercent);
   const canSyncPositions = Boolean(detail?.trader.enabled) && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
   const orderItems = detail?.orderHistory?.items ?? [];
-  const returnCurvePoints = detail ? buildEquityCurvePoints(detail.accountInitialEquity, detail.account?.equity) : [];
 
   const syncPositions = async () => {
     if (!canSyncPositions) {
@@ -1289,22 +1378,17 @@ function StrategyDetailView({
           </section>
 
           <section className={getModalSectionClassName(isDarkTheme)}>
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-black">{strategyCopy.returnCurve}</h3>
-              <span className={getPnlClassName(isDarkTheme, returnCurvePoints.at(-1)?.value ?? 0)}>{formatSignedPercent(returnCurvePoints.at(-1)?.value ?? 0)}</span>
-            </div>
-            {returnCurvePoints.length > 1 ? (
-              <ReturnCurveChart isDarkTheme={isDarkTheme} points={returnCurvePoints} />
-            ) : (
-              <div className={isDarkTheme ? "mt-3 rounded-2xl bg-white/[0.035] px-3 py-4 text-sm text-slate-500" : "mt-3 rounded-2xl bg-[#F8FAFC] px-3 py-4 text-sm text-slate-500"}>{strategyCopy.returnCurveEmpty}</div>
-            )}
-          </section>
-
-          <section className={getModalSectionClassName(isDarkTheme)}>
             <h3 className="text-sm font-black">{strategyCopy.copyPositions}</h3>
             {detail.positionsError ? <p className="mt-2 text-xs text-rose-500">{detail.positionsError}</p> : null}
             {detail.positions.length > 0 ? (
-              <CopyPositionTable isDarkTheme={isDarkTheme} positions={detail.positions} strategyCopy={strategyCopy} />
+              <>
+                <PositionSummaryPanel
+                  isDarkTheme={isDarkTheme}
+                  strategyCopy={strategyCopy}
+                  summary={createCopyPositionSummary(detail)}
+                />
+                <CopyPositionTable isDarkTheme={isDarkTheme} positions={detail.positions} strategyCopy={strategyCopy} />
+              </>
             ) : <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.copyPositionsEmpty}</div>}
           </section>
 
@@ -1314,11 +1398,15 @@ function StrategyDetailView({
             <div className="mt-3 grid gap-2">
               {detail.signalSources.length > 0 ? detail.signalSources.map((source) => (
                 <div key={source.signalSourceId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#F8FAFC] p-3"}>
-                  <div className="text-sm font-black">{source.name || source.signalSourceId}</div>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                    <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.margin} value={formatDetailNumber(source.marginBalance)} />
-                    <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.followSide} value={source.followSide || "both"} />
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm font-black">{source.name || source.signalSourceId}</div>
+                    <div className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-500"}>{strategyCopy.followSide}: {source.followSide || "both"}</div>
                   </div>
+                  <PositionSummaryPanel
+                    isDarkTheme={isDarkTheme}
+                    strategyCopy={strategyCopy}
+                    summary={createSignalSourcePositionSummary(source)}
+                  />
                   {source.positions.length > 0 ? (
                     <SignalSourcePositionTable isDarkTheme={isDarkTheme} positions={source.positions} strategyCopy={strategyCopy} />
                   ) : <div className={isDarkTheme ? "mt-3 text-xs text-slate-500" : "mt-3 text-xs text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
@@ -1369,6 +1457,330 @@ async function requestStrategyPositionSync(strategyId: string, ratioPercent: num
     throw new Error("error" in payload && payload.error ? payload.error : `Position sync failed with status ${response.status}.`);
   }
   return payload as TradingFoxStrategyDetail;
+}
+
+type StrategyCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
+type SignalSourcePosition = TradingFoxStrategyDetail["signalSources"][number]["positions"][number];
+
+type PositionSummaryModel = {
+  availableMargin: number | null;
+  longRatio: number | null;
+  positionCount: number;
+  shortRatio: number | null;
+  totalLeverage: number | null;
+  totalMargin: number | null;
+  totalNotional: number | null;
+  totalPnlRate: number | null;
+  unrealizedPnl: number | null;
+};
+
+type NormalizedSummaryPosition = {
+  margin: number | null;
+  notional: number | null;
+  pnl: number | null;
+  side: string | undefined;
+};
+
+type PositionSummaryTotals = {
+  longRatio: number | null;
+  positionCount: number;
+  shortRatio: number | null;
+  totalNotional: number | null;
+  totalPnl: number | null;
+  usedMargin: number | null;
+};
+
+function PositionSummaryPanel({
+  isDarkTheme,
+  strategyCopy,
+  summary,
+}: {
+  isDarkTheme: boolean;
+  strategyCopy: StrategyCopy;
+  summary: PositionSummaryModel;
+}) {
+  const containerClassName = isDarkTheme
+    ? "mt-3 rounded-2xl border border-white/[0.075] bg-[#111820] p-4"
+    : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-4";
+  const pnlValue = summary.unrealizedPnl ?? 0;
+  const pnlRateValue = summary.totalPnlRate ?? 0;
+
+  return (
+    <div className={containerClassName}>
+      <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+          <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount}>
+            {summary.positionCount}
+          </PositionSummaryMetric>
+          <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.availableTotalMargin}>
+            <span className={isDarkTheme ? "text-emerald-300" : "text-emerald-600"}>{formatDetailCurrency(summary.availableMargin)}</span>
+            <span className={isDarkTheme ? "text-slate-500" : "text-slate-400"}>/</span>
+            <span>{formatDetailCurrency(summary.totalMargin)}</span>
+          </PositionSummaryMetric>
+          <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.totalNotionalValue}>
+            {formatDetailCurrency(summary.totalNotional)}
+          </PositionSummaryMetric>
+          <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.totalLeverage}>
+            {formatSummaryLeverage(summary.totalLeverage)}
+          </PositionSummaryMetric>
+          <PositionSummaryMetric
+            isDarkTheme={isDarkTheme}
+            label={strategyCopy.unrealizedPnl}
+            valueClassName={getPnlClassName(isDarkTheme, pnlValue)}
+          >
+            {formatSignedDetailCurrency(summary.unrealizedPnl)}
+          </PositionSummaryMetric>
+          <PositionSummaryMetric
+            isDarkTheme={isDarkTheme}
+            label={strategyCopy.totalPnlRate}
+            valueClassName={getPnlClassName(isDarkTheme, pnlRateValue)}
+          >
+            {formatSignedPercent(summary.totalPnlRate)}
+          </PositionSummaryMetric>
+        </div>
+        <div className="flex flex-col justify-between gap-6 text-left sm:flex-row sm:items-end sm:text-right">
+          <div className="flex flex-wrap gap-x-5 gap-y-2 sm:justify-end">
+            <span className={isDarkTheme ? "text-lg font-black text-emerald-300" : "text-lg font-black text-emerald-600"}>{strategyCopy.longRatio}:</span>
+            <span className="text-lg font-black text-[#ff2d3d]">{strategyCopy.shortRatio}:</span>
+          </div>
+          <div className="flex flex-wrap gap-x-8 gap-y-2 sm:justify-end">
+            <span className={isDarkTheme ? "text-2xl font-black text-emerald-300" : "text-2xl font-black text-emerald-600"}>{formatUnsignedPercent(summary.longRatio)}</span>
+            <span className="text-2xl font-black text-[#ff2d3d]">{formatUnsignedPercent(summary.shortRatio)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PositionSummaryMetric({
+  children,
+  isDarkTheme,
+  label,
+  valueClassName,
+}: {
+  children: ReactNode;
+  isDarkTheme: boolean;
+  label: string;
+  valueClassName?: string;
+}) {
+  const labelClassName = isDarkTheme ? "text-sm font-medium text-slate-400" : "text-sm font-medium text-slate-800";
+  const defaultValueClassName = isDarkTheme ? "mt-2 flex items-baseline gap-0.5 text-2xl font-black text-slate-50" : "mt-2 flex items-baseline gap-0.5 text-2xl font-black text-slate-950";
+
+  return (
+    <div className="min-w-0">
+      <div className={labelClassName}>{label}</div>
+      <div className={`${defaultValueClassName} ${valueClassName ?? ""}`}>{children}</div>
+    </div>
+  );
+}
+
+function createCopyPositionSummary(detail: TradingFoxStrategyDetail): PositionSummaryModel {
+  const totals = summarizePositions(detail.positions.map((position) => {
+    const notional = getCopyPositionNotional(position);
+    const leverage = finiteNumberOrNull(position.leverage);
+    return {
+      margin: calculatePositionMargin(notional, leverage),
+      notional,
+      pnl: getCopyPositionPnl(position),
+      side: position.side,
+    };
+  }));
+  const totalMargin = finiteNumberOrNull(detail.account?.usdtTotal)
+    ?? finiteNumberOrNull(detail.account?.equity)
+    ?? totals.usedMargin;
+  const availableMargin = finiteNumberOrNull(detail.account?.usdtFree)
+    ?? calculateAvailableMargin(totalMargin, totals.usedMargin);
+
+  return createPositionSummaryModel({ availableMargin, totalMargin, totals });
+}
+
+function createSignalSourcePositionSummary(source: TradingFoxStrategyDetail["signalSources"][number]): PositionSummaryModel {
+  const totals = summarizePositions(source.positions.map((position) => {
+    const notional = getSignalSourcePositionNotional(position);
+    const leverage = finiteNumberOrNull(position.leverage);
+    return {
+      margin: calculatePositionMargin(notional, leverage),
+      notional,
+      pnl: getSignalSourcePositionPnl(position),
+      side: position.positionSide,
+    };
+  }));
+  const totalMargin = finiteNumberOrNull(source.marginBalance) ?? totals.usedMargin;
+  const availableMargin = calculateAvailableMargin(totalMargin, totals.usedMargin);
+
+  return createPositionSummaryModel({ availableMargin, totalMargin, totals });
+}
+
+function createPositionSummaryModel(input: {
+  availableMargin: number | null;
+  totalMargin: number | null;
+  totals: PositionSummaryTotals;
+}): PositionSummaryModel {
+  const { availableMargin, totalMargin, totals } = input;
+  const marginBase = positiveFiniteNumberOrNull(totalMargin) ?? positiveFiniteNumberOrNull(totals.usedMargin);
+  const totalLeverage = totals.totalNotional !== null && totals.totalNotional > 0 && marginBase !== null
+    ? totals.totalNotional / marginBase
+    : totals.totalNotional === 0
+      ? 0
+      : null;
+  const totalPnlRate = totals.totalPnl !== null && marginBase !== null
+    ? (totals.totalPnl / marginBase) * 100
+    : totals.totalPnl === 0
+      ? 0
+      : null;
+
+  return {
+    availableMargin,
+    longRatio: totals.longRatio,
+    positionCount: totals.positionCount,
+    shortRatio: totals.shortRatio,
+    totalLeverage,
+    totalMargin,
+    totalNotional: totals.totalNotional,
+    totalPnlRate,
+    unrealizedPnl: totals.totalPnl,
+  };
+}
+
+function summarizePositions(positions: readonly NormalizedSummaryPosition[]): PositionSummaryTotals {
+  let hasMargin = false;
+  let hasNotional = positions.length === 0;
+  let hasPnl = positions.length === 0;
+  let longCount = 0;
+  let longNotional = 0;
+  let shortCount = 0;
+  let shortNotional = 0;
+  let totalNotional = 0;
+  let totalPnl = 0;
+  let usedMargin = 0;
+
+  positions.forEach((position) => {
+    const notional = positiveFiniteNumberOrNull(position.notional);
+    const margin = positiveFiniteNumberOrNull(position.margin);
+    const sideBucket = getPositionSideBucket(position.side);
+
+    if (notional !== null) {
+      hasNotional = true;
+      totalNotional += notional;
+    }
+
+    if (margin !== null) {
+      hasMargin = true;
+      usedMargin += margin;
+    }
+
+    if (position.pnl !== null) {
+      hasPnl = true;
+      totalPnl += position.pnl;
+    }
+
+    if (sideBucket === "long") {
+      longCount += 1;
+      longNotional += notional ?? 0;
+    } else if (sideBucket === "short") {
+      shortCount += 1;
+      shortNotional += notional ?? 0;
+    }
+  });
+
+  const directionalNotional = longNotional + shortNotional;
+  const directionalCount = longCount + shortCount;
+  const longRatio = directionalNotional > 0
+    ? (longNotional / directionalNotional) * 100
+    : directionalCount > 0
+      ? (longCount / directionalCount) * 100
+      : null;
+  const shortRatio = longRatio === null ? null : 100 - longRatio;
+
+  return {
+    longRatio,
+    positionCount: positions.length,
+    shortRatio,
+    totalNotional: hasNotional ? totalNotional : null,
+    totalPnl: hasPnl ? totalPnl : null,
+    usedMargin: hasMargin ? usedMargin : null,
+  };
+}
+
+function getCopyPositionNotional(position: TradingFoxPosition): number | null {
+  const explicitNotional = finiteNumberOrNull(position.notional);
+  if (explicitNotional !== null) {
+    return Math.abs(explicitNotional);
+  }
+
+  const contracts = finiteNumberOrNull(position.contracts);
+  const price = finiteNumberOrNull(position.markPrice) ?? finiteNumberOrNull(position.entryPrice);
+  if (contracts === null || price === null) {
+    return null;
+  }
+
+  return Math.abs(contracts * price);
+}
+
+function getSignalSourcePositionNotional(position: SignalSourcePosition): number | null {
+  const size = finiteNumberOrNull(position.positionSize);
+  const price = finiteNumberOrNull(position.markPrice) ?? finiteNumberOrNull(position.entryPrice);
+  if (size === null || price === null) {
+    return null;
+  }
+
+  return Math.abs(size * price);
+}
+
+function getCopyPositionPnl(position: TradingFoxPosition): number | null {
+  const explicitPnl = finiteNumberOrNull(position.unrealizedPnl);
+  if (explicitPnl !== null) {
+    return explicitPnl;
+  }
+
+  return calculatePositionPnl({
+    entryPrice: finiteNumberOrNull(position.entryPrice),
+    markPrice: finiteNumberOrNull(position.markPrice),
+    quantity: finiteNumberOrNull(position.contracts),
+    side: position.side,
+  });
+}
+
+function getSignalSourcePositionPnl(position: SignalSourcePosition): number | null {
+  return calculatePositionPnl({
+    entryPrice: finiteNumberOrNull(position.entryPrice),
+    markPrice: finiteNumberOrNull(position.markPrice),
+    quantity: finiteNumberOrNull(position.positionSize),
+    side: position.positionSide,
+  });
+}
+
+function calculatePositionPnl(input: {
+  entryPrice: number | null;
+  markPrice: number | null;
+  quantity: number | null;
+  side: string | undefined;
+}): number | null {
+  const { entryPrice, markPrice, quantity, side } = input;
+  const sideBucket = getPositionSideBucket(side);
+  if (entryPrice === null || markPrice === null || quantity === null || sideBucket === null) {
+    return null;
+  }
+
+  const priceMove = sideBucket === "long" ? markPrice - entryPrice : entryPrice - markPrice;
+  return priceMove * Math.abs(quantity);
+}
+
+function calculatePositionMargin(notional: number | null, leverage: number | null): number | null {
+  if (notional === null || leverage === null || leverage <= 0) {
+    return null;
+  }
+
+  return Math.abs(notional) / leverage;
+}
+
+function calculateAvailableMargin(totalMargin: number | null, usedMargin: number | null): number | null {
+  if (totalMargin === null || usedMargin === null) {
+    return null;
+  }
+
+  return Math.max(totalMargin - usedMargin, 0);
 }
 
 function CopyPositionTable({
@@ -1507,55 +1919,10 @@ function TradeHistoryTable({
 }
 
 
-function ReturnCurveChart({ isDarkTheme, points }: { isDarkTheme: boolean; points: readonly { label: string; value: number }[] }) {
-  const values = points.map((point) => point.value);
-  const minValue = Math.min(...values, 0);
-  const maxValue = Math.max(...values, 0);
-  const valueRange = maxValue - minValue || 1;
-  const width = 720;
-  const height = 160;
-  const paddingX = 16;
-  const paddingY = 18;
-  const linePoints = points.map((point, index) => {
-    const x = paddingX + (index / Math.max(points.length - 1, 1)) * (width - paddingX * 2);
-    const y = paddingY + ((maxValue - point.value) / valueRange) * (height - paddingY * 2);
-    return { ...point, x, y };
-  });
-  const path = linePoints.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
-  const zeroY = paddingY + ((maxValue - 0) / valueRange) * (height - paddingY * 2);
-  const lastPoint = linePoints.at(-1);
-
-  return (
-    <div className={isDarkTheme ? "mt-3 rounded-2xl border border-white/[0.06] bg-[#111820] p-3" : "mt-3 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
-      <svg className="h-40 w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Return curve">
-        <line x1={paddingX} x2={width - paddingX} y1={zeroY} y2={zeroY} stroke={isDarkTheme ? "rgba(148,163,184,0.28)" : "rgba(100,116,139,0.28)"} strokeDasharray="5 5" />
-        <path d={path} fill="none" stroke={lastPoint && lastPoint.value < 0 ? "#ff2d3d" : "#00c853"} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
-        {linePoints.map((point) => (
-          <circle key={`${point.label}-${point.x}`} cx={point.x} cy={point.y} fill={point.value < 0 ? "#ff2d3d" : "#00c853"} r="4" />
-        ))}
-      </svg>
-      <div className={isDarkTheme ? "mt-1 flex items-center justify-between text-xs font-bold text-slate-500" : "mt-1 flex items-center justify-between text-xs font-bold text-slate-500"}>
-        <span>{points[0]?.label ?? "--"}</span>
-        <span>{points.at(-1)?.label ?? "--"}</span>
-      </div>
-    </div>
-  );
-}
-
-function buildEquityCurvePoints(initialEquity: number | undefined, currentEquity: number | undefined): { label: string; value: number }[] {
-  const initial = Number(initialEquity);
-  const current = Number(currentEquity);
-  if (!Number.isFinite(initial) || !Number.isFinite(current) || initial <= 0) {
-    return [];
-  }
-
-  return [
-    { label: "Start", value: 0 },
-    { label: "Now", value: ((current - initial) / initial) * 100 },
-  ];
-}
-
 function formatDetailNumber(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "--";
+  }
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(number)) {
     return "--";
@@ -1564,14 +1931,20 @@ function formatDetailNumber(value: unknown): string {
 }
 
 function formatDetailCurrency(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "--";
+  }
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(number)) {
     return "--";
   }
-  return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(number)}`;
+  return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(number)}`;
 }
 
 function formatSignedDetailCurrency(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "--";
+  }
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(number)) {
     return "--";
@@ -1581,15 +1954,32 @@ function formatSignedDetailCurrency(value: unknown): string {
 }
 
 function formatSignedPercent(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "--";
+  }
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(number)) {
     return "--";
   }
   const prefix = number > 0 ? "+" : "";
-  return `${prefix}${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(number)}%`;
+  return `${prefix}${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(number)}%`;
+}
+
+function formatUnsignedPercent(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "--";
+  }
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) {
+    return "--";
+  }
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(number)}%`;
 }
 
 function formatLeverage(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "--";
+  }
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(number)) {
     return "--";
@@ -1597,9 +1987,44 @@ function formatLeverage(value: unknown): string {
   return `${formatDetailNumber(number)}x`;
 }
 
+function formatSummaryLeverage(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "--";
+  }
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) {
+    return "--";
+  }
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(number)}x`;
+}
+
 function numberOrZero(value: unknown): number {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+function finiteNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const number = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function positiveFiniteNumberOrNull(value: unknown): number | null {
+  const number = finiteNumberOrNull(value);
+  return number !== null && number > 0 ? number : null;
+}
+
+function getPositionSideBucket(value: string | undefined): "long" | "short" | null {
+  const normalizedValue = (value ?? "").toLowerCase();
+  if (normalizedValue.includes("long") || normalizedValue.includes("buy")) {
+    return "long";
+  }
+  if (normalizedValue.includes("short") || normalizedValue.includes("sell")) {
+    return "short";
+  }
+  return null;
 }
 
 function formatPositionSide(value: string | undefined): string {
@@ -1738,11 +2163,12 @@ function PrototypeInput({
   );
 }
 
-function formatMockBalance(value: number | null): string {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+function formatAccountBalance(value: number | null): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
     return "--";
   }
-  return `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  const prefix = value < 0 ? "-" : "";
+  return `${prefix}$${Math.abs(value).toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 }
 
 function MiniMetric({ isDarkTheme, label, value, valueClassName }: { isDarkTheme: boolean; label: string; value: string; valueClassName?: string }) {

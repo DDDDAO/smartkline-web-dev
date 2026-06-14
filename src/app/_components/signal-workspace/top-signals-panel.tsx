@@ -9,6 +9,7 @@ import type {
   CopyTradingEventType,
   CopyTradingPosition,
   CopyTradingRadarSnapshot,
+  CopyTradingReturnCurvePoint,
   CopyTradingRiskLevel,
   CopyTradingTrader,
 } from "@/app/_types/copy-trading";
@@ -17,6 +18,14 @@ import { FavoriteStarButton, SignalField, SourceAvatar, SymbolIcon } from "./car
 
 export type PnlColorMode = PriceColorMode;
 
+export type TopSignalReturnCurveState = {
+  error: string | null;
+  hasLoaded: boolean;
+  isLoading: boolean;
+  points: CopyTradingReturnCurvePoint[];
+  updatedAt: string | null;
+};
+
 type TopSignalsPanelProps = {
   activeSourceId: string;
   activeTradeEventId: string;
@@ -24,6 +33,7 @@ type TopSignalsPanelProps = {
   headerAction?: ReactNode;
   isDarkTheme: boolean;
   pnlColorMode: PnlColorMode;
+  returnCurvesBySourceId?: Readonly<Record<string, TopSignalReturnCurveState>>;
   snapshot: CopyTradingRadarSnapshot | null;
   sourceFilterId: string;
   sourceStatus: KolSignalSourceStatus;
@@ -34,6 +44,7 @@ type TopSignalsPanelProps = {
   onSourceSelect: (sourceId: string) => void;
   onSourceWatchToggle?: (trader: CopyTradingTrader) => void;
   onCopyTradingRequest?: (target: CopyTradingPrototypeTarget) => void;
+  onReturnCurveLoad?: (trader: CopyTradingTrader) => Promise<void>;
   onTradeHistoryLoadMore?: (input: {
     limit: number;
     offset: number;
@@ -56,6 +67,10 @@ const TOP_SIGNAL_FACE_SWAP_BACK_ROWS_DELAY_MS = 80;
 const TOP_SIGNAL_ACTIVE_CARD_SCROLL_GAP_PX = 8;
 const TOP_SIGNAL_ACTIVE_TRADE_SPOTLIGHT_MS = 1_800;
 const EXPANDED_HISTORY_CARD_MIN_HEIGHT = "clamp(420px, 68vh, 680px)";
+const RETURN_CURVE_MAX_RENDER_POINTS = 160;
+const RETURN_CURVE_SVG_HEIGHT = 92;
+const RETURN_CURVE_SVG_WIDTH = 320;
+const RETURN_CURVE_SVG_PADDING = 8;
 const SMARTKLINE_SOURCE_AVATAR_STYLE: CSSProperties = {
   backgroundImage: "url(\"/logo-mark.svg\")",
   backgroundPosition: "center",
@@ -70,6 +85,7 @@ export function TopSignalsPanel({
   headerAction,
   isDarkTheme,
   pnlColorMode,
+  returnCurvesBySourceId,
   snapshot,
   sourceFilterId,
   sourceStatus,
@@ -80,6 +96,7 @@ export function TopSignalsPanel({
   onSourceSelect,
   onSourceWatchToggle,
   onCopyTradingRequest,
+  onReturnCurveLoad,
   onTradeHistoryLoadMore,
   onTradeSelect,
 }: TopSignalsPanelProps) {
@@ -455,6 +472,7 @@ export function TopSignalsPanel({
               model={model}
               positionPageOffset={positionPageOffsetsBySourceId[model.trader.trader_id] ?? 0}
               spotlightTradeEventId={spotlightTradeEventId}
+              returnCurveState={returnCurvesBySourceId?.[model.trader.trader_id] ?? null}
               tradePageOffset={tradePageOffsetsBySourceId[model.trader.trader_id] ?? 0}
               onFlipToggle={() => toggleSourceFlip({
                 isFlipped,
@@ -476,6 +494,7 @@ export function TopSignalsPanel({
                 positionsCount: model.positions.length,
                 trader: model.trader,
               }) : undefined}
+              onReturnCurveLoad={onReturnCurveLoad ? () => onReturnCurveLoad(model.trader) : undefined}
               onTradeSelect={onTradeSelect}
             />
           );
@@ -793,6 +812,7 @@ function TopSignalSourceCard({
   model,
   pnlColorMode,
   positionPageOffset,
+  returnCurveState,
   spotlightTradeEventId,
   tradePageOffset,
   onFlipToggle,
@@ -806,6 +826,7 @@ function TopSignalSourceCard({
   onTradeRowMount,
   onWatchToggle,
   onCopyTradingRequest,
+  onReturnCurveLoad,
   onTradeSelect,
 }: {
   activeTradeEventId: string;
@@ -821,6 +842,7 @@ function TopSignalSourceCard({
   model: TopSignalSourceModel;
   pnlColorMode: PnlColorMode;
   positionPageOffset: number;
+  returnCurveState: TopSignalReturnCurveState | null;
   spotlightTradeEventId: string;
   tradePageOffset: number;
   onFlipToggle: () => void;
@@ -834,6 +856,7 @@ function TopSignalSourceCard({
   onTradeRowMount?: (eventId: string, element: HTMLButtonElement | null) => void;
   onWatchToggle?: () => void;
   onCopyTradingRequest?: () => void;
+  onReturnCurveLoad?: () => Promise<void>;
   onTradeSelect: (event: CopyTradingEvent) => void;
 }) {
   const panelCopy = copy.workspace.topSignals;
@@ -908,6 +931,20 @@ function TopSignalSourceCard({
     resizeObserver.observe(frontFace);
     return () => resizeObserver.disconnect();
   }, [isFlipped, model.events.length, model.positions.length, shouldLockCardHeight]);
+
+  useEffect(() => {
+    if (!isFlipped || !onReturnCurveLoad || returnCurveState?.error || returnCurveState?.hasLoaded || returnCurveState?.isLoading) {
+      return;
+    }
+
+    void onReturnCurveLoad().catch(() => undefined);
+  }, [
+    isFlipped,
+    onReturnCurveLoad,
+    returnCurveState?.error,
+    returnCurveState?.hasLoaded,
+    returnCurveState?.isLoading,
+  ]);
 
   return (
     <div ref={cardRef} className="signal-card-scene will-change-transform" style={lockedCardHeightStyle}>
@@ -1024,6 +1061,13 @@ function TopSignalSourceCard({
               onActionToggle={onFlipToggle}
               onWatchToggle={onWatchToggle}
             />
+            <SignalReturnCurveCard
+              canLoad={Boolean(onReturnCurveLoad)}
+              copy={copy}
+              isDarkTheme={isDarkTheme}
+              pnlColorMode={pnlColorMode}
+              state={returnCurveState}
+            />
             <div className="mt-3 flex items-center justify-between gap-3">
               <span className={isDarkTheme ? "text-xs font-bold text-slate-100" : "text-xs font-bold text-slate-900"}>{panelCopy.tradeHistory}</span>
               <span className={isDarkTheme ? "text-[10px] font-medium text-slate-500" : "text-[10px] font-medium text-slate-400"}>{panelCopy.tradeHint}</span>
@@ -1079,12 +1123,256 @@ function TopSignalSourceCard({
   );
 }
 
+function SignalReturnCurveCard({
+  canLoad,
+  copy,
+  isDarkTheme,
+  pnlColorMode,
+  state,
+}: {
+  canLoad: boolean;
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  pnlColorMode: PnlColorMode;
+  state: TopSignalReturnCurveState | null;
+}) {
+  const panelCopy = copy.workspace.topSignals;
+  const points = state?.points ?? [];
+  const latestPoint = points.length > 0 ? points[points.length - 1] : null;
+  const isLoading = canLoad && (!state || state.isLoading);
+  const errorText = state?.error ? `${panelCopy.returnCurveError}: ${state.error}` : null;
+  const metaText = state?.updatedAt
+    ? panelCopy.updatedAt(formatDisplayTime(state.updatedAt))
+    : panelCopy.returnCurveHint;
+  const cardClassName = isDarkTheme
+    ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
+    : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3";
+  const latestClassName = getPnlClassName(isDarkTheme, latestPoint?.value ?? null, pnlColorMode);
+
+  return (
+    <div className={cardClassName}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className={isDarkTheme ? "text-xs font-bold text-slate-100" : "text-xs font-bold text-slate-900"}>
+            {panelCopy.returnCurve}
+          </div>
+          <div className={isDarkTheme ? "mt-1 truncate text-[10px] font-medium text-slate-500" : "mt-1 truncate text-[10px] font-medium text-slate-400"}>
+            {metaText}
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className={latestClassName}>{latestPoint ? formatSignedPercent(latestPoint.value) : "--"}</div>
+          <div className={isDarkTheme ? "mt-1 text-[10px] text-slate-500" : "mt-1 text-[10px] text-slate-400"}>
+            {panelCopy.returnCurveLatest}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 h-[92px]">
+        {points.length > 0 ? (
+          <TopSignalReturnCurveChart
+            ariaLabel={panelCopy.returnCurve}
+            isDarkTheme={isDarkTheme}
+            pnlColorMode={pnlColorMode}
+            points={points}
+          />
+        ) : isLoading ? (
+          <div className={isDarkTheme ? "flex h-full items-center justify-center rounded-xl border border-white/[0.06] bg-[#181A20] text-xs text-slate-500" : "flex h-full items-center justify-center rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] text-xs text-slate-500"}>
+            {panelCopy.returnCurveLoading}
+          </div>
+        ) : (
+          <div className={isDarkTheme ? "flex h-full items-center justify-center rounded-xl border border-white/[0.06] bg-[#181A20] px-3 text-center text-xs text-slate-500" : "flex h-full items-center justify-center rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 text-center text-xs text-slate-500"}>
+            {errorText ?? panelCopy.returnCurveEmpty}
+          </div>
+        )}
+      </div>
+      {points.length > 0 ? (
+        <div className={isDarkTheme ? "mt-2 flex items-center justify-between gap-3 text-[10px] text-slate-500" : "mt-2 flex items-center justify-between gap-3 text-[10px] text-slate-400"}>
+          <span>{formatReturnCurveDate(points[0]?.timestamp ?? null)}</span>
+          <span className="truncate">{errorText ?? panelCopy.returnCurveWindow}</span>
+          <span>{formatReturnCurveDate(latestPoint?.timestamp ?? null)}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TopSignalReturnCurveChart({
+  ariaLabel,
+  isDarkTheme,
+  pnlColorMode,
+  points,
+}: {
+  ariaLabel: string;
+  isDarkTheme: boolean;
+  pnlColorMode: PnlColorMode;
+  points: readonly CopyTradingReturnCurvePoint[];
+}) {
+  const sampledPoints = sampleReturnCurvePoints(points, RETURN_CURVE_MAX_RENDER_POINTS);
+  const renderPoints = createReturnCurveRenderPoints(sampledPoints);
+  if (renderPoints.length === 0) {
+    return null;
+  }
+
+  const latestPoint = sampledPoints[sampledPoints.length - 1];
+  const pathData = createReturnCurvePath(renderPoints);
+  const zeroLineY = calculateReturnCurveZeroLineY(sampledPoints);
+  const strokeColor = getReturnCurveStrokeColor(isDarkTheme, latestPoint?.value ?? 0, pnlColorMode);
+  const gridColor = isDarkTheme ? "rgba(148,163,184,0.2)" : "rgba(148,163,184,0.28)";
+  const endPoint = renderPoints[renderPoints.length - 1];
+
+  return (
+    <svg
+      aria-label={ariaLabel}
+      className="h-full w-full overflow-visible"
+      role="img"
+      viewBox={`0 0 ${RETURN_CURVE_SVG_WIDTH} ${RETURN_CURVE_SVG_HEIGHT}`}
+    >
+      {zeroLineY !== null ? (
+        <line
+          stroke={gridColor}
+          strokeDasharray="4 4"
+          strokeWidth="1"
+          x1={RETURN_CURVE_SVG_PADDING}
+          x2={RETURN_CURVE_SVG_WIDTH - RETURN_CURVE_SVG_PADDING}
+          y1={zeroLineY}
+          y2={zeroLineY}
+        />
+      ) : null}
+      <path
+        d={pathData}
+        fill="none"
+        stroke={strokeColor}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.4"
+      />
+      {endPoint ? (
+        <circle
+          cx={endPoint.x}
+          cy={endPoint.y}
+          fill={strokeColor}
+          r="3"
+        />
+      ) : null}
+    </svg>
+  );
+}
+
 function selectVisibleTradeEvents(
   events: readonly CopyTradingEvent[],
   pageOffset: number,
   pageSize: number,
 ): CopyTradingEvent[] {
   return events.slice(pageOffset, pageOffset + pageSize);
+}
+
+function sampleReturnCurvePoints(
+  points: readonly CopyTradingReturnCurvePoint[],
+  maxPoints: number,
+): CopyTradingReturnCurvePoint[] {
+  const normalizedPoints = points
+    .filter((point) => Number.isFinite(point.timestamp) && Number.isFinite(point.value))
+    .slice()
+    .sort((left, right) => left.timestamp - right.timestamp);
+
+  if (normalizedPoints.length <= maxPoints) {
+    return normalizedPoints;
+  }
+
+  const sampledPoints: CopyTradingReturnCurvePoint[] = [];
+  const lastIndex = normalizedPoints.length - 1;
+  const sampleCount = Math.max(2, maxPoints);
+  const usedIndexes = new Set<number>();
+  for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+    const pointIndex = Math.round((sampleIndex / (sampleCount - 1)) * lastIndex);
+    if (!usedIndexes.has(pointIndex)) {
+      sampledPoints.push(normalizedPoints[pointIndex]);
+      usedIndexes.add(pointIndex);
+    }
+  }
+
+  return sampledPoints;
+}
+
+function createReturnCurveRenderPoints(
+  points: readonly CopyTradingReturnCurvePoint[],
+): { x: number; y: number }[] {
+  if (points.length === 0) {
+    return [];
+  }
+
+  const { max, min } = getReturnCurveValueRange(points);
+  const valueRange = max - min;
+  const xRange = RETURN_CURVE_SVG_WIDTH - RETURN_CURVE_SVG_PADDING * 2;
+  const yRange = RETURN_CURVE_SVG_HEIGHT - RETURN_CURVE_SVG_PADDING * 2;
+
+  return points.map((point, index) => {
+    const xRatio = points.length === 1 ? 1 : index / (points.length - 1);
+    const yRatio = valueRange === 0 ? 0.5 : (max - point.value) / valueRange;
+    return {
+      x: RETURN_CURVE_SVG_PADDING + xRatio * xRange,
+      y: RETURN_CURVE_SVG_PADDING + yRatio * yRange,
+    };
+  });
+}
+
+function createReturnCurvePath(points: readonly { x: number; y: number }[]): string {
+  return points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${formatSvgNumber(point.x)} ${formatSvgNumber(point.y)}`)
+    .join(" ");
+}
+
+function calculateReturnCurveZeroLineY(points: readonly CopyTradingReturnCurvePoint[]): number | null {
+  if (points.length === 0) {
+    return null;
+  }
+
+  const { max, min } = getReturnCurveValueRange(points);
+  if (min > 0 || max < 0) {
+    return null;
+  }
+
+  const valueRange = max - min;
+  const yRange = RETURN_CURVE_SVG_HEIGHT - RETURN_CURVE_SVG_PADDING * 2;
+  const yRatio = valueRange === 0 ? 0.5 : max / valueRange;
+  return RETURN_CURVE_SVG_PADDING + yRatio * yRange;
+}
+
+function getReturnCurveValueRange(points: readonly CopyTradingReturnCurvePoint[]): { max: number; min: number } {
+  const values = points.map((point) => point.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  if (minValue !== maxValue) {
+    return { max: maxValue, min: minValue };
+  }
+
+  const padding = Math.max(0.01, Math.abs(minValue) * 0.08);
+  return {
+    max: maxValue + padding,
+    min: minValue - padding,
+  };
+}
+
+function getReturnCurveStrokeColor(
+  isDarkTheme: boolean,
+  value: number,
+  pnlColorMode: PnlColorMode,
+): string {
+  if (Math.abs(value) < 0.00005) {
+    return isDarkTheme ? "#94A3B8" : "#64748B";
+  }
+
+  const shouldUseGainColor = value > 0;
+  const isGreenGain = pnlColorMode === "positiveGreen";
+  if (shouldUseGainColor === isGreenGain) {
+    return isDarkTheme ? "#34D399" : "#059669";
+  }
+
+  return isDarkTheme ? "#FB7185" : "#E11D48";
+}
+
+function formatSvgNumber(value: number): string {
+  return value.toFixed(2);
 }
 
 function getSafePageOffset(offset: number, totalCount: number, pageSize: number): number {
@@ -1787,6 +2075,21 @@ function formatDisplayTime(value: string): string {
   const hours = String(parsedDate.getHours()).padStart(2, "0");
   const minutes = String(parsedDate.getMinutes()).padStart(2, "0");
   return `${month}-${day} ${hours}:${minutes}`;
+}
+
+function formatReturnCurveDate(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "--";
+  }
+
+  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(parsedDate.getDate()).padStart(2, "0");
+  return `${month}-${day}`;
 }
 
 function sumPositionNotionalValue(positions: readonly CopyTradingPosition[]): number | null {

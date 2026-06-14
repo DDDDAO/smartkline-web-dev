@@ -15,6 +15,7 @@ import {
   createCopyTradingTradeMarkers,
   createMarketAlignedMockCopyTradingRadarSnapshot,
   fetchCopyTradingRadarSnapshot,
+  fetchCopyTradingSourceReturnCurve,
   fetchCopyTradingSourceTradeHistoryPage,
   isActiveCopyTradingTrader,
   toCopyTradingMarketSymbol,
@@ -87,10 +88,11 @@ import {
   CopyTradingPrototypeModal,
   type CopyTradingPrototypeTarget,
   type PrototypeApiConnection,
+  type PrototypeConnectionSaveInput,
   type PrototypeStrategy,
   type PrototypeStrategyStatus,
 } from "./signal-workspace/copy-trading-prototype";
-import { TopSignalsPanel, type PnlColorMode } from "./signal-workspace/top-signals-panel";
+import { TopSignalsPanel, type PnlColorMode, type TopSignalReturnCurveState } from "./signal-workspace/top-signals-panel";
 import type { TelegramAuthMeResponse } from "@/app/_lib/auth/telegram-auth";
 import type { TradingFoxAccountResponse, TradingFoxConnector } from "@/app/_lib/tradingfox-control-plane";
 
@@ -183,6 +185,8 @@ export function SignalWorkspace() {
       error: null,
       isLoading: true,
     });
+  const [topSignalReturnCurvesBySourceId, setTopSignalReturnCurvesBySourceId] =
+    useState<Readonly<Record<string, TopSignalReturnCurveState>>>(() => ({}));
   const [latestMarketCandleUpdate, setLatestMarketCandleUpdate] =
     useState<PaperPositionMarketCandleUpdate | null>(null);
   const [workspaceNotification, setWorkspaceNotification] =
@@ -213,6 +217,8 @@ export function SignalWorkspace() {
   const onboardingOpenTimeoutRef = useRef<number | null>(null);
   const hasEvaluatedAutoOnboardingRef = useRef(false);
   const pendingRouteTopSignalTradeEventIdRef = useRef("");
+  const pendingTopSignalReturnCurveRequestsRef = useRef<Map<string, Promise<void>>>(new Map());
+  const topSignalReturnCurvesBySourceIdRef = useRef(topSignalReturnCurvesBySourceId);
 
   const activeSignal =
     signals.find((signal) => signal.id === activeSignalId) ??
@@ -449,6 +455,10 @@ export function SignalWorkspace() {
   }, [copy]);
 
   useEffect(() => {
+    topSignalReturnCurvesBySourceIdRef.current = topSignalReturnCurvesBySourceId;
+  }, [topSignalReturnCurvesBySourceId]);
+
+  useEffect(() => {
     let isMounted = true;
 
     const refreshAuth = async () => {
@@ -677,7 +687,6 @@ export function SignalWorkspace() {
       symbol?: MarketSymbol;
       signalId?: string;
       topSignalSourceId?: string;
-      topSignalTradeEventId?: string;
     },
   ) => {
     if (!isProductTabHydrated) {
@@ -693,20 +702,12 @@ export function SignalWorkspace() {
       ? (overrides?.topSignalSourceId ?? "")
       : explicitTopSignalSourceId
         || (topSignalsSourceFilterId !== "all" ? topSignalsSourceFilterId : "");
-    const hasTopSignalTradeOverride = Object.prototype.hasOwnProperty.call(
-      overrides ?? {},
-      "topSignalTradeEventId",
-    );
-    const nextTopSignalTradeEventId = hasTopSignalTradeOverride
-      ? (overrides?.topSignalTradeEventId ?? "")
-      : activeTopSignalTradeEventId;
     const nextUrl = createWorkspaceRouteUrl({
       activeSignalId: overrides?.signalId ?? activeSignalId,
       currentPathname: window.location.pathname,
       symbol: overrides?.symbol ?? symbol,
       tab: nextTab,
       topSignalSourceId: nextTopSignalSourceId,
-      topSignalTradeEventId: nextTopSignalTradeEventId,
     });
     const currentUrl = `${window.location.pathname}${window.location.search}`;
     if (currentUrl === nextUrl) {
@@ -717,7 +718,6 @@ export function SignalWorkspace() {
   }, [
     activeProductTab,
     activeSignalId,
-    activeTopSignalTradeEventId,
     explicitTopSignalSourceId,
     isProductTabHydrated,
     symbol,
@@ -1105,7 +1105,6 @@ export function SignalWorkspace() {
       updateWorkspaceRouteUrl("replace", {
         signalId: nextSignal?.id ?? "",
         symbol: nextSymbol,
-        topSignalTradeEventId: activeProductTab === "topSignals" ? "" : undefined,
       });
     },
     [activeProductTab, signals, updateWorkspaceRouteUrl],
@@ -1136,7 +1135,6 @@ export function SignalWorkspace() {
     updateWorkspaceRouteUrl("replace", {
       tab: "topSignals",
       topSignalSourceId: sourceId,
-      topSignalTradeEventId: "",
     });
   }, [updateWorkspaceRouteUrl]);
 
@@ -1153,7 +1151,6 @@ export function SignalWorkspace() {
     updateWorkspaceRouteUrl("replace", {
       tab: "topSignals",
       topSignalSourceId: sourceId === "all" ? "" : sourceId,
-      topSignalTradeEventId: "",
     });
   }, [updateWorkspaceRouteUrl]);
 
@@ -1170,7 +1167,6 @@ export function SignalWorkspace() {
       symbol: nextSymbol,
       tab: "topSignals",
       topSignalSourceId: position.trader_id,
-      topSignalTradeEventId: "",
     });
   }, [updateWorkspaceRouteUrl]);
 
@@ -1199,7 +1195,6 @@ export function SignalWorkspace() {
       symbol: nextSymbol,
       tab: "topSignals",
       topSignalSourceId: event.trader_id,
-      topSignalTradeEventId: event.event_id,
     });
   }, [topSignalsActiveSourceIds, updateWorkspaceRouteUrl]);
 
@@ -1236,6 +1231,82 @@ export function SignalWorkspace() {
       hasMore: page.hasMore,
       returnedCount: page.returnedCount,
     };
+  }, []);
+
+  const handleTopSignalReturnCurveLoad = useCallback(async (trader: CopyTradingTrader) => {
+    const sourceId = trader.trader_id;
+    if (!sourceId) {
+      return;
+    }
+
+    const currentState = topSignalReturnCurvesBySourceIdRef.current[sourceId];
+    if (currentState?.hasLoaded || currentState?.isLoading) {
+      return;
+    }
+
+    const pendingRequest = pendingTopSignalReturnCurveRequestsRef.current.get(sourceId);
+    if (pendingRequest) {
+      await pendingRequest;
+      return;
+    }
+
+    setTopSignalReturnCurvesBySourceId((currentStates) => {
+      const nextStates = {
+        ...currentStates,
+        [sourceId]: {
+          error: null,
+          hasLoaded: false,
+          isLoading: true,
+          points: currentStates[sourceId]?.points ?? [],
+          updatedAt: currentStates[sourceId]?.updatedAt ?? null,
+        },
+      };
+      topSignalReturnCurvesBySourceIdRef.current = nextStates;
+      return nextStates;
+    });
+
+    const request = fetchCopyTradingSourceReturnCurve({
+      sourceId,
+      window: "90d",
+    })
+      .then((curve) => {
+        setTopSignalReturnCurvesBySourceId((currentStates) => {
+          const nextStates = {
+            ...currentStates,
+            [sourceId]: {
+              error: null,
+              hasLoaded: true,
+              isLoading: false,
+              points: curve.points,
+              updatedAt: curve.updatedAt,
+            },
+          };
+          topSignalReturnCurvesBySourceIdRef.current = nextStates;
+          return nextStates;
+        });
+      })
+      .catch((error: unknown) => {
+        setTopSignalReturnCurvesBySourceId((currentStates) => {
+          const nextStates = {
+            ...currentStates,
+            [sourceId]: {
+              error: formatKolSignalSourceError(error),
+              hasLoaded: false,
+              isLoading: false,
+              points: currentStates[sourceId]?.points ?? [],
+              updatedAt: currentStates[sourceId]?.updatedAt ?? null,
+            },
+          };
+          topSignalReturnCurvesBySourceIdRef.current = nextStates;
+          return nextStates;
+        });
+      })
+      .finally(() => {
+        pendingTopSignalReturnCurveRequestsRef.current.delete(sourceId);
+      });
+
+    pendingTopSignalReturnCurveRequestsRef.current.set(sourceId, request);
+    await request;
   }, []);
 
   const handleTopSignalTradeMarkerSelect = useCallback((marker: CopyTradingTradeMarker) => {
@@ -1343,7 +1414,7 @@ export function SignalWorkspace() {
     setCopyTradingTarget(target);
   }, [authMe.isLoggedIn, handleProductTabChange, prototypeApiConnection.status, prototypeStrategies, startTelegramLogin]);
 
-  const handlePrototypeConnectionSave = useCallback(async (input: { accountName: string; mockMarginBalance: number }) => {
+  const handlePrototypeConnectionSave = useCallback(async (input: PrototypeConnectionSaveInput) => {
     if (!authMe.isLoggedIn) {
       startTelegramLogin();
       return;
@@ -1354,7 +1425,10 @@ export function SignalWorkspace() {
       const account = await requestTradingFoxAccount("/api/tradingfox/connectors/mock", {
         body: JSON.stringify({
           accountName: input.accountName,
+          apiKey: input.apiKey,
+          exchangePlatform: input.exchangePlatform,
           mockMarginBalance: input.mockMarginBalance,
+          secret: input.secret,
         }),
         method: "POST",
       });
@@ -1640,6 +1714,7 @@ export function SignalWorkspace() {
                     }
                     isDarkTheme={isDarkTheme}
                     pnlColorMode={pnlColorMode}
+                    returnCurvesBySourceId={topSignalReturnCurvesBySourceId}
                     snapshot={topSignalsDisplaySnapshot}
                     sourceFilterId={effectiveTopSignalsSourceFilterId}
                     sourceStatus={topSignalsSourceStatus}
@@ -1649,6 +1724,7 @@ export function SignalWorkspace() {
                     onSourceSelect={handleTopSignalSourceSelect}
                     onSourceWatchToggle={handleTopSignalSourceWatchToggle}
                     onCopyTradingRequest={handleCopyTradingRequest}
+                    onReturnCurveLoad={handleTopSignalReturnCurveLoad}
                     onTradeHistoryLoadMore={handleTopSignalTradeHistoryLoadMore}
                     onTradeSelect={handleTopSignalTradeSelect}
                   />
@@ -1723,6 +1799,7 @@ export function SignalWorkspace() {
           isDarkTheme={isDarkTheme}
           isOpen={isMobileTopSignalsSheetOpen}
           pnlColorMode={pnlColorMode}
+          returnCurvesBySourceId={topSignalReturnCurvesBySourceId}
           snapshot={topSignalsDisplaySnapshot}
           sourceFilterId={effectiveTopSignalsSourceFilterId}
           sourceStatus={topSignalsSourceStatus}
@@ -1733,6 +1810,7 @@ export function SignalWorkspace() {
           onSourceSelect={handleTopSignalSourceSelect}
           onSourceWatchToggle={handleTopSignalSourceWatchToggle}
           onCopyTradingRequest={handleCopyTradingRequest}
+          onReturnCurveLoad={handleTopSignalReturnCurveLoad}
           onTradeHistoryLoadMore={handleTopSignalTradeHistoryLoadMore}
           onTradeSelect={handleTopSignalTradeSelect}
         />
@@ -1779,7 +1857,6 @@ function createWorkspaceRouteUrl(input: {
   symbol: MarketSymbol;
   tab: WorkspaceProductTab;
   topSignalSourceId: string;
-  topSignalTradeEventId: string;
 }): string {
   const routePrefix = getWorkspaceRoutePrefix(input.currentPathname);
   const tabSegment = WORKSPACE_TAB_ROUTE_SEGMENTS[input.tab];
@@ -1793,9 +1870,6 @@ function createWorkspaceRouteUrl(input: {
   if (input.tab === "topSignals") {
     if (input.topSignalSourceId) {
       queryParams.set("source", input.topSignalSourceId);
-    }
-    if (input.topSignalTradeEventId) {
-      queryParams.set("trade", input.topSignalTradeEventId);
     }
   }
 
@@ -1832,6 +1906,7 @@ function getTradingFoxErrorMessage(error: unknown): string {
 function createEmptyPrototypeApiConnection(): PrototypeApiConnection {
   return {
     accountName: "Mock Exchange #1",
+    accountBalance: null,
     connectedAtLabel: "",
     exchangePlatform: "Mock",
     id: 0,
@@ -1847,6 +1922,7 @@ function mapTradingFoxConnectorToPrototypeConnection(
 ): PrototypeApiConnection {
   return {
     accountName: connector.name,
+    accountBalance: connector.accountEquity ?? connector.mockMarginBalance ?? null,
     connectedAtLabel: formatTradingFoxDateLabel(connector.updatedAt, language),
     exchangePlatform: connector.exchangePlatform,
     id: connector.id,
@@ -2133,6 +2209,7 @@ function MobileTopSignalsBottomSheet({
   isDarkTheme,
   isOpen,
   pnlColorMode,
+  returnCurvesBySourceId,
   snapshot,
   sourceFilterId,
   sourceStatus,
@@ -2143,6 +2220,7 @@ function MobileTopSignalsBottomSheet({
   onSourceSelect,
   onSourceWatchToggle,
   onCopyTradingRequest,
+  onReturnCurveLoad,
   onTradeHistoryLoadMore,
   onTradeSelect,
 }: {
@@ -2153,6 +2231,7 @@ function MobileTopSignalsBottomSheet({
   isDarkTheme: boolean;
   isOpen: boolean;
   pnlColorMode: PnlColorMode;
+  returnCurvesBySourceId: Readonly<Record<string, TopSignalReturnCurveState>>;
   snapshot: CopyTradingRadarSnapshot | null;
   sourceFilterId: string;
   sourceStatus: KolSignalSourceStatus;
@@ -2163,6 +2242,7 @@ function MobileTopSignalsBottomSheet({
   onSourceSelect: (sourceId: string) => void;
   onSourceWatchToggle: (trader: CopyTradingTrader) => void;
   onCopyTradingRequest: (target: CopyTradingPrototypeTarget) => void;
+  onReturnCurveLoad: (trader: CopyTradingTrader) => Promise<void>;
   onTradeHistoryLoadMore: (input: {
     limit: number;
     offset: number;
@@ -2209,6 +2289,7 @@ function MobileTopSignalsBottomSheet({
             }
             isDarkTheme={isDarkTheme}
             pnlColorMode={pnlColorMode}
+            returnCurvesBySourceId={returnCurvesBySourceId}
             snapshot={snapshot}
             sourceFilterId={sourceFilterId}
             sourceStatus={sourceStatus}
@@ -2225,6 +2306,7 @@ function MobileTopSignalsBottomSheet({
               onCopyTradingRequest(target);
               onOpenChange(false);
             }}
+            onReturnCurveLoad={onReturnCurveLoad}
             onTradeHistoryLoadMore={onTradeHistoryLoadMore}
             onTradeSelect={(event) => {
               onTradeSelect(event);

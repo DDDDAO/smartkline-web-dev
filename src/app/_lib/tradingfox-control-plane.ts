@@ -3,11 +3,14 @@ import type { TelegramAuthSession } from "@/app/_lib/auth/telegram-auth";
 
 const DEFAULT_TRADINGFOX_CONTROL_PLANE_API_BASE_URL = "https://api.smartkline.com/tradingfox-trader";
 const DEFAULT_MOCK_MARGIN_BALANCE = 10_000;
+const DEFAULT_DEMO_EXCHANGE_PLATFORM = "Mock";
+type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
 
 export type TradingFoxConnector = {
   id: number;
   userId: number;
   name: string;
+  accountEquity?: number;
   exchangePlatform: string;
   credentials: Record<string, unknown>;
   isMock: boolean;
@@ -157,7 +160,10 @@ export type TradingFoxStrategyDetail = {
 
 export type CreateMockConnectorInput = {
   accountName?: string;
+  apiKey?: unknown;
+  exchangePlatform?: unknown;
   mockMarginBalance?: number;
+  secret?: unknown;
 };
 
 export type CreateCopyStrategyInput = {
@@ -199,8 +205,9 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
     tradingFoxRequest<{ items: TradingFoxConnector[] }>(`/v1/exchange-connectors?userId=${userId}&dead=false`),
     tradingFoxRequest<{ items: TradingFoxTrader[] }>(`/v1/traders?userId=${userId}&traderType=COPY_TRADING`),
   ]);
-  const activeMockConnectors = pickActiveMockConnectors(connectors.items);
-  const connectorById = new Map(activeMockConnectors.map((connector) => [connector.id, connector]));
+  const activeConnectors = pickActiveConnectors(connectors.items);
+  const connectorById = new Map(activeConnectors.map((connector) => [connector.id, connector]));
+  const accountEquityByConnectorId = new Map<number, number>();
   const strategies = await Promise.all(traders.items.map(async (trader) => {
     const connector = connectorById.get(trader.exchangeConnectorId) ?? null;
     const strategy = mapCopyStrategy(trader, connector);
@@ -212,6 +219,10 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
       settleTradingFoxRequest<{ account: TradingFoxAccountStatus }>(`/v1/traders/${trader.id}/account-status`),
       settleTradingFoxRequest<{ items: TradingFoxPosition[] }>(`/v1/traders/${trader.id}/positions`),
     ]);
+    const accountEquity = accountStatus.value?.account.equity;
+    if (typeof accountEquity === "number" && Number.isFinite(accountEquity)) {
+      accountEquityByConnectorId.set(trader.exchangeConnectorId, accountEquity);
+    }
 
     return {
       ...strategy,
@@ -219,10 +230,15 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
       unrealizedPnl: positions.value?.items.reduce((sum, position) => sum + numberValue(position.unrealizedPnl), 0),
     };
   }));
+  const connectorsWithAccountEquity = activeConnectors.map((connector) => ({
+    ...connector,
+    accountEquity: accountEquityByConnectorId.get(connector.id),
+  }));
+  const publicConnectors = connectorsWithAccountEquity.map(redactTradingFoxConnectorCredentials);
 
   return {
-    connector: activeMockConnectors[0] ?? null,
-    connectors: activeMockConnectors,
+    connector: publicConnectors[0] ?? null,
+    connectors: publicConnectors,
     strategies: strategies.filter((strategy) => strategy !== null),
   };
 }
@@ -232,13 +248,15 @@ export async function createTradingFoxMockConnector(
   input: CreateMockConnectorInput,
 ): Promise<TradingFoxAccountResponse> {
   const userId = tradingFoxUserIdFromSession(session);
-  const accountName = normalizeOptionalText(input.accountName) || "Mock Exchange #1";
+  const exchangePlatform = normalizeDemoExchangePlatform(input.exchangePlatform) ?? DEFAULT_DEMO_EXCHANGE_PLATFORM;
+  const accountName = normalizeOptionalText(input.accountName) || defaultDemoAccountName(exchangePlatform);
   const mockMarginBalance = normalizePositiveNumber(input.mockMarginBalance) ?? DEFAULT_MOCK_MARGIN_BALANCE;
+  const credentials = createDemoExchangeCredentials(exchangePlatform, input);
 
   await tradingFoxRequest<TradingFoxConnector>("/v1/exchange-connectors", {
     body: JSON.stringify({
-      credentials: {},
-      exchangePlatform: "Mock",
+      credentials,
+      exchangePlatform,
       isMock: true,
       mockMarginBalance,
       name: accountName,
@@ -263,7 +281,7 @@ export async function createTradingFoxCopyStrategy(
     : account.connector;
 
   if (!connector) {
-    throw new TradingFoxApiError("Bind a paper trading account before creating a copy strategy.", 409);
+    throw new TradingFoxApiError("Add an exchange account before creating a copy strategy.", 409);
   }
 
   const signalSourceId = requireText(input.signalSourceId, "signalSourceId");
@@ -497,10 +515,52 @@ function resolveTradingFoxConfig() {
   };
 }
 
-function pickActiveMockConnectors(connectors: TradingFoxConnector[]): TradingFoxConnector[] {
+function pickActiveConnectors(connectors: TradingFoxConnector[]): TradingFoxConnector[] {
   return connectors
-    .filter((connector) => !connector.dead && connector.exchangePlatform === "Mock" && connector.isMock)
+    .filter((connector) => !connector.dead)
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+}
+
+function redactTradingFoxConnectorCredentials(connector: TradingFoxConnector): TradingFoxConnector {
+  return {
+    ...connector,
+    credentials: {},
+  };
+}
+
+function normalizeDemoExchangePlatform(value: unknown): TradingFoxDemoExchangePlatform | null {
+  const normalizedValue = normalizeOptionalText(value).replace(/[\s_-]/gu, "").toLowerCase();
+  if (!normalizedValue) {
+    return null;
+  }
+
+  if (normalizedValue === "mock" || normalizedValue === "mockexchange") {
+    return "Mock";
+  }
+
+  if (normalizedValue === "binance" || normalizedValue === "binancedemo" || normalizedValue === "bn") {
+    return "Binance";
+  }
+
+  return null;
+}
+
+function defaultDemoAccountName(exchangePlatform: TradingFoxDemoExchangePlatform): string {
+  return exchangePlatform === "Binance" ? "Binance Demo #1" : "Mock Exchange #1";
+}
+
+function createDemoExchangeCredentials(
+  exchangePlatform: TradingFoxDemoExchangePlatform,
+  input: CreateMockConnectorInput,
+): Record<string, string> {
+  if (exchangePlatform === "Mock") {
+    return {};
+  }
+
+  return {
+    apiKey: requireText(input.apiKey, "apiKey"),
+    secret: requireText(input.secret, "secret"),
+  };
 }
 
 function mapCopyStrategy(trader: TradingFoxTrader, connector: TradingFoxConnector | null): TradingFoxCopyStrategy | null {
