@@ -88,6 +88,7 @@ import {
   CopyTradingPrototypeModal,
   type CopyTradingPrototypeTarget,
   type PrototypeApiConnection,
+  type PrototypeConnectionSaveInput,
   type PrototypeStrategy,
   type PrototypeStrategyStatus,
 } from "./signal-workspace/copy-trading-prototype";
@@ -1428,7 +1429,7 @@ export function SignalWorkspace() {
     setCopyTradingTarget(target);
   }, [authMe.isLoggedIn, handleProductTabChange, prototypeApiConnection.status, prototypeStrategies, startTelegramLogin]);
 
-  const handlePrototypeConnectionSave = useCallback(async (input: { accountName: string; mockMarginBalance: number }) => {
+  const handlePrototypeConnectionSave = useCallback(async (input: PrototypeConnectionSaveInput) => {
     if (!authMe.isLoggedIn) {
       startTelegramLogin();
       return;
@@ -1439,7 +1440,10 @@ export function SignalWorkspace() {
       const account = await requestTradingFoxAccount("/api/tradingfox/connectors/mock", {
         body: JSON.stringify({
           accountName: input.accountName,
+          apiKey: input.apiKey,
+          exchangePlatform: input.exchangePlatform,
           mockMarginBalance: input.mockMarginBalance,
+          secret: input.secret,
         }),
         method: "POST",
       });
@@ -1921,6 +1925,7 @@ function getTradingFoxErrorMessage(error: unknown): string {
 function createEmptyPrototypeApiConnection(): PrototypeApiConnection {
   return {
     accountName: "Mock Exchange #1",
+    accountBalance: null,
     connectedAtLabel: "",
     exchangePlatform: "Mock",
     id: 0,
@@ -1936,6 +1941,7 @@ function mapTradingFoxConnectorToPrototypeConnection(
 ): PrototypeApiConnection {
   return {
     accountName: connector.name,
+    accountBalance: connector.accountEquity ?? connector.mockMarginBalance ?? null,
     connectedAtLabel: formatTradingFoxDateLabel(connector.updatedAt, language),
     exchangePlatform: connector.exchangePlatform,
     id: connector.id,
