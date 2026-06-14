@@ -15,6 +15,7 @@ import {
   createCopyTradingTradeMarkers,
   createMarketAlignedMockCopyTradingRadarSnapshot,
   fetchCopyTradingRadarSnapshot,
+  fetchCopyTradingSourceReturnCurve,
   fetchCopyTradingSourceTradeHistoryPage,
   isActiveCopyTradingTrader,
   toCopyTradingMarketSymbol,
@@ -90,7 +91,7 @@ import {
   type PrototypeStrategy,
   type PrototypeStrategyStatus,
 } from "./signal-workspace/copy-trading-prototype";
-import { TopSignalsPanel, type PnlColorMode } from "./signal-workspace/top-signals-panel";
+import { TopSignalsPanel, type PnlColorMode, type TopSignalReturnCurveState } from "./signal-workspace/top-signals-panel";
 import type { TelegramAuthMeResponse } from "@/app/_lib/auth/telegram-auth";
 import type { TradingFoxAccountResponse, TradingFoxConnector } from "@/app/_lib/tradingfox-control-plane";
 
@@ -183,6 +184,8 @@ export function SignalWorkspace() {
       error: null,
       isLoading: true,
     });
+  const [topSignalReturnCurvesBySourceId, setTopSignalReturnCurvesBySourceId] =
+    useState<Readonly<Record<string, TopSignalReturnCurveState>>>(() => ({}));
   const [latestMarketCandleUpdate, setLatestMarketCandleUpdate] =
     useState<PaperPositionMarketCandleUpdate | null>(null);
   const [workspaceNotification, setWorkspaceNotification] =
@@ -213,6 +216,8 @@ export function SignalWorkspace() {
   const onboardingOpenTimeoutRef = useRef<number | null>(null);
   const hasEvaluatedAutoOnboardingRef = useRef(false);
   const pendingRouteTopSignalTradeEventIdRef = useRef("");
+  const pendingTopSignalReturnCurveRequestsRef = useRef<Map<string, Promise<void>>>(new Map());
+  const topSignalReturnCurvesBySourceIdRef = useRef(topSignalReturnCurvesBySourceId);
 
   const activeSignal =
     signals.find((signal) => signal.id === activeSignalId) ??
@@ -447,6 +452,10 @@ export function SignalWorkspace() {
   useEffect(() => {
     copyRef.current = copy;
   }, [copy]);
+
+  useEffect(() => {
+    topSignalReturnCurvesBySourceIdRef.current = topSignalReturnCurvesBySourceId;
+  }, [topSignalReturnCurvesBySourceId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1238,6 +1247,82 @@ export function SignalWorkspace() {
     };
   }, []);
 
+  const handleTopSignalReturnCurveLoad = useCallback(async (trader: CopyTradingTrader) => {
+    const sourceId = trader.trader_id;
+    if (!sourceId) {
+      return;
+    }
+
+    const currentState = topSignalReturnCurvesBySourceIdRef.current[sourceId];
+    if (currentState?.hasLoaded || currentState?.isLoading) {
+      return;
+    }
+
+    const pendingRequest = pendingTopSignalReturnCurveRequestsRef.current.get(sourceId);
+    if (pendingRequest) {
+      await pendingRequest;
+      return;
+    }
+
+    setTopSignalReturnCurvesBySourceId((currentStates) => {
+      const nextStates = {
+        ...currentStates,
+        [sourceId]: {
+          error: null,
+          hasLoaded: false,
+          isLoading: true,
+          points: currentStates[sourceId]?.points ?? [],
+          updatedAt: currentStates[sourceId]?.updatedAt ?? null,
+        },
+      };
+      topSignalReturnCurvesBySourceIdRef.current = nextStates;
+      return nextStates;
+    });
+
+    const request = fetchCopyTradingSourceReturnCurve({
+      sourceId,
+      window: "90d",
+    })
+      .then((curve) => {
+        setTopSignalReturnCurvesBySourceId((currentStates) => {
+          const nextStates = {
+            ...currentStates,
+            [sourceId]: {
+              error: null,
+              hasLoaded: true,
+              isLoading: false,
+              points: curve.points,
+              updatedAt: curve.updatedAt,
+            },
+          };
+          topSignalReturnCurvesBySourceIdRef.current = nextStates;
+          return nextStates;
+        });
+      })
+      .catch((error: unknown) => {
+        setTopSignalReturnCurvesBySourceId((currentStates) => {
+          const nextStates = {
+            ...currentStates,
+            [sourceId]: {
+              error: formatKolSignalSourceError(error),
+              hasLoaded: false,
+              isLoading: false,
+              points: currentStates[sourceId]?.points ?? [],
+              updatedAt: currentStates[sourceId]?.updatedAt ?? null,
+            },
+          };
+          topSignalReturnCurvesBySourceIdRef.current = nextStates;
+          return nextStates;
+        });
+      })
+      .finally(() => {
+        pendingTopSignalReturnCurveRequestsRef.current.delete(sourceId);
+      });
+
+    pendingTopSignalReturnCurveRequestsRef.current.set(sourceId, request);
+    await request;
+  }, []);
+
   const handleTopSignalTradeMarkerSelect = useCallback((marker: CopyTradingTradeMarker) => {
     const event = topSignalsEventsById.get(marker.eventId);
     if (event) {
@@ -1640,6 +1725,7 @@ export function SignalWorkspace() {
                     }
                     isDarkTheme={isDarkTheme}
                     pnlColorMode={pnlColorMode}
+                    returnCurvesBySourceId={topSignalReturnCurvesBySourceId}
                     snapshot={topSignalsDisplaySnapshot}
                     sourceFilterId={effectiveTopSignalsSourceFilterId}
                     sourceStatus={topSignalsSourceStatus}
@@ -1649,6 +1735,7 @@ export function SignalWorkspace() {
                     onSourceSelect={handleTopSignalSourceSelect}
                     onSourceWatchToggle={handleTopSignalSourceWatchToggle}
                     onCopyTradingRequest={handleCopyTradingRequest}
+                    onReturnCurveLoad={handleTopSignalReturnCurveLoad}
                     onTradeHistoryLoadMore={handleTopSignalTradeHistoryLoadMore}
                     onTradeSelect={handleTopSignalTradeSelect}
                   />
@@ -1723,6 +1810,7 @@ export function SignalWorkspace() {
           isDarkTheme={isDarkTheme}
           isOpen={isMobileTopSignalsSheetOpen}
           pnlColorMode={pnlColorMode}
+          returnCurvesBySourceId={topSignalReturnCurvesBySourceId}
           snapshot={topSignalsDisplaySnapshot}
           sourceFilterId={effectiveTopSignalsSourceFilterId}
           sourceStatus={topSignalsSourceStatus}
@@ -1733,6 +1821,7 @@ export function SignalWorkspace() {
           onSourceSelect={handleTopSignalSourceSelect}
           onSourceWatchToggle={handleTopSignalSourceWatchToggle}
           onCopyTradingRequest={handleCopyTradingRequest}
+          onReturnCurveLoad={handleTopSignalReturnCurveLoad}
           onTradeHistoryLoadMore={handleTopSignalTradeHistoryLoadMore}
           onTradeSelect={handleTopSignalTradeSelect}
         />
@@ -2133,6 +2222,7 @@ function MobileTopSignalsBottomSheet({
   isDarkTheme,
   isOpen,
   pnlColorMode,
+  returnCurvesBySourceId,
   snapshot,
   sourceFilterId,
   sourceStatus,
@@ -2143,6 +2233,7 @@ function MobileTopSignalsBottomSheet({
   onSourceSelect,
   onSourceWatchToggle,
   onCopyTradingRequest,
+  onReturnCurveLoad,
   onTradeHistoryLoadMore,
   onTradeSelect,
 }: {
@@ -2153,6 +2244,7 @@ function MobileTopSignalsBottomSheet({
   isDarkTheme: boolean;
   isOpen: boolean;
   pnlColorMode: PnlColorMode;
+  returnCurvesBySourceId: Readonly<Record<string, TopSignalReturnCurveState>>;
   snapshot: CopyTradingRadarSnapshot | null;
   sourceFilterId: string;
   sourceStatus: KolSignalSourceStatus;
@@ -2163,6 +2255,7 @@ function MobileTopSignalsBottomSheet({
   onSourceSelect: (sourceId: string) => void;
   onSourceWatchToggle: (trader: CopyTradingTrader) => void;
   onCopyTradingRequest: (target: CopyTradingPrototypeTarget) => void;
+  onReturnCurveLoad: (trader: CopyTradingTrader) => Promise<void>;
   onTradeHistoryLoadMore: (input: {
     limit: number;
     offset: number;
@@ -2209,6 +2302,7 @@ function MobileTopSignalsBottomSheet({
             }
             isDarkTheme={isDarkTheme}
             pnlColorMode={pnlColorMode}
+            returnCurvesBySourceId={returnCurvesBySourceId}
             snapshot={snapshot}
             sourceFilterId={sourceFilterId}
             sourceStatus={sourceStatus}
@@ -2225,6 +2319,7 @@ function MobileTopSignalsBottomSheet({
               onCopyTradingRequest(target);
               onOpenChange(false);
             }}
+            onReturnCurveLoad={onReturnCurveLoad}
             onTradeHistoryLoadMore={onTradeHistoryLoadMore}
             onTradeSelect={(event) => {
               onTradeSelect(event);
