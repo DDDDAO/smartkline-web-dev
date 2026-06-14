@@ -1389,21 +1389,6 @@ export function SignalWorkspace() {
       return;
     }
 
-    const existingStrategy = prototypeStrategies.find((strategy) =>
-      strategy.traderId === target.trader.trader_id && strategy.status !== "stopped",
-    );
-
-    if (existingStrategy) {
-      handleProductTabChange("accountManagement");
-      setWorkspaceNotification({
-        id: `copy-strategy-existing-${Date.now()}`,
-        message: copyRef.current.workspace.accountCenter.copyTrading.existingStrategy,
-        meta: `${existingStrategy.traderName} · ${existingStrategy.apiAccountName}`,
-        title: copyRef.current.workspace.accountCenter.strategy.title,
-      });
-      return;
-    }
-
     if (prototypeApiConnection.status !== "connected") {
       setPendingCopyTradingTarget(target);
       handleProductTabChange("accountManagement");
@@ -1412,7 +1397,7 @@ export function SignalWorkspace() {
     }
 
     setCopyTradingTarget(target);
-  }, [authMe.isLoggedIn, handleProductTabChange, prototypeApiConnection.status, prototypeStrategies, startTelegramLogin]);
+  }, [authMe.isLoggedIn, handleProductTabChange, prototypeApiConnection.status, startTelegramLogin]);
 
   const handlePrototypeConnectionSave = useCallback(async (input: PrototypeConnectionSaveInput) => {
     if (!authMe.isLoggedIn) {
