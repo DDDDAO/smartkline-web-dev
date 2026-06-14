@@ -687,7 +687,6 @@ export function SignalWorkspace() {
       symbol?: MarketSymbol;
       signalId?: string;
       topSignalSourceId?: string;
-      topSignalTradeEventId?: string;
     },
   ) => {
     if (!isProductTabHydrated) {
@@ -703,20 +702,12 @@ export function SignalWorkspace() {
       ? (overrides?.topSignalSourceId ?? "")
       : explicitTopSignalSourceId
         || (topSignalsSourceFilterId !== "all" ? topSignalsSourceFilterId : "");
-    const hasTopSignalTradeOverride = Object.prototype.hasOwnProperty.call(
-      overrides ?? {},
-      "topSignalTradeEventId",
-    );
-    const nextTopSignalTradeEventId = hasTopSignalTradeOverride
-      ? (overrides?.topSignalTradeEventId ?? "")
-      : activeTopSignalTradeEventId;
     const nextUrl = createWorkspaceRouteUrl({
       activeSignalId: overrides?.signalId ?? activeSignalId,
       currentPathname: window.location.pathname,
       symbol: overrides?.symbol ?? symbol,
       tab: nextTab,
       topSignalSourceId: nextTopSignalSourceId,
-      topSignalTradeEventId: nextTopSignalTradeEventId,
     });
     const currentUrl = `${window.location.pathname}${window.location.search}`;
     if (currentUrl === nextUrl) {
@@ -727,7 +718,6 @@ export function SignalWorkspace() {
   }, [
     activeProductTab,
     activeSignalId,
-    activeTopSignalTradeEventId,
     explicitTopSignalSourceId,
     isProductTabHydrated,
     symbol,
@@ -1115,7 +1105,6 @@ export function SignalWorkspace() {
       updateWorkspaceRouteUrl("replace", {
         signalId: nextSignal?.id ?? "",
         symbol: nextSymbol,
-        topSignalTradeEventId: activeProductTab === "topSignals" ? "" : undefined,
       });
     },
     [activeProductTab, signals, updateWorkspaceRouteUrl],
@@ -1146,7 +1135,6 @@ export function SignalWorkspace() {
     updateWorkspaceRouteUrl("replace", {
       tab: "topSignals",
       topSignalSourceId: sourceId,
-      topSignalTradeEventId: "",
     });
   }, [updateWorkspaceRouteUrl]);
 
@@ -1163,7 +1151,6 @@ export function SignalWorkspace() {
     updateWorkspaceRouteUrl("replace", {
       tab: "topSignals",
       topSignalSourceId: sourceId === "all" ? "" : sourceId,
-      topSignalTradeEventId: "",
     });
   }, [updateWorkspaceRouteUrl]);
 
@@ -1180,7 +1167,6 @@ export function SignalWorkspace() {
       symbol: nextSymbol,
       tab: "topSignals",
       topSignalSourceId: position.trader_id,
-      topSignalTradeEventId: "",
     });
   }, [updateWorkspaceRouteUrl]);
 
@@ -1209,7 +1195,6 @@ export function SignalWorkspace() {
       symbol: nextSymbol,
       tab: "topSignals",
       topSignalSourceId: event.trader_id,
-      topSignalTradeEventId: event.event_id,
     });
   }, [topSignalsActiveSourceIds, updateWorkspaceRouteUrl]);
 
@@ -1872,7 +1857,6 @@ function createWorkspaceRouteUrl(input: {
   symbol: MarketSymbol;
   tab: WorkspaceProductTab;
   topSignalSourceId: string;
-  topSignalTradeEventId: string;
 }): string {
   const routePrefix = getWorkspaceRoutePrefix(input.currentPathname);
   const tabSegment = WORKSPACE_TAB_ROUTE_SEGMENTS[input.tab];
@@ -1886,9 +1870,6 @@ function createWorkspaceRouteUrl(input: {
   if (input.tab === "topSignals") {
     if (input.topSignalSourceId) {
       queryParams.set("source", input.topSignalSourceId);
-    }
-    if (input.topSignalTradeEventId) {
-      queryParams.set("trade", input.topSignalTradeEventId);
     }
   }
 
