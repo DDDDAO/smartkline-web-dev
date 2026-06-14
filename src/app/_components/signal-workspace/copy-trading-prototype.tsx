@@ -1500,54 +1500,49 @@ function PositionSummaryPanel({
   summary: PositionSummaryModel;
 }) {
   const containerClassName = isDarkTheme
-    ? "mt-3 rounded-2xl border border-white/[0.075] bg-[#111820] p-4"
-    : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-4";
+    ? "mt-3 rounded-2xl border border-white/[0.075] bg-[#111820] p-2.5"
+    : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-2.5";
   const pnlValue = summary.unrealizedPnl ?? 0;
   const pnlRateValue = summary.totalPnlRate ?? 0;
+  const longRatioClassName = isDarkTheme ? "text-emerald-300" : "text-emerald-600";
 
   return (
     <div className={containerClassName}>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-          <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount}>
-            {summary.positionCount}
-          </PositionSummaryMetric>
-          <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.availableTotalMargin}>
-            <span className={isDarkTheme ? "text-emerald-300" : "text-emerald-600"}>{formatDetailCurrency(summary.availableMargin)}</span>
-            <span className={isDarkTheme ? "text-slate-500" : "text-slate-400"}>/</span>
-            <span>{formatDetailCurrency(summary.totalMargin)}</span>
-          </PositionSummaryMetric>
-          <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.totalNotionalValue}>
-            {formatDetailCurrency(summary.totalNotional)}
-          </PositionSummaryMetric>
-          <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.totalLeverage}>
-            {formatSummaryLeverage(summary.totalLeverage)}
-          </PositionSummaryMetric>
-          <PositionSummaryMetric
-            isDarkTheme={isDarkTheme}
-            label={strategyCopy.unrealizedPnl}
-            valueClassName={getPnlClassName(isDarkTheme, pnlValue)}
-          >
-            {formatSignedDetailCurrency(summary.unrealizedPnl)}
-          </PositionSummaryMetric>
-          <PositionSummaryMetric
-            isDarkTheme={isDarkTheme}
-            label={strategyCopy.totalPnlRate}
-            valueClassName={getPnlClassName(isDarkTheme, pnlRateValue)}
-          >
-            {formatSignedPercent(summary.totalPnlRate)}
-          </PositionSummaryMetric>
-        </div>
-        <div className={isDarkTheme ? "grid gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3 sm:grid-cols-2 xl:min-w-80" : "grid gap-3 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3 sm:grid-cols-2 xl:min-w-80"}>
-          <div className="min-w-0">
-            <div className={isDarkTheme ? "text-xs font-black text-emerald-300" : "text-xs font-black text-emerald-600"}>{strategyCopy.longRatio}</div>
-            <div className={isDarkTheme ? "mt-1 break-words text-2xl font-black leading-tight text-emerald-300" : "mt-1 break-words text-2xl font-black leading-tight text-emerald-600"}>{formatUnsignedPercent(summary.longRatio)}</div>
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-black text-[#ff2d3d]">{strategyCopy.shortRatio}</div>
-            <div className="mt-1 break-words text-2xl font-black leading-tight text-[#ff2d3d]">{formatUnsignedPercent(summary.shortRatio)}</div>
-          </div>
-        </div>
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+        <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount}>
+          {summary.positionCount}
+        </PositionSummaryMetric>
+        <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.availableTotalMargin}>
+          <span className={longRatioClassName}>{formatDetailCurrency(summary.availableMargin)}</span>
+          <span className={isDarkTheme ? "text-slate-500" : "text-slate-400"}>/</span>
+          <span>{formatDetailCurrency(summary.totalMargin)}</span>
+        </PositionSummaryMetric>
+        <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.totalNotionalValue}>
+          {formatDetailCurrency(summary.totalNotional)}
+        </PositionSummaryMetric>
+        <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.totalLeverage}>
+          {formatSummaryLeverage(summary.totalLeverage)}
+        </PositionSummaryMetric>
+        <PositionSummaryMetric
+          isDarkTheme={isDarkTheme}
+          label={strategyCopy.unrealizedPnl}
+          valueClassName={getPnlClassName(isDarkTheme, pnlValue)}
+        >
+          {formatSignedDetailCurrency(summary.unrealizedPnl)}
+        </PositionSummaryMetric>
+        <PositionSummaryMetric
+          isDarkTheme={isDarkTheme}
+          label={strategyCopy.totalPnlRate}
+          valueClassName={getPnlClassName(isDarkTheme, pnlRateValue)}
+        >
+          {formatSignedPercent(summary.totalPnlRate)}
+        </PositionSummaryMetric>
+        <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.longRatio} valueClassName={longRatioClassName}>
+          {formatUnsignedPercent(summary.longRatio)}
+        </PositionSummaryMetric>
+        <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.shortRatio} valueClassName="text-[#ff2d3d]">
+          {formatUnsignedPercent(summary.shortRatio)}
+        </PositionSummaryMetric>
       </div>
     </div>
   );
@@ -1564,14 +1559,15 @@ function PositionSummaryMetric({
   label: string;
   valueClassName?: string;
 }) {
-  const containerClassName = isDarkTheme ? "min-w-0 rounded-2xl bg-white/[0.035] p-3" : "min-w-0 rounded-2xl bg-[#F8FAFC] p-3";
-  const labelClassName = isDarkTheme ? "text-xs font-black text-slate-400" : "text-xs font-black text-slate-700";
-  const defaultValueClassName = isDarkTheme ? "mt-2 flex flex-wrap items-baseline gap-x-1 gap-y-0.5 break-words text-xl font-black leading-tight text-slate-50 sm:text-2xl" : "mt-2 flex flex-wrap items-baseline gap-x-1 gap-y-0.5 break-words text-xl font-black leading-tight text-slate-950 sm:text-2xl";
+  const containerClassName = isDarkTheme ? "min-w-0 overflow-hidden rounded-xl bg-white/[0.035] px-2 py-1.5" : "min-w-0 overflow-hidden rounded-xl bg-[#F8FAFC] px-2 py-1.5";
+  const labelClassName = isDarkTheme ? "truncate text-[10px] font-black leading-4 text-slate-400" : "truncate text-[10px] font-black leading-4 text-slate-700";
+  const neutralValueClassName = isDarkTheme ? "text-slate-50" : "text-slate-950";
+  const defaultValueClassName = "mt-0.5 flex min-w-0 items-baseline gap-x-0.5 overflow-hidden whitespace-nowrap text-[13px] font-black leading-4 sm:text-sm";
 
   return (
     <div className={containerClassName}>
       <div className={labelClassName}>{label}</div>
-      <div className={`${defaultValueClassName} ${valueClassName ?? ""}`}>{children}</div>
+      <div className={`${defaultValueClassName} ${valueClassName ?? neutralValueClassName}`}>{children}</div>
     </div>
   );
 }
