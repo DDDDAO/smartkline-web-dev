@@ -1261,6 +1261,11 @@ function StrategyDetailView({
   const parsedSyncRatioPercent = Number(syncRatioPercent);
   const canSyncPositions = Boolean(detail?.trader.enabled) && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
   const orderItems = detail?.orderHistory?.items ?? [];
+  const detailPositions = detail?.positions ?? EMPTY_TRADING_FOX_POSITIONS;
+  const copyPositionMarkPricesBySymbol = useMemo(
+    () => createCopyPositionMarkPricesBySymbol(detailPositions),
+    [detailPositions],
+  );
 
   const syncPositions = async () => {
     if (!canSyncPositions) {
@@ -1405,10 +1410,15 @@ function StrategyDetailView({
                   <PositionSummaryPanel
                     isDarkTheme={isDarkTheme}
                     strategyCopy={strategyCopy}
-                    summary={createSignalSourcePositionSummary(source)}
+                    summary={createSignalSourcePositionSummary(source, copyPositionMarkPricesBySymbol)}
                   />
                   {source.positions.length > 0 ? (
-                    <SignalSourcePositionTable isDarkTheme={isDarkTheme} positions={source.positions} strategyCopy={strategyCopy} />
+                    <SignalSourcePositionTable
+                      copyPositionMarkPricesBySymbol={copyPositionMarkPricesBySymbol}
+                      isDarkTheme={isDarkTheme}
+                      positions={source.positions}
+                      strategyCopy={strategyCopy}
+                    />
                   ) : <div className={isDarkTheme ? "mt-3 text-xs text-slate-500" : "mt-3 text-xs text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
                 </div>
               )) : <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
@@ -1461,6 +1471,9 @@ async function requestStrategyPositionSync(strategyId: string, ratioPercent: num
 
 type StrategyCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
 type SignalSourcePosition = TradingFoxStrategyDetail["signalSources"][number]["positions"][number];
+type CopyPositionMarkPricesBySymbol = ReadonlyMap<string, number>;
+
+const EMPTY_TRADING_FOX_POSITIONS: readonly TradingFoxPosition[] = [];
 
 type PositionSummaryModel = {
   availableMargin: number | null;
@@ -1500,54 +1513,49 @@ function PositionSummaryPanel({
   summary: PositionSummaryModel;
 }) {
   const containerClassName = isDarkTheme
-    ? "mt-3 rounded-2xl border border-white/[0.075] bg-[#111820] p-4"
-    : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-4";
+    ? "mt-3 rounded-2xl border border-white/[0.075] bg-[#111820] p-2.5"
+    : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-2.5";
   const pnlValue = summary.unrealizedPnl ?? 0;
   const pnlRateValue = summary.totalPnlRate ?? 0;
+  const longRatioClassName = isDarkTheme ? "text-emerald-300" : "text-emerald-600";
 
   return (
     <div className={containerClassName}>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-          <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount}>
-            {summary.positionCount}
-          </PositionSummaryMetric>
-          <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.availableTotalMargin}>
-            <span className={isDarkTheme ? "text-emerald-300" : "text-emerald-600"}>{formatDetailCurrency(summary.availableMargin)}</span>
-            <span className={isDarkTheme ? "text-slate-500" : "text-slate-400"}>/</span>
-            <span>{formatDetailCurrency(summary.totalMargin)}</span>
-          </PositionSummaryMetric>
-          <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.totalNotionalValue}>
-            {formatDetailCurrency(summary.totalNotional)}
-          </PositionSummaryMetric>
-          <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.totalLeverage}>
-            {formatSummaryLeverage(summary.totalLeverage)}
-          </PositionSummaryMetric>
-          <PositionSummaryMetric
-            isDarkTheme={isDarkTheme}
-            label={strategyCopy.unrealizedPnl}
-            valueClassName={getPnlClassName(isDarkTheme, pnlValue)}
-          >
-            {formatSignedDetailCurrency(summary.unrealizedPnl)}
-          </PositionSummaryMetric>
-          <PositionSummaryMetric
-            isDarkTheme={isDarkTheme}
-            label={strategyCopy.totalPnlRate}
-            valueClassName={getPnlClassName(isDarkTheme, pnlRateValue)}
-          >
-            {formatSignedPercent(summary.totalPnlRate)}
-          </PositionSummaryMetric>
-        </div>
-        <div className={isDarkTheme ? "grid gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3 sm:grid-cols-2 xl:min-w-80" : "grid gap-3 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3 sm:grid-cols-2 xl:min-w-80"}>
-          <div className="min-w-0">
-            <div className={isDarkTheme ? "text-xs font-black text-emerald-300" : "text-xs font-black text-emerald-600"}>{strategyCopy.longRatio}</div>
-            <div className={isDarkTheme ? "mt-1 break-words text-2xl font-black leading-tight text-emerald-300" : "mt-1 break-words text-2xl font-black leading-tight text-emerald-600"}>{formatUnsignedPercent(summary.longRatio)}</div>
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-black text-[#ff2d3d]">{strategyCopy.shortRatio}</div>
-            <div className="mt-1 break-words text-2xl font-black leading-tight text-[#ff2d3d]">{formatUnsignedPercent(summary.shortRatio)}</div>
-          </div>
-        </div>
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+        <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount}>
+          {summary.positionCount}
+        </PositionSummaryMetric>
+        <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.availableTotalMargin}>
+          <span className={longRatioClassName}>{formatDetailCurrency(summary.availableMargin)}</span>
+          <span className={isDarkTheme ? "text-slate-500" : "text-slate-400"}>/</span>
+          <span>{formatDetailCurrency(summary.totalMargin)}</span>
+        </PositionSummaryMetric>
+        <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.totalNotionalValue}>
+          {formatDetailCurrency(summary.totalNotional)}
+        </PositionSummaryMetric>
+        <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.totalLeverage}>
+          {formatSummaryLeverage(summary.totalLeverage)}
+        </PositionSummaryMetric>
+        <PositionSummaryMetric
+          isDarkTheme={isDarkTheme}
+          label={strategyCopy.unrealizedPnl}
+          valueClassName={getPnlClassName(isDarkTheme, pnlValue)}
+        >
+          {formatSignedDetailCurrency(summary.unrealizedPnl)}
+        </PositionSummaryMetric>
+        <PositionSummaryMetric
+          isDarkTheme={isDarkTheme}
+          label={strategyCopy.totalPnlRate}
+          valueClassName={getPnlClassName(isDarkTheme, pnlRateValue)}
+        >
+          {formatSignedPercent(summary.totalPnlRate)}
+        </PositionSummaryMetric>
+        <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.longRatio} valueClassName={longRatioClassName}>
+          {formatUnsignedPercent(summary.longRatio)}
+        </PositionSummaryMetric>
+        <PositionSummaryMetric isDarkTheme={isDarkTheme} label={strategyCopy.shortRatio} valueClassName="text-[#ff2d3d]">
+          {formatUnsignedPercent(summary.shortRatio)}
+        </PositionSummaryMetric>
       </div>
     </div>
   );
@@ -1564,14 +1572,15 @@ function PositionSummaryMetric({
   label: string;
   valueClassName?: string;
 }) {
-  const containerClassName = isDarkTheme ? "min-w-0 rounded-2xl bg-white/[0.035] p-3" : "min-w-0 rounded-2xl bg-[#F8FAFC] p-3";
-  const labelClassName = isDarkTheme ? "text-xs font-black text-slate-400" : "text-xs font-black text-slate-700";
-  const defaultValueClassName = isDarkTheme ? "mt-2 flex flex-wrap items-baseline gap-x-1 gap-y-0.5 break-words text-xl font-black leading-tight text-slate-50 sm:text-2xl" : "mt-2 flex flex-wrap items-baseline gap-x-1 gap-y-0.5 break-words text-xl font-black leading-tight text-slate-950 sm:text-2xl";
+  const containerClassName = isDarkTheme ? "min-w-0 overflow-hidden rounded-xl bg-white/[0.035] px-2 py-1.5" : "min-w-0 overflow-hidden rounded-xl bg-[#F8FAFC] px-2 py-1.5";
+  const labelClassName = isDarkTheme ? "truncate text-[10px] font-black leading-4 text-slate-400" : "truncate text-[10px] font-black leading-4 text-slate-700";
+  const neutralValueClassName = isDarkTheme ? "text-slate-50" : "text-slate-950";
+  const defaultValueClassName = "mt-0.5 flex min-w-0 items-baseline gap-x-0.5 overflow-hidden whitespace-nowrap text-[13px] font-black leading-4 sm:text-sm";
 
   return (
     <div className={containerClassName}>
       <div className={labelClassName}>{label}</div>
-      <div className={`${defaultValueClassName} ${valueClassName ?? ""}`}>{children}</div>
+      <div className={`${defaultValueClassName} ${valueClassName ?? neutralValueClassName}`}>{children}</div>
     </div>
   );
 }
@@ -1596,14 +1605,17 @@ function createCopyPositionSummary(detail: TradingFoxStrategyDetail): PositionSu
   return createPositionSummaryModel({ availableMargin, totalMargin, totals });
 }
 
-function createSignalSourcePositionSummary(source: TradingFoxStrategyDetail["signalSources"][number]): PositionSummaryModel {
+function createSignalSourcePositionSummary(
+  source: TradingFoxStrategyDetail["signalSources"][number],
+  copyPositionMarkPricesBySymbol: CopyPositionMarkPricesBySymbol,
+): PositionSummaryModel {
   const totals = summarizePositions(source.positions.map((position) => {
-    const notional = getSignalSourcePositionNotional(position);
+    const notional = getSignalSourcePositionNotional(position, copyPositionMarkPricesBySymbol);
     const leverage = finiteNumberOrNull(position.leverage);
     return {
       margin: calculatePositionMargin(notional, leverage),
       notional,
-      pnl: getSignalSourcePositionPnl(position),
+      pnl: getSignalSourcePositionPnl(position, copyPositionMarkPricesBySymbol),
       side: position.positionSide,
     };
   }));
@@ -1719,9 +1731,44 @@ function getCopyPositionNotional(position: TradingFoxPosition): number | null {
   return Math.abs(contracts * price);
 }
 
-function getSignalSourcePositionNotional(position: SignalSourcePosition): number | null {
+function createCopyPositionMarkPricesBySymbol(positions: readonly TradingFoxPosition[]): CopyPositionMarkPricesBySymbol {
+  const markPricesBySymbol = new Map<string, number>();
+
+  positions.forEach((position) => {
+    const symbol = normalizePositionSymbolForMarkPriceLookup(position.symbol);
+    const markPrice = finiteNumberOrNull(position.markPrice);
+    if (symbol && markPrice !== null) {
+      markPricesBySymbol.set(symbol, markPrice);
+    }
+  });
+
+  return markPricesBySymbol;
+}
+
+function normalizePositionSymbolForMarkPriceLookup(value: string | undefined): string {
+  const normalizedValue = (value ?? "").trim().toUpperCase();
+  if (!normalizedValue) {
+    return "";
+  }
+
+  const symbolWithoutSettlement = normalizedValue.split(":")[0] ?? normalizedValue;
+  return symbolWithoutSettlement.replace(/[\s/_-]/gu, "");
+}
+
+function getSignalSourcePositionMarkPrice(
+  position: SignalSourcePosition,
+  copyPositionMarkPricesBySymbol: CopyPositionMarkPricesBySymbol,
+): number | null {
+  const copiedMarkPrice = copyPositionMarkPricesBySymbol.get(normalizePositionSymbolForMarkPriceLookup(position.symbol));
+  return copiedMarkPrice ?? finiteNumberOrNull(position.markPrice);
+}
+
+function getSignalSourcePositionNotional(
+  position: SignalSourcePosition,
+  copyPositionMarkPricesBySymbol: CopyPositionMarkPricesBySymbol,
+): number | null {
   const size = finiteNumberOrNull(position.positionSize);
-  const price = finiteNumberOrNull(position.markPrice) ?? finiteNumberOrNull(position.entryPrice);
+  const price = getSignalSourcePositionMarkPrice(position, copyPositionMarkPricesBySymbol) ?? finiteNumberOrNull(position.entryPrice);
   if (size === null || price === null) {
     return null;
   }
@@ -1743,10 +1790,13 @@ function getCopyPositionPnl(position: TradingFoxPosition): number | null {
   });
 }
 
-function getSignalSourcePositionPnl(position: SignalSourcePosition): number | null {
+function getSignalSourcePositionPnl(
+  position: SignalSourcePosition,
+  copyPositionMarkPricesBySymbol: CopyPositionMarkPricesBySymbol,
+): number | null {
   return calculatePositionPnl({
     entryPrice: finiteNumberOrNull(position.entryPrice),
-    markPrice: finiteNumberOrNull(position.markPrice),
+    markPrice: getSignalSourcePositionMarkPrice(position, copyPositionMarkPricesBySymbol),
     quantity: finiteNumberOrNull(position.positionSize),
     side: position.positionSide,
   });
@@ -1831,10 +1881,12 @@ function CopyPositionTable({
 }
 
 function SignalSourcePositionTable({
+  copyPositionMarkPricesBySymbol,
   isDarkTheme,
   positions,
   strategyCopy,
 }: {
+  copyPositionMarkPricesBySymbol: CopyPositionMarkPricesBySymbol;
   isDarkTheme: boolean;
   positions: readonly TradingFoxStrategyDetail["signalSources"][number]["positions"][number][];
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
@@ -1856,7 +1908,8 @@ function SignalSourcePositionTable({
         </thead>
         <tbody>
           {positions.map((position, index) => {
-            const pnl = getSignalSourcePositionPnl(position);
+            const markPrice = getSignalSourcePositionMarkPrice(position, copyPositionMarkPricesBySymbol);
+            const pnl = getSignalSourcePositionPnl(position, copyPositionMarkPricesBySymbol);
             return (
               <tr key={`${position.symbol}-${position.positionSide}-${index}`} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0"}>
                 <td className="px-3 py-4 font-black underline underline-offset-2">{position.symbol}</td>
@@ -1864,7 +1917,7 @@ function SignalSourcePositionTable({
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.positionSize)}</td>
                 <td className="px-3 py-4 font-semibold">{formatLeverage(position.leverage)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.entryPrice)}</td>
-                <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.markPrice)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(markPrice)}</td>
                 <td className={`px-3 py-4 font-black ${getPnlClassName(isDarkTheme, pnl ?? 0)}`}>{formatSignedDetailCurrency(pnl)}</td>
                 <td className={position.skipTrade ? "px-3 py-4 font-black text-amber-500" : isDarkTheme ? "px-3 py-4 font-black text-emerald-300" : "px-3 py-4 font-black text-emerald-700"}>{position.skipTrade ? "skip" : "follow"}</td>
               </tr>
