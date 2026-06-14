@@ -90,6 +90,24 @@ export type CopyTradingRadarSnapshot = {
   updated_at: string;
 };
 
+export type CopyTradingReturnCurveWindow = "7d" | "30d" | "90d" | "all";
+
+export type CopyTradingReturnCurvePoint = {
+  timestamp: number;
+  /**
+   * Signal Center normalizes return-curve values as ratios so the card can
+   * share the workspace percent formatter. For example, 0.1234 is +12.34%.
+   */
+  value: number;
+};
+
+export type CopyTradingReturnCurve = {
+  points: CopyTradingReturnCurvePoint[];
+  sourceId: string;
+  updatedAt: string | null;
+  window: CopyTradingReturnCurveWindow | string;
+};
+
 export type CopyTradingChartSignalMeta = {
   eventId: string;
   traderId: string;

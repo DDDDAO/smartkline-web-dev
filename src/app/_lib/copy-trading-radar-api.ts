@@ -8,6 +8,9 @@ import type {
   CopyTradingPosition,
   CopyTradingRadarSnapshot,
   CopyTradingRiskLevel,
+  CopyTradingReturnCurve,
+  CopyTradingReturnCurvePoint,
+  CopyTradingReturnCurveWindow,
   CopyTradingTradeMarker,
   CopyTradingTradeMarkerSide,
   CopyTradingTrader,
@@ -167,6 +170,41 @@ type TradesResponse = {
   } | null;
 };
 
+type SignalCenterReturnCurvePoint = {
+  date?: string | null;
+  pnlRate?: number | string | null;
+  pnl_rate?: number | string | null;
+  ratio?: number | string | null;
+  returnPercent?: number | string | null;
+  returnRate?: number | string | null;
+  return_rate?: number | string | null;
+  return_percent?: number | string | null;
+  roi?: number | string | null;
+  roiPercent?: number | string | null;
+  roi_percent?: number | string | null;
+  statTime?: number | string | null;
+  stat_time?: number | string | null;
+  time?: number | string | null;
+  timestamp?: number | string | null;
+  value?: number | string | null;
+};
+
+type SignalCenterReturnCurveResponse = {
+  curve?: SignalCenterReturnCurvePoint[] | null;
+  data?: SignalCenterReturnCurvePoint[] | {
+    curve?: SignalCenterReturnCurvePoint[] | null;
+    items?: SignalCenterReturnCurvePoint[] | null;
+    points?: SignalCenterReturnCurvePoint[] | null;
+  } | null;
+  items?: SignalCenterReturnCurvePoint[] | null;
+  points?: SignalCenterReturnCurvePoint[] | null;
+  sourceId?: string | null;
+  source_id?: string | null;
+  updatedAt?: string | null;
+  updated_at?: string | null;
+  window?: string | null;
+};
+
 export type CopyTradingTradeHistoryPage = {
   events: CopyTradingEvent[];
   hasMore: boolean;
@@ -285,6 +323,145 @@ export async function fetchCopyTradingSourceTradeHistoryPage({
     nextOffset: safeOffset + Math.max(0, tradesResponse.meta?.returnedCount ?? events.length),
     returnedCount: events.length,
   };
+}
+
+export async function fetchCopyTradingSourceReturnCurve({
+  sourceId,
+  window = "90d",
+}: {
+  sourceId: string;
+  window?: CopyTradingReturnCurveWindow | string;
+}): Promise<CopyTradingReturnCurve> {
+  const response = await requestSignalCenterJson<SignalCenterReturnCurveResponse>(
+    `/v1/signal-sources/${encodeURIComponent(sourceId)}/return-curve?window=${encodeURIComponent(window)}`,
+  );
+
+  return {
+    points: adaptSignalCenterReturnCurvePoints(response),
+    sourceId: response.sourceId ?? response.source_id ?? sourceId,
+    updatedAt: normalizeNullableTimestamp(response.updatedAt ?? response.updated_at),
+    window: response.window ?? window,
+  };
+}
+
+function adaptSignalCenterReturnCurvePoints(
+  response: SignalCenterReturnCurveResponse,
+): CopyTradingReturnCurvePoint[] {
+  const points = readSignalCenterReturnCurvePointList(response)
+    .flatMap((point) => {
+      const timestamp = readSignalCenterReturnCurveTimestamp(point);
+      const value = readSignalCenterReturnCurveValue(point);
+      if (timestamp === null || value === null) {
+        return [];
+      }
+
+      return [{ timestamp, value }];
+    })
+    .sort((left, right) => left.timestamp - right.timestamp);
+
+  return trimLeadingFlatReturnCurvePoints(points);
+}
+
+function readSignalCenterReturnCurvePointList(
+  response: SignalCenterReturnCurveResponse,
+): readonly SignalCenterReturnCurvePoint[] {
+  if (Array.isArray(response.points)) {
+    return response.points;
+  }
+
+  if (Array.isArray(response.curve)) {
+    return response.curve;
+  }
+
+  if (Array.isArray(response.items)) {
+    return response.items;
+  }
+
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
+
+  if (response.data && typeof response.data === "object") {
+    if (Array.isArray(response.data.points)) {
+      return response.data.points;
+    }
+
+    if (Array.isArray(response.data.curve)) {
+      return response.data.curve;
+    }
+
+    if (Array.isArray(response.data.items)) {
+      return response.data.items;
+    }
+  }
+
+  return [];
+}
+
+function readSignalCenterReturnCurveTimestamp(point: SignalCenterReturnCurvePoint): number | null {
+  const rawTimestamp = point.timestamp
+    ?? point.time
+    ?? point.statTime
+    ?? point.stat_time
+    ?? point.date;
+  if (typeof rawTimestamp === "string" && Number.isNaN(Number(rawTimestamp))) {
+    const parsedTime = Date.parse(rawTimestamp);
+    return Number.isFinite(parsedTime) ? parsedTime : null;
+  }
+
+  const timestamp = parseNumber(rawTimestamp);
+  if (timestamp === null) {
+    return null;
+  }
+
+  return Math.abs(timestamp) < 1_000_000_000_000 ? timestamp * 1_000 : timestamp;
+}
+
+function readSignalCenterReturnCurveValue(point: SignalCenterReturnCurvePoint): number | null {
+  return parseRatioNumber(point.value)
+    ?? parseRatioNumber(point.roi)
+    ?? parseRatioNumber(point.ratio)
+    ?? parseRatioNumber(point.returnRate)
+    ?? parseRatioNumber(point.return_rate)
+    ?? parseRatioNumber(point.pnlRate)
+    ?? parseRatioNumber(point.pnl_rate)
+    ?? parsePercentNumber(point.roiPercent)
+    ?? parsePercentNumber(point.roi_percent)
+    ?? parsePercentNumber(point.returnPercent)
+    ?? parsePercentNumber(point.return_percent);
+}
+
+function parseRatioNumber(value: unknown): number | null {
+  if (typeof value === "string" && value.trim().endsWith("%")) {
+    return parsePercentNumber(value);
+  }
+
+  return parseNumber(value);
+}
+
+function parsePercentNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value.trim().replace(/%$/, ""));
+    return Number.isFinite(parsed) ? parsed / 100 : null;
+  }
+
+  const parsed = parseNumber(value);
+  return parsed === null ? null : parsed / 100;
+}
+
+function trimLeadingFlatReturnCurvePoints(
+  points: readonly CopyTradingReturnCurvePoint[],
+): CopyTradingReturnCurvePoint[] {
+  let startIndex = 0;
+  while (startIndex < points.length && points[startIndex]?.value === 0) {
+    startIndex += 1;
+  }
+
+  return startIndex === 0 ? [...points] : points.slice(startIndex);
 }
 
 export async function createMarketAlignedMockCopyTradingRadarSnapshot(): Promise<CopyTradingRadarSnapshot> {
@@ -1368,6 +1545,15 @@ function clampSignedRatio(value: number): number {
 function normalizeTimestamp(value: string | null | undefined): string {
   if (!value) {
     return FALLBACK_UPDATED_AT;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? formatDateTimeWithUtc8Offset(new Date(timestamp)) : value;
+}
+
+function normalizeNullableTimestamp(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
   }
 
   const timestamp = Date.parse(value);
