@@ -552,13 +552,14 @@ function defaultDemoAccountName(exchangePlatform: TradingFoxDemoExchangePlatform
 function createDemoExchangeCredentials(
   exchangePlatform: TradingFoxDemoExchangePlatform,
   input: CreateMockConnectorInput,
-): Record<string, string> {
+): Record<string, unknown> {
   if (exchangePlatform === "Mock") {
     return {};
   }
 
   return {
     apiKey: requireText(input.apiKey, "apiKey"),
+    enableDemoTrading: true,
     secret: requireText(input.secret, "secret"),
   };
 }
