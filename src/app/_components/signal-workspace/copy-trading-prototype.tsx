@@ -2410,6 +2410,7 @@ function StrategyDetailView({
               <>
                 <TradeHistoryTable
                   activeKlineRowId={selectedTradeKlineRow?.id ?? null}
+                  copy={copy}
                   isDarkTheme={isDarkTheme}
                   rows={visibleTradeHistoryRows}
                   strategyCopy={strategyCopy}
@@ -3641,6 +3642,7 @@ function TradeHistoryKlineSymbolSelect({
 
 function TradeHistoryTable({
   activeKlineRowId,
+  copy,
   isDarkTheme,
   rows,
   strategyCopy,
@@ -3648,6 +3650,7 @@ function TradeHistoryTable({
   onRowKlineOpen,
 }: {
   activeKlineRowId: string | null;
+  copy: WorkspaceCopy;
   isDarkTheme: boolean;
   rows: readonly TradeHistoryRow[];
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
@@ -3692,7 +3695,7 @@ function TradeHistoryTable({
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(row.price)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(row.quantity)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailCurrency(notional)}</td>
-                <td className={getTradeHistoryStatusClassName(isDarkTheme, row)}>{formatTradeHistoryStatus(row, strategyCopy)}</td>
+                <td className={getTradeHistoryStatusClassName(isDarkTheme, row)}>{formatTradeHistoryStatus(row, copy)}</td>
               </tr>
             );
           })}
@@ -4125,12 +4128,13 @@ function getTradeHistorySideClassName(isDarkTheme: boolean, row: TradeHistoryRow
   return getSideClassName(isDarkTheme, row.side || row.action);
 }
 
-function formatTradeHistoryStatus(row: TradeHistoryRow, strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"]): string {
+function formatTradeHistoryStatus(row: TradeHistoryRow, copy: WorkspaceCopy): string {
+  const strategyCopy = copy.workspace.accountCenter.strategy;
   if (row.kind === "me") {
     return formatOrderStatus(row.status, strategyCopy);
   }
   if (row.kind === "tradeLog") {
-    return row.status || strategyCopy.tradeEventNoOrder;
+    return row.status ? getTradingFoxErrorMessage(row.status, copy) : strategyCopy.tradeEventNoOrder;
   }
   return "--";
 }

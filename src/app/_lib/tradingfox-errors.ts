@@ -13,6 +13,14 @@ export function getTradingFoxErrorMessage(error: unknown, copy: WorkspaceCopy): 
     return copy.workspace.accountCenter.errors.binanceDemoCredentials(rawMessage);
   }
 
+  if (isSignalSourceStateCacheStaleMessage(rawMessage)) {
+    return copy.workspace.accountCenter.errors.signalSourceStateCacheStale;
+  }
+
+  if (isNoUserPositionMessage(rawMessage)) {
+    return copy.workspace.accountCenter.errors.noUserPosition;
+  }
+
   return rawMessage;
 }
 
@@ -103,4 +111,19 @@ function isBinanceDemoCredentialError(message: string): boolean {
     "exchange connector",
     "api",
   ].some((pattern) => normalizedMessage.includes(pattern));
+}
+
+function isSignalSourceStateCacheStaleMessage(message: string): boolean {
+  const normalizedMessage = message.toLowerCase();
+  return normalizedMessage.includes("signal source state cache is stale")
+    || (
+      normalizedMessage.includes("signal source state cache")
+      && normalizedMessage.includes("cached runtime state")
+    );
+}
+
+function isNoUserPositionMessage(message: string): boolean {
+  const normalizedMessage = message.toUpperCase();
+  return normalizedMessage.includes("NO_USER_POSITION")
+    || normalizedMessage.includes("NO USER POSITION");
 }
