@@ -54,6 +54,7 @@ export type PrototypeStrategy = {
   id: string;
   platform: string;
   positionsCount: number;
+  startedAt?: string;
   status: PrototypeStrategyStatus;
   stopLossPercent: number;
   strategyType?: PrototypeStrategyType;
@@ -1782,13 +1783,13 @@ function StrategyDetailView({
   const tradeLogItems = detail?.orderHistory?.tradeLogs ?? [];
   const signalSourceIdentityById = createSignalSourceIdentityById(detail?.signalSources ?? [], liveStrategy);
   const tradeHistoryOffset = detail?.orderHistory?.offset ?? tradeHistoryPageOffset;
-  const allTradeHistoryRows = createTradeHistoryRows({
+  const allTradeHistoryRows = filterTradeHistoryRowsByStrategyStart(createTradeHistoryRows({
     orders: orderItems,
     signalSourceIdentityById,
     signalSourceOrders: signalSourceOrderItems,
     strategy: liveStrategy,
     tradeLogs: tradeLogItems,
-  });
+  }), liveStrategy);
   const visibleTradeHistoryRows = allTradeHistoryRows.slice(tradeHistoryOffset, tradeHistoryOffset + TRADE_HISTORY_PAGE_SIZE);
   const selectedTradeKlineRow = visibleTradeHistoryRows.find((row) => row.id === selectedTradeKlineRowId) ?? visibleTradeHistoryRows.find((row) => row.kind === "me") ?? visibleTradeHistoryRows[0] ?? null;
   const hasPreviousTradeHistoryPage = tradeHistoryOffset > 0;
@@ -2746,6 +2747,20 @@ function compareTradeHistoryRows(left: TradeHistoryRow, right: TradeHistoryRow):
   return left.id.localeCompare(right.id);
 }
 
+function filterTradeHistoryRowsByStrategyStart(rows: readonly TradeHistoryRow[], strategy: PrototypeStrategy): TradeHistoryRow[] {
+  const startedAtMs = getStrategyStartedAtMs(strategy);
+  if (startedAtMs === null) {
+    return [...rows];
+  }
+
+  return rows.filter((row) => row.sourceTimeMs >= startedAtMs);
+}
+
+function getStrategyStartedAtMs(strategy: PrototypeStrategy): number | null {
+  const timestamp = Date.parse(strategy.startedAt ?? "");
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
 function getTradeHistoryRowKindRank(kind: TradeHistoryRow["kind"]): number {
   switch (kind) {
     case "signalSource":
@@ -3122,12 +3137,14 @@ function TradeHistorySourceCell({
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <SourceAvatar isDarkTheme={isDarkTheme} name={row.source.name} url={row.source.avatarUrl} />
+      <SourceAvatar isDarkTheme={isDarkTheme} name={row.source.id || row.source.name} url={row.source.avatarUrl} />
       <div className="min-w-0">
-        <div className="max-w-44 truncate text-sm font-black">{row.source.name}</div>
-        <div className={isDarkTheme ? "mt-0.5 max-w-44 truncate text-[10px] font-semibold text-slate-500" : "mt-0.5 max-w-44 truncate text-[10px] font-semibold text-slate-400"}>
-          {row.kind === "tradeLog" ? `${strategyCopy.tradeEventNoOrder} #${row.tradeLog?.id ?? "--"}` : row.source.id}
-        </div>
+        <div className="max-w-44 truncate text-sm font-black">{row.source.id || row.source.name}</div>
+        {row.kind === "tradeLog" ? (
+          <div className={isDarkTheme ? "mt-0.5 max-w-44 truncate text-[10px] font-semibold text-slate-500" : "mt-0.5 max-w-44 truncate text-[10px] font-semibold text-slate-400"}>
+            {`${strategyCopy.tradeEventNoOrder} #${row.tradeLog?.id ?? "--"}`}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -3239,7 +3256,7 @@ function createTradeHistoryTradeMarker(
 
   return {
     actionLabel,
-    avatarUrl: null,
+    avatarUrl: strategy.avatarUrl || null,
     detail: `${formatDetailDate(row.timestamp)} · ${formatOrderStatus(row.status, strategyCopy)}`,
     direction: side === "buy" ? "long" : "short",
     eventId: row.id,
@@ -3254,7 +3271,7 @@ function createTradeHistoryTradeMarker(
     symbol: toCopyTradingMarketSymbol(row.symbol),
     title: `${actionLabel} ${row.symbol}${priceSuffix}`,
     traderId: strategy.traderId,
-    traderName: actionLabel,
+    traderName: strategy.traderName || actionLabel,
   };
 }
 
