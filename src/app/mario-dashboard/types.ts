@@ -1,4 +1,4 @@
-export type BudgetPercent = 1 | 3 | 5;
+export type BudgetPercent = 1 | 2 | 3 | 5;
 export type RewardRiskRatio = 2 | 3 | 4 | 5;
 export type EntryAPercent = 100 | 70 | 50 | 30;
 export type TradeDirection = "long" | "short";
@@ -22,7 +22,6 @@ export type Countdown = {
 };
 
 export type DashboardState = {
-  apiBound: boolean;
   budget: BudgetPercent;
   countdowns: Countdown[];
   darkMode: boolean;

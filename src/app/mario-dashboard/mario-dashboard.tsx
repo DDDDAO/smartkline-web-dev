@@ -1,16 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MiniKlineCard } from "./mini-kline-card";
 import { PendingOrdersCard } from "./pending-orders-card";
 import { HistoryCard, PositionsCard } from "./position-history-cards";
-import { SymbolPicker } from "./symbol-picker";
+import { MarketSymbolSearchInput } from "@/app/_components/market-symbol-search-input";
+import {
+  getAccountManagementTarget,
+  getApiKeySyncStatus,
+  LOGGED_OUT_AUTH_ME,
+  requestAuthMe,
+  requestTradingFoxAccount,
+  selectPrimaryConnector,
+} from "./account-sync";
+import type { TradingFoxConnector } from "@/app/_lib/tradingfox-control-plane";
+import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
+import type { MarketSymbol } from "@/app/_types/market";
 import {
   ACCOUNT_BALANCE,
-  BINANCE_PRICE_UPDATE_INTERVAL_MS,
   BUDGET_OPTIONS,
   COUNTDOWN_URGENT_MS,
-  FALLBACK_SYMBOLS,
+  FALLBACK_MARKET_SYMBOLS,
   INITIAL_DASHBOARD_STATE,
   INITIAL_FORM,
   MAX_COUNTDOWNS,
@@ -22,56 +31,50 @@ import {
   RATIO_OPTIONS,
   STORAGE_KEY,
 } from "./constants";
-import { ClockIcon, LayersIcon, MoonIcon, SettingsIcon, SunIcon } from "./icons";
+import { AccountIcon, ClockIcon, LayersIcon, MoonIcon, SunIcon } from "./icons";
 import { getThemeClasses } from "./theme";
 import type { BulkAction, BudgetPercent, CalculatorForm, DashboardState, PendingOrder, RewardRiskRatio, TradeDirection } from "./types";
 import { ActionButton, CalculatedValue, Card, FormRow, IconButton, InfoRow, Modal, ModalActions, OverviewItem, SegmentedButtons } from "./ui";
 import {
   calculatePosition,
-  createPrioritizedBaseSymbols,
+  createPrioritizedMarketSymbols,
   formatAmount,
   formatCountdown,
-  formatLivePrice,
   formatNumber,
   formatPrice,
   formatSignedNumber,
   getActiveCountdowns,
   getBudgetTone,
   getBulkOrderLabel,
-  getBulkOrderNotice,
   getBulkPositionLabel,
   getHeaderTimerClassName,
+  getMarketBaseSymbol,
   getRatioTone,
   parsePositiveInteger,
   parseStoredDashboardState,
   sanitizeDecimalInput,
   sanitizeIntegerInput,
   toEntryAPercent,
+  toUsdtPerpetualMarketSymbol,
 } from "./utils";
-import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
-import {
-  readBinanceMiniTickerPrice,
-  useBinanceMiniTickerPrices,
-} from "@/app/_components/signal-workspace/use-binance-mini-ticker-prices";
 
-export function MarioDashboard() {
+export function MarioDashboard({ className = "" }: { className?: string }) {
   const [dashboardState, setDashboardState] = useState<DashboardState>(INITIAL_DASHBOARD_STATE);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [authMe, setAuthMe] = useState(LOGGED_OUT_AUTH_ME);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isAccountLoading, setIsAccountLoading] = useState(false);
+  const [apiConnector, setApiConnector] = useState<TradingFoxConnector | null>(null);
+  const [apiSyncError, setApiSyncError] = useState("");
+  const [syncRevision, setSyncRevision] = useState(0);
   const [form, setForm] = useState<CalculatorForm>(INITIAL_FORM);
   const [now, setNow] = useState<number | null>(null);
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [confirmDirection, setConfirmDirection] = useState<TradeDirection | null>(null);
   const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
   const [isCountdownModalOpen, setIsCountdownModalOpen] = useState(false);
-  const [isApiModalOpen, setIsApiModalOpen] = useState(false);
   const [countdownInput, setCountdownInput] = useState({ days: "", hours: "", minutes: "" });
-  const [countdownError, setCountdownError] = useState("");
-  const [apiInput, setApiInput] = useState({ key: "", secret: "" });
-  const [apiError, setApiError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [symbolOptions, setSymbolOptions] = useState<string[]>([...FALLBACK_SYMBOLS]);
-  const [isSymbolOptionsLoading, setIsSymbolOptionsLoading] = useState(true);
-  const [symbolOptionsError, setSymbolOptionsError] = useState<string | null>(null);
+  const [marketOptions, setMarketOptions] = useState<MarketSymbol[]>([...FALLBACK_MARKET_SYMBOLS]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -86,6 +89,103 @@ export function MarioDashboard() {
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    requestAuthMe()
+      .then((nextAuthMe) => {
+        if (isActive) {
+          setAuthMe(nextAuthMe);
+          setApiSyncError("");
+          if (!nextAuthMe.isLoggedIn) {
+            setApiConnector(null);
+            setIsAccountLoading(false);
+          }
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setAuthMe(LOGGED_OUT_AUTH_ME);
+          setApiConnector(null);
+          setApiSyncError("登录状态同步失败");
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsAuthLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [syncRevision]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (isAuthLoading) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    if (!authMe.isLoggedIn) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    Promise.resolve()
+      .then(() => {
+        if (isActive) {
+          setIsAccountLoading(true);
+          setApiSyncError("");
+        }
+        return requestTradingFoxAccount();
+      })
+      .then((account) => {
+        if (isActive) {
+          setApiConnector(selectPrimaryConnector(account));
+        }
+      })
+      .catch((error) => {
+        if (isActive) {
+          setApiConnector(null);
+          setApiSyncError(error instanceof Error ? error.message : "API Key 状态同步失败");
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsAccountLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [authMe.isLoggedIn, isAuthLoading, syncRevision]);
+
+  useEffect(() => {
+    const refreshApiKeyStatus = () => {
+      setIsAuthLoading(true);
+      setSyncRevision((currentRevision) => currentRevision + 1);
+    };
+    const refreshVisiblePage = () => {
+      if (document.visibilityState === "visible") {
+        refreshApiKeyStatus();
+      }
+    };
+
+    window.addEventListener("focus", refreshApiKeyStatus);
+    document.addEventListener("visibilitychange", refreshVisiblePage);
+
+    return () => {
+      window.removeEventListener("focus", refreshApiKeyStatus);
+      document.removeEventListener("visibilitychange", refreshVisiblePage);
+    };
   }, []);
 
   useEffect(() => {
@@ -140,21 +240,12 @@ export function MarioDashboard() {
           return;
         }
 
-        const loadedSymbols = createPrioritizedBaseSymbols(loadedMarkets);
-        setSymbolOptions(loadedSymbols.length > 0 ? loadedSymbols : [...FALLBACK_SYMBOLS]);
-        setSymbolOptionsError(null);
+        const loadedMarketsForSearch = createPrioritizedMarketSymbols(loadedMarkets);
+        setMarketOptions(loadedMarketsForSearch.length > 0 ? loadedMarketsForSearch : [...FALLBACK_MARKET_SYMBOLS]);
       })
-      .catch((error: unknown) => {
-        if (!isActive) {
-          return;
-        }
-
-        setSymbolOptions([...FALLBACK_SYMBOLS]);
-        setSymbolOptionsError(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
+      .catch(() => {
         if (isActive) {
-          setIsSymbolOptionsLoading(false);
+          setMarketOptions([...FALLBACK_MARKET_SYMBOLS]);
         }
       });
 
@@ -163,27 +254,10 @@ export function MarioDashboard() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!notice) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => setNotice(""), 3_200);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [notice]);
-
   const calculation = useMemo(
     () => calculatePosition(form, dashboardState.budget, dashboardState.ratio),
     [dashboardState.budget, dashboardState.ratio, form],
   );
-  const binanceMarketSymbol = useMemo(() => `${form.symbol}/USDT:USDT`, [form.symbol]);
-  const binancePriceSymbols = useMemo(() => [binanceMarketSymbol], [binanceMarketSymbol]);
-  const { latestPricesBySymbol } = useBinanceMiniTickerPrices(binancePriceSymbols, {
-    updateIntervalMs: BINANCE_PRICE_UPDATE_INTERVAL_MS,
-  });
-  const selectedBinancePrice = readBinanceMiniTickerPrice(latestPricesBySymbol, binanceMarketSymbol);
-
   const activeCountdowns = useMemo(
     () => getActiveCountdowns(dashboardState.countdowns, now),
     [dashboardState.countdowns, now],
@@ -199,6 +273,15 @@ export function MarioDashboard() {
     setForm((currentForm) => ({ ...currentForm, [field]: value }));
   };
 
+  const updateEntryAPercent = (value: string) => {
+    const percentA = toEntryAPercent(value);
+    setForm((currentForm) => ({
+      ...currentForm,
+      entryB: percentA === 100 ? "" : currentForm.entryB,
+      percentA,
+    }));
+  };
+
   const selectBudget = (budget: BudgetPercent) => {
     setDashboardState((currentState) => ({ ...currentState, budget }));
   };
@@ -209,7 +292,7 @@ export function MarioDashboard() {
 
   const openConfirmModal = (direction: TradeDirection) => {
     if (!calculation.isValidOrder) {
-      setNotice("请先填写有效的止损位和开仓点。");
+      window.alert("请先填写有效的止损位和开仓点。");
       return;
     }
 
@@ -235,10 +318,9 @@ export function MarioDashboard() {
 
     setDashboardState((currentState) => ({
       ...currentState,
-      orders: [nextOrder, ...currentState.orders],
+      orders: [...currentState.orders, nextOrder],
     }));
     setConfirmDirection(null);
-    setNotice("模拟挂单已创建，当前不会触发真实交易。");
   };
 
   const cancelOrder = (orderId: number) => {
@@ -260,9 +342,8 @@ export function MarioDashboard() {
           ? []
           : currentState.orders.filter((order) => order.direction !== bulkAction.type),
       }));
-      setNotice(getBulkOrderNotice(bulkAction.type));
     } else {
-      setNotice(`模拟平仓完成：${getBulkPositionLabel(bulkAction.type)}`);
+      window.alert(`平仓成功: ${bulkAction.type}`);
     }
 
     setBulkAction(null);
@@ -270,7 +351,6 @@ export function MarioDashboard() {
 
   const openCountdownModal = () => {
     setCountdownInput({ days: "", hours: "", minutes: "" });
-    setCountdownError("");
     setIsCountdownModalOpen(true);
   };
 
@@ -281,12 +361,12 @@ export function MarioDashboard() {
     const totalMs = (days * 24 * 60 + hours * 60 + minutes) * 60 * 1_000;
 
     if (totalMs <= 0) {
-      setCountdownError("请输入一个大于 0 的倒计时。");
+      setIsCountdownModalOpen(false);
       return;
     }
 
     if (activeCountdowns.length >= MAX_COUNTDOWNS) {
-      setCountdownError("最多只能添加 2 个倒计时。");
+      window.alert("最多只能添加2个倒计时");
       return;
     }
 
@@ -298,7 +378,6 @@ export function MarioDashboard() {
       ],
     }));
     setCountdownInput({ days: "", hours: "", minutes: "" });
-    setCountdownError("");
     setIsCountdownModalOpen(false);
   };
 
@@ -309,214 +388,191 @@ export function MarioDashboard() {
     }));
   };
 
-  const bindApi = () => {
-    if (apiInput.key.trim().length < 5 || apiInput.secret.trim().length < 5) {
-      setApiError("API Key 和 Secret Key 长度不足。");
-      return;
-    }
-
-    setDashboardState((currentState) => ({ ...currentState, apiBound: true }));
-    setApiInput({ key: "", secret: "" });
-    setApiError("");
-    setIsApiModalOpen(false);
-    setNotice("API 已模拟绑定；密钥没有保存到浏览器状态里。");
-  };
-
-  const theme = getThemeClasses(dashboardState.darkMode);
+  const theme = getThemeClasses();
   const currentNow = now ?? 0;
   const headerCountdownText = activeCountdowns
     .map((countdown) => formatCountdown(countdown.targetTime - currentNow))
     .join(" | ");
   const firstCountdownRemaining = activeCountdowns[0] ? activeCountdowns[0].targetTime - currentNow : null;
+  const apiKeyStatus = getApiKeySyncStatus({
+    connector: apiConnector,
+    error: apiSyncError,
+    isAccountLoading,
+    isAuthLoading,
+    isLoggedIn: authMe.isLoggedIn,
+  });
+  const switchApiKey = () => {
+    window.location.href = getAccountManagementTarget(authMe.isLoggedIn);
+  };
 
   return (
-    <main className={theme.page}>
-      <div className="mx-auto max-w-[1280px] px-3 py-3 font-mono text-[12px] leading-6 sm:px-4 sm:py-4">
-        {notice ? <div className={theme.notice}>{notice}</div> : null}
+    <main className={`${theme.page}${dashboardState.darkMode ? " dark-mode" : ""}${className ? ` ${className}` : ""}`}>
+      <div className="container">
+        <header className="header">
+          <h1>
+            马里奥的狙击台
+            {activeCountdowns.length > 0 ? <span className={getHeaderTimerClassName(firstCountdownRemaining)}>{headerCountdownText}</span> : null}
+            <span className="header-subtitle">{QUOTES[quoteIndex]}</span>
+          </h1>
+          <div className="header-actions">
+            <IconButton label="倒计时" theme={theme} onClick={openCountdownModal}>
+              <ClockIcon />
+            </IconButton>
+            <IconButton
+              label="切换主题"
+              theme={theme}
+              onClick={() => setDashboardState((currentState) => ({ ...currentState, darkMode: !currentState.darkMode }))}
+            >
+              {dashboardState.darkMode ? <MoonIcon /> : <SunIcon />}
+            </IconButton>
+            <button className="api-switch-btn" title={apiKeyStatus.title} type="button" onClick={switchApiKey}>
+              <span>切换 API Key</span>
+              <span className={`api-switch-status ${apiKeyStatus.tone}`}>{apiKeyStatus.label}</span>
+            </button>
+          </div>
+        </header>
 
-        <section className={theme.titleCard}>
-          <div className="relative flex min-h-[220px] flex-col justify-between gap-5 pr-32">
-            <div className="min-w-0 space-y-2">
-              {activeCountdowns.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={getHeaderTimerClassName(firstCountdownRemaining)}>{headerCountdownText}</span>
-                </div>
-              ) : null}
-              <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
-                <h1 className="text-[22px] font-black tracking-[-0.04em] sm:text-[28px]">马里奥的狙击台</h1>
-                <span className={theme.quote}>{QUOTES[quoteIndex]}</span>
-              </div>
+        <Card title="账号概况" icon={<AccountIcon />} theme={theme}>
+          <div className="overview-grid">
+            <OverviewItem label="保证金余额 (U)" theme={theme} value={formatNumber(ACCOUNT_BALANCE)} />
+            <OverviewItem label="仓位数量" theme={theme} value={String(MOCK_POSITIONS.length)} />
+            <OverviewItem label="实际杠杆" theme={theme} value="5x" />
+            <OverviewItem label="浮盈亏 (U)" tone={totalPnl >= 0 ? "up" : "down"} theme={theme} value={formatSignedNumber(totalPnl)} />
+            <OverviewItem label="胜率" theme={theme} value="65%" />
+            <OverviewItem label="交易次数" theme={theme} value="42" />
+            <OverviewItem label="平均盈利 (U)" tone="up" theme={theme} value="+380" />
+            <OverviewItem label="平均亏损 (U)" tone="down" theme={theme} value="-195" />
+          </div>
+        </Card>
+
+        <div className="two-cols">
+          <Card title="坐标定位/持仓计算" icon={<LayersIcon />} theme={theme}>
+            <div className="form-grid">
+              <FormRow label="币种" theme={theme}>
+                <MarketSymbolSearchInput
+                  formatSymbolLabel={getMarketBaseSymbol}
+                  id="mario-dashboard-symbol-search"
+                  isDarkTheme={dashboardState.darkMode}
+                  marketOptions={marketOptions}
+                  noMatchesLabel="没有匹配币种"
+                  placeholder="搜索币种"
+                  symbol={toUsdtPerpetualMarketSymbol(form.symbol)}
+                  variant="mario"
+                  onSymbolChange={(symbol) => updateFormField("symbol", getMarketBaseSymbol(symbol))}
+                />
+              </FormRow>
+
+              <FormRow label="预算" theme={theme}>
+                <SegmentedButtons
+                  options={BUDGET_OPTIONS}
+                  value={dashboardState.budget}
+                  getLabel={(value) => `${value}%`}
+                  getTone={getBudgetTone}
+                  onChange={selectBudget}
+                />
+              </FormRow>
+
+              <FormRow label="止损位" theme={theme}>
+                <input
+                  id="stopLoss"
+                  inputMode="decimal"
+                  placeholder="价格"
+                  value={form.stopLoss}
+                  onChange={(event) => updateFormField("stopLoss", sanitizeDecimalInput(event.target.value))}
+                />
+              </FormRow>
+
+              <FormRow label="开仓点A" theme={theme}>
+                <input
+                  id="entryA"
+                  inputMode="decimal"
+                  placeholder="价格"
+                  value={form.entryA}
+                  onChange={(event) => updateFormField("entryA", sanitizeDecimalInput(event.target.value))}
+                />
+                {calculation.entryAWarning ? <span className="warning">{calculation.entryAWarning}</span> : null}
+                <select
+                  id="percentA"
+                  value={form.percentA}
+                  onChange={(event) => updateEntryAPercent(event.target.value)}
+                >
+                  {PERCENT_A_OPTIONS.map((percent) => <option key={percent} value={percent}>{percent}%</option>)}
+                </select>
+              </FormRow>
+
+              <FormRow label="可开数量" theme={theme}>
+                <CalculatedValue theme={theme} value={calculation.amountA > 0 ? calculation.amountA.toFixed(2) : "-"} />
+              </FormRow>
+
+              <FormRow label="开仓点B" theme={theme}>
+                <input
+                  id="entryB"
+                  disabled={calculation.entryBDisabled}
+                  inputMode="decimal"
+                  placeholder="价格"
+                  style={{ flex: "0 0 80px" }}
+                  value={form.entryB}
+                  onChange={(event) => updateFormField("entryB", sanitizeDecimalInput(event.target.value))}
+                />
+                {calculation.entryBWarning ? <span className="warning">{calculation.entryBWarning}</span> : null}
+              </FormRow>
+
+              <FormRow label="可开数量" theme={theme}>
+                <CalculatedValue theme={theme} value={calculation.amountB > 0 ? calculation.amountB.toFixed(2) : "-"} />
+              </FormRow>
+
+              <FormRow label="剩余仓位" theme={theme}>
+                <CalculatedValue theme={theme} value={`${calculation.remainPercent}%`} />
+              </FormRow>
+
+              <FormRow label="盈亏比" theme={theme}>
+                <SegmentedButtons
+                  options={RATIO_OPTIONS}
+                  value={dashboardState.ratio}
+                  getLabel={(value) => `1:${value}`}
+                  getTone={getRatioTone}
+                  onChange={selectRatio}
+                />
+              </FormRow>
+
+              <FormRow label="参考止盈位" theme={theme}>
+                <CalculatedValue theme={theme} value={calculation.takeProfit > 0 ? calculation.takeProfit.toFixed(2) : "-"} />
+              </FormRow>
+
+              <FormRow label="止盈利润" theme={theme}>
+                <CalculatedValue theme={theme} value={calculation.profit > 0 ? `+${calculation.profit.toFixed(2)}` : "-"} />
+              </FormRow>
             </div>
 
-            <div className="absolute right-0 top-0 flex shrink-0 justify-end gap-2">
-              <IconButton label="倒计时" theme={theme} onClick={openCountdownModal}>
-                <ClockIcon />
-              </IconButton>
-              <IconButton
-                label="切换主题"
-                theme={theme}
-                onClick={() => setDashboardState((currentState) => ({ ...currentState, darkMode: !currentState.darkMode }))}
-              >
-                {dashboardState.darkMode ? <MoonIcon /> : <SunIcon />}
-              </IconButton>
-              <IconButton label="系统设置" theme={theme} onClick={() => setIsApiModalOpen(true)}>
-                <SettingsIcon />
-              </IconButton>
+            <div className="action-btns">
+              <ActionButton disabled={!calculation.canPlaceLong} tone="long" onClick={() => openConfirmModal("long")}>开多</ActionButton>
+              <ActionButton disabled={!calculation.canPlaceShort} tone="short" onClick={() => openConfirmModal("short")}>开空</ActionButton>
             </div>
+          </Card>
 
-            <div className="grid max-w-[760px] grid-cols-2 gap-2 sm:grid-cols-4">
-              <OverviewItem label="保证金余额 (U)" theme={theme} value={formatNumber(ACCOUNT_BALANCE)} />
-              <OverviewItem label="仓位数量" theme={theme} value={String(MOCK_POSITIONS.length)} />
-              <OverviewItem label="实际杠杆" theme={theme} value="5x" />
-              <OverviewItem label="浮盈亏 (U)" tone={totalPnl >= 0 ? "up" : "down"} theme={theme} value={formatSignedNumber(totalPnl)} />
-              <OverviewItem label="胜率" theme={theme} value="65%" />
-              <OverviewItem label="交易次数" theme={theme} value="42" />
-              <OverviewItem label="平均盈利 (U)" tone="up" theme={theme} value="+380" />
-              <OverviewItem label="平均亏损 (U)" tone="down" theme={theme} value="-195" />
-            </div>
-          </div>
-        </section>
+          <PendingOrdersCard
+            longOrders={pendingLongOrders}
+            shortOrders={pendingShortOrders}
+            theme={theme}
+            onCancelOrder={cancelOrder}
+            onOpenBulkAction={(type) => setBulkAction({ source: "order", type })}
+          />
+        </div>
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
-          <div className="flex flex-col">
-            <MiniKlineCard
-              currentNow={currentNow}
-              isDarkTheme={dashboardState.darkMode}
-              price={selectedBinancePrice}
-              symbol={form.symbol}
-              theme={theme}
-            />
-
-            <PositionsCard
-              longPositions={longPositions}
-              shortPositions={shortPositions}
-              theme={theme}
-              onOpenBulkAction={(type) => setBulkAction({ source: "position", type })}
-            />
-            <HistoryCard history={MOCK_HISTORY} theme={theme} />
-          </div>
-
-          <div className="flex flex-col xl:sticky xl:top-4">
-            <Card title="坐标定位/持仓计算" icon={<LayersIcon />} theme={theme}>
-              <div className="flex flex-col gap-2">
-                <FormRow label="币种" theme={theme}>
-                  <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-1.5">
-                    <SymbolPicker
-                      key={form.symbol}
-                      error={symbolOptionsError}
-                      isLoading={isSymbolOptionsLoading}
-                      options={symbolOptions}
-                      theme={theme}
-                      value={form.symbol}
-                      onChange={(symbol) => updateFormField("symbol", symbol)}
-                    />
-                    <div className={theme.inlinePrice}>BN {formatLivePrice(selectedBinancePrice)}</div>
-                  </div>
-                </FormRow>
-
-                <FormRow label="预算" theme={theme}>
-                  <SegmentedButtons
-                    options={BUDGET_OPTIONS}
-                    value={dashboardState.budget}
-                    getLabel={(value) => `${value}%`}
-                    getTone={getBudgetTone}
-                    onChange={selectBudget}
-                  />
-                </FormRow>
-
-                <FormRow label="止损位" theme={theme}>
-                  <input
-                    className={theme.input}
-                    inputMode="decimal"
-                    placeholder="价格"
-                    value={form.stopLoss}
-                    onChange={(event) => updateFormField("stopLoss", sanitizeDecimalInput(event.target.value))}
-                  />
-                </FormRow>
-
-                <FormRow label="开仓点A" theme={theme}>
-                  <div className="flex min-w-0 flex-1 gap-1">
-                    <input
-                      className={theme.input}
-                      inputMode="decimal"
-                      placeholder="价格"
-                      value={form.entryA}
-                      onChange={(event) => updateFormField("entryA", sanitizeDecimalInput(event.target.value))}
-                    />
-                    <select
-                      className={`${theme.input} max-w-[92px]`}
-                      value={form.percentA}
-                      onChange={(event) => updateFormField("percentA", toEntryAPercent(event.target.value))}
-                    >
-                      {PERCENT_A_OPTIONS.map((percent) => <option key={percent} value={percent}>{percent}%</option>)}
-                    </select>
-                  </div>
-                  {calculation.entryAWarning ? <span className="text-[9px] font-semibold text-[#ff4757]">{calculation.entryAWarning}</span> : null}
-                </FormRow>
-
-                <FormRow label="可开数量" theme={theme}>
-                  <CalculatedValue theme={theme} value={calculation.amountA > 0 ? calculation.amountA.toFixed(2) : "-"} />
-                </FormRow>
-
-                <FormRow label="开仓点B" theme={theme}>
-                  <input
-                    className={`${theme.input} flex-[0_0_80px] disabled:cursor-not-allowed disabled:opacity-50`}
-                    disabled={calculation.entryBDisabled}
-                    inputMode="decimal"
-                    placeholder="价格"
-                    value={form.entryB}
-                    onChange={(event) => updateFormField("entryB", sanitizeDecimalInput(event.target.value))}
-                  />
-                  {calculation.entryBWarning ? <span className="text-[9px] font-semibold text-[#ff4757]">{calculation.entryBWarning}</span> : null}
-                </FormRow>
-
-                <FormRow label="可开数量" theme={theme}>
-                  <CalculatedValue theme={theme} value={calculation.amountB > 0 ? calculation.amountB.toFixed(2) : "-"} />
-                </FormRow>
-
-                <FormRow label="剩余仓位" theme={theme}>
-                  <CalculatedValue theme={theme} value={`${calculation.remainPercent}%`} />
-                </FormRow>
-
-                <FormRow label="盈亏比" theme={theme}>
-                  <SegmentedButtons
-                    options={RATIO_OPTIONS}
-                    value={dashboardState.ratio}
-                    getLabel={(value) => `1:${value}`}
-                    getTone={getRatioTone}
-                    onChange={selectRatio}
-                  />
-                </FormRow>
-
-                <FormRow label="参考止盈位" theme={theme}>
-                  <CalculatedValue theme={theme} value={calculation.takeProfit > 0 ? calculation.takeProfit.toFixed(2) : "-"} />
-                </FormRow>
-
-                <FormRow label="止盈利润" theme={theme}>
-                  <CalculatedValue theme={theme} value={calculation.profit > 0 ? `+${calculation.profit.toFixed(2)}` : "-"} />
-                </FormRow>
-              </div>
-
-              <div className="mt-2 flex gap-2">
-                <ActionButton disabled={!calculation.canPlaceLong} tone="long" onClick={() => openConfirmModal("long")}>开多</ActionButton>
-                <ActionButton disabled={!calculation.canPlaceShort} tone="short" onClick={() => openConfirmModal("short")}>开空</ActionButton>
-              </div>
-            </Card>
-
-            <PendingOrdersCard
-              longOrders={pendingLongOrders}
-              shortOrders={pendingShortOrders}
-              theme={theme}
-              onCancelOrder={cancelOrder}
-              onOpenBulkAction={(type) => setBulkAction({ source: "order", type })}
-            />
-          </div>
+        <div className="two-cols">
+          <PositionsCard
+            longPositions={longPositions}
+            shortPositions={shortPositions}
+            theme={theme}
+            onOpenBulkAction={(type) => setBulkAction({ source: "position", type })}
+          />
+          <HistoryCard history={MOCK_HISTORY} theme={theme} />
         </div>
       </div>
 
       {confirmDirection ? (
         <Modal title="确认开仓" theme={theme} onClose={() => setConfirmDirection(null)}>
-          <div className="mb-3">
+          <div className="modal-info">
             <InfoRow label="方向" theme={theme} value={confirmDirection === "long" ? "开多" : "开空"} />
             <InfoRow label="币种" theme={theme} value={form.symbol} />
             <InfoRow label="开仓点A" theme={theme} value={formatPrice(calculation.entryA)} />
@@ -539,7 +595,7 @@ export function MarioDashboard() {
 
       {bulkAction ? (
         <Modal title={bulkAction.source === "order" ? getBulkOrderLabel(bulkAction.type) : getBulkPositionLabel(bulkAction.type)} theme={theme} onClose={() => setBulkAction(null)}>
-          <p className={`mb-4 ${theme.secondaryText}`}>确定要执行此操作吗？当前页面仍使用模拟交易状态。</p>
+          <p className="secondary-text" style={{ marginBottom: 16 }}>确定要执行此操作吗？</p>
           <ModalActions
             cancelLabel="取消"
             confirmLabel="确认"
@@ -552,25 +608,24 @@ export function MarioDashboard() {
 
       {isCountdownModalOpen ? (
         <Modal title="倒计时" theme={theme} onClose={() => setIsCountdownModalOpen(false)}>
-          <div className="mb-3 flex max-h-[150px] flex-col gap-2 overflow-y-auto">
+          <div className="countdown-modal-list">
             {activeCountdowns.length > 0 ? activeCountdowns.map((countdown) => {
               const remaining = countdown.targetTime - currentNow;
               const isUrgent = remaining < COUNTDOWN_URGENT_MS;
               return (
-                <div key={countdown.id} className={`${theme.countdownItem} ${isUrgent ? "border-[#ff4757]" : ""}`}>
-                  <span className={`text-base font-bold tabular-nums ${isUrgent ? "text-[#ff4757]" : "text-[#00d4aa]"}`}>{formatCountdown(remaining)}</span>
-                  <button className="rounded bg-[#ff4757] px-2.5 py-1 text-[11px] font-semibold text-white" type="button" onClick={() => deleteCountdown(countdown.id)}>删除</button>
+                <div key={countdown.id} className={`countdown-modal-item${isUrgent ? " urgent" : ""}`}>
+                  <span className="countdown-modal-time">{formatCountdown(remaining)}</span>
+                  <button className="countdown-modal-delete" type="button" onClick={() => deleteCountdown(countdown.id)}>删除</button>
                 </div>
               );
-            }) : <div className={theme.emptyState}>暂无倒计时</div>}
+            }) : <div className="countdown-modal-empty">暂无倒计时</div>}
           </div>
-          <div className={`border-t pt-3 ${theme.borderColor}`}>
-            <div className="mb-2 flex gap-1.5">
-              <input className={`${theme.input} text-center`} inputMode="numeric" maxLength={2} placeholder="天" value={countdownInput.days} onChange={(event) => setCountdownInput((current) => ({ ...current, days: sanitizeIntegerInput(event.target.value) }))} />
-              <input className={`${theme.input} text-center`} inputMode="numeric" maxLength={2} placeholder="时" value={countdownInput.hours} onChange={(event) => setCountdownInput((current) => ({ ...current, hours: sanitizeIntegerInput(event.target.value) }))} />
-              <input className={`${theme.input} text-center`} inputMode="numeric" maxLength={2} placeholder="分" value={countdownInput.minutes} onChange={(event) => setCountdownInput((current) => ({ ...current, minutes: sanitizeIntegerInput(event.target.value) }))} />
+          <div className="countdown-modal-add">
+            <div className="input-row">
+              <input inputMode="numeric" maxLength={2} placeholder="天" value={countdownInput.days} onChange={(event) => setCountdownInput((current) => ({ ...current, days: sanitizeIntegerInput(event.target.value) }))} />
+              <input inputMode="numeric" maxLength={2} placeholder="时" value={countdownInput.hours} onChange={(event) => setCountdownInput((current) => ({ ...current, hours: sanitizeIntegerInput(event.target.value) }))} />
+              <input inputMode="numeric" maxLength={2} placeholder="分" value={countdownInput.minutes} onChange={(event) => setCountdownInput((current) => ({ ...current, minutes: sanitizeIntegerInput(event.target.value) }))} />
             </div>
-            {countdownError ? <p className="text-[11px] font-semibold text-[#ff4757]">{countdownError}</p> : null}
           </div>
           <ModalActions
             cancelLabel="关闭"
@@ -582,29 +637,6 @@ export function MarioDashboard() {
         </Modal>
       ) : null}
 
-      {isApiModalOpen ? (
-        <Modal title="系统设置" theme={theme} onClose={() => setIsApiModalOpen(false)}>
-          <div className="flex flex-col">
-            <FormRow label="API Key" theme={theme}>
-              <input className={theme.input} maxLength={64} placeholder="输入 API Key" value={apiInput.key} onChange={(event) => setApiInput((current) => ({ ...current, key: event.target.value }))} />
-            </FormRow>
-            <FormRow label="Secret Key" theme={theme}>
-              <input className={theme.input} maxLength={64} placeholder="输入 Secret Key" type="password" value={apiInput.secret} onChange={(event) => setApiInput((current) => ({ ...current, secret: event.target.value }))} />
-            </FormRow>
-            <p className={`rounded-md px-3 py-2 text-[11px] ${theme.hintBox}`}>
-              {dashboardState.apiBound ? "当前为模拟绑定状态。Secret 不会保存到 localStorage。" : "当前只保存模拟绑定标记，不保存密钥，不会真实下单。"}
-            </p>
-            {apiError ? <p className="text-[11px] font-semibold text-[#ff4757]">{apiError}</p> : null}
-          </div>
-          <ModalActions
-            cancelLabel="关闭"
-            confirmLabel="保存"
-            theme={theme}
-            onCancel={() => setIsApiModalOpen(false)}
-            onConfirm={bindApi}
-          />
-        </Modal>
-      ) : null}
     </main>
   );
 }

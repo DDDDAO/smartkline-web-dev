@@ -1,4 +1,4 @@
-import type { KlineInterval } from "@/app/_types/market";
+import type { MarketSymbol } from "@/app/_types/market";
 import type { CalculatorForm, DashboardState, HistoryOrder, MockPosition } from "./types";
 
 export const STORAGE_KEY = "mario-dashboard:v1";
@@ -6,31 +6,14 @@ export const ACCOUNT_BALANCE = 10_000;
 export const MAX_COUNTDOWNS = 2;
 export const COUNTDOWN_URGENT_MS = 60 * 60 * 1_000;
 export const QUOTE_ROTATE_MS = 8_000;
-export const BINANCE_PRICE_UPDATE_INTERVAL_MS = 1_000;
-export const DEFAULT_MINI_KLINE_INTERVAL: KlineInterval = "15m";
-export const MINI_KLINE_CHART_HEIGHT_PX = 260;
-export const MINI_KLINE_LIMIT = 96;
-export const MINI_KLINE_INTERVALS: readonly KlineInterval[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
-export const KLINE_AXIS_BADGE_EDGE_GUARD_PX = 24;
-export const MINI_KLINE_HISTORY_LOAD_THRESHOLD_BARS = 14;
-export const KLINE_INTERVAL_MS_BY_INTERVAL: Readonly<Record<KlineInterval, number>> = {
-  "1d": 86_400_000,
-  "1h": 3_600_000,
-  "1m": 60_000,
-  "4h": 14_400_000,
-  "5m": 300_000,
-  "15m": 900_000,
-};
-
 export const PRIORITY_SYMBOLS = ["BTC", "ETH"] as const;
 export const FALLBACK_SYMBOLS = ["BTC", "ETH", "HYPE", "SNDK"] as const;
-export const MAX_SYMBOL_SEARCH_RESULTS = 80;
-export const BUDGET_OPTIONS = [1, 3, 5] as const;
+export const FALLBACK_MARKET_SYMBOLS = FALLBACK_SYMBOLS.map((symbol) => `${symbol}/USDT:USDT` as MarketSymbol);
+export const BUDGET_OPTIONS = [1, 2, 3, 5] as const;
 export const RATIO_OPTIONS = [2, 3, 4, 5] as const;
 export const PERCENT_A_OPTIONS = [100, 70, 50, 30] as const;
 
 export const INITIAL_DASHBOARD_STATE: DashboardState = {
-  apiBound: false,
   budget: 1,
   countdowns: [],
   darkMode: false,
