@@ -1457,10 +1457,26 @@ export function SignalWorkspace({
     setCopyTradingTarget(target);
   }, [authMe.isLoggedIn, handleProductTabChange, prototypeApiConnection.status, startTelegramLogin]);
 
-  const handlePrototypeConnectionSave = useCallback(async (input: PrototypeConnectionSaveInput) => {
+  const handleTradingFoxConnectorBound = useCallback((account: TradingFoxAccountResponse, accountName: string) => {
+    applyTradingFoxAccount(account);
+    setWorkspaceNotification({
+      id: `api-connected-${Date.now()}`,
+      kind: "success",
+      message: copyRef.current.workspace.accountCenter.apiSetup.connectedToast,
+      meta: account.connector?.name ?? accountName,
+      title: copyRef.current.workspace.accountCenter.api.title,
+    });
+
+    if (pendingCopyTradingTarget) {
+      setCopyTradingTarget(pendingCopyTradingTarget);
+      setPendingCopyTradingTarget(null);
+    }
+  }, [applyTradingFoxAccount, pendingCopyTradingTarget]);
+
+  const handlePrototypeConnectionSave = useCallback(async (input: PrototypeConnectionSaveInput): Promise<boolean> => {
     if (!authMe.isLoggedIn) {
       startTelegramLogin();
-      return;
+      return false;
     }
 
     setIsTradingFoxLoading(true);
@@ -1480,19 +1496,8 @@ export function SignalWorkspace({
         }),
         method: "POST",
       });
-      applyTradingFoxAccount(account);
-      setWorkspaceNotification({
-        id: `api-connected-${Date.now()}`,
-        kind: "success",
-        message: copyRef.current.workspace.accountCenter.apiSetup.connectedToast,
-        meta: account.connector?.name ?? input.accountName,
-        title: copyRef.current.workspace.accountCenter.api.title,
-      });
-
-      if (pendingCopyTradingTarget) {
-        setCopyTradingTarget(pendingCopyTradingTarget);
-        setPendingCopyTradingTarget(null);
-      }
+      handleTradingFoxConnectorBound(account, input.accountName);
+      return true;
     } catch (error) {
       setWorkspaceNotification({
         id: `api-connect-error-${Date.now()}`,
@@ -1501,10 +1506,11 @@ export function SignalWorkspace({
         meta: input.accountName,
         title: copyRef.current.workspace.accountCenter.api.title,
       });
+      return false;
     } finally {
       setIsTradingFoxLoading(false);
     }
-  }, [applyTradingFoxAccount, authMe.isLoggedIn, pendingCopyTradingTarget, startTelegramLogin]);
+  }, [authMe.isLoggedIn, handleTradingFoxConnectorBound, startTelegramLogin]);
 
   const handlePrototypeConnectionDelete = useCallback(async (connectionId: number) => {
     if (!authMe.isLoggedIn) {
@@ -1941,6 +1947,7 @@ export function SignalWorkspace({
             onApiSetupOpenChange={handleApiSetupOpenChange}
             onConnectionDelete={handlePrototypeConnectionDelete}
             onConnectionSave={handlePrototypeConnectionSave}
+            onHyperliquidAgentBound={handleTradingFoxConnectorBound}
             onLogin={startTelegramLogin}
             onLogout={handleLogout}
             onStrategyCreate={handlePrototypeStrategyCreate}
@@ -2227,12 +2234,15 @@ function mapTradingFoxConnectorToPrototypeConnection(
   return {
     accountName: connector.name,
     accountBalance: connector.accountEquity ?? (isBinanceDemoConnector ? null : connector.mockMarginBalance ?? null),
+    bindingLabel: connector.bindingLabel,
+    bindingMode: connector.bindingMode,
     connectedAtLabel: formatTradingFoxDateLabel(connector.updatedAt, language),
     displayName: connector.displayName,
     exchangePlatform: connector.exchangePlatform,
     id: connector.id,
     isMock: connector.isMock,
     mockMarginBalance: isBinanceDemoConnector ? null : connector.mockMarginBalance ?? null,
+    recommended: connector.recommended,
     status: "connected",
     whitelistIp: connector.ipAddress?.address ?? connector.whitelistIp,
   };

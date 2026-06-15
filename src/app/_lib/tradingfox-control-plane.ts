@@ -7,7 +7,7 @@ const DEFAULT_DEMO_EXCHANGE_PLATFORM = "Mock";
 const TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT = 50;
 const TRADINGFOX_ORDER_HISTORY_FETCH_LIMIT = 500;
 type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
-type TradingFoxLiveExchangePlatform = "Aster" | "Binance" | "Bitget" | "Bybit" | "Gate" | "Hyperliquid" | "OKX";
+type TradingFoxLiveExchangePlatform = "Aster" | "Binance" | "Bitget" | "Bybit" | "Gate" | "HyperLiquid" | "OKX";
 
 /**
  * Public subset of the TradingFox IP pool record. The backend record can carry
@@ -29,6 +29,8 @@ export type TradingFoxConnector = {
   userId: number;
   name: string;
   accountEquity?: number;
+  bindingLabel?: string;
+  bindingMode?: string;
   displayName?: string;
   exchangePlatform: string;
   credentials: Record<string, unknown>;
@@ -37,6 +39,7 @@ export type TradingFoxConnector = {
   positionSideDual: boolean;
   ipAddress?: TradingFoxIPAddress | null;
   whitelistIp?: string;
+  recommended?: boolean;
   dead: boolean;
   createdAt: string;
   updatedAt: string;
@@ -96,6 +99,45 @@ export type TradingFoxAccountResponse = {
   connector: TradingFoxConnector | null;
   connectors: TradingFoxConnector[];
   strategies: TradingFoxCopyStrategy[];
+};
+
+export type TradingFoxHyperliquidTypedData = {
+  domain: Record<string, unknown>;
+  message: Record<string, unknown>;
+  primaryType: string;
+  types: Record<string, unknown>;
+};
+
+export type TradingFoxHyperliquidSigningAction = {
+  action: Record<string, unknown>;
+  kind: "approveAgent" | "approveBuilderFee";
+  typedData: TradingFoxHyperliquidTypedData;
+};
+
+export type TradingFoxHyperliquidAgentBinding = {
+  id: number;
+  userId: number;
+  connectorName: string;
+  walletAddress: string;
+  agentAddress: string;
+  agentName: string;
+  builderAddress?: string;
+  builderFeeInt?: number;
+  builderMaxFeeRate?: string;
+  status: string;
+  expiresAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type TradingFoxHyperliquidAgentBindingStartResponse = {
+  actions: TradingFoxHyperliquidSigningAction[];
+  binding: TradingFoxHyperliquidAgentBinding;
+};
+
+export type TradingFoxHyperliquidAgentBindingCompleteResponse = {
+  binding: TradingFoxHyperliquidAgentBinding;
+  connector?: TradingFoxConnector;
 };
 
 export type TradingFoxAccountStatus = {
@@ -226,6 +268,16 @@ export type CreateMockConnectorInput = {
 export type CreateConnectorInput = CreateMockConnectorInput & {
   ipAddress?: unknown;
   isMock?: unknown;
+};
+
+export type CreateHyperliquidAgentBindingInput = {
+  accountName?: unknown;
+  walletAddress?: unknown;
+};
+
+export type CompleteHyperliquidAgentBindingInput = {
+  approveAgentSignature?: unknown;
+  approveBuilderFeeSignature?: unknown;
 };
 
 export type TradingFoxConnectorWhitelistIP = {
@@ -367,6 +419,42 @@ export async function createTradingFoxConnector(
       name: accountName,
       positionSideDual: false,
       userId,
+    }),
+    method: "POST",
+  });
+
+  return getTradingFoxAccount(session);
+}
+
+export async function prepareTradingFoxHyperliquidAgentBinding(
+  session: TelegramAuthSession,
+  input: CreateHyperliquidAgentBindingInput,
+): Promise<TradingFoxHyperliquidAgentBindingStartResponse> {
+  const userId = tradingFoxUserIdFromSession(session);
+  const walletAddress = requireText(input.walletAddress, "walletAddress");
+  const connectorName = normalizeOptionalText(input.accountName) || "HyperLiquid #1";
+
+  return tradingFoxRequest<TradingFoxHyperliquidAgentBindingStartResponse>("/v1/hyperliquid-agent-bindings", {
+    body: JSON.stringify({
+      connectorName,
+      userId,
+      walletAddress,
+    }),
+    method: "POST",
+  });
+}
+
+export async function completeTradingFoxHyperliquidAgentBinding(
+  session: TelegramAuthSession,
+  bindingId: string,
+  input: CompleteHyperliquidAgentBindingInput,
+): Promise<TradingFoxAccountResponse> {
+  const parsedBindingId = parsePositiveInteger(bindingId, "bindingId");
+
+  await tradingFoxRequest<TradingFoxHyperliquidAgentBindingCompleteResponse>(`/v1/hyperliquid-agent-bindings/${parsedBindingId}/complete`, {
+    body: JSON.stringify({
+      approveAgentSignature: requireText(input.approveAgentSignature, "approveAgentSignature"),
+      approveBuilderFeeSignature: requireText(input.approveBuilderFeeSignature, "approveBuilderFeeSignature"),
     }),
     method: "POST",
   });
@@ -784,7 +872,7 @@ function normalizeLiveExchangePlatform(value: unknown): TradingFoxLiveExchangePl
   }
 
   if (normalizedValue === "hyperliquid" || normalizedValue === "hl") {
-    return "Hyperliquid";
+    return "HyperLiquid";
   }
 
   if (normalizedValue === "aster" || normalizedValue === "as") {
@@ -842,9 +930,11 @@ function createLiveExchangeCredentials(
   exchangePlatform: TradingFoxLiveExchangePlatform,
   input: CreateConnectorInput,
 ): Record<string, unknown> {
-  if (exchangePlatform === "Hyperliquid") {
+  if (exchangePlatform === "HyperLiquid") {
     return {
-      privateKey: requireText(input.privateKey, "privateKey"),
+      apiKey: requireText(input.walletAddress, "walletAddress"),
+      bindingMode: "manual_credentials",
+      secret: requireText(input.privateKey, "privateKey"),
       walletAddress: requireText(input.walletAddress, "walletAddress"),
     };
   }
