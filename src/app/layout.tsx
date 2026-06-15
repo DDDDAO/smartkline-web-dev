@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Suspense } from "react";
 import { GoogleTagManagerPageView } from "./_components/google-tag-manager-page-view";
+import { WalletProviders } from "./_components/wallet-providers";
+import "@rainbow-me/rainbowkit/styles.css";
 import "./globals.css";
 
 const GOOGLE_TAG_MANAGER_ID = "GTM-MVGXC53S";
@@ -31,7 +33,7 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <GoogleTagManagerPageView />
         </Suspense>
-        {children}
+        <WalletProviders>{children}</WalletProviders>
         <Script id="google-tag-manager" strategy="afterInteractive">
           {`
 (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
