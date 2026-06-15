@@ -35,15 +35,25 @@ const installedOnlyWallet = (createWallet: RainbowKitWalletFactory): RainbowKitW
   };
 };
 
+const browserInjectedWallet = (params: Parameters<RainbowKitWalletFactory>[0]) => {
+  void params;
+  const wallet = injectedWallet();
+
+  return {
+    ...wallet,
+    hidden: () => typeof window === "undefined" || typeof (window as Window & { ethereum?: unknown }).ethereum === "undefined" || wallet.hidden?.() === true,
+  };
+};
+
 const walletGroups = isWalletConnectConfigured
   ? [
       {
         groupName: "推荐",
-        wallets: [metaMaskWallet, walletConnectWallet, coinbaseWallet],
+        wallets: [walletConnectWallet, metaMaskWallet, binanceWallet, okxWallet],
       },
       {
         groupName: "流行",
-        wallets: [binanceWallet, okxWallet, bybitWallet, rabbyWallet, injectedWallet],
+        wallets: [bybitWallet, coinbaseWallet, installedOnlyWallet(rabbyWallet), browserInjectedWallet],
       },
     ]
   : [
@@ -55,7 +65,7 @@ const walletGroups = isWalletConnectConfigured
           installedOnlyWallet(okxWallet),
           installedOnlyWallet(bybitWallet),
           installedOnlyWallet(rabbyWallet),
-          injectedWallet,
+          browserInjectedWallet,
         ],
       },
     ];
