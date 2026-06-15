@@ -16,7 +16,7 @@ import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
 import type { TradingFoxPosition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
 import type { KlineChartProps } from "@/app/_components/kline-chart";
 import type { ChartTimeFocusRequest } from "@/app/_components/kline-chart/types";
-import type { CopyTradingEventType, CopyTradingTradeMarker, CopyTradingTrader } from "@/app/_types/copy-trading";
+import type { CopyTradingTradeMarker, CopyTradingTrader } from "@/app/_types/copy-trading";
 import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 import { SourceAvatar } from "./card-ui";
@@ -2704,7 +2704,7 @@ function createTradeHistoryTradeMarkers({
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
 }): CopyTradingTradeMarker[] {
   return rows
-    .filter((row) => toCopyTradingMarketSymbol(row.symbol) === selectedSymbol)
+    .filter((row) => row.kind === "me" && toCopyTradingMarketSymbol(row.symbol) === selectedSymbol)
     .map((row) => createTradeHistoryTradeMarker(row, strategy, strategyCopy))
     .filter((marker): marker is CopyTradingTradeMarker => marker !== null)
     .sort((left, right) => left.sourceTimeMs - right.sourceTimeMs);
@@ -2722,18 +2722,17 @@ function createTradeHistoryTradeMarker(
 
   const price = row.price;
   const side = getTradeHistoryMarkerSide(row);
-  const actionLabel = formatTradeHistoryAction(row, strategyCopy);
+  const actionLabel = formatTradeHistoryMarkerAction(side);
   const priceText = price === null ? null : formatDetailNumber(price);
-  const traderName = row.kind === "me" ? strategy.traderName : row.source.name;
-  const traderId = row.kind === "me" ? strategy.traderId : row.source.id;
+  const priceSuffix = priceText ? ` @ ${priceText}` : "";
 
   return {
     actionLabel,
-    avatarUrl: row.kind === "me" ? strategy.avatarUrl || null : row.source.avatarUrl,
-    detail: row.kind === "me" ? `${formatDetailDate(row.timestamp)} · ${formatOrderStatus(row.status, strategyCopy)}` : formatDetailDate(row.timestamp),
+    avatarUrl: null,
+    detail: `${formatDetailDate(row.timestamp)} · ${formatOrderStatus(row.status, strategyCopy)}`,
     direction: side === "buy" ? "long" : "short",
     eventId: row.id,
-    eventType: getTradeHistoryMarkerEventType(row),
+    eventType: "open",
     id: `copy-strategy-row:${row.id}`,
     occurredAtText: formatDetailDate(row.timestamp),
     price,
@@ -2742,9 +2741,9 @@ function createTradeHistoryTradeMarker(
     signalId: `copy-strategy-row:${row.id}`,
     sourceTimeMs,
     symbol: toCopyTradingMarketSymbol(row.symbol),
-    title: priceText ? `${traderName} · ${actionLabel} ${row.symbol} @ ${priceText}` : `${traderName} · ${actionLabel} ${row.symbol}`,
-    traderId,
-    traderName,
+    title: `${actionLabel} ${row.symbol}${priceSuffix}`,
+    traderId: strategy.traderId,
+    traderName: actionLabel,
   };
 }
 
@@ -2758,6 +2757,10 @@ function getTradeHistoryMarkerSide(row: TradeHistoryRow): "buy" | "sell" {
     return normalizeOrderTradeMarkerSide(row.signalSourceOrder?.side || row.action);
   }
   return normalizeOrderTradeMarkerSide(row.action);
+}
+
+function formatTradeHistoryMarkerAction(side: "buy" | "sell"): "BUY" | "SELL" {
+  return side === "buy" ? "BUY" : "SELL";
 }
 
 function resolveInitialTradeHistoryKlineUntilMs(sourceTimeMs: number, interval: KlineInterval): number | undefined {
@@ -2949,20 +2952,6 @@ function getTradeHistorySideClassName(isDarkTheme: boolean, row: TradeHistoryRow
     return getSideClassName(isDarkTheme, row.action);
   }
   return getSideClassName(isDarkTheme, row.signalSourceOrder?.side || row.action);
-}
-
-function getTradeHistoryMarkerEventType(row: TradeHistoryRow): CopyTradingEventType {
-  const normalizedAction = (row.action ?? "").toLowerCase();
-  if (normalizedAction.includes("close")) {
-    return "close";
-  }
-  if (normalizedAction.includes("reduce")) {
-    return "reduce";
-  }
-  if (normalizedAction.includes("add") || normalizedAction.includes("increase")) {
-    return "add";
-  }
-  return "open";
 }
 
 function formatOrderStatus(value: string | undefined, strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"]): string {

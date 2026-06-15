@@ -1200,6 +1200,10 @@ function formatTradeMarkerDirection(direction: "long" | "short", language: Works
 }
 
 function formatTradeMarkerAction(marker: KlineTradePointMarker, language: WorkspaceLanguage): string {
+  if (marker.actionLabel === "BUY" || marker.actionLabel === "SELL") {
+    return marker.actionLabel;
+  }
+
   if (!marker.eventType || language !== "en-US") {
     return marker.actionLabel ?? marker.title;
   }
