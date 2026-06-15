@@ -1629,6 +1629,18 @@ function ExchangeApiSetupLayer({
       setIsSavingManual(false);
     }
   };
+  const exchangeSetupGridClassName = isHyperliquidExchange
+    ? "grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)]"
+    : "grid items-stretch gap-4 lg:grid-cols-[280px_minmax(0,1fr)]";
+  const exchangeSelectorClassName = [
+    isDarkTheme
+      ? "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3"
+      : "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3",
+    isHyperliquidExchange ? "lg:max-h-[420px]" : "",
+  ].filter(Boolean).join(" ");
+  const exchangeContentClassName = isHyperliquidExchange
+    ? "grid min-w-0 content-start gap-3 self-start"
+    : "grid min-w-0 gap-4";
 
   return (
     <>
@@ -1666,8 +1678,8 @@ function ExchangeApiSetupLayer({
           </header>
 
           <div className="kol-scroll-area min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
-            <div className="grid items-stretch gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <aside className={isDarkTheme ? "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3" : "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3"}>
+            <div className={exchangeSetupGridClassName}>
+              <aside className={exchangeSelectorClassName}>
                 <div className={isDarkTheme ? "px-1 pb-2 text-xs font-black text-slate-300" : "px-1 pb-2 text-xs font-black text-slate-700"}>
                   {accountCopy.apiSetup.selectExchange}
                 </div>
@@ -1692,7 +1704,7 @@ function ExchangeApiSetupLayer({
                 </div>
               </aside>
 
-              <main className="grid min-w-0 gap-4">
+              <main className={exchangeContentClassName}>
                 <section className={getModalSectionClassName(isDarkTheme)}>
                   <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
@@ -1885,7 +1897,7 @@ function HyperliquidAgentWalletPanel({
   );
 
   return (
-    <section className={isDarkTheme ? "rounded-[24px] border border-sky-300/20 bg-sky-300/[0.07] p-4" : "rounded-[24px] border border-[#BFE7FB] bg-[#F1FBFF] p-4"}>
+    <section className={isDarkTheme ? "rounded-[24px] border border-sky-300/20 bg-sky-300/[0.07] p-3 sm:p-4" : "rounded-[24px] border border-[#BFE7FB] bg-[#F1FBFF] p-3 sm:p-4"}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1922,11 +1934,11 @@ function HyperliquidAgentWalletPanel({
         </ConnectButton.Custom>
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-4">
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {accountCopy.apiSetup.hyperliquidAgentSteps.map((step, index) => (
           <div
             key={step}
-            className={isDarkTheme ? "rounded-2xl border border-sky-200/10 bg-[#0F141B]/70 px-3 py-3" : "rounded-2xl border border-[#BFE7FB] bg-white/80 px-3 py-3"}
+            className={isDarkTheme ? "rounded-2xl border border-sky-200/10 bg-[#0F141B]/70 px-3 py-2.5" : "rounded-2xl border border-[#BFE7FB] bg-white/80 px-3 py-2.5"}
           >
             <div className={isDarkTheme ? "text-[10px] font-black uppercase tracking-[0.14em] text-sky-200/60" : "text-[10px] font-black uppercase tracking-[0.14em] text-[#007DB8]/60"}>
               {String(index + 1).padStart(2, "0")}
@@ -1938,7 +1950,7 @@ function HyperliquidAgentWalletPanel({
         ))}
       </div>
 
-      <div className={isDarkTheme ? "mt-4 rounded-2xl border border-amber-300/15 bg-amber-300/[0.08] px-3 py-3" : "mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3"}>
+      <div className={isDarkTheme ? "mt-3 rounded-2xl border border-amber-300/15 bg-amber-300/[0.08] px-3 py-2.5" : "mt-3 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2.5"}>
         <div className={isDarkTheme ? "text-xs font-black text-amber-100" : "text-xs font-black text-amber-800"}>
           {accountCopy.apiSetup.hyperliquidDepositRequired}
         </div>
