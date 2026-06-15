@@ -5,6 +5,7 @@ const DEFAULT_TRADINGFOX_CONTROL_PLANE_API_BASE_URL = "https://api.smartkline.co
 const DEFAULT_MOCK_MARGIN_BALANCE = 10_000;
 const DEFAULT_DEMO_EXCHANGE_PLATFORM = "Mock";
 const TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT = 50;
+const TRADINGFOX_ORDER_HISTORY_FETCH_LIMIT = 500;
 type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
 type TradingFoxLiveExchangePlatform = "Binance";
 
@@ -152,6 +153,7 @@ export type TradingFoxOrderHistory = {
   limit?: number;
   offset?: number;
   returnedCount?: number;
+  signalSourceOrdersNextCursor?: string;
   signalSourceOrders: Array<{
     eventId: string;
     signalSourceId: string;
@@ -179,8 +181,15 @@ export type TradingFoxOrderHistory = {
     id: number;
     type: string;
     errorMessage?: string;
+    ssTradeInfo?: Record<string, unknown>;
+    ssConfig?: Record<string, unknown>;
+    orderData?: Record<string, unknown>;
+    additionalInfo?: Record<string, unknown>;
     timestamp: string;
+    traderId?: number;
   }>;
+  tradeLogsNextCursor?: string;
+  traderOrdersNextCursor?: string;
 };
 
 export type TradingFoxStrategyDetail = {
@@ -520,7 +529,7 @@ export async function getTradingFoxCopyStrategyDetail(
     settleTradingFoxRequest<{ items: TradingFoxPosition[] }>(`/v1/traders/${traderId}/positions`),
     settleTradingFoxRequest<{ items: TradingFoxSignalSource[] }>(`/v1/traders/${traderId}/signal-source-positions`),
     settleTradingFoxRequest<TradingFoxOrderHistory>(
-      `/v1/traders/${traderId}/orders?limit=${orderHistoryPage.limit}&offset=${orderHistoryPage.offset}`,
+      `/v1/traders/${traderId}/orders?limit=${orderHistoryPage.fetchLimit}`,
     ),
   ]);
 
@@ -827,28 +836,41 @@ function isBinanceDemoConnector(connector: TradingFoxConnector): boolean {
 }
 
 function normalizeTradingFoxOrderHistoryPage(input: TradingFoxCopyStrategyDetailInput): {
+  fetchLimit: number;
   limit: number;
   offset: number;
 } {
   const normalizedLimit = normalizePositiveInteger(input.orderLimit) ?? TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT;
+  const limit = Math.min(TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT, normalizedLimit);
+  const offset = normalizeNonNegativeInteger(input.orderOffset);
   return {
-    limit: Math.min(TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT, normalizedLimit),
-    offset: normalizeNonNegativeInteger(input.orderOffset),
+    fetchLimit: Math.min(TRADINGFOX_ORDER_HISTORY_FETCH_LIMIT, offset + limit),
+    limit,
+    offset,
   };
 }
 
 function applyTradingFoxOrderHistoryPage(
   orderHistory: TradingFoxOrderHistory,
-  page: { limit: number; offset: number },
+  page: { fetchLimit: number; limit: number; offset: number },
 ): TradingFoxOrderHistory {
-  const items = orderHistory.items.slice(0, page.limit);
+  const items = orderHistory.items.slice(0, page.fetchLimit);
+  const signalSourceOrders = orderHistory.signalSourceOrders.slice(0, page.fetchLimit);
+  const tradeLogs = orderHistory.tradeLogs.slice(0, page.fetchLimit);
+  const hasCursorMore = Boolean(
+    orderHistory.traderOrdersNextCursor
+    || orderHistory.signalSourceOrdersNextCursor
+    || orderHistory.tradeLogsNextCursor,
+  );
   return {
     ...orderHistory,
-    hasMore: orderHistory.hasMore ?? orderHistory.items.length >= page.limit,
+    hasMore: orderHistory.hasMore ?? hasCursorMore,
     items,
     limit: page.limit,
     offset: page.offset,
-    returnedCount: items.length,
+    returnedCount: Math.min(page.limit, Math.max(0, items.length - page.offset)),
+    signalSourceOrders,
+    tradeLogs,
   };
 }
 
