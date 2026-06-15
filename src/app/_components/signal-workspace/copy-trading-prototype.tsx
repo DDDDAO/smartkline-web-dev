@@ -265,6 +265,7 @@ export function AccountCenterPrototype({
                   copy={copy}
                   isDarkTheme={isDarkTheme}
                   strategy={selectedStrategy}
+                  telegramUser={telegramUser}
                   onBack={() => setSelectedStrategyId(null)}
                   onStrategyDelete={onStrategyDelete}
                   onStrategyStatusChange={onStrategyStatusChange}
@@ -466,6 +467,7 @@ export function AccountManagementPanel({
             copy={copy}
             isDarkTheme={isDarkTheme}
             strategy={selectedStrategy}
+            telegramUser={telegramUser}
             onBack={() => setSelectedStrategyId(null)}
             onStrategyDelete={onStrategyDelete}
             onStrategyStatusChange={onStrategyStatusChange}
@@ -1340,12 +1342,14 @@ function TelegramUserAvatar({
   user,
 }: {
   isDarkTheme: boolean;
-  size: "compact" | "large";
+  size: "compact" | "large" | "table";
   user: TelegramSessionUser | null;
 }) {
   const baseClassName = size === "large"
     ? "grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-cover bg-center text-sm font-black"
-    : "grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-cover bg-center text-[10px] font-black sm:h-8 sm:w-8 sm:text-[11px]";
+    : size === "table"
+      ? "grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-cover bg-center text-xs font-black"
+      : "grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-cover bg-center text-[10px] font-black sm:h-8 sm:w-8 sm:text-[11px]";
   const colorClassName = isDarkTheme
     ? "bg-sky-400/15 text-sky-200"
     : "bg-[#EAF8FE] text-[#008DCC]";
@@ -1806,6 +1810,7 @@ function StrategyDetailView({
   copy,
   isDarkTheme,
   strategy,
+  telegramUser,
   onBack,
   onStrategyDelete,
   onStrategyStatusChange,
@@ -1813,6 +1818,7 @@ function StrategyDetailView({
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
   strategy: PrototypeStrategy;
+  telegramUser: TelegramSessionUser | null;
   onBack: () => void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
@@ -2113,6 +2119,7 @@ function StrategyDetailView({
                   isDarkTheme={isDarkTheme}
                   rows={visibleTradeHistoryRows}
                   strategyCopy={strategyCopy}
+                  telegramUser={telegramUser}
                   onRowKlineOpen={openTradeKline}
                 />
                 {shouldShowTradeHistoryPagination ? (
@@ -2699,7 +2706,7 @@ function createSignalSourceIdentityById(
     identities.set(sourceId, {
       avatarUrl: null,
       id: sourceId,
-      name: source.name || sourceId,
+      name: source.name || strategy.traderName || sourceId,
     });
   });
 
@@ -2762,7 +2769,7 @@ function createSignalSourceTradeHistoryRow(
   signalSourceIdentityById: SignalSourceIdentityById,
   strategy: PrototypeStrategy,
 ): TradeHistoryRow {
-  const fallbackName = order.signalSourceName || order.signalSourceId || strategy.traderName;
+  const fallbackName = order.signalSourceName || strategy.traderName || order.signalSourceId;
   const source = signalSourceIdentityById.get(order.signalSourceId) ?? {
     avatarUrl: null,
     id: order.signalSourceId || strategy.traderId,
@@ -2781,7 +2788,7 @@ function createSignalSourceTradeHistoryRow(
     signalSourceOrder: order,
     source: {
       ...source,
-      name: order.signalSourceName || source.name || fallbackName,
+      name: resolveTradeHistorySourceName(order.signalSourceName || source.name, source.id, fallbackName),
     },
     sourceTimeMs: getTimestampMs(sourceTimestamp),
     status: undefined,
@@ -2806,10 +2813,18 @@ function createTradeLogHistoryRow(
     config.signalSourceID,
     strategy.traderId,
   );
+  const fallbackName = firstString(
+    trade.signalSourceName,
+    trade.sourceName,
+    config.signalSourceName,
+    config.sourceName,
+    strategy.traderName,
+    sourceId,
+  );
   const source = signalSourceIdentityById.get(sourceId) ?? {
     avatarUrl: null,
     id: sourceId,
-    name: sourceId || strategy.traderName,
+    name: fallbackName,
   };
   const timestamp = firstString(trade.timestamp, trade.signalTimestamp, log.timestamp);
   const side = getTradeLogSide(log);
@@ -2823,13 +2838,34 @@ function createTradeLogHistoryRow(
     quantity: getTradeLogQuantity(log),
     side,
     signalSourceOrder: null,
-    source,
+    source: {
+      ...source,
+      name: resolveTradeHistorySourceName(source.name, source.id, fallbackName),
+    },
     sourceTimeMs: getTimestampMs(timestamp),
     status: getTradeLogReason(log),
     symbol: firstString(trade.symbol, orderData.symbol) || "--",
     timestamp,
     tradeLog: log,
   };
+}
+
+function resolveTradeHistorySourceName(preferredName: string | undefined, sourceId: string, fallbackName: string): string {
+  const normalizedPreferredName = firstString(preferredName);
+  if (normalizedPreferredName && !isOpaqueSignalSourceId(normalizedPreferredName)) {
+    return normalizedPreferredName;
+  }
+
+  const normalizedFallbackName = firstString(fallbackName);
+  if (normalizedFallbackName && !isOpaqueSignalSourceId(normalizedFallbackName)) {
+    return normalizedFallbackName;
+  }
+
+  return normalizedPreferredName || normalizedFallbackName || sourceId;
+}
+
+function isOpaqueSignalSourceId(value: string): boolean {
+  return /^(?:信号源[:：]\s*)?(?:bn|mx)-[\da-z-]+$/iu.test(value.trim());
 }
 
 function compareTradeHistoryRows(left: TradeHistoryRow, right: TradeHistoryRow): number {
@@ -3237,12 +3273,14 @@ function TradeHistoryTable({
   isDarkTheme,
   rows,
   strategyCopy,
+  telegramUser,
   onRowKlineOpen,
 }: {
   activeKlineRowId: string | null;
   isDarkTheme: boolean;
   rows: readonly TradeHistoryRow[];
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
+  telegramUser: TelegramSessionUser | null;
   onRowKlineOpen: (row: TradeHistoryRow) => void;
 }) {
   return (
@@ -3268,7 +3306,7 @@ function TradeHistoryTable({
               <tr key={row.id} className={getTradeHistoryRowClassName(isDarkTheme, row.kind, isActiveKlineRow)}>
                 <td className="px-3 py-4 font-semibold">{formatDetailDate(row.timestamp)}</td>
                 <td className="px-3 py-4">
-                  <TradeHistorySourceCell isDarkTheme={isDarkTheme} row={row} strategyCopy={strategyCopy} />
+                  <TradeHistorySourceCell isDarkTheme={isDarkTheme} row={row} strategyCopy={strategyCopy} telegramUser={telegramUser} />
                 </td>
                 <td className="px-3 py-4 font-black">
                   <button
@@ -3297,17 +3335,23 @@ function TradeHistorySourceCell({
   isDarkTheme,
   row,
   strategyCopy,
+  telegramUser,
 }: {
   isDarkTheme: boolean;
   row: TradeHistoryRow;
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
+  telegramUser: TelegramSessionUser | null;
 }) {
   if (row.kind === "me") {
     return (
       <div className="inline-flex items-center gap-2">
-        <span className={isDarkTheme ? "grid h-8 w-8 place-items-center rounded-full bg-sky-400/15 text-xs font-black text-sky-200" : "grid h-8 w-8 place-items-center rounded-full bg-[#EAF8FE] text-xs font-black text-[#008DCC]"}>
-          {strategyCopy.orderSourceMe}
-        </span>
+        {telegramUser ? (
+          <TelegramUserAvatar isDarkTheme={isDarkTheme} size="table" user={telegramUser} />
+        ) : (
+          <span className={isDarkTheme ? "grid h-8 w-8 place-items-center rounded-full bg-sky-400/15 text-xs font-black text-sky-200" : "grid h-8 w-8 place-items-center rounded-full bg-[#EAF8FE] text-xs font-black text-[#008DCC]"}>
+            {strategyCopy.orderSourceMe}
+          </span>
+        )}
         <div className="min-w-0">
           <div className="text-sm font-black">{strategyCopy.orderSourceMe}</div>
           <div className={isDarkTheme ? "mt-0.5 max-w-36 truncate text-[10px] font-semibold text-slate-500" : "mt-0.5 max-w-36 truncate text-[10px] font-semibold text-slate-400"}>{row.source.name}</div>
@@ -3316,11 +3360,13 @@ function TradeHistorySourceCell({
     );
   }
 
+  const sourceDisplayName = row.source.name || row.source.id;
+
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <SourceAvatar isDarkTheme={isDarkTheme} name={row.source.id || row.source.name} url={row.source.avatarUrl} />
+      <SourceAvatar isDarkTheme={isDarkTheme} name={sourceDisplayName} url={row.source.avatarUrl} />
       <div className="min-w-0">
-        <div className="max-w-44 truncate text-sm font-black">{row.source.id || row.source.name}</div>
+        <div className="max-w-44 truncate text-sm font-black">{sourceDisplayName}</div>
         {row.kind === "tradeLog" ? (
           <div className={isDarkTheme ? "mt-0.5 max-w-44 truncate text-[10px] font-semibold text-slate-500" : "mt-0.5 max-w-44 truncate text-[10px] font-semibold text-slate-400"}>
             {`${strategyCopy.tradeEventNoOrder} #${row.tradeLog?.id ?? "--"}`}
