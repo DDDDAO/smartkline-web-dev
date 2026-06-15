@@ -13,7 +13,13 @@ import {
 } from "@/app/_lib/binance-market-data";
 import { toCopyTradingMarketSymbol } from "@/app/_lib/copy-trading-radar-api";
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
-import type { TradingFoxPosition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
+import type {
+  TradingFoxAccountResponse,
+  TradingFoxHyperliquidAgentBindingStartResponse,
+  TradingFoxHyperliquidSigningAction,
+  TradingFoxPosition,
+  TradingFoxStrategyDetail,
+} from "@/app/_lib/tradingfox-control-plane";
 import type { KlineChartProps } from "@/app/_components/kline-chart";
 import type { ChartTimeFocusRequest } from "@/app/_components/kline-chart/types";
 import type { CopyTradingTradeMarker, CopyTradingTrader } from "@/app/_types/copy-trading";
@@ -30,12 +36,15 @@ export type CopyTradingPrototypeTarget = {
 export type PrototypeApiConnection = {
   accountName: string;
   accountBalance: number | null;
+  bindingLabel?: string;
+  bindingMode?: string;
   displayName?: string;
   id: number;
   connectedAtLabel: string;
   exchangePlatform: string;
   isMock: boolean;
   mockMarginBalance: number | null;
+  recommended?: boolean;
   status: "empty" | "connected";
   whitelistIp?: string;
 };
@@ -92,7 +101,8 @@ type AccountCenterPrototypeProps = {
   onApiSetupOpenChange: (isOpen: boolean) => void;
   onClose: () => void;
   onConnectionDelete: (connectionId: number) => Promise<void> | void;
-  onConnectionSave: (input: PrototypeConnectionSaveInput) => void;
+  onConnectionSave: (input: PrototypeConnectionSaveInput) => Promise<boolean> | boolean;
+  onHyperliquidAgentBound: (account: TradingFoxAccountResponse, accountName: string) => void;
   onLogin: () => void;
   onLogout: () => void;
   onStrategyCreate: (input: PrototypeStrategyCreateInput) => Promise<void> | void;
@@ -135,6 +145,17 @@ const KlineChart = dynamic<KlineChartProps>(
   () => import("@/app/_components/kline-chart").then((module) => module.KlineChart),
   { loading: () => null },
 );
+const HYPERLIQUID_DEPOSIT_URL = "https://app.hyperliquid.xyz/portfolio";
+
+type EIP1193Provider = {
+  request<T = unknown>(args: { method: string; params?: Record<string, unknown> | unknown[] }): Promise<T>;
+};
+
+declare global {
+  interface Window {
+    ethereum?: EIP1193Provider;
+  }
+}
 
 export type PrototypeConnectionSaveInput = {
   accountName: string;
@@ -152,7 +173,7 @@ export type PrototypeConnectionSaveInput = {
 const EXCHANGES = [
   { id: "binance", apiManagementUrl: "https://www.binance.com/en/my/settings/api-management", connectorExchangePlatform: "Binance", defaultAccountName: "Binance #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api", registrationUrl: "https://accounts.binance.com/register", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
   { id: "okx", apiManagementUrl: "https://www.okx.com/account/my-api", connectorExchangePlatform: "OKX", defaultAccountName: "OKX #1", enabled: true, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api", registrationUrl: "https://www.okx.com/join", requiresApiPassword: true, requiresPrivateKey: false, requiresWalletAddress: false },
-  { id: "hyperliquid", apiManagementUrl: "https://app.hyperliquid.xyz/API", connectorExchangePlatform: "Hyperliquid", defaultAccountName: "Hyperliquid #1", enabled: true, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api", registrationUrl: "https://app.hyperliquid.xyz/", requiresApiPassword: false, requiresPrivateKey: true, requiresWalletAddress: true },
+  { id: "hyperliquid", apiManagementUrl: "https://app.hyperliquid.xyz/API", connectorExchangePlatform: "HyperLiquid", defaultAccountName: "HyperLiquid #1", enabled: true, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api", registrationUrl: "https://app.hyperliquid.xyz/", requiresApiPassword: false, requiresPrivateKey: true, requiresWalletAddress: true },
   { id: "aster", apiManagementUrl: "https://www.asterdex.com/en/api-management", connectorExchangePlatform: "Aster", defaultAccountName: "Aster #1", enabled: true, fallback: "AS", logoPath: "/exchanges/aster/brand/icon.png", mode: "api", registrationUrl: "https://www.asterdex.com/en", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: true },
   { id: "bitget", apiManagementUrl: "https://www.bitget.com/account/newapi", connectorExchangePlatform: "Bitget", defaultAccountName: "Bitget #1", enabled: true, fallback: "BG", logoPath: "/exchanges/bitget/brand/icon.png", mode: "api", registrationUrl: "https://www.bitget.com/register", requiresApiPassword: true, requiresPrivateKey: false, requiresWalletAddress: false },
   { id: "bybit", apiManagementUrl: "https://www.bybit.com/app/user/api-management", connectorExchangePlatform: "Bybit", defaultAccountName: "Bybit #1", enabled: true, fallback: "BY", logoPath: "/exchanges/bybit/brand/icon.png", mode: "api", registrationUrl: "https://www.bybit.com/register", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
@@ -180,6 +201,7 @@ export function AccountCenterPrototype({
   onClose,
   onConnectionDelete,
   onConnectionSave,
+  onHyperliquidAgentBound,
   onLogin,
   onLogout,
   onStrategyCreate,
@@ -356,10 +378,8 @@ export function AccountCenterPrototype({
           initialMockMarginBalance={apiConnection.mockMarginBalance}
           isDarkTheme={isDarkTheme}
           onClose={() => onApiSetupOpenChange(false)}
-          onSave={(input) => {
-            onConnectionSave(input);
-            onApiSetupOpenChange(false);
-          }}
+          onHyperliquidAgentBound={onHyperliquidAgentBound}
+          onSave={onConnectionSave}
         />
       ) : null}
       {isStrategyCreateOpen ? (
@@ -391,6 +411,7 @@ export function AccountManagementPanel({
   onApiSetupOpenChange,
   onConnectionDelete,
   onConnectionSave,
+  onHyperliquidAgentBound,
   onLogin,
   onLogout,
   onStrategyCreate,
@@ -409,7 +430,8 @@ export function AccountManagementPanel({
   onApiSetupOpen: () => void;
   onApiSetupOpenChange: (isOpen: boolean) => void;
   onConnectionDelete: (connectionId: number) => Promise<void> | void;
-  onConnectionSave: (input: PrototypeConnectionSaveInput) => void;
+  onConnectionSave: (input: PrototypeConnectionSaveInput) => Promise<boolean> | boolean;
+  onHyperliquidAgentBound: (account: TradingFoxAccountResponse, accountName: string) => void;
   onLogin: () => void;
   onLogout: () => void;
   onStrategyCreate: (input: PrototypeStrategyCreateInput) => Promise<void> | void;
@@ -548,10 +570,8 @@ export function AccountManagementPanel({
           initialMockMarginBalance={apiConnection.mockMarginBalance}
           isDarkTheme={isDarkTheme}
           onClose={() => onApiSetupOpenChange(false)}
-          onSave={(input) => {
-            onConnectionSave(input);
-            onApiSetupOpenChange(false);
-          }}
+          onHyperliquidAgentBound={onHyperliquidAgentBound}
+          onSave={onConnectionSave}
         />
       ) : null}
       {isStrategyCreateOpen ? (
@@ -1059,6 +1079,16 @@ function ApiConnectionCard({
                 {accountCopy.api.mockBadge}
               </span>
             ) : null}
+            {apiConnection.recommended ? (
+              <span className={isDarkTheme ? "rounded-full bg-sky-300/15 px-2 py-0.5 text-[10px] font-black text-sky-100" : "rounded-full bg-[#DDF5FF] px-2 py-0.5 text-[10px] font-black text-[#007DB8]"}>
+                {accountCopy.apiSetup.recommendedBadge}
+              </span>
+            ) : null}
+            {apiConnection.bindingLabel && !apiConnection.isMock ? (
+              <span className={isDarkTheme ? "rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-slate-300" : "rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-600"}>
+                {apiConnection.bindingLabel}
+              </span>
+            ) : null}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <MiniMetric isDarkTheme={isDarkTheme} label={accountCopy.api.accountType} value={exchangeLabel} />
@@ -1252,6 +1282,11 @@ function TradingAccountOptionContent({
           {accountCopy.api.mockBadge}
         </span>
       ) : null}
+      {connection.recommended ? (
+        <span className={isDarkTheme ? "shrink-0 rounded-full bg-sky-300/15 px-2 py-0.5 text-[10px] font-black text-sky-100" : "shrink-0 rounded-full bg-[#DDF5FF] px-2 py-0.5 text-[10px] font-black text-[#007DB8]"}>
+          {accountCopy.apiSetup.recommendedBadge}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -1386,6 +1421,7 @@ function ExchangeApiSetupLayer({
   initialMockMarginBalance,
   isDarkTheme,
   onClose,
+  onHyperliquidAgentBound,
   onSave,
 }: {
   copy: WorkspaceCopy;
@@ -1393,7 +1429,8 @@ function ExchangeApiSetupLayer({
   initialMockMarginBalance: number | null;
   isDarkTheme: boolean;
   onClose: () => void;
-  onSave: (input: PrototypeConnectionSaveInput) => void;
+  onHyperliquidAgentBound: (account: TradingFoxAccountResponse, accountName: string) => void;
+  onSave: (input: PrototypeConnectionSaveInput) => Promise<boolean> | boolean;
 }) {
   const [selectedExchangeId, setSelectedExchangeId] = useState<PrototypeExchangeId>("binance");
   const selectedExchange = getExchangeById(selectedExchangeId);
@@ -1408,6 +1445,11 @@ function ExchangeApiSetupLayer({
   const [whitelistIp, setWhitelistIp] = useState("");
   const [whitelistIpError, setWhitelistIpError] = useState("");
   const [isWhitelistIpLoading, setIsWhitelistIpLoading] = useState(false);
+  const [agentWalletAddress, setAgentWalletAddress] = useState("");
+  const [agentBindingError, setAgentBindingError] = useState("");
+  const [agentBindingStep, setAgentBindingStep] = useState("");
+  const [isAgentBinding, setIsAgentBinding] = useState(false);
+  const [isSavingManual, setIsSavingManual] = useState(false);
   const accountCopy = copy.workspace.accountCenter;
   const isDemoExchange = selectedExchange.mode === "demo";
   const isBuiltInMockExchange = selectedExchange.id === "mockExchange";
@@ -1432,7 +1474,7 @@ function ExchangeApiSetupLayer({
     ? accountName.trim().length > 0 && hasValidMockMarginBalance
     : isBinanceDemoExchange
       ? accountName.trim().length > 0 && hasApiCredentials
-      : accountName.trim().length > 0 && hasApiCredentials && hasApiPassword && hasWalletAddress && hasPrivateKey && hasWhitelistIp && !isWhitelistIpLoading;
+      : accountName.trim().length > 0 && hasApiCredentials && hasApiPassword && hasWalletAddress && hasPrivateKey && hasWhitelistIp && !isWhitelistIpLoading && !isSavingManual && !isAgentBinding;
 
   useEffect(() => {
     let isMounted = true;
@@ -1502,6 +1544,9 @@ function ExchangeApiSetupLayer({
     setApiPassword("");
     setWalletAddress("");
     setPrivateKey("");
+    setAgentWalletAddress("");
+    setAgentBindingError("");
+    setAgentBindingStep("");
     setAccountName((currentAccountName) => {
       const trimmedAccountName = currentAccountName.trim();
       if (trimmedAccountName.length > 0 && trimmedAccountName !== previousDefaultAccountName) {
@@ -1510,6 +1555,84 @@ function ExchangeApiSetupLayer({
 
       return exchange.defaultAccountName;
     });
+  };
+  const handleHyperliquidAgentBind = async () => {
+    if (!isHyperliquidExchange || isAgentBinding) {
+      return;
+    }
+
+    setAgentBindingError("");
+    setAgentBindingStep(accountCopy.apiSetup.hyperliquidAgentStepConnect);
+    setIsAgentBinding(true);
+    try {
+      const provider = window.ethereum;
+      if (!provider) {
+        throw new Error(accountCopy.apiSetup.hyperliquidAgentWalletMissing);
+      }
+
+      const accounts = await provider.request<unknown>({
+        method: "eth_requestAccounts",
+      });
+      const connectedWalletAddress = Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0].trim() : "";
+      if (!connectedWalletAddress) {
+        throw new Error(accountCopy.apiSetup.hyperliquidAgentWalletMissing);
+      }
+
+      setAgentWalletAddress(connectedWalletAddress);
+      setWalletAddress(connectedWalletAddress);
+      setAgentBindingStep(accountCopy.apiSetup.hyperliquidAgentStepCreate);
+      const bindingStart = await requestHyperliquidAgentBindingStart({
+        accountName: accountName.trim() || selectedExchange.defaultAccountName,
+        walletAddress: connectedWalletAddress,
+      });
+      const approveAgentAction = findHyperliquidSigningAction(bindingStart.actions, "approveAgent");
+      const approveBuilderFeeAction = findHyperliquidSigningAction(bindingStart.actions, "approveBuilderFee");
+      if (!approveAgentAction || !approveBuilderFeeAction) {
+        throw new Error(accountCopy.apiSetup.hyperliquidAgentActionMissing);
+      }
+
+      setAgentBindingStep(accountCopy.apiSetup.hyperliquidAgentStepApproveAgent);
+      const approveAgentSignature = await signHyperliquidTypedData(provider, connectedWalletAddress, approveAgentAction);
+      setAgentBindingStep(accountCopy.apiSetup.hyperliquidAgentStepApproveBuilderFee);
+      const approveBuilderFeeSignature = await signHyperliquidTypedData(provider, connectedWalletAddress, approveBuilderFeeAction);
+      setAgentBindingStep(accountCopy.apiSetup.hyperliquidAgentStepComplete);
+      const account = await requestHyperliquidAgentBindingComplete(bindingStart.binding.id, {
+        approveAgentSignature,
+        approveBuilderFeeSignature,
+      });
+      onHyperliquidAgentBound(account, bindingStart.binding.connectorName || accountName.trim() || selectedExchange.defaultAccountName);
+      onClose();
+    } catch (error) {
+      setAgentBindingError(getTradingFoxErrorMessage(error, copy));
+    } finally {
+      setIsAgentBinding(false);
+    }
+  };
+  const handleManualSave = async () => {
+    if (!canSave || isSavingManual) {
+      return;
+    }
+
+    setIsSavingManual(true);
+    try {
+      const isSaved = await onSave({
+        accountName: accountName.trim() || selectedExchange.defaultAccountName,
+        apiKey: requiresApiCredentials ? apiKey.trim() : undefined,
+        exchangePlatform: selectedExchange.connectorExchangePlatform,
+        ipAddress: isLiveExchange ? whitelistIp.trim() : undefined,
+        isMock: isDemoExchange,
+        mockMarginBalance: isBuiltInMockExchange && hasValidMockMarginBalance ? parsedMockMarginBalance : undefined,
+        password: requiresApiPassword ? apiPassword.trim() : undefined,
+        privateKey: requiresPrivateKey ? privateKey.trim() : undefined,
+        secret: requiresApiCredentials ? secret.trim() : undefined,
+        walletAddress: requiresWalletAddress ? walletAddress.trim() : undefined,
+      });
+      if (isSaved) {
+        onClose();
+      }
+    } finally {
+      setIsSavingManual(false);
+    }
   };
 
   return (
@@ -1651,39 +1774,58 @@ function ExchangeApiSetupLayer({
                   </section>
                 ) : (
                   <>
-                    <section className={getModalSectionClassName(isDarkTheme)}>
-                      <div className={getLabelClassName(isDarkTheme)}>{accountCopy.apiSetup.whitelistIp}</div>
-                      <div className="mt-2 flex items-stretch gap-2">
-                        <div className={isDarkTheme ? "flex min-h-11 min-w-0 flex-1 items-center break-all rounded-[18px] border border-white/[0.085] bg-[#0F141B] px-3 font-mono text-sm font-black tracking-[0.045em] text-slate-100" : "flex min-h-11 min-w-0 flex-1 items-center break-all rounded-[18px] border border-[#D5E4EF] bg-[#F8FAFC] px-3 font-mono text-sm font-black tracking-[0.045em] text-slate-900"}>
-                          {isWhitelistIpLoading ? accountCopy.apiSetup.whitelistIpLoading : (whitelistIp || accountCopy.apiSetup.whitelistIpUnavailable)}
-                        </div>
-                        <button
-                          aria-label={accountCopy.apiSetup.copyWhitelistIp}
-                          className={getWhitelistCopyButtonClassName(isDarkTheme)}
-                          disabled={!hasWhitelistIp}
-                          title={accountCopy.apiSetup.copyWhitelistIp}
-                          type="button"
-                          onClick={() => {
-                            setHasCopiedIp(true);
-                            void navigator.clipboard?.writeText(whitelistIp);
-                          }}
-                        >
-                          {hasCopiedIp ? <CheckGlyph /> : <CopyGlyph />}
-                        </button>
-                      </div>
-                      <p className={whitelistIpError
-                        ? isDarkTheme ? "mt-3 text-xs leading-5 text-amber-200" : "mt-3 text-xs leading-5 text-amber-700"
-                        : isDarkTheme ? "mt-3 text-xs leading-5 text-slate-500" : "mt-3 text-xs leading-5 text-slate-500"}
-                      >
-                        {whitelistIpError || accountCopy.apiSetup.whitelistIpDescription}
-                      </p>
-                    </section>
+                    {isHyperliquidExchange ? (
+                      <HyperliquidAgentWalletPanel
+                        accountCopy={accountCopy}
+                        agentBindingError={agentBindingError}
+                        agentBindingStep={agentBindingStep}
+                        agentWalletAddress={agentWalletAddress}
+                        isBinding={isAgentBinding}
+                        isDarkTheme={isDarkTheme}
+                        onBind={handleHyperliquidAgentBind}
+                      />
+                    ) : (
+                      <WhitelistIpCopyPanel
+                        accountCopy={accountCopy}
+                        description={accountCopy.apiSetup.whitelistIpDescription}
+                        hasCopiedIp={hasCopiedIp}
+                        hasWhitelistIp={hasWhitelistIp}
+                        isDarkTheme={isDarkTheme}
+                        isLoading={isWhitelistIpLoading}
+                        whitelistIp={whitelistIp}
+                        whitelistIpError={whitelistIpError}
+                        onCopy={() => {
+                          setHasCopiedIp(true);
+                          void navigator.clipboard?.writeText(whitelistIp);
+                        }}
+                      />
+                    )}
 
                     <section className={getModalSectionClassName(isDarkTheme)}>
-                      <h3 className="text-base font-black">{accountCopy.api.title}</h3>
+                      <h3 className="text-base font-black">
+                        {isHyperliquidExchange ? accountCopy.apiSetup.hyperliquidManualTitle : accountCopy.api.title}
+                      </h3>
                       <p className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
-                        {accountCopy.apiSetup.liveExchangeDescription}
+                        {isHyperliquidExchange ? accountCopy.apiSetup.hyperliquidManualDescription : accountCopy.apiSetup.liveExchangeDescription}
                       </p>
+                      {isHyperliquidExchange ? (
+                        <div className="mt-4">
+                          <WhitelistIpCopyPanel
+                            accountCopy={accountCopy}
+                            description={accountCopy.apiSetup.hyperliquidManualWhitelistDescription}
+                            hasCopiedIp={hasCopiedIp}
+                            hasWhitelistIp={hasWhitelistIp}
+                            isDarkTheme={isDarkTheme}
+                            isLoading={isWhitelistIpLoading}
+                            whitelistIp={whitelistIp}
+                            whitelistIpError={whitelistIpError}
+                            onCopy={() => {
+                              setHasCopiedIp(true);
+                              void navigator.clipboard?.writeText(whitelistIp);
+                            }}
+                          />
+                        </div>
+                      ) : null}
                       <div className="mt-4 grid gap-3">
                         <PrototypeInput autoComplete="off" fieldName="account-name" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.accountName} value={accountName} onChange={setAccountName} />
                         {requiresApiCredentials ? (
@@ -1717,25 +1859,158 @@ function ExchangeApiSetupLayer({
               className={getPrimaryButtonClassName(isDarkTheme)}
               disabled={!canSave}
               type="button"
-              onClick={() => onSave({
-                accountName: accountName.trim() || selectedExchange.defaultAccountName,
-                apiKey: requiresApiCredentials ? apiKey.trim() : undefined,
-                exchangePlatform: selectedExchange.connectorExchangePlatform,
-                ipAddress: isLiveExchange ? whitelistIp.trim() : undefined,
-                isMock: isDemoExchange,
-                mockMarginBalance: isBuiltInMockExchange && hasValidMockMarginBalance ? parsedMockMarginBalance : undefined,
-                password: requiresApiPassword ? apiPassword.trim() : undefined,
-                privateKey: requiresPrivateKey ? privateKey.trim() : undefined,
-                secret: requiresApiCredentials ? secret.trim() : undefined,
-                walletAddress: requiresWalletAddress ? walletAddress.trim() : undefined,
-              })}
+              onClick={() => void handleManualSave()}
             >
-              {accountCopy.apiSetup.save}
+              {isSavingManual ? accountCopy.apiSetup.saving : isHyperliquidExchange ? accountCopy.apiSetup.hyperliquidManualSave : accountCopy.apiSetup.save}
             </button>
           </footer>
         </form>
       </section>
     </>
+  );
+}
+
+function HyperliquidAgentWalletPanel({
+  accountCopy,
+  agentBindingError,
+  agentBindingStep,
+  agentWalletAddress,
+  isBinding,
+  isDarkTheme,
+  onBind,
+}: {
+  accountCopy: WorkspaceCopy["workspace"]["accountCenter"];
+  agentBindingError: string;
+  agentBindingStep: string;
+  agentWalletAddress: string;
+  isBinding: boolean;
+  isDarkTheme: boolean;
+  onBind: () => void;
+}) {
+  return (
+    <section className={isDarkTheme ? "rounded-[24px] border border-sky-300/20 bg-sky-300/[0.07] p-4" : "rounded-[24px] border border-[#BFE7FB] bg-[#F1FBFF] p-4"}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={isDarkTheme ? "rounded-full bg-sky-300/15 px-2.5 py-1 text-[11px] font-black text-sky-100" : "rounded-full bg-[#DDF5FF] px-2.5 py-1 text-[11px] font-black text-[#007DB8]"}>
+              {accountCopy.apiSetup.recommendedBadge}
+            </span>
+            <span className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.14em] text-sky-200/70" : "text-[11px] font-black uppercase tracking-[0.14em] text-[#007DB8]/70"}>
+              {accountCopy.apiSetup.hyperliquidAgentMode}
+            </span>
+          </div>
+          <h3 className="mt-3 text-base font-black">{accountCopy.apiSetup.hyperliquidAgentTitle}</h3>
+          <p className={isDarkTheme ? "mt-2 max-w-2xl text-sm leading-6 text-slate-300" : "mt-2 max-w-2xl text-sm leading-6 text-slate-700"}>
+            {accountCopy.apiSetup.hyperliquidAgentDescription}
+          </p>
+        </div>
+        <button
+          className={getPrimaryButtonClassName(isDarkTheme)}
+          disabled={isBinding}
+          type="button"
+          onClick={() => onBind()}
+        >
+          {isBinding ? (agentBindingStep || accountCopy.apiSetup.hyperliquidAgentBinding) : accountCopy.apiSetup.hyperliquidAgentConnectAuthorize}
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-4">
+        {accountCopy.apiSetup.hyperliquidAgentSteps.map((step, index) => (
+          <div
+            key={step}
+            className={isDarkTheme ? "rounded-2xl border border-sky-200/10 bg-[#0F141B]/70 px-3 py-3" : "rounded-2xl border border-[#BFE7FB] bg-white/80 px-3 py-3"}
+          >
+            <div className={isDarkTheme ? "text-[10px] font-black uppercase tracking-[0.14em] text-sky-200/60" : "text-[10px] font-black uppercase tracking-[0.14em] text-[#007DB8]/60"}>
+              {String(index + 1).padStart(2, "0")}
+            </div>
+            <div className={isDarkTheme ? "mt-1 text-xs font-black text-sky-50" : "mt-1 text-xs font-black text-slate-900"}>
+              {step}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className={isDarkTheme ? "mt-4 rounded-2xl border border-amber-300/15 bg-amber-300/[0.08] px-3 py-3" : "mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3"}>
+        <div className={isDarkTheme ? "text-xs font-black text-amber-100" : "text-xs font-black text-amber-800"}>
+          {accountCopy.apiSetup.hyperliquidDepositRequired}
+        </div>
+        <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-amber-100/80" : "mt-1 text-xs leading-5 text-amber-800/85"}>
+          {accountCopy.apiSetup.hyperliquidDepositDescription}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-black">
+          <span className={isDarkTheme ? "text-amber-100/80" : "text-amber-800/80"}>{accountCopy.apiSetup.hyperliquidCurrentBalance}</span>
+          <span className={isDarkTheme ? "rounded-full bg-[#0F141B]/70 px-2.5 py-1 text-amber-100" : "rounded-full bg-white px-2.5 py-1 text-amber-800"}>5 USDC</span>
+          <a
+            className={isDarkTheme ? "text-sky-200 underline decoration-sky-200/40 underline-offset-4 hover:text-sky-100" : "text-[#007DB8] underline decoration-[#007DB8]/35 underline-offset-4 hover:text-[#005F8C]"}
+            href={HYPERLIQUID_DEPOSIT_URL}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {accountCopy.apiSetup.hyperliquidDepositAction}
+          </a>
+        </div>
+      </div>
+
+      {agentWalletAddress ? (
+        <div className={isDarkTheme ? "mt-3 break-all rounded-2xl border border-sky-200/10 bg-[#0F141B]/70 px-3 py-2 font-mono text-xs font-black text-sky-100" : "mt-3 break-all rounded-2xl border border-[#BFE7FB] bg-white/80 px-3 py-2 font-mono text-xs font-black text-[#007DB8]"}>
+          {agentWalletAddress}
+        </div>
+      ) : null}
+      {agentBindingError ? (
+        <div className={isDarkTheme ? "mt-3 rounded-2xl border border-rose-300/15 bg-rose-400/[0.08] px-3 py-2 text-xs leading-5 text-rose-100" : "mt-3 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700"}>
+          {agentBindingError}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function WhitelistIpCopyPanel({
+  accountCopy,
+  description,
+  hasCopiedIp,
+  hasWhitelistIp,
+  isDarkTheme,
+  isLoading,
+  whitelistIp,
+  whitelistIpError,
+  onCopy,
+}: {
+  accountCopy: WorkspaceCopy["workspace"]["accountCenter"];
+  description: string;
+  hasCopiedIp: boolean;
+  hasWhitelistIp: boolean;
+  isDarkTheme: boolean;
+  isLoading: boolean;
+  whitelistIp: string;
+  whitelistIpError: string;
+  onCopy: () => void;
+}) {
+  return (
+    <section className={getModalSectionClassName(isDarkTheme)}>
+      <div className={getLabelClassName(isDarkTheme)}>{accountCopy.apiSetup.whitelistIp}</div>
+      <div className="mt-2 flex items-stretch gap-2">
+        <div className={isDarkTheme ? "flex min-h-11 min-w-0 flex-1 items-center break-all rounded-[18px] border border-white/[0.085] bg-[#0F141B] px-3 font-mono text-sm font-black tracking-[0.045em] text-slate-100" : "flex min-h-11 min-w-0 flex-1 items-center break-all rounded-[18px] border border-[#D5E4EF] bg-[#F8FAFC] px-3 font-mono text-sm font-black tracking-[0.045em] text-slate-900"}>
+          {isLoading ? accountCopy.apiSetup.whitelistIpLoading : (whitelistIp || accountCopy.apiSetup.whitelistIpUnavailable)}
+        </div>
+        <button
+          aria-label={accountCopy.apiSetup.copyWhitelistIp}
+          className={getWhitelistCopyButtonClassName(isDarkTheme)}
+          disabled={!hasWhitelistIp}
+          title={accountCopy.apiSetup.copyWhitelistIp}
+          type="button"
+          onClick={onCopy}
+        >
+          {hasCopiedIp ? <CheckGlyph /> : <CopyGlyph />}
+        </button>
+      </div>
+      <p className={whitelistIpError
+        ? isDarkTheme ? "mt-3 text-xs leading-5 text-amber-200" : "mt-3 text-xs leading-5 text-amber-700"
+        : isDarkTheme ? "mt-3 text-xs leading-5 text-slate-500" : "mt-3 text-xs leading-5 text-slate-500"}
+      >
+        {whitelistIpError || description}
+      </p>
+    </section>
   );
 }
 
@@ -2155,6 +2430,77 @@ async function requestTradingFoxConnectorWhitelistIP(exchangePlatform: string): 
   }
   const ipAddress = typeof payload.ipAddress?.address === "string" ? payload.ipAddress.address.trim() : "";
   return ipAddress || (typeof payload.whitelistIp === "string" ? payload.whitelistIp.trim() : "");
+}
+
+async function requestHyperliquidAgentBindingStart(input: {
+  accountName: string;
+  walletAddress: string;
+}): Promise<TradingFoxHyperliquidAgentBindingStartResponse> {
+  const response = await fetch("/api/tradingfox/connectors/hyperliquid-agent", {
+    body: JSON.stringify(input),
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  const payload = await response.json().catch(() => null) as TradingFoxHyperliquidAgentBindingStartResponse & { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload?.error || `HyperLiquid agent binding request failed with status ${response.status}.`);
+  }
+  if (!payload) {
+    throw new Error("HyperLiquid agent binding response is empty.");
+  }
+  return payload;
+}
+
+async function requestHyperliquidAgentBindingComplete(
+  bindingId: number,
+  input: {
+    approveAgentSignature: string;
+    approveBuilderFeeSignature: string;
+  },
+): Promise<TradingFoxAccountResponse> {
+  const response = await fetch(`/api/tradingfox/connectors/hyperliquid-agent/${encodeURIComponent(String(bindingId))}/complete`, {
+    body: JSON.stringify(input),
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  const payload = await response.json().catch(() => null) as TradingFoxAccountResponse & { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload?.error || `HyperLiquid agent binding completion failed with status ${response.status}.`);
+  }
+  if (!payload) {
+    throw new Error("HyperLiquid agent binding completion response is empty.");
+  }
+  return payload;
+}
+
+function findHyperliquidSigningAction(
+  actions: readonly TradingFoxHyperliquidSigningAction[],
+  kind: TradingFoxHyperliquidSigningAction["kind"],
+): TradingFoxHyperliquidSigningAction | null {
+  return actions.find((action) => action.kind === kind) ?? null;
+}
+
+async function signHyperliquidTypedData(
+  provider: EIP1193Provider,
+  walletAddress: string,
+  action: TradingFoxHyperliquidSigningAction,
+): Promise<string> {
+  const signature = await provider.request<unknown>({
+    method: "eth_signTypedData_v4",
+    params: [walletAddress, JSON.stringify(action.typedData)],
+  });
+  if (typeof signature !== "string" || !signature.trim()) {
+    throw new Error("Wallet did not return a typed-data signature.");
+  }
+  return signature;
 }
 
 async function requestStrategyDetail(
