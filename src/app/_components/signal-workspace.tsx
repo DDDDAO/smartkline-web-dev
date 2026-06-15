@@ -5,6 +5,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import { flushSync } from "react-dom";
 import { markets } from "@/app/_lib/demo-data";
 import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
+import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import {
   createStructuredSignalPositionKey,
   fetchKolSignals,
@@ -124,8 +125,11 @@ const WORKSPACE_TAB_ROUTE_SEGMENTS: Readonly<Record<WorkspaceProductTab, string>
   accountManagement: "account",
 };
 
+type WorkspaceNotificationKind = "error" | "info" | "success";
+
 type WorkspaceNotification = {
   id: string;
+  kind: WorkspaceNotificationKind;
   message: string;
   meta: string;
   title: string;
@@ -517,7 +521,8 @@ export function SignalWorkspace() {
         if (isMounted) {
           setWorkspaceNotification({
             id: `tradingfox-account-error-${Date.now()}`,
-            message: getTradingFoxErrorMessage(error),
+            kind: "error",
+            message: getTradingFoxErrorMessage(error, copyRef.current),
             meta: "TradingFox",
             title: copyRef.current.workspace.accountCenter.api.title,
           });
@@ -873,6 +878,7 @@ export function SignalWorkspace() {
       const currentCopy = copyRef.current;
       setWorkspaceNotification({
         id: `kol-signal-poll-${Date.now()}`,
+        kind: "info",
         title: currentCopy.workspace.signalUpdateTitle,
         message: currentCopy.workspace.signalUpdateMessage(incomingSignals.length),
         meta: currentCopy.workspace.signalUpdateMeta,
@@ -1407,11 +1413,12 @@ export function SignalWorkspace() {
 
     setIsTradingFoxLoading(true);
     try {
-      const account = await requestTradingFoxAccount("/api/tradingfox/connectors/mock", {
+      const account = await requestTradingFoxAccount("/api/tradingfox/connectors", {
         body: JSON.stringify({
           accountName: input.accountName,
           apiKey: input.apiKey,
           exchangePlatform: input.exchangePlatform,
+          isMock: input.isMock,
           mockMarginBalance: input.mockMarginBalance,
           secret: input.secret,
         }),
@@ -1420,6 +1427,7 @@ export function SignalWorkspace() {
       applyTradingFoxAccount(account);
       setWorkspaceNotification({
         id: `api-connected-${Date.now()}`,
+        kind: "success",
         message: copyRef.current.workspace.accountCenter.apiSetup.connectedToast,
         meta: account.connector?.name ?? input.accountName,
         title: copyRef.current.workspace.accountCenter.api.title,
@@ -1432,7 +1440,8 @@ export function SignalWorkspace() {
     } catch (error) {
       setWorkspaceNotification({
         id: `api-connect-error-${Date.now()}`,
-        message: getTradingFoxErrorMessage(error),
+        kind: "error",
+        message: getTradingFoxErrorMessage(error, copyRef.current),
         meta: input.accountName,
         title: copyRef.current.workspace.accountCenter.api.title,
       });
@@ -1480,6 +1489,7 @@ export function SignalWorkspace() {
       handleProductTabChange("accountManagement");
       setWorkspaceNotification({
         id: `copy-strategy-created-${Date.now()}`,
+        kind: "success",
         message: copyRef.current.workspace.accountCenter.apiSetup.connectedToast,
         meta: input.target.trader.name,
         title: copyRef.current.workspace.accountCenter.copyTrading.start,
@@ -1487,7 +1497,8 @@ export function SignalWorkspace() {
     } catch (error) {
       setWorkspaceNotification({
         id: `copy-strategy-error-${Date.now()}`,
-        message: getTradingFoxErrorMessage(error),
+        kind: "error",
+        message: getTradingFoxErrorMessage(error, copyRef.current),
         meta: input.target.trader.name,
         title: copyRef.current.workspace.accountCenter.copyTrading.start,
       });
@@ -1517,7 +1528,8 @@ export function SignalWorkspace() {
       setPrototypeStrategies(previousStrategies);
       setWorkspaceNotification({
         id: `copy-strategy-status-error-${Date.now()}`,
-        message: getTradingFoxErrorMessage(error),
+        kind: "error",
+        message: getTradingFoxErrorMessage(error, copyRef.current),
         meta: strategyId,
         title: copyRef.current.workspace.accountCenter.strategy.title,
       });
@@ -1536,6 +1548,7 @@ export function SignalWorkspace() {
       applyTradingFoxAccount(account);
       setWorkspaceNotification({
         id: `copy-strategy-delete-${Date.now()}`,
+        kind: "success",
         message: copyRef.current.workspace.accountCenter.strategy.deleteSuccess,
         meta: strategyId,
         title: copyRef.current.workspace.accountCenter.strategy.title,
@@ -1544,7 +1557,8 @@ export function SignalWorkspace() {
       setPrototypeStrategies(previousStrategies);
       setWorkspaceNotification({
         id: `copy-strategy-delete-error-${Date.now()}`,
-        message: getTradingFoxErrorMessage(error),
+        kind: "error",
+        message: getTradingFoxErrorMessage(error, copyRef.current),
         meta: strategyId,
         title: copyRef.current.workspace.accountCenter.strategy.title,
       });
@@ -1884,10 +1898,6 @@ async function requestTradingFoxAccount(path: string, init?: RequestInit): Promi
   return await response.json() as TradingFoxAccountResponse;
 }
 
-function getTradingFoxErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "TradingFox request failed.";
-}
-
 function createEmptyPrototypeApiConnection(): PrototypeApiConnection {
   return {
     accountName: "Mock Exchange #1",
@@ -1909,11 +1919,13 @@ function mapTradingFoxConnectorToPrototypeConnection(
     accountName: connector.name,
     accountBalance: connector.accountEquity ?? connector.mockMarginBalance ?? null,
     connectedAtLabel: formatTradingFoxDateLabel(connector.updatedAt, language),
+    displayName: connector.displayName,
     exchangePlatform: connector.exchangePlatform,
     id: connector.id,
     isMock: connector.isMock,
     mockMarginBalance: connector.mockMarginBalance ?? null,
     status: "connected",
+    whitelistIp: connector.whitelistIp,
   };
 }
 
@@ -2570,7 +2582,7 @@ function WorkspaceTopNavigation({
           onOpen={onAccountOpen}
         />
         {notification ? (
-          <div className="fixed right-5 top-20 z-[65] w-[min(390px,calc(100vw-2rem))]">
+          <div className="pointer-events-none fixed inset-x-3 top-[calc(env(safe-area-inset-top)+4.75rem)] z-[95] mx-auto w-auto max-w-[440px] sm:inset-x-auto sm:right-5 sm:top-20 sm:mx-0 sm:w-[min(440px,calc(100vw-2rem))]">
             <WorkspaceNotificationBanner
               copy={copy}
               isDarkTheme={isDarkTheme}
@@ -2917,35 +2929,18 @@ function WorkspaceNotificationBanner({
   notification: WorkspaceNotification;
   onDismiss: () => void;
 }) {
-  const className = isDarkTheme
-    ? "pointer-events-auto w-full overflow-hidden rounded-2xl border border-white/[0.075] bg-[#181A20]/96 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
-    : "pointer-events-auto w-full overflow-hidden rounded-2xl border border-[#E5EAF0] bg-white/96 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-xl";
+  const tone = getWorkspaceNotificationTone(notification.kind, isDarkTheme, copy);
 
   return (
-    <div className={className} role="status">
-      <div
-        className={
-          isDarkTheme
-            ? "border-b border-white/[0.075] bg-white/[0.035] px-4 py-2"
-            : "border-b border-[#E5EAF0] bg-[#F8FAFC] px-4 py-2"
-        }
-      >
+    <div className={tone.shellClassName} role={notification.kind === "error" ? "alert" : "status"}>
+      <div className={tone.headerClassName}>
         <div className="flex items-center justify-between gap-3">
-          <span
-            className={
-              isDarkTheme
-                ? "text-[11px] font-bold text-sky-300"
-                : "text-[11px] font-bold text-[#007DB8]"
-            }
-          >
-            {copy.workspace.browserNotification}
+          <span className={tone.eyebrowClassName}>
+            {tone.eyebrow}
           </span>
           <button
-            className={
-              isDarkTheme
-                ? "rounded-full px-2 py-0.5 text-xs text-slate-500 transition hover:bg-white/[0.08] hover:text-slate-200"
-                : "rounded-full px-2 py-0.5 text-xs text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-            }
+            aria-label={copy.common.close}
+            className={tone.closeClassName}
             type="button"
             onClick={onDismiss}
           >
@@ -2954,47 +2949,78 @@ function WorkspaceNotificationBanner({
         </div>
       </div>
       <div className="flex gap-3 px-4 py-3">
-        <div
-          className={
-            isDarkTheme
-              ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-500/15 text-sky-300"
-              : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-50 text-sky-600"
-          }
-        >
-          <span aria-hidden="true">🔔</span>
+        <div className={tone.iconClassName}>
+          <span aria-hidden="true">{tone.icon}</span>
         </div>
         <div className="min-w-0 flex-1">
-          <div
-            className={
-              isDarkTheme
-                ? "truncate text-sm font-bold text-slate-50"
-                : "truncate text-sm font-bold text-slate-950"
-            }
-          >
+          <div className={tone.titleClassName}>
             {notification.title}
           </div>
-          <div
-            className={
-              isDarkTheme
-                ? "mt-1 text-xs leading-5 text-slate-300"
-                : "mt-1 text-xs leading-5 text-slate-600"
-            }
-          >
+          <div className={tone.messageClassName}>
             {notification.message}
           </div>
-          <div
-            className={
-              isDarkTheme
-                ? "mt-2 text-[11px] text-slate-500"
-                : "mt-2 text-[11px] text-slate-400"
-            }
-          >
+          <div className={tone.metaClassName}>
             {notification.meta}
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function getWorkspaceNotificationTone(
+  kind: WorkspaceNotificationKind,
+  isDarkTheme: boolean,
+  copy: WorkspaceCopy,
+) {
+  const common = {
+    closeClassName: isDarkTheme
+      ? "rounded-full px-2 py-0.5 text-xs text-slate-500 transition hover:bg-white/[0.08] hover:text-slate-200"
+      : "rounded-full px-2 py-0.5 text-xs text-slate-400 transition hover:bg-slate-100 hover:text-slate-700",
+    messageClassName: isDarkTheme
+      ? "mt-1 whitespace-pre-line break-words text-xs leading-5 text-slate-300"
+      : "mt-1 whitespace-pre-line break-words text-xs leading-5 text-slate-600",
+    metaClassName: isDarkTheme
+      ? "mt-2 break-words text-[11px] text-slate-500"
+      : "mt-2 break-words text-[11px] text-slate-400",
+    titleClassName: isDarkTheme
+      ? "break-words text-sm font-bold text-slate-50"
+      : "break-words text-sm font-bold text-slate-950",
+  };
+
+  if (kind === "error") {
+    return {
+      ...common,
+      eyebrow: copy.workspace.errorNotification,
+      eyebrowClassName: isDarkTheme ? "text-[11px] font-bold text-rose-300" : "text-[11px] font-bold text-rose-700",
+      headerClassName: isDarkTheme ? "border-b border-rose-300/15 bg-rose-400/[0.08] px-4 py-2" : "border-b border-rose-100 bg-rose-50 px-4 py-2",
+      icon: "!",
+      iconClassName: isDarkTheme ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-rose-500/15 text-lg font-black text-rose-300" : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-rose-100 text-lg font-black text-rose-700",
+      shellClassName: isDarkTheme ? "pointer-events-auto w-full overflow-hidden rounded-2xl border border-rose-300/20 bg-[#1B1117]/96 shadow-[0_18px_56px_rgba(0,0,0,0.38)] backdrop-blur-xl" : "pointer-events-auto w-full overflow-hidden rounded-2xl border border-rose-100 bg-white/96 shadow-[0_18px_56px_rgba(127,29,29,0.14)] backdrop-blur-xl",
+    };
+  }
+
+  if (kind === "success") {
+    return {
+      ...common,
+      eyebrow: copy.workspace.successNotification,
+      eyebrowClassName: isDarkTheme ? "text-[11px] font-bold text-emerald-300" : "text-[11px] font-bold text-emerald-700",
+      headerClassName: isDarkTheme ? "border-b border-emerald-300/15 bg-emerald-400/[0.08] px-4 py-2" : "border-b border-emerald-100 bg-emerald-50 px-4 py-2",
+      icon: "✓",
+      iconClassName: isDarkTheme ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-emerald-500/15 text-lg font-black text-emerald-300" : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-emerald-100 text-lg font-black text-emerald-700",
+      shellClassName: isDarkTheme ? "pointer-events-auto w-full overflow-hidden rounded-2xl border border-emerald-300/20 bg-[#111B17]/96 shadow-[0_18px_56px_rgba(0,0,0,0.34)] backdrop-blur-xl" : "pointer-events-auto w-full overflow-hidden rounded-2xl border border-emerald-100 bg-white/96 shadow-[0_18px_56px_rgba(6,95,70,0.12)] backdrop-blur-xl",
+    };
+  }
+
+  return {
+    ...common,
+    eyebrow: copy.workspace.browserNotification,
+    eyebrowClassName: isDarkTheme ? "text-[11px] font-bold text-sky-300" : "text-[11px] font-bold text-[#007DB8]",
+    headerClassName: isDarkTheme ? "border-b border-white/[0.075] bg-white/[0.035] px-4 py-2" : "border-b border-[#E5EAF0] bg-[#F8FAFC] px-4 py-2",
+    icon: "🔔",
+    iconClassName: isDarkTheme ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-500/15 text-sky-300" : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-50 text-sky-600",
+    shellClassName: isDarkTheme ? "pointer-events-auto w-full overflow-hidden rounded-2xl border border-white/[0.075] bg-[#181A20]/96 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl" : "pointer-events-auto w-full overflow-hidden rounded-2xl border border-[#E5EAF0] bg-white/96 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-xl",
+  };
 }
 
 function openExternalTelegramUrl(url: string) {

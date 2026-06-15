@@ -1,12 +1,24 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
+import { WORKSPACE_COPY, type WorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import { intervals } from "@/app/_lib/demo-data";
+import {
+  fetchHistoricalCandles,
+  prependHistoricalCandles,
+} from "@/app/_lib/binance-market-data";
+import { toCopyTradingMarketSymbol } from "@/app/_lib/copy-trading-radar-api";
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
 import type { TradingFoxPosition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
-import type { CopyTradingTrader } from "@/app/_types/copy-trading";
+import type { KlineChartProps } from "@/app/_components/kline-chart";
+import type { ChartTimeFocusRequest } from "@/app/_components/kline-chart/types";
+import type { CopyTradingTradeMarker, CopyTradingTrader } from "@/app/_types/copy-trading";
+import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
+import type { StructuredSignal } from "@/app/_types/signal";
 import { SourceAvatar } from "./card-ui";
 
 export type CopyTradingPrototypeTarget = {
@@ -18,12 +30,14 @@ export type CopyTradingPrototypeTarget = {
 export type PrototypeApiConnection = {
   accountName: string;
   accountBalance: number | null;
+  displayName?: string;
   id: number;
   connectedAtLabel: string;
   exchangePlatform: string;
   isMock: boolean;
   mockMarginBalance: number | null;
   status: "empty" | "connected";
+  whitelistIp?: string;
 };
 
 export type PrototypeStrategyStatus = "running" | "paused" | "stopped";
@@ -83,21 +97,37 @@ type CopyTradingPrototypeModalProps = {
   }) => void;
 };
 
-const WHITELIST_IP = "192.0.0.1";
 const BINANCE_DEMO_API_MANAGEMENT_URL = "https://demo.binance.com/zh-CN/my/settings/api-management";
 const MOCK_MARGIN_BALANCE_MAX = 100000;
 const MOCK_MARGIN_BALANCE_PRESETS = [1000, 5000, 10000] as const;
+const TRADE_HISTORY_PAGE_SIZE = 50;
+const TRADE_HISTORY_KLINE_CANDLE_LIMIT = 360;
+const EMPTY_MARKET_CANDLES: readonly MarketCandle[] = [];
+const EMPTY_STRUCTURED_SIGNALS: readonly StructuredSignal[] = [];
+const KLINE_INTERVAL_MS_BY_INTERVAL: Record<KlineInterval, number> = {
+  "1d": 86_400_000,
+  "1h": 3_600_000,
+  "1m": 60_000,
+  "4h": 14_400_000,
+  "5m": 300_000,
+  "15m": 900_000,
+};
+const KlineChart = dynamic<KlineChartProps>(
+  () => import("@/app/_components/kline-chart").then((module) => module.KlineChart),
+  { loading: () => null },
+);
 
 export type PrototypeConnectionSaveInput = {
   accountName: string;
   apiKey?: string;
   exchangePlatform: string;
-  mockMarginBalance: number;
+  isMock: boolean;
+  mockMarginBalance?: number;
   secret?: string;
 };
 
 const EXCHANGES = [
-  { id: "binance", connectorExchangePlatform: "Binance", defaultAccountName: "Binance #1", enabled: false, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api" },
+  { id: "binance", connectorExchangePlatform: "Binance", defaultAccountName: "Binance #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api" },
   { id: "mockExchange", connectorExchangePlatform: "Mock", defaultAccountName: "Mock Exchange #1", enabled: true, fallback: "MX", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
   { id: "binanceDemo", connectorExchangePlatform: "Binance", defaultAccountName: "Binance Demo #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
   { id: "okx", connectorExchangePlatform: "OKX", defaultAccountName: "OKX #1", enabled: false, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api" },
@@ -636,6 +666,16 @@ function ApiConnectionCard({
               value={formatAccountBalance(apiConnection.accountBalance)}
             />
           </div>
+          {apiConnection.whitelistIp ? (
+            <div className={isDarkTheme ? "mt-3 rounded-2xl border border-emerald-300/10 bg-[#0F141B]/60 px-3 py-2" : "mt-3 rounded-2xl border border-emerald-100 bg-white/70 px-3 py-2"}>
+              <div className={isDarkTheme ? "text-[10px] font-black uppercase tracking-[0.14em] text-emerald-200/60" : "text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700/60"}>
+                {accountCopy.apiSetup.whitelistIp}
+              </div>
+              <div className={isDarkTheme ? "mt-1 font-mono text-xs font-black text-emerald-100" : "mt-1 font-mono text-xs font-black text-emerald-800"}>
+                {apiConnection.whitelistIp}
+              </div>
+            </div>
+          ) : null}
           <div className={isDarkTheme ? "mt-3 text-xs text-emerald-200/70" : "mt-3 text-xs text-emerald-700/75"}>
             #{apiConnection.id} · {accountCopy.api.updatedAt}: {apiConnection.connectedAtLabel || "--"}
           </div>
@@ -875,23 +915,72 @@ function ExchangeApiSetupLayer({
   const [mockMarginBalance, setMockMarginBalance] = useState(String(initialMockMarginBalance ?? 10000));
   const [apiKey, setApiKey] = useState("");
   const [secret, setSecret] = useState("");
-  const [hasTestedConnection, setHasTestedConnection] = useState(false);
   const [hasCopiedIp, setHasCopiedIp] = useState(false);
+  const [whitelistIp, setWhitelistIp] = useState("");
+  const [whitelistIpError, setWhitelistIpError] = useState("");
+  const [isWhitelistIpLoading, setIsWhitelistIpLoading] = useState(false);
   const accountCopy = copy.workspace.accountCenter;
   const isDemoExchange = selectedExchange.mode === "demo";
   const isBuiltInMockExchange = selectedExchange.id === "mockExchange";
   const isBinanceDemoExchange = selectedExchange.id === "binanceDemo";
+  const isLiveExchange = !isDemoExchange;
   const requiresApiCredentials = !isBuiltInMockExchange;
   const parsedMockMarginBalance = Number(mockMarginBalance);
   const hasValidMockMarginBalance = Number.isFinite(parsedMockMarginBalance) && parsedMockMarginBalance > 0 && parsedMockMarginBalance <= MOCK_MARGIN_BALANCE_MAX;
   const hasApiCredentials = apiKey.trim().length > 0 && secret.trim().length > 0;
+  const hasWhitelistIp = whitelistIp.trim().length > 0;
 
-  const canTest = !isDemoExchange && accountName.trim().length > 0 && hasApiCredentials;
   const canSave = isBuiltInMockExchange
     ? accountName.trim().length > 0 && hasValidMockMarginBalance
     : isBinanceDemoExchange
       ? accountName.trim().length > 0 && hasValidMockMarginBalance && hasApiCredentials
-      : hasTestedConnection;
+      : accountName.trim().length > 0 && hasApiCredentials && hasWhitelistIp && !isWhitelistIpLoading;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadWhitelistIp() {
+      if (!isLiveExchange) {
+        if (!isMounted) {
+          return;
+        }
+        setWhitelistIp("");
+        setWhitelistIpError("");
+        setIsWhitelistIpLoading(false);
+        return;
+      }
+
+      setWhitelistIp("");
+      setWhitelistIpError("");
+      setHasCopiedIp(false);
+      setIsWhitelistIpLoading(true);
+      try {
+        const nextWhitelistIp = await requestTradingFoxConnectorWhitelistIP(selectedExchange.connectorExchangePlatform);
+        if (!isMounted) {
+          return;
+        }
+        setWhitelistIp(nextWhitelistIp);
+        setWhitelistIpError(nextWhitelistIp ? "" : accountCopy.apiSetup.whitelistIpUnavailable);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+        setWhitelistIp("");
+        setWhitelistIpError(error instanceof Error ? error.message : accountCopy.apiSetup.whitelistIpUnavailable);
+      } finally {
+        if (isMounted) {
+          setIsWhitelistIpLoading(false);
+        }
+      }
+    }
+
+    void loadWhitelistIp();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accountCopy.apiSetup.whitelistIpUnavailable, isLiveExchange, selectedExchange.connectorExchangePlatform]);
+
   const updateMockMarginBalance = (value: string) => {
     const normalizedValue = value.replace(/[^\d.]/gu, "");
     const parsedValue = Number(normalizedValue);
@@ -909,7 +998,6 @@ function ExchangeApiSetupLayer({
 
     const previousDefaultAccountName = selectedExchange.defaultAccountName;
     setSelectedExchangeId(exchange.id);
-    setHasTestedConnection(false);
     setHasCopiedIp(false);
     setApiKey("");
     setSecret("");
@@ -1075,25 +1163,35 @@ function ExchangeApiSetupLayer({
                       <div className={getLabelClassName(isDarkTheme)}>{accountCopy.apiSetup.whitelistIp}</div>
                       <div className="mt-3 flex gap-2">
                         <div className={isDarkTheme ? "min-w-0 flex-1 rounded-2xl border border-white/[0.075] bg-[#0F141B] px-3 py-3 font-mono text-sm font-black tracking-wide text-slate-100" : "min-w-0 flex-1 rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC] px-3 py-3 font-mono text-sm font-black tracking-wide text-slate-900"}>
-                          {WHITELIST_IP}
+                          {isWhitelistIpLoading ? accountCopy.apiSetup.whitelistIpLoading : (whitelistIp || accountCopy.apiSetup.whitelistIpUnavailable)}
                         </div>
                         <button
                           aria-label={accountCopy.apiSetup.copyWhitelistIp}
-                          className={getIconButtonClassName(isDarkTheme)}
+                          className={`${getIconButtonClassName(isDarkTheme)} disabled:cursor-not-allowed disabled:opacity-45`}
+                          disabled={!hasWhitelistIp}
                           title={accountCopy.apiSetup.copyWhitelistIp}
                           type="button"
                           onClick={() => {
                             setHasCopiedIp(true);
-                            void navigator.clipboard?.writeText(WHITELIST_IP);
+                            void navigator.clipboard?.writeText(whitelistIp);
                           }}
                         >
                           {hasCopiedIp ? "✓" : "□"}
                         </button>
                       </div>
+                      <p className={whitelistIpError
+                        ? isDarkTheme ? "mt-3 text-xs leading-5 text-amber-200" : "mt-3 text-xs leading-5 text-amber-700"
+                        : isDarkTheme ? "mt-3 text-xs leading-5 text-slate-500" : "mt-3 text-xs leading-5 text-slate-500"}
+                      >
+                        {whitelistIpError || accountCopy.apiSetup.whitelistIpDescription}
+                      </p>
                     </section>
 
                     <section className={getModalSectionClassName(isDarkTheme)}>
                       <h3 className="text-base font-black">{accountCopy.api.title}</h3>
+                      <p className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
+                        {accountCopy.apiSetup.liveBinanceDescription}
+                      </p>
                       <div className="mt-4 grid gap-3">
                         <PrototypeInput autoComplete="off" fieldName="account-name" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.accountName} value={accountName} onChange={setAccountName} />
                         <PrototypeInput autoComplete="off" fieldName="api-key" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiKey} placeholder={accountCopy.apiSetup.apiKeyPlaceholder} value={apiKey} onChange={setApiKey} />
@@ -1110,18 +1208,6 @@ function ExchangeApiSetupLayer({
 
           <footer className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5"}>
             <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onClose}>{copy.common.close}</button>
-            {!isDemoExchange ? (
-              <button
-                className={hasTestedConnection
-                  ? isDarkTheme ? "inline-flex min-h-10 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 text-sm font-black text-emerald-200" : "inline-flex min-h-10 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 px-4 text-sm font-black text-emerald-700"
-                  : getSoftButtonClassName(isDarkTheme)}
-                disabled={!canTest}
-                type="button"
-                onClick={() => setHasTestedConnection(true)}
-              >
-                {hasTestedConnection ? accountCopy.apiSetup.tested : accountCopy.apiSetup.test}
-              </button>
-            ) : null}
             <button
               className={getPrimaryButtonClassName(isDarkTheme)}
               disabled={!canSave}
@@ -1130,7 +1216,8 @@ function ExchangeApiSetupLayer({
                 accountName: accountName.trim() || selectedExchange.defaultAccountName,
                 apiKey: requiresApiCredentials ? apiKey.trim() : undefined,
                 exchangePlatform: selectedExchange.connectorExchangePlatform,
-                mockMarginBalance: hasValidMockMarginBalance ? parsedMockMarginBalance : 10000,
+                isMock: isDemoExchange,
+                mockMarginBalance: isDemoExchange && hasValidMockMarginBalance ? parsedMockMarginBalance : undefined,
                 secret: requiresApiCredentials ? secret.trim() : undefined,
               })}
             >
@@ -1226,6 +1313,10 @@ function StrategyDetailView({
   const [isSyncingPositions, setIsSyncingPositions] = useState(false);
   const [isUpdatingLifecycle, setIsUpdatingLifecycle] = useState(false);
   const [isDeletingStrategy, setIsDeletingStrategy] = useState(false);
+  const [tradeHistoryPageOffset, setTradeHistoryPageOffset] = useState(0);
+  const [isTradeKlineOpen, setIsTradeKlineOpen] = useState(false);
+  const [selectedTradeKlineOrderId, setSelectedTradeKlineOrderId] = useState<string | null>(null);
+  const [tradeKlineInterval, setTradeKlineInterval] = useState<KlineInterval>("15m");
   const strategyCopy = copy.workspace.accountCenter.strategy;
 
   useEffect(() => {
@@ -1235,13 +1326,16 @@ function StrategyDetailView({
       setIsLoading(true);
       setError("");
       try {
-        const nextDetail = await requestStrategyDetail(strategy.id);
+        const nextDetail = await requestStrategyDetail(strategy.id, {
+          orderLimit: TRADE_HISTORY_PAGE_SIZE,
+          orderOffset: tradeHistoryPageOffset,
+        });
         if (isMounted) {
           setDetail(nextDetail);
         }
       } catch (loadError) {
         if (isMounted) {
-          setError(loadError instanceof Error ? loadError.message : "Strategy detail failed.");
+          setError(getTradingFoxErrorMessage(loadError, copy));
         }
       } finally {
         if (isMounted) {
@@ -1255,17 +1349,46 @@ function StrategyDetailView({
     return () => {
       isMounted = false;
     };
-  }, [strategy.id]);
+  }, [copy, strategy.id, tradeHistoryPageOffset]);
 
   const liveStrategy = detail?.strategy ?? strategy;
   const parsedSyncRatioPercent = Number(syncRatioPercent);
   const canSyncPositions = Boolean(detail?.trader.enabled) && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
   const orderItems = detail?.orderHistory?.items ?? [];
+  const visibleOrderItems = orderItems.slice(0, TRADE_HISTORY_PAGE_SIZE);
+  const selectedTradeKlineOrder = visibleOrderItems.find((order) => order.clientOrderId === selectedTradeKlineOrderId) ?? visibleOrderItems[0] ?? null;
+  const tradeHistoryOffset = detail?.orderHistory?.offset ?? tradeHistoryPageOffset;
+  const hasPreviousTradeHistoryPage = tradeHistoryOffset > 0;
+  const hasNextTradeHistoryPage = Boolean(detail?.orderHistory?.hasMore) || orderItems.length > TRADE_HISTORY_PAGE_SIZE;
+  const shouldShowTradeHistoryPagination = hasPreviousTradeHistoryPage || hasNextTradeHistoryPage;
+  const tradeHistoryRangeLabel = createOpenEndedPageRangeLabel(tradeHistoryOffset, visibleOrderItems.length);
   const detailPositions = detail?.positions ?? EMPTY_TRADING_FOX_POSITIONS;
   const copyPositionMarkPricesBySymbol = useMemo(
     () => createCopyPositionMarkPricesBySymbol(detailPositions),
     [detailPositions],
   );
+
+  const openTradeKline = (order: TradingFoxOrderItem) => {
+    setSelectedTradeKlineOrderId(order.clientOrderId);
+    setIsTradeKlineOpen(true);
+  };
+
+  const toggleTradeKline = () => {
+    if (!selectedTradeKlineOrder) {
+      return;
+    }
+
+    setSelectedTradeKlineOrderId(selectedTradeKlineOrder.clientOrderId);
+    setIsTradeKlineOpen((currentValue) => !currentValue);
+  };
+
+  const showPreviousTradeHistoryPage = () => {
+    setTradeHistoryPageOffset((currentOffset) => Math.max(0, currentOffset - TRADE_HISTORY_PAGE_SIZE));
+  };
+
+  const showNextTradeHistoryPage = () => {
+    setTradeHistoryPageOffset((currentOffset) => currentOffset + TRADE_HISTORY_PAGE_SIZE);
+  };
 
   const syncPositions = async () => {
     if (!canSyncPositions) {
@@ -1278,9 +1401,10 @@ function StrategyDetailView({
     try {
       const nextDetail = await requestStrategyPositionSync(liveStrategy.id, parsedSyncRatioPercent);
       setDetail(nextDetail);
+      setTradeHistoryPageOffset(0);
       setSyncMessage(strategyCopy.syncPositionsSuccess);
     } catch (syncPositionsError) {
-      setSyncError(syncPositionsError instanceof Error ? syncPositionsError.message : "Position sync failed.");
+      setSyncError(getTradingFoxErrorMessage(syncPositionsError, copy));
     } finally {
       setIsSyncingPositions(false);
     }
@@ -1291,9 +1415,12 @@ function StrategyDetailView({
     setSyncError("");
     try {
       await onStrategyStatusChange(liveStrategy.id, status);
-      setDetail(await requestStrategyDetail(liveStrategy.id));
+      setDetail(await requestStrategyDetail(liveStrategy.id, {
+        orderLimit: TRADE_HISTORY_PAGE_SIZE,
+        orderOffset: tradeHistoryPageOffset,
+      }));
     } catch (lifecycleError) {
-      setSyncError(lifecycleError instanceof Error ? lifecycleError.message : "Strategy lifecycle update failed.");
+      setSyncError(getTradingFoxErrorMessage(lifecycleError, copy));
     } finally {
       setIsUpdatingLifecycle(false);
     }
@@ -1306,7 +1433,7 @@ function StrategyDetailView({
       await onStrategyDelete(liveStrategy.id);
       onBack();
     } catch (deleteError) {
-      setSyncError(deleteError instanceof Error ? deleteError.message : "Strategy delete failed.");
+      setSyncError(getTradingFoxErrorMessage(deleteError, copy));
     } finally {
       setIsDeletingStrategy(false);
     }
@@ -1345,14 +1472,16 @@ function StrategyDetailView({
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.traderOrders} value={String(orderItems.length)} />
         </div>
         {detail?.trader.statusMessage ? (
-          <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-amber-200" : "mt-3 text-xs leading-5 text-amber-700"}>{detail.trader.statusMessage}</p>
+          <p className={isDarkTheme ? "mt-3 whitespace-pre-line break-words text-xs leading-5 text-amber-200" : "mt-3 whitespace-pre-line break-words text-xs leading-5 text-amber-700"}>
+            {getTradingFoxErrorMessage(detail.trader.statusMessage, copy)}
+          </p>
         ) : null}
       </div>
 
       {isLoading ? (
         <div className={getModalSectionClassName(isDarkTheme)}>{strategyCopy.loadingDetail}</div>
       ) : error ? (
-        <div className={isDarkTheme ? "rounded-[24px] border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100" : "rounded-[24px] border border-rose-100 bg-rose-50 p-4 text-sm text-rose-700"}>{error}</div>
+        <div className={getErrorPanelClassName(isDarkTheme)}>{error}</div>
       ) : detail ? (
         <>
           <section className={getModalSectionClassName(isDarkTheme)}>
@@ -1378,13 +1507,13 @@ function StrategyDetailView({
               </div>
             </div>
             {syncMessage ? <p className={isDarkTheme ? "mt-3 text-xs text-emerald-200" : "mt-3 text-xs text-emerald-700"}>{syncMessage}</p> : null}
-            {syncError ? <p className="mt-3 text-xs text-rose-500">{syncError}</p> : null}
+            {syncError ? <p className={getInlineErrorClassName(isDarkTheme)}>{syncError}</p> : null}
             {!detail.trader.enabled ? <p className={isDarkTheme ? "mt-3 text-xs text-amber-200" : "mt-3 text-xs text-amber-700"}>{strategyCopy.syncPositionsDisabled}</p> : null}
           </section>
 
           <section className={getModalSectionClassName(isDarkTheme)}>
             <h3 className="text-sm font-black">{strategyCopy.copyPositions}</h3>
-            {detail.positionsError ? <p className="mt-2 text-xs text-rose-500">{detail.positionsError}</p> : null}
+            {detail.positionsError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.positionsError, copy)}</p> : null}
             {detail.positions.length > 0 ? (
               <>
                 <PositionSummaryPanel
@@ -1399,7 +1528,7 @@ function StrategyDetailView({
 
           <section className={getModalSectionClassName(isDarkTheme)}>
             <h3 className="text-sm font-black">{strategyCopy.signalSourcePositions}</h3>
-            {detail.signalSourcesError ? <p className="mt-2 text-xs text-rose-500">{detail.signalSourcesError}</p> : null}
+            {detail.signalSourcesError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.signalSourcesError, copy)}</p> : null}
             <div className="mt-3 grid gap-2">
               {detail.signalSources.length > 0 ? detail.signalSources.map((source) => (
                 <div key={source.signalSourceId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#F8FAFC] p-3"}>
@@ -1427,12 +1556,57 @@ function StrategyDetailView({
 
           <section className={getModalSectionClassName(isDarkTheme)}>
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-black">{strategyCopy.tradeHistory}</h3>
-              <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{orderItems.length}</span>
+              <div>
+                <h3 className="text-sm font-black">{strategyCopy.tradeHistory}</h3>
+                <div className={isDarkTheme ? "mt-1 text-[11px] font-bold text-slate-500" : "mt-1 text-[11px] font-bold text-slate-400"}>
+                  {tradeHistoryRangeLabel}
+                </div>
+              </div>
+              <button
+                className={getSoftButtonClassName(isDarkTheme)}
+                disabled={!selectedTradeKlineOrder}
+                type="button"
+                onClick={toggleTradeKline}
+              >
+                {isTradeKlineOpen ? strategyCopy.hideKline : strategyCopy.viewKline}
+              </button>
             </div>
-            {detail.orderHistoryError ? <p className="mt-2 text-xs text-rose-500">{detail.orderHistoryError}</p> : null}
-            {orderItems.length > 0 ? (
-              <TradeHistoryTable isDarkTheme={isDarkTheme} orders={orderItems.slice(0, 20)} strategyCopy={strategyCopy} />
+            {detail.orderHistoryError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.orderHistoryError, copy)}</p> : null}
+            {isTradeKlineOpen && selectedTradeKlineOrder ? (
+              <TradeHistoryKlinePanel
+                copy={copy}
+                interval={tradeKlineInterval}
+                isDarkTheme={isDarkTheme}
+                order={selectedTradeKlineOrder}
+                orders={visibleOrderItems}
+                strategy={liveStrategy}
+                onIntervalChange={setTradeKlineInterval}
+              />
+            ) : null}
+            {visibleOrderItems.length > 0 ? (
+              <>
+                <TradeHistoryTable
+                  activeKlineOrderId={selectedTradeKlineOrder?.clientOrderId ?? null}
+                  isDarkTheme={isDarkTheme}
+                  orders={visibleOrderItems}
+                  strategyCopy={strategyCopy}
+                  onOrderKlineOpen={openTradeKline}
+                />
+                {shouldShowTradeHistoryPagination ? (
+                  <div className="mt-3">
+                    <RowsPaginationControls
+                      canGoNext={hasNextTradeHistoryPage}
+                      canGoPrevious={hasPreviousTradeHistoryPage}
+                      isDarkTheme={isDarkTheme}
+                      nextLabel={strategyCopy.nextTradeHistoryPage}
+                      previousLabel={strategyCopy.previousTradeHistoryPage}
+                      rangeLabel={tradeHistoryRangeLabel}
+                      onNext={showNextTradeHistoryPage}
+                      onPrevious={showPreviousTradeHistoryPage}
+                    />
+                  </div>
+                ) : null}
+              </>
             ) : <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.noTradeHistory}</div>}
           </section>
 
@@ -1442,8 +1616,32 @@ function StrategyDetailView({
   );
 }
 
-async function requestStrategyDetail(strategyId: string): Promise<TradingFoxStrategyDetail> {
-  const response = await fetch(`/api/tradingfox/copy-strategies/${encodeURIComponent(strategyId)}`, {
+async function requestTradingFoxConnectorWhitelistIP(exchangePlatform: string): Promise<string> {
+  const query = new URLSearchParams({ exchangePlatform });
+  const response = await fetch(`/api/tradingfox/connectors/whitelist-ip?${query.toString()}`, {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  const payload = await response.json() as { error?: string; whitelistIp?: string };
+  if (!response.ok) {
+    throw new Error(payload.error || `Whitelist IP request failed with status ${response.status}.`);
+  }
+  return typeof payload.whitelistIp === "string" ? payload.whitelistIp.trim() : "";
+}
+
+async function requestStrategyDetail(
+  strategyId: string,
+  options: { orderLimit?: number; orderOffset?: number } = {},
+): Promise<TradingFoxStrategyDetail> {
+  const query = new URLSearchParams();
+  if (options.orderLimit !== undefined) {
+    query.set("orderLimit", String(options.orderLimit));
+  }
+  if (options.orderOffset !== undefined) {
+    query.set("orderOffset", String(options.orderOffset));
+  }
+  const queryString = query.toString();
+  const response = await fetch(`/api/tradingfox/copy-strategies/${encodeURIComponent(strategyId)}${queryString ? `?${queryString}` : ""}`, {
     cache: "no-store",
     credentials: "same-origin",
   });
@@ -1471,6 +1669,7 @@ async function requestStrategyPositionSync(strategyId: string, ratioPercent: num
 
 type StrategyCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
 type SignalSourcePosition = TradingFoxStrategyDetail["signalSources"][number]["positions"][number];
+type TradingFoxOrderItem = NonNullable<TradingFoxStrategyDetail["orderHistory"]>["items"][number];
 type CopyPositionMarkPricesBySymbol = ReadonlyMap<string, number>;
 
 const EMPTY_TRADING_FOX_POSITIONS: readonly TradingFoxPosition[] = [];
@@ -1893,7 +2092,7 @@ function SignalSourcePositionTable({
 }) {
   return (
     <div className="kol-scroll-area mt-3 overflow-x-auto">
-      <table className="min-w-[860px] w-full border-collapse text-left text-sm">
+      <table className="min-w-[760px] w-full border-collapse text-left text-sm">
         <thead>
           <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#DDE8F0] text-xs font-black text-slate-500"}>
             <th className="px-3 py-3">Symbol</th>
@@ -1903,7 +2102,6 @@ function SignalSourcePositionTable({
             <th className="px-3 py-3">{strategyCopy.entryPrice}</th>
             <th className="px-3 py-3">{strategyCopy.markPrice}</th>
             <th className="px-3 py-3">PNL</th>
-            <th className="px-3 py-3">{strategyCopy.tradeStatus}</th>
           </tr>
         </thead>
         <tbody>
@@ -1919,7 +2117,6 @@ function SignalSourcePositionTable({
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.entryPrice)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(markPrice)}</td>
                 <td className={`px-3 py-4 font-black ${getPnlClassName(isDarkTheme, pnl ?? 0)}`}>{formatSignedDetailCurrency(pnl)}</td>
-                <td className={position.skipTrade ? "px-3 py-4 font-black text-amber-500" : isDarkTheme ? "px-3 py-4 font-black text-emerald-300" : "px-3 py-4 font-black text-emerald-700"}>{position.skipTrade ? "skip" : "follow"}</td>
               </tr>
             );
           })}
@@ -1929,14 +2126,214 @@ function SignalSourcePositionTable({
   );
 }
 
+function TradeHistoryKlinePanel({
+  copy,
+  interval,
+  isDarkTheme,
+  order,
+  orders,
+  strategy,
+  onIntervalChange,
+}: {
+  copy: WorkspaceCopy;
+  interval: KlineInterval;
+  isDarkTheme: boolean;
+  order: TradingFoxOrderItem;
+  orders: readonly TradingFoxOrderItem[];
+  strategy: PrototypeStrategy;
+  onIntervalChange: (interval: KlineInterval) => void;
+}) {
+  const [candleState, setCandleState] = useState<{
+    canLoadOlderHistory: boolean;
+    candles: readonly MarketCandle[];
+    error: string;
+    key: string;
+  }>({
+    canLoadOlderHistory: false,
+    candles: EMPTY_MARKET_CANDLES,
+    error: "",
+    key: "",
+  });
+  const [isLoadingOlderHistory, setIsLoadingOlderHistory] = useState(false);
+  const symbol = toCopyTradingMarketSymbol(order.symbol);
+  const chartKey = `${order.clientOrderId}:${symbol}:${interval}`;
+  const candles = candleState.key === chartKey ? candleState.candles : EMPTY_MARKET_CANDLES;
+  const canLoadOlderHistory = candleState.key === chartKey ? candleState.canLoadOlderHistory : false;
+  const loadError = candleState.key === chartKey ? candleState.error : "";
+  const language = resolveWorkspaceLanguage(copy);
+  const tradeMarkers = useMemo(
+    () => createOrderTradeMarkers({
+      orders,
+      selectedSymbol: symbol,
+      strategy,
+      strategyCopy: copy.workspace.accountCenter.strategy,
+    }),
+    [copy.workspace.accountCenter.strategy, orders, strategy, symbol],
+  );
+  const focusTimeRequest = useMemo<ChartTimeFocusRequest | null>(() => {
+    const sourceTimeMs = Date.parse(order.timestamp);
+    if (!Number.isFinite(sourceTimeMs)) {
+      return null;
+    }
+
+    return {
+      key: `copy-strategy-order:${order.clientOrderId}:${symbol}:${interval}:${sourceTimeMs}`,
+      sourceTimeMs,
+    };
+  }, [interval, order.clientOrderId, order.timestamp, symbol]);
+
+  useEffect(() => {
+    let isActive = true;
+    const abortController = new AbortController();
+    const sourceTimeMs = Date.parse(order.timestamp);
+    const requestKey = chartKey;
+
+    fetchHistoricalCandles(symbol, interval, {
+      limit: TRADE_HISTORY_KLINE_CANDLE_LIMIT,
+      signal: abortController.signal,
+      untilMs: resolveInitialTradeHistoryKlineUntilMs(sourceTimeMs, interval),
+    })
+      .then((historicalCandles) => {
+        if (!isActive) {
+          return;
+        }
+
+        setCandleState({
+          canLoadOlderHistory: historicalCandles.length >= TRADE_HISTORY_KLINE_CANDLE_LIMIT,
+          candles: historicalCandles,
+          error: "",
+          key: requestKey,
+        });
+      })
+      .catch((error: unknown) => {
+        if (isActive && !isAbortError(error)) {
+          setCandleState({
+            canLoadOlderHistory: false,
+            candles: EMPTY_MARKET_CANDLES,
+            error: error instanceof Error ? error.message : String(error),
+            key: requestKey,
+          });
+        }
+      });
+
+    return () => {
+      isActive = false;
+      abortController.abort();
+    };
+  }, [chartKey, interval, order.timestamp, symbol]);
+
+  const loadOlderHistory = useCallback(async () => {
+    if (isLoadingOlderHistory || !canLoadOlderHistory) {
+      return;
+    }
+
+    const oldestCandle = candles.at(0);
+    if (!oldestCandle) {
+      return;
+    }
+
+    setIsLoadingOlderHistory(true);
+    try {
+      const olderCandles = await fetchHistoricalCandles(symbol, interval, {
+        limit: TRADE_HISTORY_KLINE_CANDLE_LIMIT,
+        untilMs: oldestCandle.sourceTimeMs,
+      });
+      setCandleState((currentState) => {
+        if (currentState.key !== chartKey) {
+          return currentState;
+        }
+
+        return {
+          canLoadOlderHistory: olderCandles.length >= TRADE_HISTORY_KLINE_CANDLE_LIMIT,
+          candles: prependHistoricalCandles(currentState.candles, olderCandles),
+          error: "",
+          key: chartKey,
+        };
+      });
+    } catch (error: unknown) {
+      setCandleState((currentState) => currentState.key === chartKey
+        ? {
+          ...currentState,
+          error: error instanceof Error ? error.message : String(error),
+        }
+        : currentState);
+    } finally {
+      setIsLoadingOlderHistory(false);
+    }
+  }, [canLoadOlderHistory, candles, chartKey, interval, isLoadingOlderHistory, symbol]);
+
+  return (
+    <div className={isDarkTheme ? "mt-3 overflow-hidden rounded-3xl border border-white/[0.075] bg-[#181A20]" : "mt-3 overflow-hidden rounded-3xl border border-[#DDE8F0] bg-white"}>
+      <div className={isDarkTheme ? "flex flex-col gap-3 border-b border-white/[0.075] bg-white/[0.035] px-4 py-3 sm:flex-row sm:items-center sm:justify-between" : "flex flex-col gap-3 border-b border-[#E5EAF0] bg-[#F8FAFC] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"}>
+        <div>
+          <div className="text-sm font-black">{copy.workspace.accountCenter.strategy.tradeHistoryKlineTitle}</div>
+          <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
+            {symbol} · {formatDetailDate(order.timestamp)}
+          </div>
+        </div>
+        <div className={isDarkTheme ? "inline-flex w-max items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5" : "inline-flex w-max items-center gap-1 rounded-full border border-[#E5EAF0] bg-white p-0.5"}>
+          {intervals.map((item) => (
+            <button
+              key={item}
+              className={item === interval ? "h-8 rounded-full bg-[#00A6F4] px-3 text-xs font-bold text-white" : isDarkTheme ? "h-8 rounded-full px-3 text-xs font-bold text-slate-400 transition hover:bg-white/[0.08] hover:text-slate-100" : "h-8 rounded-full px-3 text-xs font-bold text-slate-500 transition hover:bg-[#F1F7FB] hover:text-slate-950"}
+              type="button"
+              onClick={() => onIntervalChange(item)}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="relative h-[420px] min-h-[320px]">
+        <KlineChart
+          activePaperPosition={null}
+          activeSignal={null}
+          activeSignalDrawingReady={false}
+          aiSummary={null}
+          candles={candles}
+          canLoadOlderHistory={canLoadOlderHistory}
+          eventSignals={EMPTY_STRUCTURED_SIGNALS}
+          focusSignalRequestKey={null}
+          focusTimeRequest={focusTimeRequest}
+          interval={interval}
+          isLoadingOlderHistory={isLoadingOlderHistory}
+          language={language}
+          priceColorMode="positiveGreen"
+          signalBiasSummary={null}
+          theme={isDarkTheme ? "dark" : "light"}
+          tradeMarkers={tradeMarkers}
+          onEventSignalSelect={() => undefined}
+          onFocusSignalRequestHandled={() => undefined}
+          onFocusTimeRequestHandled={() => undefined}
+          onLoadOlderHistory={loadOlderHistory}
+        />
+        {candles.length === 0 && !loadError ? (
+          <div className={isDarkTheme ? "pointer-events-none absolute inset-0 grid place-items-center bg-[#181A20]/78 text-xs font-bold text-slate-500" : "pointer-events-none absolute inset-0 grid place-items-center bg-white/78 text-xs font-bold text-slate-500"}>
+            {copy.paper.loading}
+          </div>
+        ) : null}
+        {loadError ? (
+          <div className={isDarkTheme ? "absolute right-4 top-4 z-30 max-w-md rounded-2xl border border-amber-500/20 bg-[#181A20]/94 px-3 py-2 text-xs text-amber-100 shadow-[0_12px_32px_rgba(0,0,0,0.22)] backdrop-blur-xl" : "absolute right-4 top-4 z-30 max-w-md rounded-2xl border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs text-amber-800 shadow-[0_10px_28px_rgba(15,23,42,0.08)] backdrop-blur-xl"}>
+            {copy.realtime.errorInline(loadError)}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function TradeHistoryTable({
+  activeKlineOrderId,
   isDarkTheme,
   orders,
   strategyCopy,
+  onOrderKlineOpen,
 }: {
+  activeKlineOrderId: string | null;
   isDarkTheme: boolean;
-  orders: NonNullable<TradingFoxStrategyDetail["orderHistory"]>["items"];
+  orders: readonly TradingFoxOrderItem[];
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
+  onOrderKlineOpen: (order: TradingFoxOrderItem) => void;
 }) {
   return (
     <div className="kol-scroll-area mt-3 overflow-x-auto">
@@ -1958,11 +2355,20 @@ function TradeHistoryTable({
             const price = numberOrZero(order.price);
             const quantity = numberOrZero(order.contractAmount);
             const notional = price * quantity;
+            const isActiveKlineOrder = order.clientOrderId === activeKlineOrderId;
             return (
               <tr key={order.clientOrderId} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0"}>
                 <td className="px-3 py-4 font-semibold">{formatDetailDate(order.timestamp)}</td>
                 <td className="px-3 py-4 font-semibold">{strategyCopy.orderSourceMe}</td>
-                <td className="px-3 py-4 font-black">{order.symbol}</td>
+                <td className="px-3 py-4 font-black">
+                  <button
+                    className={isActiveKlineOrder ? "rounded-full bg-sky-400/15 px-2 py-1 text-sky-400" : "rounded-full px-2 py-1 underline underline-offset-2 transition hover:bg-sky-400/10 hover:text-sky-400"}
+                    type="button"
+                    onClick={() => onOrderKlineOpen(order)}
+                  >
+                    {order.symbol}
+                  </button>
+                </td>
                 <td className={`px-3 py-4 font-black ${getSideClassName(isDarkTheme, order.side)}`}>{formatOrderSide(order.side, strategyCopy)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(order.price)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(order.contractAmount)}</td>
@@ -1975,6 +2381,128 @@ function TradeHistoryTable({
       </table>
     </div>
   );
+}
+
+function RowsPaginationControls({
+  canGoNext,
+  canGoPrevious,
+  isDarkTheme,
+  nextLabel,
+  previousLabel,
+  rangeLabel,
+  onNext,
+  onPrevious,
+}: {
+  canGoNext: boolean;
+  canGoPrevious: boolean;
+  isDarkTheme: boolean;
+  nextLabel: string;
+  previousLabel: string;
+  rangeLabel: string;
+  onNext: () => void;
+  onPrevious: () => void;
+}) {
+  const buttonClassName = isDarkTheme
+    ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-[11px] font-bold text-sky-200 transition hover:border-sky-400/25 hover:bg-sky-400/10 disabled:cursor-not-allowed disabled:opacity-45"
+    : "rounded-2xl border border-[#B7E8FC] bg-white px-3 py-2 text-[11px] font-bold text-[#008DCC] transition hover:bg-[#EAF8FE] disabled:cursor-not-allowed disabled:opacity-45";
+  const rangeClassName = isDarkTheme
+    ? "text-center text-[10px] font-semibold text-slate-500"
+    : "text-center text-[10px] font-semibold text-slate-400";
+
+  return (
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+      <button className={buttonClassName} disabled={!canGoPrevious} type="button" onClick={onPrevious}>
+        {previousLabel}
+      </button>
+      <span className={rangeClassName}>{rangeLabel}</span>
+      <button className={buttonClassName} disabled={!canGoNext} type="button" onClick={onNext}>
+        {nextLabel}
+      </button>
+    </div>
+  );
+}
+
+function createOrderTradeMarkers({
+  orders,
+  selectedSymbol,
+  strategy,
+  strategyCopy,
+}: {
+  orders: readonly TradingFoxOrderItem[];
+  selectedSymbol: MarketSymbol;
+  strategy: PrototypeStrategy;
+  strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
+}): CopyTradingTradeMarker[] {
+  return orders
+    .filter((order) => toCopyTradingMarketSymbol(order.symbol) === selectedSymbol)
+    .map((order) => createOrderTradeMarker(order, strategy, strategyCopy))
+    .filter((marker): marker is CopyTradingTradeMarker => marker !== null)
+    .sort((left, right) => left.sourceTimeMs - right.sourceTimeMs);
+}
+
+function createOrderTradeMarker(
+  order: TradingFoxOrderItem,
+  strategy: PrototypeStrategy,
+  strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"],
+): CopyTradingTradeMarker | null {
+  const sourceTimeMs = Date.parse(order.timestamp);
+  if (!Number.isFinite(sourceTimeMs)) {
+    return null;
+  }
+
+  const price = finiteNumberOrNull(order.price);
+  const side = normalizeOrderTradeMarkerSide(order.side);
+  const actionLabel = formatOrderSide(order.side, strategyCopy);
+  const priceText = price === null ? null : formatDetailNumber(price);
+
+  return {
+    actionLabel,
+    avatarUrl: strategy.avatarUrl || null,
+    detail: `${formatDetailDate(order.timestamp)} · ${formatOrderStatus(order.status, strategyCopy)}`,
+    direction: side === "buy" ? "long" : "short",
+    eventId: order.clientOrderId,
+    eventType: "open",
+    id: `copy-strategy-order:${order.clientOrderId}`,
+    occurredAtText: formatDetailDate(order.timestamp),
+    price,
+    priceText,
+    side,
+    signalId: `copy-strategy-order:${order.clientOrderId}`,
+    sourceTimeMs,
+    symbol: toCopyTradingMarketSymbol(order.symbol),
+    title: priceText ? `${actionLabel} ${order.symbol} @ ${priceText}` : `${actionLabel} ${order.symbol}`,
+    traderId: strategy.traderId,
+    traderName: strategy.traderName,
+  };
+}
+
+function normalizeOrderTradeMarkerSide(value: string): "buy" | "sell" {
+  const normalizedValue = value.trim().toUpperCase();
+  return normalizedValue.includes("SELL") || normalizedValue.includes("SHORT") ? "sell" : "buy";
+}
+
+function resolveInitialTradeHistoryKlineUntilMs(sourceTimeMs: number, interval: KlineInterval): number | undefined {
+  if (!Number.isFinite(sourceTimeMs)) {
+    return undefined;
+  }
+
+  return sourceTimeMs + KLINE_INTERVAL_MS_BY_INTERVAL[interval] * 120;
+}
+
+function createOpenEndedPageRangeLabel(pageOffset: number, visibleCount: number): string {
+  if (visibleCount <= 0) {
+    return "0 / 0";
+  }
+
+  return `${pageOffset + 1}-${pageOffset + visibleCount}`;
+}
+
+function resolveWorkspaceLanguage(copy: WorkspaceCopy): WorkspaceLanguage {
+  return copy === WORKSPACE_COPY["en-US"] ? "en-US" : "zh-CN";
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 
@@ -2286,6 +2814,18 @@ function getModalSectionClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4"
     : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm";
+}
+
+function getErrorPanelClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "whitespace-pre-line break-words rounded-[24px] border border-rose-400/20 bg-rose-400/10 p-4 text-sm leading-6 text-rose-100"
+    : "whitespace-pre-line break-words rounded-[24px] border border-rose-100 bg-rose-50 p-4 text-sm leading-6 text-rose-700";
+}
+
+function getInlineErrorClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "mt-3 whitespace-pre-line break-words text-xs leading-5 text-rose-200"
+    : "mt-3 whitespace-pre-line break-words text-xs leading-5 text-rose-700";
 }
 
 function getExchangeButtonClassName(isDarkTheme: boolean, enabled: boolean, isSelected: boolean): string {
