@@ -15,7 +15,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const session = await requireTradingFoxSession(request);
     const { strategyId } = await context.params;
-    return NextResponse.json(await getTradingFoxCopyStrategyDetail(session, strategyId));
+    return NextResponse.json(await getTradingFoxCopyStrategyDetail(session, strategyId, {
+      orderLimit: request.nextUrl.searchParams.get("orderLimit"),
+      orderOffset: request.nextUrl.searchParams.get("orderOffset"),
+    }));
   } catch (error) {
     return tradingFoxErrorResponse(error);
   }

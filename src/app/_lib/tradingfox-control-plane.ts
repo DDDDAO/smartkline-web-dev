@@ -4,18 +4,22 @@ import type { TelegramAuthSession } from "@/app/_lib/auth/telegram-auth";
 const DEFAULT_TRADINGFOX_CONTROL_PLANE_API_BASE_URL = "https://api.smartkline.com/tradingfox-trader";
 const DEFAULT_MOCK_MARGIN_BALANCE = 10_000;
 const DEFAULT_DEMO_EXCHANGE_PLATFORM = "Mock";
+const TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT = 50;
 type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
+type TradingFoxLiveExchangePlatform = "Binance";
 
 export type TradingFoxConnector = {
   id: number;
   userId: number;
   name: string;
   accountEquity?: number;
+  displayName?: string;
   exchangePlatform: string;
   credentials: Record<string, unknown>;
   isMock: boolean;
   mockMarginBalance?: number;
   positionSideDual: boolean;
+  whitelistIp?: string;
   dead: boolean;
   createdAt: string;
   updatedAt: string;
@@ -116,6 +120,7 @@ export type TradingFoxSignalSource = {
 };
 
 export type TradingFoxOrderHistory = {
+  hasMore?: boolean;
   items: Array<{
     clientOrderId: string;
     symbol: string;
@@ -128,6 +133,9 @@ export type TradingFoxOrderHistory = {
     timestamp: string;
     message?: string;
   }>;
+  limit?: number;
+  offset?: number;
+  returnedCount?: number;
   signalSourceOrders: Array<{
     eventId: string;
     signalSourceId: string;
@@ -158,12 +166,27 @@ export type TradingFoxStrategyDetail = {
   trader: TradingFoxTrader;
 };
 
+export type TradingFoxCopyStrategyDetailInput = {
+  orderLimit?: unknown;
+  orderOffset?: unknown;
+};
+
 export type CreateMockConnectorInput = {
   accountName?: string;
   apiKey?: unknown;
   exchangePlatform?: unknown;
-  mockMarginBalance?: number;
+  mockMarginBalance?: unknown;
   secret?: unknown;
+};
+
+export type CreateConnectorInput = CreateMockConnectorInput & {
+  isMock?: unknown;
+};
+
+export type TradingFoxConnectorWhitelistIP = {
+  userId: number;
+  exchangePlatform: string;
+  whitelistIp: string;
 };
 
 export type CreateCopyStrategyInput = {
@@ -260,13 +283,59 @@ export async function createTradingFoxMockConnector(
       isMock: true,
       mockMarginBalance,
       name: accountName,
-      positionSideDual: true,
+      positionSideDual: defaultDemoPositionSideDual(exchangePlatform),
       userId,
     }),
     method: "POST",
   });
 
   return getTradingFoxAccount(session);
+}
+
+export async function createTradingFoxConnector(
+  session: TelegramAuthSession,
+  input: CreateConnectorInput,
+): Promise<TradingFoxAccountResponse> {
+  if (input.isMock === true) {
+    return createTradingFoxMockConnector(session, input);
+  }
+
+  const userId = tradingFoxUserIdFromSession(session);
+  const exchangePlatform = normalizeLiveExchangePlatform(input.exchangePlatform);
+  if (!exchangePlatform) {
+    throw new TradingFoxApiError("Only Binance live connector is supported.", 400);
+  }
+
+  const accountName = normalizeOptionalText(input.accountName) || defaultLiveAccountName(exchangePlatform);
+  const credentials = createLiveExchangeCredentials(exchangePlatform, input);
+
+  await tradingFoxRequest<TradingFoxConnector>("/v1/exchange-connectors", {
+    body: JSON.stringify({
+      credentials,
+      exchangePlatform,
+      isMock: false,
+      name: accountName,
+      positionSideDual: false,
+      userId,
+    }),
+    method: "POST",
+  });
+
+  return getTradingFoxAccount(session);
+}
+
+export async function getTradingFoxConnectorWhitelistIP(
+  session: TelegramAuthSession,
+  input: { exchangePlatform?: unknown },
+): Promise<TradingFoxConnectorWhitelistIP> {
+  const userId = tradingFoxUserIdFromSession(session);
+  const exchangePlatform = normalizeLiveExchangePlatform(input.exchangePlatform) ?? "Binance";
+  const query = new URLSearchParams({
+    exchangePlatform,
+    userId: String(userId),
+  });
+
+  return tradingFoxRequest<TradingFoxConnectorWhitelistIP>(`/v1/exchange-connectors/whitelist-ip?${query.toString()}`);
 }
 
 export async function createTradingFoxCopyStrategy(
@@ -283,6 +352,8 @@ export async function createTradingFoxCopyStrategy(
   if (!connector) {
     throw new TradingFoxApiError("Add an exchange account before creating a copy strategy.", 409);
   }
+
+  await ensureCopyStrategyConnectorPositionMode(connector);
 
   const signalSourceId = requireText(input.signalSourceId, "signalSourceId");
   const traderName = requireText(input.traderName, "traderName");
@@ -345,6 +416,7 @@ export async function updateTradingFoxCopyStrategyStatus(
   }
 
   if (status === "running") {
+    await ensureCopyStrategyConnectorPositionMode(await getConnectorForUser(trader.exchangeConnectorId, userId));
     await tradingFoxRequest<{ runtimeStatus?: TradingFoxRuntimeStatus }>(`/v1/traders/${traderId}/start`, {
       body: JSON.stringify({ startType: "manual_start" }),
       method: "POST",
@@ -386,9 +458,11 @@ export async function deleteTradingFoxCopyStrategy(
 export async function getTradingFoxCopyStrategyDetail(
   session: TelegramAuthSession,
   strategyId: string,
+  input: TradingFoxCopyStrategyDetailInput = {},
 ): Promise<TradingFoxStrategyDetail> {
   const userId = tradingFoxUserIdFromSession(session);
   const traderId = parsePositiveInteger(strategyId, "strategyId");
+  const orderHistoryPage = normalizeTradingFoxOrderHistoryPage(input);
   const account = await getTradingFoxAccount(session);
   const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
 
@@ -406,14 +480,16 @@ export async function getTradingFoxCopyStrategyDetail(
     settleTradingFoxRequest<{ account: TradingFoxAccountStatus }>(`/v1/traders/${traderId}/account-status`),
     settleTradingFoxRequest<{ items: TradingFoxPosition[] }>(`/v1/traders/${traderId}/positions`),
     settleTradingFoxRequest<{ items: TradingFoxSignalSource[] }>(`/v1/traders/${traderId}/signal-source-positions`),
-    settleTradingFoxRequest<TradingFoxOrderHistory>(`/v1/traders/${traderId}/orders?limit=50`),
+    settleTradingFoxRequest<TradingFoxOrderHistory>(
+      `/v1/traders/${traderId}/orders?limit=${orderHistoryPage.limit}&offset=${orderHistoryPage.offset}`,
+    ),
   ]);
 
   return {
     account: accountStatus.value?.account ?? null,
     accountError: accountStatus.error,
     accountInitialEquity: connector?.mockMarginBalance,
-    orderHistory: orderHistory.value ?? null,
+    orderHistory: orderHistory.value ? applyTradingFoxOrderHistoryPage(orderHistory.value, orderHistoryPage) : null,
     orderHistoryError: orderHistory.error,
     positions: positions.value?.items ?? [],
     positionsError: positions.error,
@@ -441,6 +517,8 @@ export async function syncTradingFoxCopyStrategyPositions(
   if (trader.userId !== userId || trader.traderType !== "COPY_TRADING") {
     throw new TradingFoxApiError("Copy strategy not found.", 404);
   }
+
+  await ensureCopyStrategyConnectorPositionMode(await getConnectorForUser(trader.exchangeConnectorId, userId));
 
   await tradingFoxRequest<{ runtimeStatus?: TradingFoxRuntimeStatus }>(`/v1/traders/${traderId}/sync-positions`, {
     body: JSON.stringify({ ratioPercent }),
@@ -522,9 +600,12 @@ function pickActiveConnectors(connectors: TradingFoxConnector[]): TradingFoxConn
 }
 
 function redactTradingFoxConnectorCredentials(connector: TradingFoxConnector): TradingFoxConnector {
+  const whitelistIp = connector.whitelistIp ?? stringValue(connector.credentials.whitelistIp);
+
   return {
     ...connector,
     credentials: {},
+    whitelistIp: whitelistIp || undefined,
   };
 }
 
@@ -545,8 +626,30 @@ function normalizeDemoExchangePlatform(value: unknown): TradingFoxDemoExchangePl
   return null;
 }
 
+function normalizeLiveExchangePlatform(value: unknown): TradingFoxLiveExchangePlatform | null {
+  const normalizedValue = normalizeOptionalText(value).replace(/[\s_-]/gu, "").toLowerCase();
+  if (normalizedValue === "binance" || normalizedValue === "bn") {
+    return "Binance";
+  }
+
+  return null;
+}
+
 function defaultDemoAccountName(exchangePlatform: TradingFoxDemoExchangePlatform): string {
   return exchangePlatform === "Binance" ? "Binance Demo #1" : "Mock Exchange #1";
+}
+
+function defaultLiveAccountName(exchangePlatform: TradingFoxLiveExchangePlatform): string {
+  return `${exchangePlatform} #1`;
+}
+
+function defaultDemoPositionSideDual(exchangePlatform: TradingFoxDemoExchangePlatform): boolean {
+  /**
+   * Binance Futures demo accounts are usually in one-way mode. Storing those
+   * connectors as hedge mode makes the worker send LONG/SHORT positionSide
+   * params, which Binance rejects with a position-side mismatch.
+   */
+  return exchangePlatform === "Mock";
 }
 
 function createDemoExchangeCredentials(
@@ -561,6 +664,79 @@ function createDemoExchangeCredentials(
     apiKey: requireText(input.apiKey, "apiKey"),
     enableDemoTrading: true,
     secret: requireText(input.secret, "secret"),
+  };
+}
+
+function createLiveExchangeCredentials(
+  exchangePlatform: TradingFoxLiveExchangePlatform,
+  input: CreateConnectorInput,
+): Record<string, unknown> {
+  if (exchangePlatform !== "Binance") {
+    throw new TradingFoxApiError("Only Binance live connector is supported.", 400);
+  }
+
+  return {
+    apiKey: requireText(input.apiKey, "apiKey"),
+    secret: requireText(input.secret, "secret"),
+  };
+}
+
+async function getConnectorForUser(connectorId: number, userId: number): Promise<TradingFoxConnector> {
+  const connector = await tradingFoxRequest<TradingFoxConnector>(`/v1/exchange-connectors/${connectorId}`);
+  if (connector.userId !== userId) {
+    throw new TradingFoxApiError("Exchange connector not found.", 404);
+  }
+  return connector;
+}
+
+async function ensureCopyStrategyConnectorPositionMode(connector: TradingFoxConnector): Promise<void> {
+  if (!isBinanceDemoConnector(connector) || !connector.positionSideDual) {
+    return;
+  }
+
+  try {
+    await tradingFoxRequest<TradingFoxConnector>(`/v1/exchange-connectors/${connector.id}`, {
+      body: JSON.stringify({ positionSideDual: false }),
+      method: "PATCH",
+    });
+  } catch (error) {
+    if (error instanceof TradingFoxApiError) {
+      throw new TradingFoxApiError(
+        `Binance Demo position mode repair failed. Stop existing strategy assignments or recreate the Binance Demo account, then retry. ${error.message}`,
+        error.status,
+      );
+    }
+    throw error;
+  }
+}
+
+function isBinanceDemoConnector(connector: TradingFoxConnector): boolean {
+  return connector.isMock && normalizeDemoExchangePlatform(connector.exchangePlatform) === "Binance";
+}
+
+function normalizeTradingFoxOrderHistoryPage(input: TradingFoxCopyStrategyDetailInput): {
+  limit: number;
+  offset: number;
+} {
+  const normalizedLimit = normalizePositiveInteger(input.orderLimit) ?? TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT;
+  return {
+    limit: Math.min(TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT, normalizedLimit),
+    offset: normalizeNonNegativeInteger(input.orderOffset),
+  };
+}
+
+function applyTradingFoxOrderHistoryPage(
+  orderHistory: TradingFoxOrderHistory,
+  page: { limit: number; offset: number },
+): TradingFoxOrderHistory {
+  const items = orderHistory.items.slice(0, page.limit);
+  return {
+    ...orderHistory,
+    hasMore: orderHistory.hasMore ?? orderHistory.items.length >= page.limit,
+    items,
+    limit: page.limit,
+    offset: page.offset,
+    returnedCount: items.length,
   };
 }
 
