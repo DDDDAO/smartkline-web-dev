@@ -217,7 +217,10 @@ export type CreateMockConnectorInput = {
   apiKey?: unknown;
   exchangePlatform?: unknown;
   mockMarginBalance?: unknown;
+  password?: unknown;
+  privateKey?: unknown;
   secret?: unknown;
+  walletAddress?: unknown;
 };
 
 export type CreateConnectorInput = CreateMockConnectorInput & {
@@ -352,7 +355,7 @@ export async function createTradingFoxConnector(
   }
 
   const accountName = normalizeOptionalText(input.accountName) || defaultLiveAccountName(exchangePlatform);
-  const credentials = createLiveExchangeCredentials(input);
+  const credentials = createLiveExchangeCredentials(exchangePlatform, input);
   const ipAddress = await resolveTradingFoxConnectorIPAddress(userId, input.ipAddress);
 
   await tradingFoxRequest<TradingFoxConnector>("/v1/exchange-connectors", {
@@ -835,11 +838,31 @@ function createDemoExchangeCredentials(
   };
 }
 
-function createLiveExchangeCredentials(input: CreateConnectorInput): Record<string, unknown> {
-  return {
+function createLiveExchangeCredentials(
+  exchangePlatform: TradingFoxLiveExchangePlatform,
+  input: CreateConnectorInput,
+): Record<string, unknown> {
+  if (exchangePlatform === "Hyperliquid") {
+    return {
+      privateKey: requireText(input.privateKey, "privateKey"),
+      walletAddress: requireText(input.walletAddress, "walletAddress"),
+    };
+  }
+
+  const credentials: Record<string, unknown> = {
     apiKey: requireText(input.apiKey, "apiKey"),
     secret: requireText(input.secret, "secret"),
   };
+
+  if (exchangePlatform === "OKX" || exchangePlatform === "Bitget") {
+    credentials.password = requireText(input.password, "password");
+  }
+
+  if (exchangePlatform === "Aster") {
+    credentials.walletAddress = requireText(input.walletAddress, "walletAddress");
+  }
+
+  return credentials;
 }
 
 async function getConnectorForUser(connectorId: number, userId: number): Promise<TradingFoxConnector> {

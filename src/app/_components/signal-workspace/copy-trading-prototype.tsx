@@ -143,19 +143,22 @@ export type PrototypeConnectionSaveInput = {
   ipAddress?: string;
   isMock: boolean;
   mockMarginBalance?: number;
+  password?: string;
+  privateKey?: string;
   secret?: string;
+  walletAddress?: string;
 };
 
 const EXCHANGES = [
-  { id: "binance", apiManagementUrl: "https://www.binance.com/en/my/settings/api-management", connectorExchangePlatform: "Binance", defaultAccountName: "Binance #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api", registrationUrl: "https://accounts.binance.com/register" },
-  { id: "okx", apiManagementUrl: "https://www.okx.com/account/my-api", connectorExchangePlatform: "OKX", defaultAccountName: "OKX #1", enabled: true, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api", registrationUrl: "https://www.okx.com/join" },
-  { id: "hyperliquid", apiManagementUrl: "https://app.hyperliquid.xyz/API", connectorExchangePlatform: "Hyperliquid", defaultAccountName: "Hyperliquid #1", enabled: true, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api", registrationUrl: "https://app.hyperliquid.xyz/" },
-  { id: "aster", apiManagementUrl: "https://www.asterdex.com/en/api-management", connectorExchangePlatform: "Aster", defaultAccountName: "Aster #1", enabled: true, fallback: "AS", logoPath: "/exchanges/aster/brand/icon.png", mode: "api", registrationUrl: "https://www.asterdex.com/en" },
-  { id: "bitget", apiManagementUrl: "https://www.bitget.com/account/newapi", connectorExchangePlatform: "Bitget", defaultAccountName: "Bitget #1", enabled: true, fallback: "BG", logoPath: "/exchanges/bitget/brand/icon.png", mode: "api", registrationUrl: "https://www.bitget.com/register" },
-  { id: "bybit", apiManagementUrl: "https://www.bybit.com/app/user/api-management", connectorExchangePlatform: "Bybit", defaultAccountName: "Bybit #1", enabled: true, fallback: "BY", logoPath: "/exchanges/bybit/brand/icon.png", mode: "api", registrationUrl: "https://www.bybit.com/register" },
-  { id: "gate", apiManagementUrl: "https://www.gate.com/myaccount/apikeys", connectorExchangePlatform: "Gate", defaultAccountName: "Gate #1", enabled: true, fallback: "GT", logoPath: "/exchanges/gate/brand/icon.png", mode: "api", registrationUrl: "https://www.gate.com/signup" },
-  { id: "mockExchange", apiManagementUrl: null, connectorExchangePlatform: "Mock", defaultAccountName: "Mock Exchange #1", enabled: true, fallback: "MX", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo", registrationUrl: null },
-  { id: "binanceDemo", apiManagementUrl: BINANCE_DEMO_API_MANAGEMENT_URL, connectorExchangePlatform: "Binance", defaultAccountName: "Binance Demo #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo", registrationUrl: null },
+  { id: "binance", apiManagementUrl: "https://www.binance.com/en/my/settings/api-management", connectorExchangePlatform: "Binance", defaultAccountName: "Binance #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api", registrationUrl: "https://accounts.binance.com/register", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
+  { id: "okx", apiManagementUrl: "https://www.okx.com/account/my-api", connectorExchangePlatform: "OKX", defaultAccountName: "OKX #1", enabled: true, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api", registrationUrl: "https://www.okx.com/join", requiresApiPassword: true, requiresPrivateKey: false, requiresWalletAddress: false },
+  { id: "hyperliquid", apiManagementUrl: "https://app.hyperliquid.xyz/API", connectorExchangePlatform: "Hyperliquid", defaultAccountName: "Hyperliquid #1", enabled: true, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api", registrationUrl: "https://app.hyperliquid.xyz/", requiresApiPassword: false, requiresPrivateKey: true, requiresWalletAddress: true },
+  { id: "aster", apiManagementUrl: "https://www.asterdex.com/en/api-management", connectorExchangePlatform: "Aster", defaultAccountName: "Aster #1", enabled: true, fallback: "AS", logoPath: "/exchanges/aster/brand/icon.png", mode: "api", registrationUrl: "https://www.asterdex.com/en", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: true },
+  { id: "bitget", apiManagementUrl: "https://www.bitget.com/account/newapi", connectorExchangePlatform: "Bitget", defaultAccountName: "Bitget #1", enabled: true, fallback: "BG", logoPath: "/exchanges/bitget/brand/icon.png", mode: "api", registrationUrl: "https://www.bitget.com/register", requiresApiPassword: true, requiresPrivateKey: false, requiresWalletAddress: false },
+  { id: "bybit", apiManagementUrl: "https://www.bybit.com/app/user/api-management", connectorExchangePlatform: "Bybit", defaultAccountName: "Bybit #1", enabled: true, fallback: "BY", logoPath: "/exchanges/bybit/brand/icon.png", mode: "api", registrationUrl: "https://www.bybit.com/register", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
+  { id: "gate", apiManagementUrl: "https://www.gate.com/myaccount/apikeys", connectorExchangePlatform: "Gate", defaultAccountName: "Gate #1", enabled: true, fallback: "GT", logoPath: "/exchanges/gate/brand/icon.png", mode: "api", registrationUrl: "https://www.gate.com/signup", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
+  { id: "mockExchange", apiManagementUrl: null, connectorExchangePlatform: "Mock", defaultAccountName: "Mock Exchange #1", enabled: true, fallback: "MX", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo", registrationUrl: null, requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
+  { id: "binanceDemo", apiManagementUrl: BINANCE_DEMO_API_MANAGEMENT_URL, connectorExchangePlatform: "Binance", defaultAccountName: "Binance Demo #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo", registrationUrl: null, requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
 ] as const;
 type PrototypeExchange = typeof EXCHANGES[number];
 type PrototypeExchangeId = PrototypeExchange["id"];
@@ -1116,11 +1119,11 @@ function ExchangeResourceLinks({
   }
 
   return (
-    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+    <div className="flex min-w-0 flex-wrap gap-2 xl:ml-auto xl:justify-end">
       {links.map((link) => (
         <a
           key={link.label}
-          className={getExchangeResourceLinkClassName(isDarkTheme)}
+          className={getExchangeResourceLinkClassName(isDarkTheme, link.label === accountCopy.apiSetup.createApi)}
           href={link.href}
           rel="noreferrer"
           target="_blank"
@@ -1147,8 +1150,8 @@ function AccountConnectionExchangeIcon({
   const [failedLogoPath, setFailedLogoPath] = useState<string | null>(null);
   const canShowLogo = Boolean(logoPath) && failedLogoPath !== logoPath;
   const shellClassName = isDarkTheme
-    ? "relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-emerald-400/10 text-xs font-black text-emerald-200"
-    : "relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white text-xs font-black text-emerald-700 shadow-sm";
+    ? "relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-[16px] bg-emerald-400/10 text-xs font-black text-emerald-200"
+    : "relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-[16px] bg-white text-xs font-black text-emerald-700 shadow-sm";
 
   return (
     <div className={shellClassName}>
@@ -1156,7 +1159,7 @@ function AccountConnectionExchangeIcon({
       {canShowLogo ? (
         <Image
           alt=""
-          className="absolute h-8 w-8 rounded-lg object-contain"
+          className="absolute h-8 w-8 rounded-[10px] object-contain"
           height={32}
           loading="lazy"
           src={logoPath}
@@ -1399,6 +1402,9 @@ function ExchangeApiSetupLayer({
   const [mockMarginBalance, setMockMarginBalance] = useState(String(initialMockMarginBalance ?? 10000));
   const [apiKey, setApiKey] = useState("");
   const [secret, setSecret] = useState("");
+  const [apiPassword, setApiPassword] = useState("");
+  const [walletAddress, setWalletAddress] = useState("");
+  const [privateKey, setPrivateKey] = useState("");
   const [hasCopiedIp, setHasCopiedIp] = useState(false);
   const [whitelistIp, setWhitelistIp] = useState("");
   const [whitelistIpError, setWhitelistIpError] = useState("");
@@ -1408,17 +1414,26 @@ function ExchangeApiSetupLayer({
   const isBuiltInMockExchange = selectedExchange.id === "mockExchange";
   const isBinanceDemoExchange = selectedExchange.id === "binanceDemo";
   const isLiveExchange = !isDemoExchange;
-  const requiresApiCredentials = !isBuiltInMockExchange;
+  const isHyperliquidExchange = selectedExchange.id === "hyperliquid";
+  const requiresApiCredentials = !isBuiltInMockExchange && !isHyperliquidExchange;
+  const requiresApiPassword = selectedExchange.requiresApiPassword;
+  const requiresWalletAddress = selectedExchange.requiresWalletAddress;
+  const requiresPrivateKey = selectedExchange.requiresPrivateKey;
   const parsedMockMarginBalance = Number(mockMarginBalance);
   const hasValidMockMarginBalance = Number.isFinite(parsedMockMarginBalance) && parsedMockMarginBalance > 0 && parsedMockMarginBalance <= MOCK_MARGIN_BALANCE_MAX;
-  const hasApiCredentials = apiKey.trim().length > 0 && secret.trim().length > 0;
+  const hasApiCredentials = !requiresApiCredentials || (apiKey.trim().length > 0 && secret.trim().length > 0);
+  const hasApiPassword = !requiresApiPassword || apiPassword.trim().length > 0;
+  const hasWalletAddress = !requiresWalletAddress || walletAddress.trim().length > 0;
+  const hasPrivateKey = !requiresPrivateKey || privateKey.trim().length > 0;
   const hasWhitelistIp = whitelistIp.trim().length > 0;
+  const walletAddressLabel = isHyperliquidExchange ? accountCopy.apiSetup.mainWalletAddress : accountCopy.apiSetup.walletAddress;
+  const walletAddressPlaceholder = isHyperliquidExchange ? accountCopy.apiSetup.mainWalletAddressPlaceholder : accountCopy.apiSetup.walletAddressPlaceholder;
 
   const canSave = isBuiltInMockExchange
     ? accountName.trim().length > 0 && hasValidMockMarginBalance
     : isBinanceDemoExchange
       ? accountName.trim().length > 0 && hasApiCredentials
-      : accountName.trim().length > 0 && hasApiCredentials && hasWhitelistIp && !isWhitelistIpLoading;
+      : accountName.trim().length > 0 && hasApiCredentials && hasApiPassword && hasWalletAddress && hasPrivateKey && hasWhitelistIp && !isWhitelistIpLoading;
 
   useEffect(() => {
     let isMounted = true;
@@ -1485,6 +1500,9 @@ function ExchangeApiSetupLayer({
     setHasCopiedIp(false);
     setApiKey("");
     setSecret("");
+    setApiPassword("");
+    setWalletAddress("");
+    setPrivateKey("");
     setAccountName((currentAccountName) => {
       const trimmedAccountName = currentAccountName.trim();
       if (trimmedAccountName.length > 0 && trimmedAccountName !== previousDefaultAccountName) {
@@ -1506,11 +1524,11 @@ function ExchangeApiSetupLayer({
       <section
         aria-label={accountCopy.apiSetup.title}
         aria-modal="true"
-        className="fixed inset-x-0 bottom-0 z-[115] max-h-[94dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(820px,calc(100dvh-2rem))] sm:max-w-[760px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
+        className="fixed inset-x-0 bottom-0 z-[115] max-h-[94dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(860px,calc(100dvh-2rem))] sm:max-w-[920px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
         role="dialog"
       >
         <form
-          className={isDarkTheme ? "flex max-h-[94dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[min(820px,calc(100dvh-2rem))]" : "flex max-h-[94dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[min(820px,calc(100dvh-2rem))]"}
+          className={isDarkTheme ? "flex max-h-[94dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[min(860px,calc(100dvh-2rem))]" : "flex max-h-[94dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[min(860px,calc(100dvh-2rem))]"}
           onSubmit={(event) => event.preventDefault()}
         >
           <header className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
@@ -1531,7 +1549,7 @@ function ExchangeApiSetupLayer({
           </header>
 
           <div className="kol-scroll-area min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
-            <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+            <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
               <aside className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3"}>
                 <div className={isDarkTheme ? "px-1 pb-2 text-xs font-black text-slate-300" : "px-1 pb-2 text-xs font-black text-slate-700"}>
                   {accountCopy.apiSetup.selectExchange}
@@ -1559,7 +1577,7 @@ function ExchangeApiSetupLayer({
 
               <main className="grid min-w-0 gap-4">
                 <section className={getModalSectionClassName(isDarkTheme)}>
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
                       <ExchangeIcon enabled exchange={selectedExchange} isDarkTheme={isDarkTheme} />
                       <div className="min-w-0">
@@ -1578,8 +1596,8 @@ function ExchangeApiSetupLayer({
                         {accountCopy.apiSetup.noWhitelistIpRequired}
                       </span>
                     ) : null}
+                    <ExchangeResourceLinks accountCopy={accountCopy} exchange={selectedExchange} isDarkTheme={isDarkTheme} />
                   </div>
-                  <ExchangeResourceLinks accountCopy={accountCopy} exchange={selectedExchange} isDarkTheme={isDarkTheme} />
                 </section>
 
                 {isDemoExchange ? (
@@ -1597,6 +1615,9 @@ function ExchangeApiSetupLayer({
                         <>
                           <PrototypeInput autoComplete="off" fieldName="api-key" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiKey} placeholder={accountCopy.apiSetup.apiKeyPlaceholder} value={apiKey} onChange={setApiKey} />
                           <PrototypeInput autoComplete="new-password" fieldName="secret" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.secret} placeholder={accountCopy.apiSetup.secretPlaceholder} type="password" value={secret} onChange={setSecret} />
+                          {requiresApiPassword ? (
+                            <PrototypeInput autoComplete="new-password" fieldName="api-password" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiPassword} placeholder={accountCopy.apiSetup.apiPasswordPlaceholder} type="password" value={apiPassword} onChange={setApiPassword} />
+                          ) : null}
                         </>
                       ) : null}
                       {isBuiltInMockExchange ? (
@@ -1634,7 +1655,7 @@ function ExchangeApiSetupLayer({
                     <section className={getModalSectionClassName(isDarkTheme)}>
                       <div className={getLabelClassName(isDarkTheme)}>{accountCopy.apiSetup.whitelistIp}</div>
                       <div className="mt-3 flex items-stretch gap-3">
-                        <div className={isDarkTheme ? "flex min-h-[72px] min-w-0 flex-1 items-center break-all rounded-[24px] border border-white/[0.085] bg-[#0F141B] px-4 font-mono text-lg font-black tracking-[0.12em] text-slate-100 sm:min-h-20 sm:text-2xl" : "flex min-h-[72px] min-w-0 flex-1 items-center break-all rounded-[24px] border border-[#D5E4EF] bg-[#F8FAFC] px-4 font-mono text-lg font-black tracking-[0.12em] text-slate-900 sm:min-h-20 sm:text-2xl"}>
+                        <div className={isDarkTheme ? "flex min-h-14 min-w-0 flex-1 items-center break-all rounded-[22px] border border-white/[0.085] bg-[#0F141B] px-4 font-mono text-base font-black tracking-[0.08em] text-slate-100 sm:min-h-16 sm:text-lg" : "flex min-h-14 min-w-0 flex-1 items-center break-all rounded-[22px] border border-[#D5E4EF] bg-[#F8FAFC] px-4 font-mono text-base font-black tracking-[0.08em] text-slate-900 sm:min-h-16 sm:text-lg"}>
                           {isWhitelistIpLoading ? accountCopy.apiSetup.whitelistIpLoading : (whitelistIp || accountCopy.apiSetup.whitelistIpUnavailable)}
                         </div>
                         <button
@@ -1662,12 +1683,25 @@ function ExchangeApiSetupLayer({
                     <section className={getModalSectionClassName(isDarkTheme)}>
                       <h3 className="text-base font-black">{accountCopy.api.title}</h3>
                       <p className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
-                        {accountCopy.apiSetup.liveBinanceDescription}
+                        {accountCopy.apiSetup.liveExchangeDescription}
                       </p>
                       <div className="mt-4 grid gap-3">
                         <PrototypeInput autoComplete="off" fieldName="account-name" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.accountName} value={accountName} onChange={setAccountName} />
-                        <PrototypeInput autoComplete="off" fieldName="api-key" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiKey} placeholder={accountCopy.apiSetup.apiKeyPlaceholder} value={apiKey} onChange={setApiKey} />
-                        <PrototypeInput autoComplete="new-password" fieldName="secret" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.secret} placeholder={accountCopy.apiSetup.secretPlaceholder} type="password" value={secret} onChange={setSecret} />
+                        {requiresApiCredentials ? (
+                          <>
+                            <PrototypeInput autoComplete="off" fieldName="api-key" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiKey} placeholder={accountCopy.apiSetup.apiKeyPlaceholder} value={apiKey} onChange={setApiKey} />
+                            <PrototypeInput autoComplete="new-password" fieldName="secret" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.secret} placeholder={accountCopy.apiSetup.secretPlaceholder} type="password" value={secret} onChange={setSecret} />
+                            {requiresApiPassword ? (
+                              <PrototypeInput autoComplete="new-password" fieldName="api-password" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiPassword} placeholder={accountCopy.apiSetup.apiPasswordPlaceholder} type="password" value={apiPassword} onChange={setApiPassword} />
+                            ) : null}
+                          </>
+                        ) : null}
+                        {requiresWalletAddress ? (
+                          <PrototypeInput autoComplete="off" fieldName="wallet-address" isDarkTheme={isDarkTheme} label={walletAddressLabel} placeholder={walletAddressPlaceholder} value={walletAddress} onChange={setWalletAddress} />
+                        ) : null}
+                        {requiresPrivateKey ? (
+                          <PrototypeInput autoComplete="new-password" fieldName="private-key" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.privateKey} placeholder={accountCopy.apiSetup.privateKeyPlaceholder} type="password" value={privateKey} onChange={setPrivateKey} />
+                        ) : null}
                       </div>
                       <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-slate-500" : "mt-3 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.sensitiveNote}</p>
                     </section>
@@ -1691,7 +1725,10 @@ function ExchangeApiSetupLayer({
                 ipAddress: isLiveExchange ? whitelistIp.trim() : undefined,
                 isMock: isDemoExchange,
                 mockMarginBalance: isBuiltInMockExchange && hasValidMockMarginBalance ? parsedMockMarginBalance : undefined,
+                password: requiresApiPassword ? apiPassword.trim() : undefined,
+                privateKey: requiresPrivateKey ? privateKey.trim() : undefined,
                 secret: requiresApiCredentials ? secret.trim() : undefined,
+                walletAddress: requiresWalletAddress ? walletAddress.trim() : undefined,
               })}
             >
               {accountCopy.apiSetup.save}
@@ -3816,8 +3853,8 @@ function ExchangeIcon({ enabled, exchange, isDarkTheme }: { enabled: boolean; ex
   const canShowLogo = exchange.logoPath && failedLogoPath !== exchange.logoPath;
 
   const shellClassName = enabled
-    ? isDarkTheme ? "relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-sky-400/15 text-xs font-black text-sky-200" : "relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#EAF8FE] text-xs font-black text-[#008DCC]"
-    : isDarkTheme ? "relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/[0.06] text-xs font-black text-slate-500" : "relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-slate-100 text-xs font-black text-slate-400";
+    ? isDarkTheme ? "relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-[14px] bg-sky-400/15 text-xs font-black text-sky-200" : "relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-[14px] bg-[#EAF8FE] text-xs font-black text-[#008DCC]"
+    : isDarkTheme ? "relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-[14px] bg-white/[0.06] text-xs font-black text-slate-500" : "relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-[14px] bg-slate-100 text-xs font-black text-slate-400";
 
   return (
     <span className={shellClassName}>
@@ -3825,12 +3862,12 @@ function ExchangeIcon({ enabled, exchange, isDarkTheme }: { enabled: boolean; ex
       {canShowLogo ? (
         <Image
           alt=""
-          className={`absolute h-7 w-7 object-contain transition-opacity ${enabled ? "" : "opacity-55 grayscale"}`}
-          height={28}
+          className={`absolute h-8 w-8 rounded-[10px] object-contain transition-opacity ${enabled ? "" : "opacity-55 grayscale"}`}
+          height={32}
           loading="lazy"
           src={exchange.logoPath}
           unoptimized
-          width={28}
+          width={32}
           onError={() => setFailedLogoPath(exchange.logoPath)}
         />
       ) : null}
@@ -3879,16 +3916,17 @@ function getPrimaryButtonClassName(isDarkTheme: boolean): string {
     : "inline-flex min-h-10 items-center justify-center rounded-2xl bg-[#16AFF5] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#008DCC] disabled:cursor-not-allowed disabled:opacity-45";
 }
 
-function getExchangeResourceLinkClassName(isDarkTheme: boolean): string {
+function getExchangeResourceLinkClassName(isDarkTheme: boolean, isCompact: boolean): string {
+  const sizeClassName = isCompact ? "min-w-[160px] sm:min-w-[180px]" : "min-w-[220px] sm:min-w-[250px]";
   return isDarkTheme
-    ? "flex min-h-14 items-center gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.08] px-3 text-sm font-black text-slate-200 transition hover:border-sky-300/25 hover:bg-white/[0.12] hover:text-slate-50"
-    : "flex min-h-14 items-center gap-3 rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC] px-3 text-sm font-black text-slate-700 shadow-sm transition hover:border-[#BFE7FB] hover:bg-white hover:text-slate-950";
+    ? `flex min-h-12 ${sizeClassName} items-center gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.08] px-3 text-sm font-black text-slate-200 transition hover:border-sky-300/25 hover:bg-white/[0.12] hover:text-slate-50`
+    : `flex min-h-12 ${sizeClassName} items-center gap-3 rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC] px-3 text-sm font-black text-slate-700 shadow-sm transition hover:border-[#BFE7FB] hover:bg-white hover:text-slate-950`;
 }
 
 function getWhitelistCopyButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "grid h-[72px] w-[72px] shrink-0 place-items-center rounded-full border border-white/[0.085] bg-white/[0.04] text-slate-300 transition hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-45 sm:h-20 sm:w-20"
-    : "grid h-[72px] w-[72px] shrink-0 place-items-center rounded-full border border-[#D5E4EF] bg-white text-slate-500 shadow-sm transition hover:border-[#BFE7FB] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-45 sm:h-20 sm:w-20";
+    ? "grid h-14 w-14 shrink-0 place-items-center rounded-full border border-white/[0.085] bg-white/[0.04] text-slate-300 transition hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-45 sm:h-16 sm:w-16"
+    : "grid h-14 w-14 shrink-0 place-items-center rounded-full border border-[#D5E4EF] bg-white text-slate-500 shadow-sm transition hover:border-[#BFE7FB] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-45 sm:h-16 sm:w-16";
 }
 
 function getModalSectionClassName(isDarkTheme: boolean): string {

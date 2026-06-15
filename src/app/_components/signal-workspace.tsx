@@ -1467,7 +1467,10 @@ export function SignalWorkspace() {
           ipAddress: input.ipAddress,
           isMock: input.isMock,
           mockMarginBalance: input.mockMarginBalance,
+          password: input.password,
+          privateKey: input.privateKey,
           secret: input.secret,
+          walletAddress: input.walletAddress,
         }),
         method: "POST",
       });
