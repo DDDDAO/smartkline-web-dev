@@ -3278,8 +3278,33 @@ function getTimestampMs(value: string | undefined): number {
 }
 
 function getSignalSourceOrderQuantity(order: TradingFoxSignalSourceOrderItem): number | null {
-  const quantity = finiteNumberOrNull(order.deltaQty);
-  return quantity === null ? null : Math.abs(quantity);
+  const quantity = firstFiniteNumber(
+    order.deltaQty,
+    order.metadata?.deltaQty,
+    order.metadata?.delta_qty,
+  );
+  if (quantity !== null) {
+    return Math.abs(quantity);
+  }
+
+  const previousQuantity = firstFiniteNumber(
+    order.prevQty,
+    order.metadata?.prevQty,
+    order.metadata?.prev_qty,
+  );
+  const currentQuantity = firstFiniteNumber(
+    order.currQty,
+    order.metadata?.currQty,
+    order.metadata?.curr_qty,
+  );
+  if (previousQuantity !== null && currentQuantity !== null) {
+    return Math.abs(currentQuantity - previousQuantity);
+  }
+  if (currentQuantity !== null) {
+    return Math.abs(currentQuantity);
+  }
+
+  return null;
 }
 
 function getSignalSourceOrderPrice(order: TradingFoxSignalSourceOrderItem): number | null {
@@ -3288,6 +3313,12 @@ function getSignalSourceOrderPrice(order: TradingFoxSignalSourceOrderItem): numb
     order.metadata?.eventPrice,
     order.metadata?.event_price,
     order.metadata?.price,
+    order.metadata?.executedPrice,
+    order.metadata?.executed_price,
+    order.metadata?.orderPrice,
+    order.metadata?.order_price,
+    order.metadata?.avgPrice,
+    order.metadata?.avg_price,
     order.markPrice,
     order.metadata?.markPrice,
     order.metadata?.mark_price,
