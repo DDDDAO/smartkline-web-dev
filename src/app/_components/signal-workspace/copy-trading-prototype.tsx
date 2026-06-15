@@ -2012,7 +2012,7 @@ function StrategyDetailView({
                 interval={tradeKlineInterval}
                 isDarkTheme={isDarkTheme}
                 row={selectedTradeKlineRow}
-                rows={visibleTradeHistoryRows}
+                rows={allTradeHistoryRows}
                 strategy={liveStrategy}
                 onIntervalChange={setTradeKlineInterval}
               />
@@ -2137,6 +2137,12 @@ type TradeHistoryRow = {
   symbol: string;
   timestamp: string;
   tradeLog: TradingFoxTradeLogItem | null;
+};
+
+type TradeHistorySymbolOption = {
+  count: number;
+  label: string;
+  symbol: MarketSymbol;
 };
 
 type PositionSummaryModel = {
@@ -2884,12 +2890,22 @@ function TradeHistoryKlinePanel({
     key: "",
   });
   const [isLoadingOlderHistory, setIsLoadingOlderHistory] = useState(false);
-  const symbol = toCopyTradingMarketSymbol(row.symbol);
-  const chartKey = `${row.id}:${symbol}:${interval}`;
+  const rowSymbol = toCopyTradingMarketSymbol(row.symbol);
+  const [selectedSymbol, setSelectedSymbol] = useState<MarketSymbol>(rowSymbol);
+  const symbolOptions = useMemo(() => createTradeHistorySymbolOptions(rows), [rows]);
+  const selectedSymbolOption = symbolOptions.find((option) => option.symbol === selectedSymbol) ?? null;
+  const symbol = selectedSymbolOption?.symbol ?? symbolOptions[0]?.symbol ?? rowSymbol;
+  const anchorRow = rowSymbol === symbol ? row : findTradeHistoryRowForSymbol(rows, symbol) ?? row;
+  const chartKey = `${anchorRow.id}:${symbol}:${interval}`;
   const candles = candleState.key === chartKey ? candleState.candles : EMPTY_MARKET_CANDLES;
   const canLoadOlderHistory = candleState.key === chartKey ? candleState.canLoadOlderHistory : false;
   const loadError = candleState.key === chartKey ? candleState.error : "";
   const language = resolveWorkspaceLanguage(copy);
+
+  useEffect(() => {
+    setSelectedSymbol(rowSymbol);
+  }, [rowSymbol]);
+
   const tradeMarkers = useMemo(
     () => createTradeHistoryTradeMarkers({
       rows,
@@ -2900,21 +2916,21 @@ function TradeHistoryKlinePanel({
     [copy.workspace.accountCenter.strategy, rows, strategy, symbol],
   );
   const focusTimeRequest = useMemo<ChartTimeFocusRequest | null>(() => {
-    const sourceTimeMs = Date.parse(row.timestamp);
+    const sourceTimeMs = Date.parse(anchorRow.timestamp);
     if (!Number.isFinite(sourceTimeMs)) {
       return null;
     }
 
     return {
-      key: `copy-strategy-row:${row.id}:${symbol}:${interval}:${sourceTimeMs}`,
+      key: `copy-strategy-row:${anchorRow.id}:${symbol}:${interval}:${sourceTimeMs}`,
       sourceTimeMs,
     };
-  }, [interval, row.id, row.timestamp, symbol]);
+  }, [anchorRow.id, anchorRow.timestamp, interval, symbol]);
 
   useEffect(() => {
     let isActive = true;
     const abortController = new AbortController();
-    const sourceTimeMs = Date.parse(row.timestamp);
+    const sourceTimeMs = Date.parse(anchorRow.timestamp);
     const requestKey = chartKey;
 
     fetchHistoricalCandles(symbol, interval, {
@@ -2949,7 +2965,7 @@ function TradeHistoryKlinePanel({
       isActive = false;
       abortController.abort();
     };
-  }, [chartKey, interval, row.timestamp, symbol]);
+  }, [anchorRow.timestamp, chartKey, interval, symbol]);
 
   const loadOlderHistory = useCallback(async () => {
     if (isLoadingOlderHistory || !canLoadOlderHistory) {
@@ -2994,10 +3010,18 @@ function TradeHistoryKlinePanel({
   return (
     <div className={isDarkTheme ? "mt-3 overflow-hidden rounded-3xl border border-white/[0.075] bg-[#181A20]" : "mt-3 overflow-hidden rounded-3xl border border-[#DDE8F0] bg-white"}>
       <div className={isDarkTheme ? "flex flex-col gap-3 border-b border-white/[0.075] bg-white/[0.035] px-4 py-3 sm:flex-row sm:items-center sm:justify-between" : "flex flex-col gap-3 border-b border-[#E5EAF0] bg-[#F8FAFC] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"}>
-        <div>
-          <div className="text-sm font-black">{copy.workspace.accountCenter.strategy.tradeHistoryKlineTitle}</div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <TradeHistoryKlineSymbolSelect
+              isDarkTheme={isDarkTheme}
+              options={symbolOptions}
+              value={symbol}
+              onChange={setSelectedSymbol}
+            />
+            <div className="text-sm font-black">{copy.workspace.accountCenter.strategy.tradeHistoryKlineTitle}</div>
+          </div>
           <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
-            {symbol} · {formatDetailDate(row.timestamp)}
+            {symbol} · {formatDetailDate(anchorRow.timestamp)}
           </div>
         </div>
         <div className={isDarkTheme ? "inline-flex w-max items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5" : "inline-flex w-max items-center gap-1 rounded-full border border-[#E5EAF0] bg-white p-0.5"}>
@@ -3048,6 +3072,74 @@ function TradeHistoryKlinePanel({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function TradeHistoryKlineSymbolSelect({
+  isDarkTheme,
+  options,
+  value,
+  onChange,
+}: {
+  isDarkTheme: boolean;
+  options: readonly TradeHistorySymbolOption[];
+  value: MarketSymbol;
+  onChange: (value: MarketSymbol) => void;
+}) {
+  const selectedOption = options.find((option) => option.symbol === value) ?? options[0] ?? {
+    count: 0,
+    label: value,
+    symbol: value,
+  };
+  const triggerClassName = isDarkTheme
+    ? "inline-flex h-8 min-w-28 items-center justify-between gap-2 rounded-full border border-white/[0.075] bg-white/[0.055] px-3 text-xs font-black text-slate-100 outline-none transition hover:bg-white/[0.08] focus:border-sky-400/45 focus:ring-2 focus:ring-sky-400/10"
+    : "inline-flex h-8 min-w-28 items-center justify-between gap-2 rounded-full border border-[#D5E4EF] bg-white px-3 text-xs font-black text-slate-950 shadow-sm outline-none transition hover:bg-[#F8FAFC] focus:border-[#7DBEFF] focus:ring-2 focus:ring-[#16AFF5]/10";
+  const pillClassName = isDarkTheme
+    ? "inline-flex h-8 min-w-28 items-center rounded-full border border-white/[0.075] bg-white/[0.055] px-3 text-xs font-black text-slate-100"
+    : "inline-flex h-8 min-w-28 items-center rounded-full border border-[#D5E4EF] bg-white px-3 text-xs font-black text-slate-950 shadow-sm";
+
+  if (options.length <= 1) {
+    return <span className={pillClassName}>{selectedOption.label}</span>;
+  }
+
+  return (
+    <SelectPrimitive.Root value={value} onValueChange={onChange}>
+      <SelectPrimitive.Trigger aria-label="Trade history symbol" className={triggerClassName}>
+        <SelectPrimitive.Value>{selectedOption.label}</SelectPrimitive.Value>
+        <SelectPrimitive.Icon asChild>
+          <span aria-hidden="true" className={isDarkTheme ? "text-[10px] text-slate-500" : "text-[10px] text-slate-400"}>⌄</span>
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          className={isDarkTheme
+            ? "z-[140] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
+            : "z-[140] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
+          position="popper"
+          sideOffset={8}
+        >
+          <SelectPrimitive.Viewport className="grid gap-1">
+            {options.map((option) => (
+              <SelectPrimitive.Item
+                key={option.symbol}
+                className={isDarkTheme
+                  ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-sky-400/10 data-[state=checked]:text-sky-100"
+                  : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold outline-none transition data-[highlighted]:bg-[#F8FAFC] data-[state=checked]:bg-[#EAF8FE] data-[state=checked]:text-[#007DB8]"}
+                value={option.symbol}
+              >
+                <SelectPrimitive.ItemText asChild>
+                  <span>{option.label}</span>
+                </SelectPrimitive.ItemText>
+                <span className={isDarkTheme ? "text-[10px] text-slate-500" : "text-[10px] text-slate-400"}>
+                  {option.count}
+                </span>
+                <SelectPrimitive.ItemIndicator className="text-xs font-black">✓</SelectPrimitive.ItemIndicator>
+              </SelectPrimitive.Item>
+            ))}
+          </SelectPrimitive.Viewport>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
   );
 }
 
@@ -3218,6 +3310,34 @@ function RowsPaginationControls({
       </button>
     </div>
   );
+}
+
+function createTradeHistorySymbolOptions(rows: readonly TradeHistoryRow[]): TradeHistorySymbolOption[] {
+  const options = new Map<MarketSymbol, TradeHistorySymbolOption>();
+  for (const row of rows) {
+    const rawSymbol = row.symbol.trim();
+    if (!rawSymbol || rawSymbol === "--") {
+      continue;
+    }
+
+    const symbol = toCopyTradingMarketSymbol(rawSymbol);
+    const existingOption = options.get(symbol);
+    if (existingOption) {
+      existingOption.count += 1;
+      continue;
+    }
+
+    options.set(symbol, {
+      count: 1,
+      label: rawSymbol,
+      symbol,
+    });
+  }
+  return Array.from(options.values());
+}
+
+function findTradeHistoryRowForSymbol(rows: readonly TradeHistoryRow[], symbol: MarketSymbol): TradeHistoryRow | null {
+  return rows.find((row) => toCopyTradingMarketSymbol(row.symbol) === symbol) ?? null;
 }
 
 function createTradeHistoryTradeMarkers({
