@@ -41,6 +41,7 @@ export type PrototypeApiConnection = {
 };
 
 export type PrototypeStrategyStatus = "running" | "paused" | "stopped";
+export type PrototypeStrategyType = "copyTrading" | "mario";
 
 export type PrototypeStrategy = {
   apiAccountName: string;
@@ -49,20 +50,35 @@ export type PrototypeStrategy = {
   avatarUrl: string;
   createdAtLabel: string;
   eventsCount: number;
+  followRatioPercent?: number;
   id: string;
   platform: string;
   positionsCount: number;
   status: PrototypeStrategyStatus;
   stopLossPercent: number;
+  strategyType?: PrototypeStrategyType;
   takeProfitPercent: number;
   traderId: string;
   traderName: string;
   unrealizedPnl?: number;
 };
 
+export type PrototypeStrategyCreateInput = {
+  exchangeConnectorId: number;
+  strategyType: "mario";
+} | {
+  exchangeConnectorId: number;
+  followRatioPercent: 100;
+  stopLossPercent: number;
+  strategyType: "copyTrading";
+  takeProfitPercent: number;
+  target: CopyTradingPrototypeTarget;
+};
+
 type AccountCenterPrototypeProps = {
   apiConnection: PrototypeApiConnection;
   apiConnections: readonly PrototypeApiConnection[];
+  availableSignalSources: readonly CopyTradingPrototypeTarget[];
   copy: WorkspaceCopy;
   isApiSetupOpen: boolean;
   isAuthLoading: boolean;
@@ -77,6 +93,7 @@ type AccountCenterPrototypeProps = {
   onConnectionSave: (input: PrototypeConnectionSaveInput) => void;
   onLogin: () => void;
   onLogout: () => void;
+  onStrategyCreate: (input: PrototypeStrategyCreateInput) => Promise<void> | void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 };
@@ -144,6 +161,7 @@ type PrototypeExchangeId = PrototypeExchange["id"];
 export function AccountCenterPrototype({
   apiConnection,
   apiConnections,
+  availableSignalSources,
   copy,
   isApiSetupOpen,
   isAuthLoading,
@@ -158,15 +176,23 @@ export function AccountCenterPrototype({
   onConnectionSave,
   onLogin,
   onLogout,
+  onStrategyCreate,
   onStrategyDelete,
   onStrategyStatusChange,
 }: AccountCenterPrototypeProps) {
   const accountCopy = copy.workspace.accountCenter;
   const isDrawerModal = !isApiSetupOpen && !isCoveredByModal;
   const hasApiConnections = apiConnections.length > 0;
+  const [isStrategyCreateOpen, setIsStrategyCreateOpen] = useState(false);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
-
+  const openStrategyDetail = (strategy: PrototypeStrategy) => {
+    if (getPrototypeStrategyType(strategy) === "mario") {
+      window.location.assign("/mario-dashboard");
+      return;
+    }
+    setSelectedStrategyId(strategy.id);
+  };
 
   return (
     <>
@@ -277,8 +303,13 @@ export function AccountCenterPrototype({
 
                   <section className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
                     <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-sm font-black">{accountCopy.strategy.title}</h3>
-                      <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{strategies.length}</span>
+                      <div>
+                        <h3 className="text-sm font-black">{accountCopy.strategy.title}</h3>
+                        <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-400"}>{accountCopy.strategyCreate.count(strategies.length)}</div>
+                      </div>
+                      <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={() => setIsStrategyCreateOpen(true)}>
+                        {accountCopy.strategyCreate.action}
+                      </button>
                     </div>
                     <div className="mt-3 grid gap-3">
                       {strategies.length > 0 ? strategies.map((strategy) => (
@@ -287,7 +318,7 @@ export function AccountCenterPrototype({
                           copy={copy}
                           isDarkTheme={isDarkTheme}
                           strategy={strategy}
-                          onOpenDetail={setSelectedStrategyId}
+                          onOpenDetail={openStrategyDetail}
                           onStrategyDelete={onStrategyDelete}
                           onStrategyStatusChange={onStrategyStatusChange}
                         />
@@ -323,6 +354,17 @@ export function AccountCenterPrototype({
           }}
         />
       ) : null}
+      {isStrategyCreateOpen ? (
+        <StrategyCreateLayer
+          apiConnections={apiConnections}
+          availableSignalSources={availableSignalSources}
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          strategies={strategies}
+          onClose={() => setIsStrategyCreateOpen(false)}
+          onCreate={onStrategyCreate}
+        />
+      ) : null}
     </>
   );
 }
@@ -330,6 +372,7 @@ export function AccountCenterPrototype({
 export function AccountManagementPanel({
   apiConnection,
   apiConnections,
+  availableSignalSources,
   copy,
   isApiSetupOpen,
   isAuthLoading,
@@ -341,11 +384,13 @@ export function AccountManagementPanel({
   onConnectionSave,
   onLogin,
   onLogout,
+  onStrategyCreate,
   onStrategyDelete,
   onStrategyStatusChange,
 }: {
   apiConnection: PrototypeApiConnection;
   apiConnections: readonly PrototypeApiConnection[];
+  availableSignalSources: readonly CopyTradingPrototypeTarget[];
   copy: WorkspaceCopy;
   isApiSetupOpen: boolean;
   isAuthLoading: boolean;
@@ -357,13 +402,22 @@ export function AccountManagementPanel({
   onConnectionSave: (input: PrototypeConnectionSaveInput) => void;
   onLogin: () => void;
   onLogout: () => void;
+  onStrategyCreate: (input: PrototypeStrategyCreateInput) => Promise<void> | void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
   const accountCopy = copy.workspace.accountCenter;
   const hasApiConnections = apiConnections.length > 0;
+  const [isStrategyCreateOpen, setIsStrategyCreateOpen] = useState(false);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
+  const openStrategyDetail = (strategy: PrototypeStrategy) => {
+    if (getPrototypeStrategyType(strategy) === "mario") {
+      window.location.assign("/mario-dashboard");
+      return;
+    }
+    setSelectedStrategyId(strategy.id);
+  };
 
   return (
     <section className="kol-scroll-area h-full min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5 lg:px-6 lg:py-6">
@@ -444,8 +498,13 @@ export function AccountManagementPanel({
 
             <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-base font-black">{accountCopy.strategy.title}</h2>
-                <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{strategies.length}</span>
+                <div>
+                  <h2 className="text-base font-black">{accountCopy.strategy.title}</h2>
+                  <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-400"}>{accountCopy.strategyCreate.count(strategies.length)}</div>
+                </div>
+                <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={() => setIsStrategyCreateOpen(true)}>
+                  {accountCopy.strategyCreate.action}
+                </button>
               </div>
               <div className="mt-3 grid gap-3">
                 {strategies.length > 0 ? strategies.map((strategy) => (
@@ -454,7 +513,7 @@ export function AccountManagementPanel({
                     copy={copy}
                     isDarkTheme={isDarkTheme}
                     strategy={strategy}
-                    onOpenDetail={setSelectedStrategyId}
+                    onOpenDetail={openStrategyDetail}
                     onStrategyDelete={onStrategyDelete}
                     onStrategyStatusChange={onStrategyStatusChange}
                   />
@@ -481,6 +540,17 @@ export function AccountManagementPanel({
             onConnectionSave(input);
             onApiSetupOpenChange(false);
           }}
+        />
+      ) : null}
+      {isStrategyCreateOpen ? (
+        <StrategyCreateLayer
+          apiConnections={apiConnections}
+          availableSignalSources={availableSignalSources}
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          strategies={strategies}
+          onClose={() => setIsStrategyCreateOpen(false)}
+          onCreate={onStrategyCreate}
         />
       ) : null}
     </section>
@@ -630,6 +700,318 @@ export function CopyTradingPrototypeModal({
         </div>
       </section>
     </>
+  );
+}
+
+function StrategyCreateLayer({
+  apiConnections,
+  availableSignalSources,
+  copy,
+  isDarkTheme,
+  strategies,
+  onClose,
+  onCreate,
+}: {
+  apiConnections: readonly PrototypeApiConnection[];
+  availableSignalSources: readonly CopyTradingPrototypeTarget[];
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  strategies: readonly PrototypeStrategy[];
+  onClose: () => void;
+  onCreate: (input: PrototypeStrategyCreateInput) => Promise<void> | void;
+}) {
+  const accountCopy = copy.workspace.accountCenter;
+  const strategyCreateCopy = accountCopy.strategyCreate;
+  const [strategyType, setStrategyType] = useState<PrototypeStrategyType>("copyTrading");
+  const [selectedConnectorId, setSelectedConnectorId] = useState("");
+  const [selectedSignalSourceId, setSelectedSignalSourceId] = useState("");
+  const [takeProfitPercent, setTakeProfitPercent] = useState("20");
+  const [stopLossPercent, setStopLossPercent] = useState("10");
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const occupiedConnectorIds = useMemo(() => new Set(strategies
+    .filter((strategy) => strategy.status !== "stopped")
+    .map((strategy) => strategy.exchangeConnectorId)), [strategies]);
+  const availableApiConnections = useMemo(() => apiConnections.filter((connection) =>
+    connection.status === "connected" && !occupiedConnectorIds.has(connection.id),
+  ), [apiConnections, occupiedConnectorIds]);
+  const selectedApiConnection = availableApiConnections.find((connection) => String(connection.id) === selectedConnectorId) ?? availableApiConnections[0] ?? null;
+  const selectedTradingAccountId = selectedApiConnection ? String(selectedApiConnection.id) : "";
+  const selectedSignalSource = availableSignalSources.find((target) => target.trader.trader_id === selectedSignalSourceId) ?? availableSignalSources[0] ?? null;
+  const parsedTakeProfit = Number(takeProfitPercent);
+  const parsedStopLoss = Number(stopLossPercent);
+  const canCreate = selectedApiConnection !== null
+    && !isSubmitting
+    && (strategyType === "mario" || (
+      selectedSignalSource !== null
+      && Number.isFinite(parsedTakeProfit)
+      && Number.isFinite(parsedStopLoss)
+      && parsedTakeProfit > 0
+      && parsedStopLoss > 0
+    ));
+
+
+  const submitStrategy = async () => {
+    if (!canCreate || !selectedApiConnection) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError("");
+    try {
+      if (strategyType === "mario") {
+        await onCreate({
+          exchangeConnectorId: selectedApiConnection.id,
+          strategyType: "mario",
+        });
+      } else if (selectedSignalSource) {
+        await onCreate({
+          exchangeConnectorId: selectedApiConnection.id,
+          followRatioPercent: 100,
+          stopLossPercent: parsedStopLoss,
+          strategyType: "copyTrading",
+          takeProfitPercent: parsedTakeProfit,
+          target: selectedSignalSource,
+        });
+      }
+      onClose();
+    } catch (error) {
+      setSubmitError(getTradingFoxErrorMessage(error, copy));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        aria-label={copy.common.close}
+        className={isDarkTheme ? "fixed inset-0 z-[95] bg-black/52 backdrop-blur-[4px]" : "fixed inset-0 z-[95] bg-slate-950/24 backdrop-blur-[4px]"}
+        type="button"
+        onClick={onClose}
+      />
+      <section
+        aria-label={strategyCreateCopy.modalTitle}
+        aria-modal="true"
+        className="fixed inset-x-0 bottom-0 z-[100] max-h-[92dvh] overflow-hidden rounded-t-[28px] shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(760px,calc(100dvh-2rem))] sm:max-w-[560px] sm:-translate-y-1/2 sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"
+        role="dialog"
+      >
+        <div className={isDarkTheme ? "flex max-h-[92dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[min(760px,calc(100dvh-2rem))]" : "flex max-h-[92dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[min(760px,calc(100dvh-2rem))]"}>
+          <div className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>{strategyCreateCopy.modalEyebrow}</div>
+                <h2 className="mt-2 text-xl font-black tracking-tight">{strategyCreateCopy.modalTitle}</h2>
+                <p className={isDarkTheme ? "mt-2 text-sm leading-5 text-slate-400" : "mt-2 text-sm leading-5 text-slate-600"}>{strategyCreateCopy.modalDescription}</p>
+              </div>
+              <button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} type="button" onClick={onClose}>
+                <span aria-hidden="true" className="text-lg leading-none">×</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+            <section className="grid gap-3 sm:grid-cols-2">
+              <StrategyTypeOptionButton
+                description={strategyCreateCopy.copyTradingDescription}
+                isDarkTheme={isDarkTheme}
+                isSelected={strategyType === "copyTrading"}
+                title={strategyCreateCopy.copyTradingTitle}
+                onSelect={() => setStrategyType("copyTrading")}
+              />
+              <StrategyTypeOptionButton
+                description={strategyCreateCopy.marioDescription}
+                isDarkTheme={isDarkTheme}
+                isSelected={strategyType === "mario"}
+                title={strategyCreateCopy.marioTitle}
+                onSelect={() => setStrategyType("mario")}
+              />
+            </section>
+
+            <label className="block">
+              <span className={getLabelClassName(isDarkTheme)}>{strategyCreateCopy.apiSelect}</span>
+              {availableApiConnections.length > 0 ? (
+                <TradingAccountSelect
+                  accountCopy={accountCopy}
+                  connections={availableApiConnections}
+                  isDarkTheme={isDarkTheme}
+                  value={selectedTradingAccountId}
+                  onChange={setSelectedConnectorId}
+                />
+              ) : (
+                <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold" : "mt-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold"}>
+                  {apiConnections.length > 0 ? strategyCreateCopy.noAvailableAccount : accountCopy.copyTrading.apiRequired}
+                </div>
+              )}
+            </label>
+
+            {strategyType === "copyTrading" ? (
+              <>
+                <label className="block">
+                  <span className={getLabelClassName(isDarkTheme)}>{strategyCreateCopy.signalSourceSelect}</span>
+                  {availableSignalSources.length > 0 ? (
+                    <SignalSourceSelect
+                      copy={copy}
+                      isDarkTheme={isDarkTheme}
+                      sources={availableSignalSources}
+                      value={selectedSignalSource?.trader.trader_id ?? ""}
+                      onChange={setSelectedSignalSourceId}
+                    />
+                  ) : (
+                    <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold" : "mt-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold"}>
+                      {strategyCreateCopy.signalSourceEmpty}
+                    </div>
+                  )}
+                </label>
+                <div className={isDarkTheme ? "rounded-2xl border border-sky-300/15 bg-sky-300/[0.07] px-3 py-3" : "rounded-2xl border border-sky-100 bg-sky-50 px-3 py-3"}>
+                  <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.14em] text-sky-200/70" : "text-[11px] font-black uppercase tracking-[0.14em] text-sky-700/70"}>{strategyCreateCopy.followRatioLabel}</div>
+                  <div className={isDarkTheme ? "mt-1 text-sm font-black text-sky-100" : "mt-1 text-sm font-black text-sky-800"}>{strategyCreateCopy.followRatioValue}</div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <PercentInput
+                    copyLabel={accountCopy.copyTrading.takeProfit}
+                    fieldName="create-take-profit"
+                    isDarkTheme={isDarkTheme}
+                    placeholder={accountCopy.copyTrading.takeProfitPlaceholder}
+                    value={takeProfitPercent}
+                    onChange={setTakeProfitPercent}
+                  />
+                  <PercentInput
+                    copyLabel={accountCopy.copyTrading.stopLoss}
+                    fieldName="create-stop-loss"
+                    isDarkTheme={isDarkTheme}
+                    placeholder={accountCopy.copyTrading.stopLossPlaceholder}
+                    value={stopLossPercent}
+                    onChange={setStopLossPercent}
+                  />
+                </div>
+                <div className={isDarkTheme ? "rounded-2xl border border-amber-300/15 bg-amber-300/[0.07] px-3 py-3 text-xs leading-5 text-amber-100/80" : "rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800"}>
+                  {strategyCreateCopy.copyTradingRiskNote}
+                </div>
+              </>
+            ) : (
+              <div className={isDarkTheme ? "rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.07] px-3 py-3 text-xs leading-5 text-emerald-100/80" : "rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800"}>
+                {strategyCreateCopy.marioDashboardHint}
+              </div>
+            )}
+
+            {submitError ? <p className={getInlineErrorClassName(isDarkTheme)}>{submitError}</p> : null}
+          </div>
+
+          <div className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5"}>
+            <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onClose}>{copy.common.close}</button>
+            <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canCreate} type="button" onClick={() => void submitStrategy()}>
+              {isSubmitting ? strategyCreateCopy.starting : strategyCreateCopy.start}
+            </button>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function StrategyTypeOptionButton({
+  description,
+  isDarkTheme,
+  isSelected,
+  title,
+  onSelect,
+}: {
+  description: string;
+  isDarkTheme: boolean;
+  isSelected: boolean;
+  title: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      aria-pressed={isSelected}
+      className={getStrategyTypeOptionClassName(isDarkTheme, isSelected)}
+      type="button"
+      onClick={onSelect}
+    >
+      <span className="block text-sm font-black">{title}</span>
+      <span className={isDarkTheme ? "mt-2 block text-xs leading-5 text-slate-400" : "mt-2 block text-xs leading-5 text-slate-600"}>{description}</span>
+    </button>
+  );
+}
+
+function SignalSourceSelect({
+  copy,
+  isDarkTheme,
+  sources,
+  value,
+  onChange,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  sources: readonly CopyTradingPrototypeTarget[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const selectedSource = sources.find((source) => source.trader.trader_id === value) ?? sources[0];
+
+  return (
+    <SelectPrimitive.Root value={value} onValueChange={onChange}>
+      <SelectPrimitive.Trigger
+        className={isDarkTheme
+          ? "mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-left text-sm font-bold text-slate-100 outline-none transition hover:bg-white/[0.055] focus:border-sky-400/45 focus:ring-2 focus:ring-sky-400/10 data-[placeholder]:text-slate-500"
+          : "mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-[#D5E4EF] bg-white px-3 py-2 text-left text-sm font-bold text-slate-950 shadow-sm outline-none transition hover:bg-[#F8FAFC] focus:border-[#7DBEFF] focus:ring-2 focus:ring-[#16AFF5]/10 data-[placeholder]:text-slate-400"}
+      >
+        <SignalSourceOptionContent copy={copy} isDarkTheme={isDarkTheme} target={selectedSource} />
+        <SelectPrimitive.Icon asChild>
+          <span aria-hidden="true" className={isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-400"}>⌄</span>
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          className={isDarkTheme
+            ? "z-[130] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
+            : "z-[130] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
+          position="popper"
+          sideOffset={8}
+        >
+          <SelectPrimitive.Viewport className="grid gap-1">
+            {sources.map((target) => (
+              <SelectPrimitive.Item
+                key={target.trader.trader_id}
+                className={isDarkTheme
+                  ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-sky-400/10 data-[state=checked]:text-sky-100"
+                  : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-[#F8FAFC] data-[state=checked]:bg-[#EAF8FE] data-[state=checked]:text-[#007DB8]"}
+                value={target.trader.trader_id}
+              >
+                <SelectPrimitive.ItemText asChild>
+                  <SignalSourceOptionContent copy={copy} isDarkTheme={isDarkTheme} target={target} />
+                </SelectPrimitive.ItemText>
+                <SelectPrimitive.ItemIndicator className="text-xs font-black">✓</SelectPrimitive.ItemIndicator>
+              </SelectPrimitive.Item>
+            ))}
+          </SelectPrimitive.Viewport>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
+  );
+}
+
+function SignalSourceOptionContent({
+  copy,
+  isDarkTheme,
+  target,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  target: CopyTradingPrototypeTarget;
+}) {
+  return (
+    <span className="flex min-w-0 flex-1 items-center gap-2">
+      <SourceAvatar isDarkTheme={isDarkTheme} name={target.trader.name} url={target.trader.avatar} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-black">{target.trader.name}</span>
+        <span className={isDarkTheme ? "mt-0.5 block truncate text-xs font-semibold text-slate-500" : "mt-0.5 block truncate text-xs font-semibold text-slate-500"}>
+          {target.trader.platform} · {copy.workspace.topSignals.currentPositions}: {target.positionsCount} · {copy.workspace.topSignals.tradeHistory}: {target.eventsCount}
+        </span>
+      </span>
+    </span>
   );
 }
 
@@ -1278,19 +1660,22 @@ function PrototypeStrategyCard({
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
   strategy: PrototypeStrategy;
-  onOpenDetail: (strategyId: string) => void;
+  onOpenDetail: (strategy: PrototypeStrategy) => void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
-  const strategyCopy = copy.workspace.accountCenter.strategy;
+  const accountCopy = copy.workspace.accountCenter;
+  const strategyCopy = accountCopy.strategy;
+  const strategyType = getPrototypeStrategyType(strategy);
   const statusLabel = getStrategyStatusLabel(strategyCopy, strategy.status);
+  const typeLabel = strategyType === "mario" ? accountCopy.strategyCreate.marioTypeChip : accountCopy.strategyCreate.copyTradingTypeChip;
 
   return (
     <article className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] p-3" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
       <button
         className="block w-full text-left"
         type="button"
-        onClick={() => onOpenDetail(strategy.id)}
+        onClick={() => onOpenDetail(strategy)}
       >
       <div className="flex items-start gap-3">
         <SourceAvatar isDarkTheme={isDarkTheme} name={strategy.traderName} url={strategy.avatarUrl} />
@@ -1298,6 +1683,7 @@ function PrototypeStrategyCard({
           <div className="flex min-w-0 items-center gap-2">
             <h4 className="truncate text-sm font-black">{strategy.traderName}</h4>
             <span className={getStrategyStatusClassName(isDarkTheme, strategy.status)}>{statusLabel}</span>
+            <span className={isDarkTheme ? "shrink-0 rounded-full bg-white/[0.055] px-2 py-0.5 text-[10px] font-black text-slate-300" : "shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-500"}>{typeLabel}</span>
           </div>
           <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
             {strategy.platform} · {strategy.apiAccountName}
@@ -1311,7 +1697,7 @@ function PrototypeStrategyCard({
         <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.unrealizedPnl} value={formatSignedDetailCurrency(strategy.unrealizedPnl)} valueClassName={getPnlClassName(isDarkTheme, numberOrZero(strategy.unrealizedPnl))} />
       </div>
       <p className={isDarkTheme ? "mt-3 text-[11px] leading-5 text-slate-500" : "mt-3 text-[11px] leading-5 text-slate-500"}>
-        {strategyCopy.stopNote}
+        {strategyType === "mario" ? accountCopy.strategyCreate.marioCardHint : strategyCopy.stopNote}
       </p>
       </button>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -3332,6 +3718,22 @@ function getIconButtonClassName(isDarkTheme: boolean): string {
 
 function getLabelClassName(isDarkTheme: boolean): string {
   return isDarkTheme ? "text-xs font-black text-slate-300" : "text-xs font-black text-slate-700";
+}
+
+function getPrototypeStrategyType(strategy: PrototypeStrategy): PrototypeStrategyType {
+  return strategy.strategyType ?? "copyTrading";
+}
+
+function getStrategyTypeOptionClassName(isDarkTheme: boolean, isSelected: boolean): string {
+  if (isSelected) {
+    return isDarkTheme
+      ? "rounded-2xl border border-sky-400/30 bg-sky-400/10 px-3 py-3 text-left text-sky-100 shadow-[0_0_0_3px_rgba(56,189,248,0.10)]"
+      : "rounded-2xl border border-[#B7E8FC] bg-[#EAF8FE] px-3 py-3 text-left text-[#007DB8] shadow-[0_0_0_3px_rgba(22,175,245,0.10)]";
+  }
+
+  return isDarkTheme
+    ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-left text-slate-200 transition hover:bg-white/[0.055]"
+    : "rounded-2xl border border-[#E5EAF0] bg-white px-3 py-3 text-left text-slate-900 transition hover:border-[#BFE7FB] hover:bg-[#F4FBFF]";
 }
 
 function getStrategyStatusLabel(strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"], status: PrototypeStrategyStatus): string {
