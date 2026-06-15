@@ -54,6 +54,7 @@ export type PrototypeStrategy = {
   id: string;
   platform: string;
   positionsCount: number;
+  startedAt?: string;
   status: PrototypeStrategyStatus;
   stopLossPercent: number;
   strategyType?: PrototypeStrategyType;
@@ -1782,13 +1783,13 @@ function StrategyDetailView({
   const tradeLogItems = detail?.orderHistory?.tradeLogs ?? [];
   const signalSourceIdentityById = createSignalSourceIdentityById(detail?.signalSources ?? [], liveStrategy);
   const tradeHistoryOffset = detail?.orderHistory?.offset ?? tradeHistoryPageOffset;
-  const allTradeHistoryRows = createTradeHistoryRows({
+  const allTradeHistoryRows = filterTradeHistoryRowsByStrategyStart(createTradeHistoryRows({
     orders: orderItems,
     signalSourceIdentityById,
     signalSourceOrders: signalSourceOrderItems,
     strategy: liveStrategy,
     tradeLogs: tradeLogItems,
-  });
+  }), liveStrategy);
   const visibleTradeHistoryRows = allTradeHistoryRows.slice(tradeHistoryOffset, tradeHistoryOffset + TRADE_HISTORY_PAGE_SIZE);
   const selectedTradeKlineRow = visibleTradeHistoryRows.find((row) => row.id === selectedTradeKlineRowId) ?? visibleTradeHistoryRows.find((row) => row.kind === "me") ?? visibleTradeHistoryRows[0] ?? null;
   const hasPreviousTradeHistoryPage = tradeHistoryOffset > 0;
@@ -2744,6 +2745,20 @@ function compareTradeHistoryRows(left: TradeHistoryRow, right: TradeHistoryRow):
     return getTradeHistoryRowKindRank(left.kind) - getTradeHistoryRowKindRank(right.kind);
   }
   return left.id.localeCompare(right.id);
+}
+
+function filterTradeHistoryRowsByStrategyStart(rows: readonly TradeHistoryRow[], strategy: PrototypeStrategy): TradeHistoryRow[] {
+  const startedAtMs = getStrategyStartedAtMs(strategy);
+  if (startedAtMs === null) {
+    return [...rows];
+  }
+
+  return rows.filter((row) => row.sourceTimeMs >= startedAtMs);
+}
+
+function getStrategyStartedAtMs(strategy: PrototypeStrategy): number | null {
+  const timestamp = Date.parse(strategy.startedAt ?? "");
+  return Number.isFinite(timestamp) ? timestamp : null;
 }
 
 function getTradeHistoryRowKindRank(kind: TradeHistoryRow["kind"]): number {
