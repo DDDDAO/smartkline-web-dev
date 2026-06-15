@@ -2410,6 +2410,7 @@ function StrategyDetailView({
               <>
                 <TradeHistoryTable
                   activeKlineRowId={selectedTradeKlineRow?.id ?? null}
+                  copy={copy}
                   isDarkTheme={isDarkTheme}
                   rows={visibleTradeHistoryRows}
                   strategyCopy={strategyCopy}
@@ -3277,8 +3278,33 @@ function getTimestampMs(value: string | undefined): number {
 }
 
 function getSignalSourceOrderQuantity(order: TradingFoxSignalSourceOrderItem): number | null {
-  const quantity = finiteNumberOrNull(order.deltaQty);
-  return quantity === null ? null : Math.abs(quantity);
+  const quantity = firstFiniteNumber(
+    order.deltaQty,
+    order.metadata?.deltaQty,
+    order.metadata?.delta_qty,
+  );
+  if (quantity !== null) {
+    return Math.abs(quantity);
+  }
+
+  const previousQuantity = firstFiniteNumber(
+    order.prevQty,
+    order.metadata?.prevQty,
+    order.metadata?.prev_qty,
+  );
+  const currentQuantity = firstFiniteNumber(
+    order.currQty,
+    order.metadata?.currQty,
+    order.metadata?.curr_qty,
+  );
+  if (previousQuantity !== null && currentQuantity !== null) {
+    return Math.abs(currentQuantity - previousQuantity);
+  }
+  if (currentQuantity !== null) {
+    return Math.abs(currentQuantity);
+  }
+
+  return null;
 }
 
 function getSignalSourceOrderPrice(order: TradingFoxSignalSourceOrderItem): number | null {
@@ -3287,6 +3313,12 @@ function getSignalSourceOrderPrice(order: TradingFoxSignalSourceOrderItem): numb
     order.metadata?.eventPrice,
     order.metadata?.event_price,
     order.metadata?.price,
+    order.metadata?.executedPrice,
+    order.metadata?.executed_price,
+    order.metadata?.orderPrice,
+    order.metadata?.order_price,
+    order.metadata?.avgPrice,
+    order.metadata?.avg_price,
     order.markPrice,
     order.metadata?.markPrice,
     order.metadata?.mark_price,
@@ -3641,6 +3673,7 @@ function TradeHistoryKlineSymbolSelect({
 
 function TradeHistoryTable({
   activeKlineRowId,
+  copy,
   isDarkTheme,
   rows,
   strategyCopy,
@@ -3648,6 +3681,7 @@ function TradeHistoryTable({
   onRowKlineOpen,
 }: {
   activeKlineRowId: string | null;
+  copy: WorkspaceCopy;
   isDarkTheme: boolean;
   rows: readonly TradeHistoryRow[];
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
@@ -3692,7 +3726,7 @@ function TradeHistoryTable({
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(row.price)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(row.quantity)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailCurrency(notional)}</td>
-                <td className={getTradeHistoryStatusClassName(isDarkTheme, row)}>{formatTradeHistoryStatus(row, strategyCopy)}</td>
+                <td className={getTradeHistoryStatusClassName(isDarkTheme, row)}>{formatTradeHistoryStatus(row, copy)}</td>
               </tr>
             );
           })}
@@ -4125,12 +4159,13 @@ function getTradeHistorySideClassName(isDarkTheme: boolean, row: TradeHistoryRow
   return getSideClassName(isDarkTheme, row.side || row.action);
 }
 
-function formatTradeHistoryStatus(row: TradeHistoryRow, strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"]): string {
+function formatTradeHistoryStatus(row: TradeHistoryRow, copy: WorkspaceCopy): string {
+  const strategyCopy = copy.workspace.accountCenter.strategy;
   if (row.kind === "me") {
     return formatOrderStatus(row.status, strategyCopy);
   }
   if (row.kind === "tradeLog") {
-    return row.status || strategyCopy.tradeEventNoOrder;
+    return row.status ? getTradingFoxErrorMessage(row.status, copy) : strategyCopy.tradeEventNoOrder;
   }
   return "--";
 }

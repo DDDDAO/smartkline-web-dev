@@ -284,6 +284,8 @@ const zh = {
       errors: {
         binanceDemoCredentials: (detail: string) => `Binance API 校验失败。请确认 API Key、Secret、合约交易权限和白名单 IP 是否匹配当前账户类型。原始错误：${detail}`,
         binancePositionModeMismatch: (detail: string) => `Binance Demo 持仓模式与下单参数不一致。新建连接已默认使用单向持仓，旧连接会在启动或同步仓位前自动修复；如果仍失败，请先暂停旧策略或重新新增该 Demo 账号后重试。原始错误：${detail}`,
+        noUserPosition: "当前没有可跟随的用户持仓，本次信号未下单。",
+        signalSourceStateCacheStale: "信号源状态缓存已过期，已使用缓存运行状态继续跟单。",
       },
       strategyCreate: {
         action: "创建策略",
@@ -884,6 +886,8 @@ const en: WorkspaceCopy = {
       errors: {
         binanceDemoCredentials: (detail) => `Binance API validation failed. Check the API key, secret, futures permission, and whitelist IP for the selected account type. Original error: ${detail}`,
         binancePositionModeMismatch: (detail) => `Binance Demo position mode does not match the order parameters. New connections now default to one-way mode, and older connections are repaired before starting or syncing positions. If it still fails, pause old strategy assignments or add that demo account again, then retry. Original error: ${detail}`,
+        noUserPosition: "No user position was available for this signal event, so no copy order was placed.",
+        signalSourceStateCacheStale: "Signal source state cache is stale. Continuing copy trading with the cached runtime state.",
       },
       strategyCreate: {
         action: "Create strategy",
