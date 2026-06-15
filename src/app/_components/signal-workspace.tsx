@@ -146,7 +146,13 @@ type WorkspaceRouteState = {
   topSignalTradeEventId: string;
 };
 
-export function SignalWorkspace() {
+type SignalWorkspaceProps = {
+  initialProductTab?: WorkspaceProductTab;
+};
+
+export function SignalWorkspace({
+  initialProductTab = "intel",
+}: SignalWorkspaceProps = {}) {
   const [symbol, setSymbol] = useState<MarketSymbol>("BTC/USDT:USDT");
   const [interval, setInterval] = useState<KlineInterval>("15m");
   const [activeSignalId, setActiveSignalId] = useState("");
@@ -166,7 +172,7 @@ export function SignalWorkspace() {
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [isRightPanelExiting, setIsRightPanelExiting] = useState(false);
   const [activeProductTab, setActiveProductTab] =
-    useState<WorkspaceProductTab>("intel");
+    useState<WorkspaceProductTab>(initialProductTab);
   const [isProductTabHydrated, setIsProductTabHydrated] = useState(false);
   const [isCommunityConversionOpen, setIsCommunityConversionOpen] =
     useState(false);

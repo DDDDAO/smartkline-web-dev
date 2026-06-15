@@ -1,3 +1,5 @@
-import Home from "@/app/page";
+import { SignalWorkspace } from "@/app/_components/signal-workspace";
 
-export default Home;
+export default function ZhKolSquarePage() {
+  return <SignalWorkspace initialProductTab="kolFollow" />;
+}
