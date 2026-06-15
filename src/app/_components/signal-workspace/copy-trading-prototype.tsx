@@ -1119,17 +1119,16 @@ function ExchangeResourceLinks({
   }
 
   return (
-    <div className="flex min-w-0 flex-wrap gap-2 xl:ml-auto xl:justify-end">
+    <div className="flex shrink-0 flex-nowrap gap-2 xl:ml-auto xl:justify-end">
       {links.map((link) => (
         <a
           key={link.label}
-          className={getExchangeResourceLinkClassName(isDarkTheme, link.label === accountCopy.apiSetup.createApi)}
+          className={getExchangeResourceLinkClassName(isDarkTheme)}
           href={link.href}
           rel="noreferrer"
           target="_blank"
         >
-          <ExchangeIcon enabled exchange={exchange} isDarkTheme={isDarkTheme} />
-          <span className="min-w-0 flex-1 truncate">{link.label}</span>
+          <span className="whitespace-nowrap">{link.label}</span>
           <ExternalLinkGlyph />
         </a>
       ))}
@@ -1654,8 +1653,8 @@ function ExchangeApiSetupLayer({
                   <>
                     <section className={getModalSectionClassName(isDarkTheme)}>
                       <div className={getLabelClassName(isDarkTheme)}>{accountCopy.apiSetup.whitelistIp}</div>
-                      <div className="mt-3 flex items-stretch gap-3">
-                        <div className={isDarkTheme ? "flex min-h-14 min-w-0 flex-1 items-center break-all rounded-[22px] border border-white/[0.085] bg-[#0F141B] px-4 font-mono text-base font-black tracking-[0.08em] text-slate-100 sm:min-h-16 sm:text-lg" : "flex min-h-14 min-w-0 flex-1 items-center break-all rounded-[22px] border border-[#D5E4EF] bg-[#F8FAFC] px-4 font-mono text-base font-black tracking-[0.08em] text-slate-900 sm:min-h-16 sm:text-lg"}>
+                      <div className="mt-2 flex items-stretch gap-2">
+                        <div className={isDarkTheme ? "flex min-h-11 min-w-0 flex-1 items-center break-all rounded-[18px] border border-white/[0.085] bg-[#0F141B] px-3 font-mono text-sm font-black tracking-[0.045em] text-slate-100" : "flex min-h-11 min-w-0 flex-1 items-center break-all rounded-[18px] border border-[#D5E4EF] bg-[#F8FAFC] px-3 font-mono text-sm font-black tracking-[0.045em] text-slate-900"}>
                           {isWhitelistIpLoading ? accountCopy.apiSetup.whitelistIpLoading : (whitelistIp || accountCopy.apiSetup.whitelistIpUnavailable)}
                         </div>
                         <button
@@ -3877,7 +3876,7 @@ function ExchangeIcon({ enabled, exchange, isDarkTheme }: { enabled: boolean; ex
 
 function ExternalLinkGlyph() {
   return (
-    <svg aria-hidden="true" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24">
+    <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24">
       <path d="M8 8H6.8C5.81 8 5 8.81 5 9.8V17.2C5 18.19 5.81 19 6.8 19H14.2C15.19 19 16 18.19 16 17.2V16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
       <path d="M13 5H19V11" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
       <path d="M11 13L18.5 5.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
@@ -3887,7 +3886,7 @@ function ExternalLinkGlyph() {
 
 function CopyGlyph() {
   return (
-    <svg aria-hidden="true" className="h-7 w-7" fill="none" viewBox="0 0 24 24">
+    <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
       <rect height="12" rx="2" stroke="currentColor" strokeLinejoin="round" strokeWidth="2.1" width="12" x="8" y="8" />
       <path d="M5 15.2V6.8C5 5.81 5.81 5 6.8 5H15.2" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.1" />
     </svg>
@@ -3896,7 +3895,7 @@ function CopyGlyph() {
 
 function CheckGlyph() {
   return (
-    <svg aria-hidden="true" className="h-7 w-7" fill="none" viewBox="0 0 24 24">
+    <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
       <path d="M5 12.4L9.4 16.8L19 7.2" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" />
     </svg>
   );
@@ -3916,17 +3915,16 @@ function getPrimaryButtonClassName(isDarkTheme: boolean): string {
     : "inline-flex min-h-10 items-center justify-center rounded-2xl bg-[#16AFF5] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#008DCC] disabled:cursor-not-allowed disabled:opacity-45";
 }
 
-function getExchangeResourceLinkClassName(isDarkTheme: boolean, isCompact: boolean): string {
-  const sizeClassName = isCompact ? "min-w-[160px] sm:min-w-[180px]" : "min-w-[220px] sm:min-w-[250px]";
+function getExchangeResourceLinkClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? `flex min-h-12 ${sizeClassName} items-center gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.08] px-3 text-sm font-black text-slate-200 transition hover:border-sky-300/25 hover:bg-white/[0.12] hover:text-slate-50`
-    : `flex min-h-12 ${sizeClassName} items-center gap-3 rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC] px-3 text-sm font-black text-slate-700 shadow-sm transition hover:border-[#BFE7FB] hover:bg-white hover:text-slate-950`;
+    ? "inline-flex h-9 min-w-[74px] items-center justify-center gap-1.5 rounded-xl border border-white/[0.075] bg-white/[0.08] px-3 text-xs font-black text-slate-200 transition hover:border-sky-300/25 hover:bg-white/[0.12] hover:text-slate-50"
+    : "inline-flex h-9 min-w-[74px] items-center justify-center gap-1.5 rounded-xl border border-[#D5E4EF] bg-[#F8FAFC] px-3 text-xs font-black text-slate-700 shadow-sm transition hover:border-[#BFE7FB] hover:bg-white hover:text-slate-950";
 }
 
 function getWhitelistCopyButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "grid h-14 w-14 shrink-0 place-items-center rounded-full border border-white/[0.085] bg-white/[0.04] text-slate-300 transition hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-45 sm:h-16 sm:w-16"
-    : "grid h-14 w-14 shrink-0 place-items-center rounded-full border border-[#D5E4EF] bg-white text-slate-500 shadow-sm transition hover:border-[#BFE7FB] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-45 sm:h-16 sm:w-16";
+    ? "grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/[0.085] bg-white/[0.04] text-slate-300 transition hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+    : "grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#D5E4EF] bg-white text-slate-500 shadow-sm transition hover:border-[#BFE7FB] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-45";
 }
 
 function getModalSectionClassName(isDarkTheme: boolean): string {
