@@ -97,8 +97,8 @@ type TradePointCandleCoordinates = {
 
 /**
  * Source-owned trade points stay as avatar markers. User-owned strategy history
- * orders can opt into plain BUY/SELL labels by omitting the avatar and passing a
- * BUY/SELL action label, matching the KOL signal entry/exit marker language.
+ * orders can opt into plain B/S labels by omitting the avatar and passing a
+ * buy/sell action label, matching the KOL signal entry/exit marker language.
  */
 export class TradePointPrimitive implements ISeriesPrimitive<Time> {
   private readonly avatarImages = new TradePointAvatarImageCache();
@@ -696,7 +696,13 @@ function resolveTradePointTextMarkerLabel(marker: KlineTradePointMarker): string
   }
 
   const label = marker.actionLabel?.trim().toUpperCase();
-  return label === "BUY" || label === "SELL" ? label : null;
+  if (label === "BUY" || label === "B") {
+    return "B";
+  }
+  if (label === "SELL" || label === "S") {
+    return "S";
+  }
+  return null;
 }
 
 function measureTradePointTextMarkerWidth(label: string, isActive: boolean): number {
