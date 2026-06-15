@@ -168,7 +168,7 @@ export type PrototypeConnectionSaveInput = {
 const EXCHANGES = [
   { id: "binance", apiManagementUrl: "https://www.binance.com/en/my/settings/api-management", connectorExchangePlatform: "Binance", defaultAccountName: "Binance #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api", registrationUrl: "https://accounts.binance.com/register", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
   { id: "okx", apiManagementUrl: "https://www.okx.com/account/my-api", connectorExchangePlatform: "OKX", defaultAccountName: "OKX #1", enabled: true, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api", registrationUrl: "https://www.okx.com/join", requiresApiPassword: true, requiresPrivateKey: false, requiresWalletAddress: false },
-  { id: "hyperliquid", apiManagementUrl: "https://app.hyperliquid.xyz/API", connectorExchangePlatform: "HyperLiquid", defaultAccountName: "HyperLiquid #1", enabled: true, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api", registrationUrl: "https://app.hyperliquid.xyz/", requiresApiPassword: false, requiresPrivateKey: true, requiresWalletAddress: true },
+  { id: "hyperliquid", apiManagementUrl: "https://app.hyperliquid.xyz/API", connectorExchangePlatform: "HyperLiquid", defaultAccountName: "HyperLiquid #1", enabled: true, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api", registrationUrl: "https://app.hyperliquid.xyz/", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
   { id: "aster", apiManagementUrl: "https://www.asterdex.com/en/api-management", connectorExchangePlatform: "Aster", defaultAccountName: "Aster #1", enabled: true, fallback: "AS", logoPath: "/exchanges/aster/brand/icon.png", mode: "api", registrationUrl: "https://www.asterdex.com/en", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: true },
   { id: "bitget", apiManagementUrl: "https://www.bitget.com/account/newapi", connectorExchangePlatform: "Bitget", defaultAccountName: "Bitget #1", enabled: true, fallback: "BG", logoPath: "/exchanges/bitget/brand/icon.png", mode: "api", registrationUrl: "https://www.bitget.com/register", requiresApiPassword: true, requiresPrivateKey: false, requiresWalletAddress: false },
   { id: "bybit", apiManagementUrl: "https://www.bybit.com/app/user/api-management", connectorExchangePlatform: "Bybit", defaultAccountName: "Bybit #1", enabled: true, fallback: "BY", logoPath: "/exchanges/bybit/brand/icon.png", mode: "api", registrationUrl: "https://www.bybit.com/register", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
@@ -1455,8 +1455,8 @@ function ExchangeApiSetupLayer({
   const isDemoExchange = selectedExchange.mode === "demo";
   const isBuiltInMockExchange = selectedExchange.id === "mockExchange";
   const isBinanceDemoExchange = selectedExchange.id === "binanceDemo";
-  const isLiveExchange = !isDemoExchange;
   const isHyperliquidExchange = selectedExchange.id === "hyperliquid";
+  const isLiveExchange = !isDemoExchange && !isHyperliquidExchange;
   const requiresApiCredentials = !isBuiltInMockExchange && !isHyperliquidExchange;
   const requiresApiPassword = selectedExchange.requiresApiPassword;
   const requiresWalletAddress = selectedExchange.requiresWalletAddress;
@@ -1796,31 +1796,14 @@ function ExchangeApiSetupLayer({
                       />
                     )}
 
+                    {!isHyperliquidExchange ? (
                     <section className={getModalSectionClassName(isDarkTheme)}>
                       <h3 className="text-base font-black">
-                        {isHyperliquidExchange ? accountCopy.apiSetup.hyperliquidManualTitle : accountCopy.api.title}
+                        {accountCopy.api.title}
                       </h3>
                       <p className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
-                        {isHyperliquidExchange ? accountCopy.apiSetup.hyperliquidManualDescription : accountCopy.apiSetup.liveExchangeDescription}
+                        {accountCopy.apiSetup.liveExchangeDescription}
                       </p>
-                      {isHyperliquidExchange ? (
-                        <div className="mt-4">
-                          <WhitelistIpCopyPanel
-                            accountCopy={accountCopy}
-                            description={accountCopy.apiSetup.hyperliquidManualWhitelistDescription}
-                            hasCopiedIp={hasCopiedIp}
-                            hasWhitelistIp={hasWhitelistIp}
-                            isDarkTheme={isDarkTheme}
-                            isLoading={isWhitelistIpLoading}
-                            whitelistIp={whitelistIp}
-                            whitelistIpError={whitelistIpError}
-                            onCopy={() => {
-                              setHasCopiedIp(true);
-                              void navigator.clipboard?.writeText(whitelistIp);
-                            }}
-                          />
-                        </div>
-                      ) : null}
                       <div className="mt-4 grid gap-3">
                         <PrototypeInput autoComplete="off" fieldName="account-name" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.accountName} value={accountName} onChange={setAccountName} />
                         {requiresApiCredentials ? (
@@ -1841,6 +1824,7 @@ function ExchangeApiSetupLayer({
                       </div>
                       <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-slate-500" : "mt-3 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.sensitiveNote}</p>
                     </section>
+                    ) : null}
                   </>
                 )}
 
@@ -1850,14 +1834,16 @@ function ExchangeApiSetupLayer({
 
           <footer className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5"}>
             <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onClose}>{copy.common.close}</button>
-            <button
-              className={getPrimaryButtonClassName(isDarkTheme)}
-              disabled={!canSave}
-              type="button"
-              onClick={() => void handleManualSave()}
-            >
-              {isSavingManual ? accountCopy.apiSetup.saving : isHyperliquidExchange ? accountCopy.apiSetup.hyperliquidManualSave : accountCopy.apiSetup.save}
-            </button>
+            {!isHyperliquidExchange ? (
+              <button
+                className={getPrimaryButtonClassName(isDarkTheme)}
+                disabled={!canSave}
+                type="button"
+                onClick={() => void handleManualSave()}
+              >
+                {isSavingManual ? accountCopy.apiSetup.saving : accountCopy.apiSetup.save}
+              </button>
+            ) : null}
           </footer>
         </form>
       </section>
