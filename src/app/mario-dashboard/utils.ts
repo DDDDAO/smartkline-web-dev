@@ -1,13 +1,10 @@
-import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
+import type { MarketSymbol } from "@/app/_types/market";
 import {
   ACCOUNT_BALANCE,
   BUDGET_OPTIONS,
   COUNTDOWN_URGENT_MS,
   INITIAL_DASHBOARD_STATE,
-  KLINE_AXIS_BADGE_EDGE_GUARD_PX,
-  KLINE_INTERVAL_MS_BY_INTERVAL,
   MAX_COUNTDOWNS,
-  MINI_KLINE_CHART_HEIGHT_PX,
   PERCENT_A_OPTIONS,
   PRIORITY_SYMBOLS,
   RATIO_OPTIONS,
@@ -29,9 +26,9 @@ export function calculatePosition(form: CalculatorForm, budgetPercentValue: Budg
   const budget = ACCOUNT_BALANCE * (budgetPercentValue / 100);
   const stopLoss = parseDecimal(form.stopLoss);
   const entryA = parseDecimal(form.entryA);
-  const entryB = parseDecimal(form.entryB);
   const percentA = form.percentA;
   const remainPercent = 100 - percentA;
+  const entryB = remainPercent > 0 ? parseDecimal(form.entryB) : 0;
   let amountA = 0;
   let amountB = 0;
 
@@ -52,9 +49,9 @@ export function calculatePosition(form: CalculatorForm, budgetPercentValue: Budg
   const entryAWarning = entryA > 0 && entryA === stopLoss ? "不能等於止损价" : "";
   let entryBWarning = "";
 
-  if (entryB > 0 && entryB === stopLoss) {
+  if (remainPercent > 0 && entryB > 0 && entryB === stopLoss) {
     entryBWarning = "不能等於止损价";
-  } else if (entryB > 0 && entryA > 0 && stopLoss > 0) {
+  } else if (remainPercent > 0 && entryB > 0 && entryA > 0 && stopLoss > 0) {
     const isLong = entryA > stopLoss;
     const isBetterEntry = isLong ? entryB < entryA : entryB > entryA;
     entryBWarning = isBetterEntry ? "" : "开仓点B必须是更优价格！";
@@ -94,29 +91,11 @@ export function calculatePosition(form: CalculatorForm, budgetPercentValue: Budg
 }
 
 export function getSegmentButtonClassName(isActive: boolean, tone: SegmentTone): string {
-  const baseClassName = "h-9 min-w-10 flex-1 rounded-md border px-2 text-[11px] transition hover:border-[#00d4aa]";
-
-  if (!isActive) {
-    return `${baseClassName} border-[#d8d8e0] bg-transparent text-[#8b8b9a]`;
-  }
-
-  if (tone === "danger-low") {
-    return `${baseClassName} border-[#27ae60] bg-[#27ae60] font-semibold text-[#18181f]`;
-  }
-
-  if (tone === "danger-mid") {
-    return `${baseClassName} border-[#f39c12] bg-[#f39c12] font-semibold text-[#18181f]`;
-  }
-
-  if (tone === "danger-high") {
-    return `${baseClassName} border-[#e74c3c] bg-[#e74c3c] font-semibold text-white`;
-  }
-
-  return `${baseClassName} border-[#9b59b6] bg-[#9b59b6] font-semibold text-white`;
+  return isActive ? `radio-btn active ${tone}` : "radio-btn";
 }
 
 export function getBudgetTone(value: BudgetPercent): SegmentTone {
-  if (value === 1) {
+  if (value === 1 || value === 2) {
     return "danger-low";
   }
 
@@ -145,7 +124,7 @@ export function getRatioTone(value: RewardRiskRatio): SegmentTone {
 
 export function getHeaderTimerClassName(firstCountdownRemaining: number | null): string {
   const isUrgent = firstCountdownRemaining !== null && firstCountdownRemaining < COUNTDOWN_URGENT_MS;
-  return `rounded-md px-2.5 py-1 text-sm font-bold tabular-nums text-white shadow-[0_2px_12px_rgba(255,107,107,0.4)] ${isUrgent ? "bg-gradient-to-br from-[#ff4757] to-[#c0392b]" : "bg-gradient-to-br from-[#ff6b6b] to-[#ee5a24]"}`;
+  return `header-timer${isUrgent ? " urgent" : ""}`;
 }
 
 export function getBulkOrderLabel(type: BulkActionType): string {
@@ -158,10 +137,6 @@ export function getBulkOrderLabel(type: BulkActionType): string {
   }
 
   return "全部取消";
-}
-
-export function getBulkOrderNotice(type: BulkActionType): string {
-  return `${getBulkOrderLabel(type)}完成。`;
 }
 
 export function getBulkPositionLabel(type: BulkActionType): string {
@@ -187,96 +162,34 @@ export function getActiveCountdowns(countdowns: readonly Countdown[], now: numbe
     .slice(0, MAX_COUNTDOWNS);
 }
 
-export function createPrioritizedBaseSymbols(markets: readonly MarketSymbol[]): string[] {
-  const baseSymbols = markets
-    .map(toBinanceBaseSymbol)
-    .filter((symbol): symbol is string => symbol !== null);
+export function createPrioritizedMarketSymbols(markets: readonly MarketSymbol[]): MarketSymbol[] {
+  const marketByBaseSymbol = new Map<string, MarketSymbol>();
 
-  return prioritizeBaseSymbols(baseSymbols);
+  for (const market of markets) {
+    const baseSymbol = getMarketBaseSymbol(market);
+    if (baseSymbol.length > 0 && !marketByBaseSymbol.has(baseSymbol)) {
+      marketByBaseSymbol.set(baseSymbol, market);
+    }
+  }
+
+  const priorityMarkets = PRIORITY_SYMBOLS
+    .map((symbol) => marketByBaseSymbol.get(symbol))
+    .filter((market): market is MarketSymbol => Boolean(market));
+  const restMarkets = Array.from(marketByBaseSymbol.entries())
+    .filter(([symbol]) => !PRIORITY_SYMBOLS.includes(symbol as typeof PRIORITY_SYMBOLS[number]))
+    .sort(([leftSymbol], [rightSymbol]) => leftSymbol.localeCompare(rightSymbol))
+    .map(([, market]) => market);
+
+  return [...priorityMarkets, ...restMarkets];
 }
 
-function toBinanceBaseSymbol(market: MarketSymbol): string | null {
+export function getMarketBaseSymbol(market: MarketSymbol): string {
   const baseSymbol = market.split("/")[0]?.trim().toUpperCase() ?? "";
-  return baseSymbol.length > 0 ? baseSymbol : null;
+  return baseSymbol.length > 0 ? baseSymbol : market.trim().toUpperCase();
 }
 
-function prioritizeBaseSymbols(symbols: readonly string[]): string[] {
-  const uniqueSymbols = Array.from(new Set(symbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean)));
-  const prioritySymbols = PRIORITY_SYMBOLS.filter((symbol) => uniqueSymbols.includes(symbol));
-  const restSymbols = uniqueSymbols
-    .filter((symbol) => !PRIORITY_SYMBOLS.includes(symbol as typeof PRIORITY_SYMBOLS[number]))
-    .sort((left, right) => left.localeCompare(right));
-
-  return [...prioritySymbols, ...restSymbols];
-}
-
-export function matchBaseSymbols(options: readonly string[], normalizedQuery: string): string[] {
-  if (normalizedQuery.length === 0) {
-    return options as string[];
-  }
-
-  return options
-    .map((symbol, index) => ({
-      index,
-      score: scoreBaseSymbolMatch(symbol, normalizedQuery),
-      symbol,
-    }))
-    .filter(isRankedBaseSymbolSearchResult)
-    .sort((left, right) => {
-      if (left.score !== right.score) {
-        return left.score - right.score;
-      }
-
-      return left.index - right.index;
-    })
-    .map((result) => result.symbol);
-}
-
-type BaseSymbolSearchResult = {
-  index: number;
-  score: number | null;
-  symbol: string;
-};
-
-type RankedBaseSymbolSearchResult = BaseSymbolSearchResult & {
-  score: number;
-};
-
-function isRankedBaseSymbolSearchResult(result: BaseSymbolSearchResult): result is RankedBaseSymbolSearchResult {
-  return result.score !== null;
-}
-
-function scoreBaseSymbolMatch(symbol: string, normalizedQuery: string): number | null {
-  const normalizedSymbol = symbol.toUpperCase();
-  const compactSymbol = `${normalizedSymbol}USDT`;
-  const symbolIndex = normalizedSymbol.indexOf(normalizedQuery);
-  const compactIndex = compactSymbol.indexOf(normalizedQuery);
-
-  if (normalizedSymbol === normalizedQuery) {
-    return 0;
-  }
-
-  if (compactSymbol === normalizedQuery) {
-    return 1;
-  }
-
-  if (normalizedSymbol.startsWith(normalizedQuery)) {
-    return 10 + normalizedSymbol.length;
-  }
-
-  if (compactSymbol.startsWith(normalizedQuery)) {
-    return 30 + compactSymbol.length;
-  }
-
-  if (symbolIndex >= 0) {
-    return 50 + symbolIndex * 100 + normalizedSymbol.length;
-  }
-
-  if (compactIndex >= 0) {
-    return 80 + compactIndex * 100 + compactSymbol.length;
-  }
-
-  return null;
+export function toUsdtPerpetualMarketSymbol(baseSymbol: string): MarketSymbol {
+  return `${baseSymbol.trim().toUpperCase()}/USDT:USDT`;
 }
 
 export function parseStoredDashboardState(rawState: string | null): DashboardState {
@@ -287,7 +200,6 @@ export function parseStoredDashboardState(rawState: string | null): DashboardSta
   try {
     const parsed = JSON.parse(rawState) as Partial<DashboardState>;
     return {
-      apiBound: parsed.apiBound === true,
       budget: isBudgetPercent(parsed.budget) ? parsed.budget : INITIAL_DASHBOARD_STATE.budget,
       countdowns: Array.isArray(parsed.countdowns) ? parsed.countdowns.filter(isCountdown) : [],
       darkMode: parsed.darkMode === true,
@@ -354,10 +266,6 @@ export function parsePositiveInteger(value: string): number {
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0;
 }
 
-export function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError";
-}
-
 function parseDecimal(value: string): number {
   const parsedValue = Number.parseFloat(value);
   return Number.isFinite(parsedValue) ? parsedValue : 0;
@@ -377,68 +285,8 @@ export function formatCountdown(remainingMs: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-export function formatMiniKlineCountdown(candle: MarketCandle | null, interval: KlineInterval, currentNow: number): string {
-  if (!candle || currentNow <= 0) {
-    return "--:--";
-  }
-
-  return formatCountdown(candle.sourceTimeMs + KLINE_INTERVAL_MS_BY_INTERVAL[interval] - currentNow);
-}
-
-export function getCandleAmplitudePercent(candle: MarketCandle): number {
-  return candle.open > 0 ? (candle.high - candle.low) / candle.open * 100 : 0;
-}
-
-export function getCandleChangePercent(candle: MarketCandle): number {
-  return candle.open > 0 ? (candle.close - candle.open) / candle.open * 100 : 0;
-}
-
-export function getKlineChangeTone(candle: MarketCandle): "down" | "up" {
-  return getCandleChangePercent(candle) >= 0 ? "up" : "down";
-}
-
 export function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
-}
-
-export function formatLivePrice(value: number | null): string {
-  if (value === null || !Number.isFinite(value) || value < 0) {
-    return "--";
-  }
-
-  const fractionDigits = value >= 1_000 ? 2 : value >= 1 ? 4 : 6;
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: fractionDigits,
-    minimumFractionDigits: value >= 1 ? 2 : 0,
-  }).format(value);
-}
-
-export function formatAxisPrice(value: number | null): string {
-  if (value === null || !Number.isFinite(value) || value < 0) {
-    return "--";
-  }
-
-  const fractionDigits = value >= 1_000 ? 1 : value >= 1 ? 4 : 6;
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: fractionDigits,
-    minimumFractionDigits: value >= 1_000 ? 1 : value >= 1 ? 2 : 0,
-    useGrouping: false,
-  }).format(value);
-}
-
-export function clampAxisBadgeTop(coordinate: number): number {
-  return Math.min(
-    Math.max(coordinate, KLINE_AXIS_BADGE_EDGE_GUARD_PX),
-    MINI_KLINE_CHART_HEIGHT_PX - KLINE_AXIS_BADGE_EDGE_GUARD_PX,
-  );
-}
-
-export function formatPercent(value: number): string {
-  return `${value.toFixed(2)}%`;
-}
-
-export function formatSignedPercent(value: number): string {
-  return `${value >= 0 ? "+" : ""}${formatPercent(value)}`;
 }
 
 export function formatSignedNumber(value: number): string {

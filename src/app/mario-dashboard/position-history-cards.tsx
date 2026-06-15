@@ -12,11 +12,11 @@ export function PositionsCard({ longPositions, onOpenBulkAction, shortPositions,
 }) {
   return (
     <Card title="持仓详情" icon={<PositionIcon />} theme={theme}>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="orders-container">
         <PositionTable countTone="long" emptyLabel="暂无持仓" positions={longPositions} theme={theme} title="多单持仓" />
         <PositionTable countTone="short" emptyLabel="暂无持仓" positions={shortPositions} theme={theme} title="空单持仓" />
       </div>
-      <div className="mt-2 flex flex-wrap gap-1">
+      <div className="orders-actions">
         <ActionButton tone="long" onClick={() => onOpenBulkAction("long")}>平多单</ActionButton>
         <ActionButton tone="short" onClick={() => onOpenBulkAction("short")}>平空单</ActionButton>
         <ActionButton tone="long" onClick={() => onOpenBulkAction("all")}>全部平仓</ActionButton>
@@ -33,10 +33,8 @@ function PositionTable({ countTone, emptyLabel, positions, theme, title }: {
   title: string;
 }) {
   return (
-    <section>
-      <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold">
-        {title} <CountBadge tone={countTone}>{positions.length}</CountBadge>
-      </h3>
+    <div className="orders-section">
+      <h3>{title} <CountBadge tone={countTone}>{positions.length}</CountBadge></h3>
       <ResponsiveTable>
         <thead>
           <tr>
@@ -52,20 +50,20 @@ function PositionTable({ countTone, emptyLabel, positions, theme, title }: {
               <TableCell theme={theme}>{position.symbol}</TableCell>
               <TableCell theme={theme}>{formatPrice(position.entry)}</TableCell>
               <TableCell theme={theme}>{formatAmount(position.amount)}</TableCell>
-              <TableCell className={position.pnl >= 0 ? "text-[#00d4aa]" : "text-[#ff4757]"} theme={theme}>{formatSignedNumber(position.pnl)}</TableCell>
+              <TableCell className={position.pnl >= 0 ? "profit" : "loss"} theme={theme}>{formatSignedNumber(position.pnl)}</TableCell>
             </tr>
           ))}
         </tbody>
       </ResponsiveTable>
-      {positions.length === 0 ? <div className={theme.emptyState}>{emptyLabel}</div> : null}
-    </section>
+      {positions.length === 0 ? <div className="empty-state">{emptyLabel}</div> : null}
+    </div>
   );
 }
 
 export function HistoryCard({ history, theme }: { history: readonly HistoryOrder[]; theme: ThemeClasses }) {
   return (
     <Card title="历史订单" icon={<ClockIcon />} theme={theme}>
-      <ResponsiveTable>
+      <ResponsiveTable variant="history">
         <thead>
           <tr>
             <TableHeader theme={theme}>方向</TableHeader>
@@ -82,12 +80,12 @@ export function HistoryCard({ history, theme }: { history: readonly HistoryOrder
             const isProfit = !displayPercent.startsWith("-") && displayPercent !== "0%";
             return (
               <tr key={`${order.direction}-${order.symbol}-${order.entry}-${order.close}`}>
-                <TableCell className={order.direction === "long" ? "text-[#00d4aa]" : "text-[#ff4757]"} theme={theme}>{order.direction === "long" ? "多" : "空"}</TableCell>
+                <TableCell className={order.direction === "long" ? "profit" : "loss"} theme={theme}>{order.direction === "long" ? "多" : "空"}</TableCell>
                 <TableCell theme={theme}>{order.symbol}</TableCell>
                 <TableCell theme={theme}>{formatPrice(order.entry)}</TableCell>
                 <TableCell theme={theme}>{formatPrice(order.close)}</TableCell>
-                <TableCell className={order.pnl >= 0 ? "text-[#00d4aa]" : "text-[#ff4757]"} theme={theme}>{formatSignedNumber(order.pnl)}</TableCell>
-                <TableCell className={isProfit ? "text-[#00d4aa]" : "text-[#ff4757]"} theme={theme}>{displayPercent}</TableCell>
+                <TableCell className={order.pnl >= 0 ? "profit" : "loss"} theme={theme}>{formatSignedNumber(order.pnl)}</TableCell>
+                <TableCell className={isProfit ? "profit" : "loss"} theme={theme}>{displayPercent}</TableCell>
               </tr>
             );
           })}

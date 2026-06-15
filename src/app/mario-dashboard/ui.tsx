@@ -3,38 +3,38 @@ import { getSegmentButtonClassName } from "./utils";
 import type { ThemeClasses } from "./theme";
 import type { SegmentTone, TradeDirection } from "./types";
 
-export function Card({ children, icon, theme, title }: { children: ReactNode; icon: ReactNode; theme: ThemeClasses; title: string }) {
+export function Card({ children, icon, title }: { children: ReactNode; icon: ReactNode; theme: ThemeClasses; title: string }) {
   return (
-    <section className={theme.card}>
-      <div className="mb-3 flex items-center gap-1.5 text-sm font-semibold">
-        <span className="grid h-4 w-4 place-items-center text-[#00d4aa]">{icon}</span>
+    <div className="card">
+      <div className="card-title">
+        {icon}
         {title}
       </div>
       {children}
-    </section>
-  );
-}
-
-export function OverviewItem({ label, theme, tone, value }: { label: string; theme: ThemeClasses; tone?: "down" | "up"; value: string }) {
-  return (
-    <div className={theme.overviewItem}>
-      <div className={`mb-0.5 text-lg font-bold ${tone === "up" ? "text-[#00d4aa]" : tone === "down" ? "text-[#ff4757]" : ""}`}>{value}</div>
-      <div className={theme.overviewLabel}>{label}</div>
     </div>
   );
 }
 
-export function FormRow({ children, label, theme }: { children: ReactNode; label: string; theme: ThemeClasses }) {
+export function OverviewItem({ label, tone, value }: { label: string; theme: ThemeClasses; tone?: "down" | "up"; value: string }) {
   return (
-    <label className="flex items-center gap-2">
-      <span className={`w-[70px] shrink-0 text-[10px] ${theme.secondaryText}`}>{label}</span>
-      <span className="flex min-w-0 flex-1 items-center gap-1">{children}</span>
-    </label>
+    <div className="overview-item">
+      <div className={`overview-value ${tone ?? ""}`}>{value}</div>
+      <div className="overview-label">{label}</div>
+    </div>
   );
 }
 
-export function CalculatedValue({ theme, value }: { theme: ThemeClasses; value: string }) {
-  return <div className={theme.calculatedValue}>{value}</div>;
+export function FormRow({ children, label }: { children: ReactNode; label: string; theme: ThemeClasses }) {
+  return (
+    <div className="form-group">
+      <label>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+export function CalculatedValue({ value }: { theme: ThemeClasses; value: string }) {
+  return <div className="calculated-value">{value}</div>;
 }
 
 export function SegmentedButtons<TValue extends number>({ getLabel, getTone, onChange, options, value }: {
@@ -45,7 +45,7 @@ export function SegmentedButtons<TValue extends number>({ getLabel, getTone, onC
   value: TValue;
 }) {
   return (
-    <div className="flex flex-1 flex-wrap gap-1">
+    <div className="radio-group">
       {options.map((option) => {
         const isActive = option === value;
         return (
@@ -66,7 +66,7 @@ export function SegmentedButtons<TValue extends number>({ getLabel, getTone, onC
 export function ActionButton({ children, disabled, onClick, tone }: { children: ReactNode; disabled?: boolean; onClick: () => void; tone: TradeDirection }) {
   return (
     <button
-      className={`h-9 flex-1 rounded-md text-[13px] font-semibold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 ${tone === "long" ? "bg-[#00d4aa] text-[#18181f]" : "bg-[#ff4757] text-white"}`}
+      className={`action-btn ${tone}`}
       disabled={disabled}
       type="button"
       onClick={onClick}
@@ -76,44 +76,34 @@ export function ActionButton({ children, disabled, onClick, tone }: { children: 
   );
 }
 
-export function ResponsiveTable({ children }: { children: ReactNode }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[360px] border-collapse text-[10px]">{children}</table>
-    </div>
-  );
+export function ResponsiveTable({ children, variant = "order" }: { children: ReactNode; variant?: "history" | "order" }) {
+  return <table className={variant === "history" ? "history-table" : "order-table"}>{children}</table>;
 }
 
-export function TableHeader({ children, theme }: { children: ReactNode; theme: ThemeClasses }) {
-  return <th className={`border-b px-1 py-1.5 text-left font-medium ${theme.borderColor} ${theme.secondaryText}`}>{children}</th>;
+export function TableHeader({ children }: { children: ReactNode; theme: ThemeClasses }) {
+  return <th>{children}</th>;
 }
 
-export function TableCell({ children, className = "", theme }: { children: ReactNode; className?: string; theme: ThemeClasses }) {
-  return <td className={`border-b px-1 py-1.5 font-medium ${theme.borderColor} ${className}`}>{children}</td>;
+export function TableCell({ children, className = "" }: { children: ReactNode; className?: string; theme: ThemeClasses }) {
+  return <td className={className}>{children}</td>;
 }
 
 export function CountBadge({ children, tone }: { children: ReactNode; tone: TradeDirection }) {
-  return <span className={`rounded-lg px-1.5 py-px text-[10px] ${tone === "long" ? "bg-[#00d4aa] text-[#18181f]" : "bg-[#ff4757] text-white"}`}>{children}</span>;
+  return <span className={`count ${tone === "short" ? "short" : ""}`}>{children}</span>;
 }
 
-export function Modal({ children, onClose, theme, title }: { children: ReactNode; onClose: () => void; theme: ThemeClasses; title: string }) {
+export function Modal({ children, onClose, title }: { children: ReactNode; onClose: () => void; theme: ThemeClasses; title: string }) {
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md" role="presentation" onMouseDown={onClose}>
-      <section
-        aria-label={title}
-        aria-modal="true"
-        className={theme.modal}
-        role="dialog"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <h2 className="mb-3 text-base font-semibold">{title}</h2>
+    <div className="modal-overlay active" role="presentation" onMouseDown={onClose}>
+      <div className="modal" onMouseDown={(event) => event.stopPropagation()}>
+        <h2>{title}</h2>
         {children}
-      </section>
+      </div>
     </div>
   );
 }
 
-export function ModalActions({ cancelLabel, confirmLabel, onCancel, onConfirm, theme }: {
+export function ModalActions({ cancelLabel, confirmLabel, onCancel, onConfirm }: {
   cancelLabel: string;
   confirmLabel: string;
   onCancel: () => void;
@@ -121,25 +111,25 @@ export function ModalActions({ cancelLabel, confirmLabel, onCancel, onConfirm, t
   theme: ThemeClasses;
 }) {
   return (
-    <div className="mt-4 flex gap-2">
-      <button className={theme.modalCancelButton} type="button" onClick={onCancel}>{cancelLabel}</button>
-      <button className="h-9 flex-1 rounded-md bg-[#00d4aa] text-xs font-semibold text-[#18181f]" type="button" onClick={onConfirm}>{confirmLabel}</button>
+    <div className="modal-actions">
+      <button className="modal-cancel" type="button" onClick={onCancel}>{cancelLabel}</button>
+      <button className="modal-confirm" type="button" onClick={onConfirm}>{confirmLabel}</button>
     </div>
   );
 }
 
-export function InfoRow({ label, theme, value }: { label: string; theme: ThemeClasses; value: string }) {
+export function InfoRow({ label, value }: { label: string; theme: ThemeClasses; value: string }) {
   return (
-    <div className={`flex justify-between border-b py-1.5 ${theme.borderColor}`}>
-      <span className={theme.secondaryText}>{label}</span>
-      <span className="font-semibold">{value}</span>
+    <div className="modal-info-row">
+      <span className="modal-info-label">{label}</span>
+      <span className="modal-info-value">{value}</span>
     </div>
   );
 }
 
-export function IconButton({ children, label, onClick, theme }: { children: ReactNode; label: string; onClick: () => void; theme: ThemeClasses }) {
+export function IconButton({ children, label, onClick }: { children: ReactNode; label: string; onClick: () => void; theme: ThemeClasses }) {
   return (
-    <button aria-label={label} className={theme.iconButton} title={label} type="button" onClick={onClick}>
+    <button aria-label={label} className="icon-btn" title={label} type="button" onClick={onClick}>
       {children}
     </button>
   );

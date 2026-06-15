@@ -1,0 +1,823 @@
+.mario-dashboard {
+  --bg: #f8f8fb;
+  --card-bg: #ffffff;
+  --border: #e2e2e8;
+  --text: #1a1a1f;
+  --text-secondary: #6b6b7a;
+  --accent: #00d4aa;
+  --up: #00d4aa;
+  --down: #ff4757;
+  --input-bg: #f0f0f5;
+  --btn-height: 36px;
+  --input-height: 36px;
+
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  transition: background 0.3s, color 0.3s;
+}
+
+.mario-dashboard.dark-mode {
+  --bg: #252530;
+  --card-bg: #2d2d3a;
+  --border: #3d3d4d;
+  --text: #e8e8ed;
+  --text-secondary: #a0a0b0;
+  --input-bg: #1f1f2a;
+}
+
+.mario-dashboard *,
+.mario-dashboard *::before,
+.mario-dashboard *::after {
+  box-sizing: border-box;
+}
+
+.mario-dashboard :where(h1, h2, h3, p) {
+  margin: 0;
+}
+
+.mario-dashboard button,
+.mario-dashboard input,
+.mario-dashboard select {
+  font: inherit;
+}
+
+.mario-dashboard button {
+  cursor: pointer;
+}
+
+.mario-dashboard .container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 12px;
+}
+
+.mario-dashboard .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mario-dashboard .header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mario-dashboard .header-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  margin-left: 8px;
+  transition: opacity 1s ease-in-out;
+}
+
+.mario-dashboard .header-timer {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(255, 107, 107, 0.4);
+  animation: marioTimerPulse 2s ease-in-out infinite;
+}
+
+.mario-dashboard .header-timer.urgent {
+  background: linear-gradient(135deg, #ff4757 0%, #c0392b 100%);
+  box-shadow: 0 2px 16px rgba(255, 71, 87, 0.6);
+}
+
+@keyframes marioTimerPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.mario-dashboard .header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.mario-dashboard .icon-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.mario-dashboard .icon-btn:hover {
+  background: var(--border);
+}
+
+.mario-dashboard .icon-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.mario-dashboard .api-switch-btn {
+  min-width: 132px;
+  height: 32px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.mario-dashboard .api-switch-btn:hover {
+  background: var(--border);
+}
+
+.mario-dashboard .api-switch-status {
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 10px;
+  line-height: 16px;
+  color: #18181f;
+  background: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.mario-dashboard .api-switch-status.bound {
+  background: var(--accent);
+}
+
+.mario-dashboard .api-switch-status.loading {
+  background: #f39c12;
+}
+
+.mario-dashboard .api-switch-status.unbound,
+.mario-dashboard .api-switch-status.error {
+  background: var(--down);
+  color: #fff;
+}
+
+.mario-dashboard .card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.mario-dashboard .card-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mario-dashboard .card-title svg {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+
+.mario-dashboard .overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .mario-dashboard .overview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.mario-dashboard .overview-item {
+  text-align: center;
+  padding: 8px 4px;
+  background: var(--input-bg);
+  border-radius: 6px;
+}
+
+.mario-dashboard .overview-value {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.mario-dashboard .overview-value.up,
+.mario-dashboard .profit {
+  color: var(--up);
+}
+
+.mario-dashboard .overview-value.down,
+.mario-dashboard .loss {
+  color: var(--down);
+}
+
+.mario-dashboard .overview-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.mario-dashboard .two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .mario-dashboard .two-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mario-dashboard .form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mario-dashboard .form-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.mario-dashboard .form-group label {
+  flex: 0 0 70px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.mario-dashboard .form-group > *:not(label) {
+  flex: 1;
+  min-width: 0;
+}
+
+.mario-dashboard .form-group .radio-group,
+.mario-dashboard .form-group .calculated-value {
+  flex: 1;
+}
+
+.mario-dashboard .form-group:has(input):has(select) > *:not(label) {
+  display: flex;
+  gap: 4px;
+}
+
+.mario-dashboard .form-group:has(input):has(select) > *:not(label) input,
+.mario-dashboard .form-group:has(input):has(select) > *:not(label) select {
+  flex: 1;
+}
+
+.mario-dashboard input,
+.mario-dashboard select {
+  height: var(--input-height);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 0 8px;
+  font-size: 12px;
+  font-family: inherit;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.mario-dashboard input:focus,
+.mario-dashboard select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.mario-dashboard input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mario-dashboard select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8b9a' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px;
+}
+
+.mario-dashboard .market-symbol-search {
+  position: relative;
+  z-index: 80;
+  width: 100%;
+}
+
+.mario-dashboard .market-symbol-search-icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  color: var(--text-secondary);
+  opacity: 0.55;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: opacity 0.2s;
+}
+
+.mario-dashboard .market-symbol-search-icon.is-open {
+  opacity: 1;
+}
+
+.mario-dashboard .market-symbol-search-input {
+  padding-left: 30px;
+}
+
+.mario-dashboard .market-symbol-search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 90;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+}
+
+.mario-dashboard .market-symbol-search-option {
+  width: 100%;
+  min-height: 30px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.2s, color 0.2s;
+}
+
+.mario-dashboard .market-symbol-search-option:hover,
+.mario-dashboard .market-symbol-search-option.active {
+  background: var(--accent);
+  color: #18181f;
+  font-weight: 600;
+}
+
+.mario-dashboard .market-symbol-search-suffix {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.mario-dashboard .market-symbol-search-option:hover .market-symbol-search-suffix,
+.mario-dashboard .market-symbol-search-option.active .market-symbol-search-suffix {
+  color: #18181f;
+}
+
+.mario-dashboard .market-symbol-search-empty {
+  padding: 10px 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-align: center;
+}
+
+.mario-dashboard .radio-group {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.mario-dashboard .radio-btn {
+  flex: 1;
+  min-width: 40px;
+  height: var(--btn-height);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  padding: 0 8px;
+}
+
+.mario-dashboard .radio-btn:hover {
+  border-color: var(--accent);
+}
+
+.mario-dashboard .radio-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #18181f;
+  font-weight: 600;
+}
+
+.mario-dashboard .radio-btn.active.danger-low {
+  background: #27ae60;
+  border-color: #27ae60;
+}
+
+.mario-dashboard .radio-btn.active.danger-mid {
+  background: #f39c12;
+  border-color: #f39c12;
+}
+
+.mario-dashboard .radio-btn.active.danger-high {
+  background: #e74c3c;
+  border-color: #e74c3c;
+  color: #fff;
+}
+
+.mario-dashboard .radio-btn.active.danger-max {
+  background: #9b59b6;
+  border-color: #9b59b6;
+  color: #fff;
+}
+
+.mario-dashboard .radio-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mario-dashboard .calculated-value {
+  height: var(--input-height);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--accent);
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 12px;
+  flex: 1;
+}
+
+.mario-dashboard .warning {
+  color: var(--down);
+  font-size: 9px;
+  animation: marioBlink 1s infinite;
+}
+
+@keyframes marioBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
+}
+
+.mario-dashboard .action-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mario-dashboard .action-btn {
+  flex: 1;
+  height: var(--btn-height);
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0 8px;
+}
+
+.mario-dashboard .action-btn.long {
+  background: var(--up);
+  color: #18181f;
+}
+
+.mario-dashboard .action-btn.short {
+  background: var(--down);
+  color: #fff;
+}
+
+.mario-dashboard .action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mario-dashboard .orders-actions .action-btn {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.mario-dashboard .action-btn:not(:disabled):hover {
+  filter: brightness(1.1);
+}
+
+.mario-dashboard .orders-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 500px) {
+  .mario-dashboard .orders-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mario-dashboard .orders-section h3 {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mario-dashboard .orders-section h3 .count {
+  background: var(--accent);
+  color: #18181f;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+.mario-dashboard .orders-section h3 .count.short {
+  background: var(--down);
+  color: #fff;
+}
+
+.mario-dashboard .order-table,
+.mario-dashboard .history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mario-dashboard .order-table {
+  font-size: 10px;
+}
+
+.mario-dashboard .order-table th,
+.mario-dashboard .order-table td {
+  padding: 6px 4px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.mario-dashboard .order-table th {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.mario-dashboard .order-table td {
+  font-weight: 500;
+}
+
+.mario-dashboard .cancel-btn {
+  background: transparent;
+  border: 1px solid var(--down);
+  color: var(--down);
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.mario-dashboard .cancel-btn:hover {
+  background: var(--down);
+  color: #fff;
+}
+
+.mario-dashboard .empty-state {
+  text-align: center;
+  padding: 12px;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.mario-dashboard .orders-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.mario-dashboard .history-table {
+  font-size: 11px;
+}
+
+.mario-dashboard .history-table th,
+.mario-dashboard .history-table td {
+  padding: 8px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.mario-dashboard .history-table th {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 10px;
+}
+
+.mario-dashboard .history-table td {
+  font-weight: 500;
+}
+
+.mario-dashboard .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  padding: 16px;
+}
+
+.mario-dashboard .modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.mario-dashboard .modal {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  width: 90%;
+  max-width: 360px;
+  max-height: 80vh;
+  overflow-y: auto;
+  transform: scale(0.5) rotateX(15deg) translateY(20px);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 25px 60px -15px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,170,0.1);
+  color: var(--text);
+}
+
+.mario-dashboard .modal-overlay.active .modal {
+  transform: scale(1) rotateX(0deg) translateY(0);
+}
+
+.mario-dashboard .modal h2 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.mario-dashboard .modal-info {
+  margin-bottom: 12px;
+}
+
+.mario-dashboard .modal-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.mario-dashboard .modal-info-label,
+.mario-dashboard .secondary-text {
+  color: var(--text-secondary);
+}
+
+.mario-dashboard .modal-info-value {
+  font-weight: 600;
+}
+
+.mario-dashboard .modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.mario-dashboard .modal-actions button {
+  flex: 1;
+  height: var(--btn-height);
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.mario-dashboard .modal-confirm {
+  background: var(--accent);
+  color: #18181f;
+}
+
+.mario-dashboard .modal-cancel {
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.mario-dashboard .countdown-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.mario-dashboard .countdown-modal-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--input-bg);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.mario-dashboard .countdown-modal-item.urgent {
+  border-color: var(--down);
+  animation: marioBlink 1s infinite;
+}
+
+.mario-dashboard .countdown-modal-time {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.mario-dashboard .countdown-modal-item.urgent .countdown-modal-time {
+  color: var(--down);
+}
+
+.mario-dashboard .countdown-modal-delete {
+  background: var(--down);
+  color: #fff;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.mario-dashboard .countdown-modal-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.mario-dashboard .countdown-modal-add {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.mario-dashboard .input-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.mario-dashboard .input-row input {
+  flex: 1;
+  text-align: center;
+}
+
+.mario-dashboard .input-row input::placeholder {
+  font-size: 10px;
+}

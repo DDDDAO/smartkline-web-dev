@@ -13,11 +13,11 @@ export function PendingOrdersCard({ longOrders, onCancelOrder, onOpenBulkAction,
 }) {
   return (
     <Card title="挂单详情" icon={<DocumentIcon />} theme={theme}>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="orders-container">
         <PendingOrderTable countTone="long" emptyLabel="暂无挂单" orders={longOrders} theme={theme} title="多单" onCancelOrder={onCancelOrder} />
         <PendingOrderTable countTone="short" emptyLabel="暂无挂单" orders={shortOrders} theme={theme} title="空单" onCancelOrder={onCancelOrder} />
       </div>
-      <div className="mt-2 flex flex-wrap gap-1">
+      <div className="orders-actions">
         <ActionButton tone="long" onClick={() => onOpenBulkAction("long")}>取消多单</ActionButton>
         <ActionButton tone="short" onClick={() => onOpenBulkAction("short")}>取消空单</ActionButton>
         <ActionButton tone="long" onClick={() => onOpenBulkAction("all")}>全部取消</ActionButton>
@@ -35,10 +35,8 @@ function PendingOrderTable({ countTone, emptyLabel, onCancelOrder, orders, theme
   title: string;
 }) {
   return (
-    <section>
-      <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold">
-        {title} <CountBadge tone={countTone}>{orders.length}</CountBadge>
-      </h3>
+    <div className="orders-section">
+      <h3>{title} <CountBadge tone={countTone}>{orders.length}</CountBadge></h3>
       <ResponsiveTable>
         <thead>
           <tr>
@@ -57,13 +55,13 @@ function PendingOrderTable({ countTone, emptyLabel, onCancelOrder, orders, theme
               <TableCell theme={theme}>{formatAmountPair(order.amountA, order.amountB)}</TableCell>
               <TableCell theme={theme}>{formatPrice(order.stopLoss)}</TableCell>
               <TableCell theme={theme}>
-                <button className="rounded border border-[#ff4757] px-1.5 py-0.5 text-[10px] text-[#ff4757] transition hover:bg-[#ff4757] hover:text-white" type="button" onClick={() => onCancelOrder(order.id)}>取消</button>
+                <button className="cancel-btn" type="button" onClick={() => onCancelOrder(order.id)}>取消</button>
               </TableCell>
             </tr>
           ))}
         </tbody>
       </ResponsiveTable>
-      {orders.length === 0 ? <div className={theme.emptyState}>{emptyLabel}</div> : null}
-    </section>
+      {orders.length === 0 ? <div className="empty-state">{emptyLabel}</div> : null}
+    </div>
   );
 }
