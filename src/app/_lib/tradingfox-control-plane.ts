@@ -7,7 +7,7 @@ const DEFAULT_DEMO_EXCHANGE_PLATFORM = "Mock";
 const TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT = 50;
 const TRADINGFOX_ORDER_HISTORY_FETCH_LIMIT = 500;
 type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
-type TradingFoxLiveExchangePlatform = "Binance";
+type TradingFoxLiveExchangePlatform = "Aster" | "Binance" | "Bitget" | "Bybit" | "Gate" | "Hyperliquid" | "OKX";
 
 /**
  * Public subset of the TradingFox IP pool record. The backend record can carry
@@ -348,11 +348,11 @@ export async function createTradingFoxConnector(
   const userId = tradingFoxUserIdFromSession(session);
   const exchangePlatform = normalizeLiveExchangePlatform(input.exchangePlatform);
   if (!exchangePlatform) {
-    throw new TradingFoxApiError("Only Binance live connector is supported.", 400);
+    throw new TradingFoxApiError("Unsupported live exchange connector.", 400);
   }
 
   const accountName = normalizeOptionalText(input.accountName) || defaultLiveAccountName(exchangePlatform);
-  const credentials = createLiveExchangeCredentials(exchangePlatform, input);
+  const credentials = createLiveExchangeCredentials(input);
   const ipAddress = await resolveTradingFoxConnectorIPAddress(userId, input.ipAddress);
 
   await tradingFoxRequest<TradingFoxConnector>("/v1/exchange-connectors", {
@@ -367,6 +367,28 @@ export async function createTradingFoxConnector(
     }),
     method: "POST",
   });
+
+  return getTradingFoxAccount(session);
+}
+
+export async function deleteTradingFoxConnector(
+  session: TelegramAuthSession,
+  connectorId: string,
+): Promise<TradingFoxAccountResponse> {
+  const userId = tradingFoxUserIdFromSession(session);
+  const parsedConnectorId = parsePositiveInteger(connectorId, "connectorId");
+  const connector = await getConnectorForUser(parsedConnectorId, userId);
+  if (connector.dead) {
+    throw new TradingFoxApiError("Exchange connector not found.", 404);
+  }
+
+  const traders = await tradingFoxRequest<{ items: TradingFoxTrader[] }>(`/v1/traders?userId=${userId}&traderType=COPY_TRADING`);
+  const attachedTrader = traders.items.find((trader) => trader.exchangeConnectorId === parsedConnectorId);
+  if (attachedTrader) {
+    throw new TradingFoxApiError("Delete strategies that use this exchange account before deleting the account.", 409);
+  }
+
+  await tradingFoxRequest<void>(`/v1/exchange-connectors/${parsedConnectorId}`, { method: "DELETE" });
 
   return getTradingFoxAccount(session);
 }
@@ -754,6 +776,30 @@ function normalizeLiveExchangePlatform(value: unknown): TradingFoxLiveExchangePl
     return "Binance";
   }
 
+  if (normalizedValue === "okx") {
+    return "OKX";
+  }
+
+  if (normalizedValue === "hyperliquid" || normalizedValue === "hl") {
+    return "Hyperliquid";
+  }
+
+  if (normalizedValue === "aster" || normalizedValue === "as") {
+    return "Aster";
+  }
+
+  if (normalizedValue === "bitget" || normalizedValue === "bg") {
+    return "Bitget";
+  }
+
+  if (normalizedValue === "bybit" || normalizedValue === "by") {
+    return "Bybit";
+  }
+
+  if (normalizedValue === "gate" || normalizedValue === "gt") {
+    return "Gate";
+  }
+
   return null;
 }
 
@@ -789,14 +835,7 @@ function createDemoExchangeCredentials(
   };
 }
 
-function createLiveExchangeCredentials(
-  exchangePlatform: TradingFoxLiveExchangePlatform,
-  input: CreateConnectorInput,
-): Record<string, unknown> {
-  if (exchangePlatform !== "Binance") {
-    throw new TradingFoxApiError("Only Binance live connector is supported.", 400);
-  }
-
+function createLiveExchangeCredentials(input: CreateConnectorInput): Record<string, unknown> {
   return {
     apiKey: requireText(input.apiKey, "apiKey"),
     secret: requireText(input.secret, "secret"),

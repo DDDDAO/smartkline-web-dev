@@ -91,6 +91,7 @@ type AccountCenterPrototypeProps = {
   onApiSetupOpen: () => void;
   onApiSetupOpenChange: (isOpen: boolean) => void;
   onClose: () => void;
+  onConnectionDelete: (connectionId: number) => Promise<void> | void;
   onConnectionSave: (input: PrototypeConnectionSaveInput) => void;
   onLogin: () => void;
   onLogout: () => void;
@@ -146,15 +147,15 @@ export type PrototypeConnectionSaveInput = {
 };
 
 const EXCHANGES = [
-  { id: "binance", connectorExchangePlatform: "Binance", defaultAccountName: "Binance #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api" },
-  { id: "mockExchange", connectorExchangePlatform: "Mock", defaultAccountName: "Mock Exchange #1", enabled: true, fallback: "MX", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
-  { id: "binanceDemo", connectorExchangePlatform: "Binance", defaultAccountName: "Binance Demo #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo" },
-  { id: "okx", connectorExchangePlatform: "OKX", defaultAccountName: "OKX #1", enabled: false, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api" },
-  { id: "hyperliquid", connectorExchangePlatform: "Hyperliquid", defaultAccountName: "Hyperliquid #1", enabled: false, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api" },
-  { id: "aster", connectorExchangePlatform: "Aster", defaultAccountName: "Aster #1", enabled: false, fallback: "AS", logoPath: "/exchanges/aster/brand/icon.png", mode: "api" },
-  { id: "bitget", connectorExchangePlatform: "Bitget", defaultAccountName: "Bitget #1", enabled: false, fallback: "BG", logoPath: "/exchanges/bitget/brand/icon.png", mode: "api" },
-  { id: "bybit", connectorExchangePlatform: "Bybit", defaultAccountName: "Bybit #1", enabled: false, fallback: "BY", logoPath: "/exchanges/bybit/brand/icon.png", mode: "api" },
-  { id: "gate", connectorExchangePlatform: "Gate", defaultAccountName: "Gate #1", enabled: false, fallback: "GT", logoPath: "/exchanges/gate/brand/icon.png", mode: "api" },
+  { id: "binance", apiManagementUrl: "https://www.binance.com/en/my/settings/api-management", connectorExchangePlatform: "Binance", defaultAccountName: "Binance #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api", registrationUrl: "https://accounts.binance.com/register" },
+  { id: "okx", apiManagementUrl: "https://www.okx.com/account/my-api", connectorExchangePlatform: "OKX", defaultAccountName: "OKX #1", enabled: true, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api", registrationUrl: "https://www.okx.com/join" },
+  { id: "hyperliquid", apiManagementUrl: "https://app.hyperliquid.xyz/API", connectorExchangePlatform: "Hyperliquid", defaultAccountName: "Hyperliquid #1", enabled: true, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api", registrationUrl: "https://app.hyperliquid.xyz/" },
+  { id: "aster", apiManagementUrl: "https://www.asterdex.com/en/api-management", connectorExchangePlatform: "Aster", defaultAccountName: "Aster #1", enabled: true, fallback: "AS", logoPath: "/exchanges/aster/brand/icon.png", mode: "api", registrationUrl: "https://www.asterdex.com/en" },
+  { id: "bitget", apiManagementUrl: "https://www.bitget.com/account/newapi", connectorExchangePlatform: "Bitget", defaultAccountName: "Bitget #1", enabled: true, fallback: "BG", logoPath: "/exchanges/bitget/brand/icon.png", mode: "api", registrationUrl: "https://www.bitget.com/register" },
+  { id: "bybit", apiManagementUrl: "https://www.bybit.com/app/user/api-management", connectorExchangePlatform: "Bybit", defaultAccountName: "Bybit #1", enabled: true, fallback: "BY", logoPath: "/exchanges/bybit/brand/icon.png", mode: "api", registrationUrl: "https://www.bybit.com/register" },
+  { id: "gate", apiManagementUrl: "https://www.gate.com/myaccount/apikeys", connectorExchangePlatform: "Gate", defaultAccountName: "Gate #1", enabled: true, fallback: "GT", logoPath: "/exchanges/gate/brand/icon.png", mode: "api", registrationUrl: "https://www.gate.com/signup" },
+  { id: "mockExchange", apiManagementUrl: null, connectorExchangePlatform: "Mock", defaultAccountName: "Mock Exchange #1", enabled: true, fallback: "MX", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo", registrationUrl: null },
+  { id: "binanceDemo", apiManagementUrl: BINANCE_DEMO_API_MANAGEMENT_URL, connectorExchangePlatform: "Binance", defaultAccountName: "Binance Demo #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo", registrationUrl: null },
 ] as const;
 type PrototypeExchange = typeof EXCHANGES[number];
 type PrototypeExchangeId = PrototypeExchange["id"];
@@ -174,6 +175,7 @@ export function AccountCenterPrototype({
   onApiSetupOpen,
   onApiSetupOpenChange,
   onClose,
+  onConnectionDelete,
   onConnectionSave,
   onLogin,
   onLogout,
@@ -288,7 +290,9 @@ export function AccountCenterPrototype({
                             key={connection.id}
                             accountCopy={accountCopy}
                             apiConnection={connection}
+                            isDisabled={isAuthLoading}
                             isDarkTheme={isDarkTheme}
+                            onDelete={onConnectionDelete}
                           />
                         ))}
                         <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
@@ -382,6 +386,7 @@ export function AccountManagementPanel({
   telegramUser,
   onApiSetupOpen,
   onApiSetupOpenChange,
+  onConnectionDelete,
   onConnectionSave,
   onLogin,
   onLogout,
@@ -400,6 +405,7 @@ export function AccountManagementPanel({
   telegramUser: TelegramSessionUser | null;
   onApiSetupOpen: () => void;
   onApiSetupOpenChange: (isOpen: boolean) => void;
+  onConnectionDelete: (connectionId: number) => Promise<void> | void;
   onConnectionSave: (input: PrototypeConnectionSaveInput) => void;
   onLogin: () => void;
   onLogout: () => void;
@@ -484,7 +490,9 @@ export function AccountManagementPanel({
                     key={connection.id}
                     accountCopy={accountCopy}
                     apiConnection={connection}
+                    isDisabled={isAuthLoading}
                     isDarkTheme={isDarkTheme}
+                    onDelete={onConnectionDelete}
                   />
                 )) : (
                   <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-4 text-sm leading-5 text-slate-600"}>
@@ -1019,11 +1027,15 @@ function SignalSourceOptionContent({
 function ApiConnectionCard({
   accountCopy,
   apiConnection,
+  isDisabled,
   isDarkTheme,
+  onDelete,
 }: {
   accountCopy: WorkspaceCopy["workspace"]["accountCenter"];
   apiConnection: PrototypeApiConnection;
+  isDisabled: boolean;
   isDarkTheme: boolean;
+  onDelete: (connectionId: number) => Promise<void> | void;
 }) {
   const exchangeLabel = getConnectionExchangeLabel(accountCopy, apiConnection);
   const exchange = getConnectionExchange(apiConnection);
@@ -1066,8 +1078,58 @@ function ApiConnectionCard({
           <div className={isDarkTheme ? "mt-3 text-xs text-emerald-200/70" : "mt-3 text-xs text-emerald-700/75"}>
             #{apiConnection.id} · {accountCopy.api.updatedAt}: {apiConnection.connectedAtLabel || "--"}
           </div>
+          <div className="mt-3 flex justify-end">
+            <button
+              className={getDangerButtonClassName(isDarkTheme)}
+              disabled={isDisabled}
+              type="button"
+              onClick={() => void onDelete(apiConnection.id)}
+            >
+              {accountCopy.api.deleteAction}
+            </button>
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ExchangeResourceLinks({
+  accountCopy,
+  exchange,
+  isDarkTheme,
+}: {
+  accountCopy: WorkspaceCopy["workspace"]["accountCenter"];
+  exchange: PrototypeExchange;
+  isDarkTheme: boolean;
+}) {
+  const links: Array<{ href: string; label: string }> = [];
+  if (exchange.registrationUrl) {
+    links.push({ href: exchange.registrationUrl, label: accountCopy.apiSetup.registerRebate });
+  }
+  if (exchange.apiManagementUrl) {
+    links.push({ href: exchange.apiManagementUrl, label: accountCopy.apiSetup.createApi });
+  }
+
+  if (links.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+      {links.map((link) => (
+        <a
+          key={link.label}
+          className={getExchangeResourceLinkClassName(isDarkTheme)}
+          href={link.href}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <ExchangeIcon enabled exchange={exchange} isDarkTheme={isDarkTheme} />
+          <span className="min-w-0 flex-1 truncate">{link.label}</span>
+          <ExternalLinkGlyph />
+        </a>
+      ))}
     </div>
   );
 }
@@ -1331,7 +1393,7 @@ function ExchangeApiSetupLayer({
   onClose: () => void;
   onSave: (input: PrototypeConnectionSaveInput) => void;
 }) {
-  const [selectedExchangeId, setSelectedExchangeId] = useState<PrototypeExchangeId>("binanceDemo");
+  const [selectedExchangeId, setSelectedExchangeId] = useState<PrototypeExchangeId>("binance");
   const selectedExchange = getExchangeById(selectedExchangeId);
   const [accountName, setAccountName] = useState(initialAccountName || selectedExchange.defaultAccountName);
   const [mockMarginBalance, setMockMarginBalance] = useState(String(initialMockMarginBalance ?? 10000));
@@ -1517,6 +1579,7 @@ function ExchangeApiSetupLayer({
                       </span>
                     ) : null}
                   </div>
+                  <ExchangeResourceLinks accountCopy={accountCopy} exchange={selectedExchange} isDarkTheme={isDarkTheme} />
                 </section>
 
                 {isDemoExchange ? (
@@ -1525,16 +1588,6 @@ function ExchangeApiSetupLayer({
                     <p className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
                       {selectedExchange.id === "mockExchange" ? accountCopy.apiSetup.mockExchangeDescription : accountCopy.apiSetup.binanceDemoDescription}
                     </p>
-                    {isBinanceDemoExchange ? (
-                      <a
-                        className={`${getSoftButtonClassName(isDarkTheme)} mt-3 w-fit`}
-                        href={BINANCE_DEMO_API_MANAGEMENT_URL}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        ↗ {accountCopy.apiSetup.binanceDemoApiManagement}
-                      </a>
-                    ) : null}
                     <div className={isDarkTheme ? "mt-3 rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.07] px-3 py-3 text-xs leading-5 text-emerald-100/85" : "mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800"}>
                       {accountCopy.apiSetup.demoRiskNote}
                     </div>
@@ -1580,13 +1633,13 @@ function ExchangeApiSetupLayer({
                   <>
                     <section className={getModalSectionClassName(isDarkTheme)}>
                       <div className={getLabelClassName(isDarkTheme)}>{accountCopy.apiSetup.whitelistIp}</div>
-                      <div className="mt-3 flex gap-2">
-                        <div className={isDarkTheme ? "min-w-0 flex-1 rounded-2xl border border-white/[0.075] bg-[#0F141B] px-3 py-3 font-mono text-sm font-black tracking-wide text-slate-100" : "min-w-0 flex-1 rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC] px-3 py-3 font-mono text-sm font-black tracking-wide text-slate-900"}>
+                      <div className="mt-3 flex items-stretch gap-3">
+                        <div className={isDarkTheme ? "flex min-h-[72px] min-w-0 flex-1 items-center break-all rounded-[24px] border border-white/[0.085] bg-[#0F141B] px-4 font-mono text-lg font-black tracking-[0.12em] text-slate-100 sm:min-h-20 sm:text-2xl" : "flex min-h-[72px] min-w-0 flex-1 items-center break-all rounded-[24px] border border-[#D5E4EF] bg-[#F8FAFC] px-4 font-mono text-lg font-black tracking-[0.12em] text-slate-900 sm:min-h-20 sm:text-2xl"}>
                           {isWhitelistIpLoading ? accountCopy.apiSetup.whitelistIpLoading : (whitelistIp || accountCopy.apiSetup.whitelistIpUnavailable)}
                         </div>
                         <button
                           aria-label={accountCopy.apiSetup.copyWhitelistIp}
-                          className={`${getIconButtonClassName(isDarkTheme)} disabled:cursor-not-allowed disabled:opacity-45`}
+                          className={getWhitelistCopyButtonClassName(isDarkTheme)}
                           disabled={!hasWhitelistIp}
                           title={accountCopy.apiSetup.copyWhitelistIp}
                           type="button"
@@ -1595,7 +1648,7 @@ function ExchangeApiSetupLayer({
                             void navigator.clipboard?.writeText(whitelistIp);
                           }}
                         >
-                          {hasCopiedIp ? "✓" : "□"}
+                          {hasCopiedIp ? <CheckGlyph /> : <CopyGlyph />}
                         </button>
                       </div>
                       <p className={whitelistIpError
@@ -2012,7 +2065,7 @@ function StrategyDetailView({
                 interval={tradeKlineInterval}
                 isDarkTheme={isDarkTheme}
                 row={selectedTradeKlineRow}
-                rows={visibleTradeHistoryRows}
+                rows={allTradeHistoryRows}
                 strategy={liveStrategy}
                 onIntervalChange={setTradeKlineInterval}
               />
@@ -2137,6 +2190,12 @@ type TradeHistoryRow = {
   symbol: string;
   timestamp: string;
   tradeLog: TradingFoxTradeLogItem | null;
+};
+
+type TradeHistorySymbolOption = {
+  count: number;
+  label: string;
+  symbol: MarketSymbol;
 };
 
 type PositionSummaryModel = {
@@ -2884,12 +2943,22 @@ function TradeHistoryKlinePanel({
     key: "",
   });
   const [isLoadingOlderHistory, setIsLoadingOlderHistory] = useState(false);
-  const symbol = toCopyTradingMarketSymbol(row.symbol);
-  const chartKey = `${row.id}:${symbol}:${interval}`;
+  const rowSymbol = toCopyTradingMarketSymbol(row.symbol);
+  const [selectedSymbol, setSelectedSymbol] = useState<MarketSymbol>(rowSymbol);
+  const symbolOptions = useMemo(() => createTradeHistorySymbolOptions(rows), [rows]);
+  const selectedSymbolOption = symbolOptions.find((option) => option.symbol === selectedSymbol) ?? null;
+  const symbol = selectedSymbolOption?.symbol ?? symbolOptions[0]?.symbol ?? rowSymbol;
+  const anchorRow = rowSymbol === symbol ? row : findTradeHistoryRowForSymbol(rows, symbol) ?? row;
+  const chartKey = `${anchorRow.id}:${symbol}:${interval}`;
   const candles = candleState.key === chartKey ? candleState.candles : EMPTY_MARKET_CANDLES;
   const canLoadOlderHistory = candleState.key === chartKey ? candleState.canLoadOlderHistory : false;
   const loadError = candleState.key === chartKey ? candleState.error : "";
   const language = resolveWorkspaceLanguage(copy);
+
+  useEffect(() => {
+    setSelectedSymbol(rowSymbol);
+  }, [rowSymbol]);
+
   const tradeMarkers = useMemo(
     () => createTradeHistoryTradeMarkers({
       rows,
@@ -2900,21 +2969,21 @@ function TradeHistoryKlinePanel({
     [copy.workspace.accountCenter.strategy, rows, strategy, symbol],
   );
   const focusTimeRequest = useMemo<ChartTimeFocusRequest | null>(() => {
-    const sourceTimeMs = Date.parse(row.timestamp);
+    const sourceTimeMs = Date.parse(anchorRow.timestamp);
     if (!Number.isFinite(sourceTimeMs)) {
       return null;
     }
 
     return {
-      key: `copy-strategy-row:${row.id}:${symbol}:${interval}:${sourceTimeMs}`,
+      key: `copy-strategy-row:${anchorRow.id}:${symbol}:${interval}:${sourceTimeMs}`,
       sourceTimeMs,
     };
-  }, [interval, row.id, row.timestamp, symbol]);
+  }, [anchorRow.id, anchorRow.timestamp, interval, symbol]);
 
   useEffect(() => {
     let isActive = true;
     const abortController = new AbortController();
-    const sourceTimeMs = Date.parse(row.timestamp);
+    const sourceTimeMs = Date.parse(anchorRow.timestamp);
     const requestKey = chartKey;
 
     fetchHistoricalCandles(symbol, interval, {
@@ -2949,7 +3018,7 @@ function TradeHistoryKlinePanel({
       isActive = false;
       abortController.abort();
     };
-  }, [chartKey, interval, row.timestamp, symbol]);
+  }, [anchorRow.timestamp, chartKey, interval, symbol]);
 
   const loadOlderHistory = useCallback(async () => {
     if (isLoadingOlderHistory || !canLoadOlderHistory) {
@@ -2994,10 +3063,18 @@ function TradeHistoryKlinePanel({
   return (
     <div className={isDarkTheme ? "mt-3 overflow-hidden rounded-3xl border border-white/[0.075] bg-[#181A20]" : "mt-3 overflow-hidden rounded-3xl border border-[#DDE8F0] bg-white"}>
       <div className={isDarkTheme ? "flex flex-col gap-3 border-b border-white/[0.075] bg-white/[0.035] px-4 py-3 sm:flex-row sm:items-center sm:justify-between" : "flex flex-col gap-3 border-b border-[#E5EAF0] bg-[#F8FAFC] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"}>
-        <div>
-          <div className="text-sm font-black">{copy.workspace.accountCenter.strategy.tradeHistoryKlineTitle}</div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <TradeHistoryKlineSymbolSelect
+              isDarkTheme={isDarkTheme}
+              options={symbolOptions}
+              value={symbol}
+              onChange={setSelectedSymbol}
+            />
+            <div className="text-sm font-black">{copy.workspace.accountCenter.strategy.tradeHistoryKlineTitle}</div>
+          </div>
           <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
-            {symbol} · {formatDetailDate(row.timestamp)}
+            {symbol} · {formatDetailDate(anchorRow.timestamp)}
           </div>
         </div>
         <div className={isDarkTheme ? "inline-flex w-max items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5" : "inline-flex w-max items-center gap-1 rounded-full border border-[#E5EAF0] bg-white p-0.5"}>
@@ -3048,6 +3125,74 @@ function TradeHistoryKlinePanel({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function TradeHistoryKlineSymbolSelect({
+  isDarkTheme,
+  options,
+  value,
+  onChange,
+}: {
+  isDarkTheme: boolean;
+  options: readonly TradeHistorySymbolOption[];
+  value: MarketSymbol;
+  onChange: (value: MarketSymbol) => void;
+}) {
+  const selectedOption = options.find((option) => option.symbol === value) ?? options[0] ?? {
+    count: 0,
+    label: value,
+    symbol: value,
+  };
+  const triggerClassName = isDarkTheme
+    ? "inline-flex h-8 min-w-28 items-center justify-between gap-2 rounded-full border border-white/[0.075] bg-white/[0.055] px-3 text-xs font-black text-slate-100 outline-none transition hover:bg-white/[0.08] focus:border-sky-400/45 focus:ring-2 focus:ring-sky-400/10"
+    : "inline-flex h-8 min-w-28 items-center justify-between gap-2 rounded-full border border-[#D5E4EF] bg-white px-3 text-xs font-black text-slate-950 shadow-sm outline-none transition hover:bg-[#F8FAFC] focus:border-[#7DBEFF] focus:ring-2 focus:ring-[#16AFF5]/10";
+  const pillClassName = isDarkTheme
+    ? "inline-flex h-8 min-w-28 items-center rounded-full border border-white/[0.075] bg-white/[0.055] px-3 text-xs font-black text-slate-100"
+    : "inline-flex h-8 min-w-28 items-center rounded-full border border-[#D5E4EF] bg-white px-3 text-xs font-black text-slate-950 shadow-sm";
+
+  if (options.length <= 1) {
+    return <span className={pillClassName}>{selectedOption.label}</span>;
+  }
+
+  return (
+    <SelectPrimitive.Root value={value} onValueChange={onChange}>
+      <SelectPrimitive.Trigger aria-label="Trade history symbol" className={triggerClassName}>
+        <SelectPrimitive.Value>{selectedOption.label}</SelectPrimitive.Value>
+        <SelectPrimitive.Icon asChild>
+          <span aria-hidden="true" className={isDarkTheme ? "text-[10px] text-slate-500" : "text-[10px] text-slate-400"}>⌄</span>
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          className={isDarkTheme
+            ? "z-[140] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
+            : "z-[140] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
+          position="popper"
+          sideOffset={8}
+        >
+          <SelectPrimitive.Viewport className="grid gap-1">
+            {options.map((option) => (
+              <SelectPrimitive.Item
+                key={option.symbol}
+                className={isDarkTheme
+                  ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-sky-400/10 data-[state=checked]:text-sky-100"
+                  : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold outline-none transition data-[highlighted]:bg-[#F8FAFC] data-[state=checked]:bg-[#EAF8FE] data-[state=checked]:text-[#007DB8]"}
+                value={option.symbol}
+              >
+                <SelectPrimitive.ItemText asChild>
+                  <span>{option.label}</span>
+                </SelectPrimitive.ItemText>
+                <span className={isDarkTheme ? "text-[10px] text-slate-500" : "text-[10px] text-slate-400"}>
+                  {option.count}
+                </span>
+                <SelectPrimitive.ItemIndicator className="text-xs font-black">✓</SelectPrimitive.ItemIndicator>
+              </SelectPrimitive.Item>
+            ))}
+          </SelectPrimitive.Viewport>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
   );
 }
 
@@ -3220,6 +3365,34 @@ function RowsPaginationControls({
   );
 }
 
+function createTradeHistorySymbolOptions(rows: readonly TradeHistoryRow[]): TradeHistorySymbolOption[] {
+  const options = new Map<MarketSymbol, TradeHistorySymbolOption>();
+  for (const row of rows) {
+    const rawSymbol = row.symbol.trim();
+    if (!rawSymbol || rawSymbol === "--") {
+      continue;
+    }
+
+    const symbol = toCopyTradingMarketSymbol(rawSymbol);
+    const existingOption = options.get(symbol);
+    if (existingOption) {
+      existingOption.count += 1;
+      continue;
+    }
+
+    options.set(symbol, {
+      count: 1,
+      label: rawSymbol,
+      symbol,
+    });
+  }
+  return Array.from(options.values());
+}
+
+function findTradeHistoryRowForSymbol(rows: readonly TradeHistoryRow[], symbol: MarketSymbol): TradeHistoryRow | null {
+  return rows.find((row) => toCopyTradingMarketSymbol(row.symbol) === symbol) ?? null;
+}
+
 function createTradeHistoryTradeMarkers({
   rows,
   selectedSymbol,
@@ -3256,7 +3429,7 @@ function createTradeHistoryTradeMarker(
 
   return {
     actionLabel,
-    avatarUrl: strategy.avatarUrl || null,
+    avatarUrl: null,
     detail: `${formatDetailDate(row.timestamp)} · ${formatOrderStatus(row.status, strategyCopy)}`,
     direction: side === "buy" ? "long" : "short",
     eventId: row.id,
@@ -3271,7 +3444,7 @@ function createTradeHistoryTradeMarker(
     symbol: toCopyTradingMarketSymbol(row.symbol),
     title: `${actionLabel} ${row.symbol}${priceSuffix}`,
     traderId: strategy.traderId,
-    traderName: strategy.traderName || actionLabel,
+    traderName: actionLabel,
   };
 }
 
@@ -3665,6 +3838,33 @@ function ExchangeIcon({ enabled, exchange, isDarkTheme }: { enabled: boolean; ex
   );
 }
 
+function ExternalLinkGlyph() {
+  return (
+    <svg aria-hidden="true" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24">
+      <path d="M8 8H6.8C5.81 8 5 8.81 5 9.8V17.2C5 18.19 5.81 19 6.8 19H14.2C15.19 19 16 18.19 16 17.2V16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
+      <path d="M13 5H19V11" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
+      <path d="M11 13L18.5 5.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
+    </svg>
+  );
+}
+
+function CopyGlyph() {
+  return (
+    <svg aria-hidden="true" className="h-7 w-7" fill="none" viewBox="0 0 24 24">
+      <rect height="12" rx="2" stroke="currentColor" strokeLinejoin="round" strokeWidth="2.1" width="12" x="8" y="8" />
+      <path d="M5 15.2V6.8C5 5.81 5.81 5 6.8 5H15.2" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.1" />
+    </svg>
+  );
+}
+
+function CheckGlyph() {
+  return (
+    <svg aria-hidden="true" className="h-7 w-7" fill="none" viewBox="0 0 24 24">
+      <path d="M5 12.4L9.4 16.8L19 7.2" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" />
+    </svg>
+  );
+}
+
 function getExchangeById(exchangeId: PrototypeExchangeId): PrototypeExchange {
   return EXCHANGES.find((exchange) => exchange.id === exchangeId) ?? EXCHANGES[0];
 }
@@ -3677,6 +3877,18 @@ function getPrimaryButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "inline-flex min-h-10 items-center justify-center rounded-2xl bg-sky-400 px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-45"
     : "inline-flex min-h-10 items-center justify-center rounded-2xl bg-[#16AFF5] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#008DCC] disabled:cursor-not-allowed disabled:opacity-45";
+}
+
+function getExchangeResourceLinkClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "flex min-h-14 items-center gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.08] px-3 text-sm font-black text-slate-200 transition hover:border-sky-300/25 hover:bg-white/[0.12] hover:text-slate-50"
+    : "flex min-h-14 items-center gap-3 rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC] px-3 text-sm font-black text-slate-700 shadow-sm transition hover:border-[#BFE7FB] hover:bg-white hover:text-slate-950";
+}
+
+function getWhitelistCopyButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "grid h-[72px] w-[72px] shrink-0 place-items-center rounded-full border border-white/[0.085] bg-white/[0.04] text-slate-300 transition hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-45 sm:h-20 sm:w-20"
+    : "grid h-[72px] w-[72px] shrink-0 place-items-center rounded-full border border-[#D5E4EF] bg-white text-slate-500 shadow-sm transition hover:border-[#BFE7FB] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-45 sm:h-20 sm:w-20";
 }
 
 function getModalSectionClassName(isDarkTheme: boolean): string {

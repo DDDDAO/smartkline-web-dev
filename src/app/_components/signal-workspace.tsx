@@ -1497,6 +1497,51 @@ export function SignalWorkspace() {
     }
   }, [applyTradingFoxAccount, authMe.isLoggedIn, pendingCopyTradingTarget, startTelegramLogin]);
 
+  const handlePrototypeConnectionDelete = useCallback(async (connectionId: number) => {
+    if (!authMe.isLoggedIn) {
+      startTelegramLogin();
+      return;
+    }
+
+    const connection = prototypeApiConnections.find((item) => item.id === connectionId) ?? null;
+    const attachedStrategy = prototypeStrategyList.find((strategy) => strategy.exchangeConnectorId === connectionId) ?? null;
+    if (attachedStrategy) {
+      setWorkspaceNotification({
+        id: `api-delete-blocked-${Date.now()}`,
+        kind: "error",
+        message: copyRef.current.workspace.accountCenter.api.deleteBlockedByStrategy,
+        meta: connection?.accountName ?? `#${connectionId}`,
+        title: copyRef.current.workspace.accountCenter.api.title,
+      });
+      return;
+    }
+
+    setIsTradingFoxLoading(true);
+    try {
+      const account = await requestTradingFoxAccount(`/api/tradingfox/connectors/${encodeURIComponent(String(connectionId))}`, {
+        method: "DELETE",
+      });
+      applyTradingFoxAccount(account);
+      setWorkspaceNotification({
+        id: `api-delete-${Date.now()}`,
+        kind: "success",
+        message: copyRef.current.workspace.accountCenter.api.deleteSuccess,
+        meta: connection?.accountName ?? `#${connectionId}`,
+        title: copyRef.current.workspace.accountCenter.api.title,
+      });
+    } catch (error) {
+      setWorkspaceNotification({
+        id: `api-delete-error-${Date.now()}`,
+        kind: "error",
+        message: getTradingFoxErrorMessage(error, copyRef.current),
+        meta: connection?.accountName ?? `#${connectionId}`,
+        title: copyRef.current.workspace.accountCenter.api.title,
+      });
+    } finally {
+      setIsTradingFoxLoading(false);
+    }
+  }, [applyTradingFoxAccount, authMe.isLoggedIn, prototypeApiConnections, prototypeStrategyList, startTelegramLogin]);
+
   const handleApiSetupOpenChange = useCallback((isOpen: boolean) => {
     setIsApiSetupOpen(isOpen);
     if (!isOpen) {
@@ -1885,6 +1930,7 @@ export function SignalWorkspace() {
             strategies={prototypeStrategyList}
             onApiSetupOpen={() => setIsApiSetupOpen(true)}
             onApiSetupOpenChange={handleApiSetupOpenChange}
+            onConnectionDelete={handlePrototypeConnectionDelete}
             onConnectionSave={handlePrototypeConnectionSave}
             onLogin={startTelegramLogin}
             onLogout={handleLogout}
