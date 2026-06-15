@@ -1915,18 +1915,25 @@ function mapTradingFoxConnectorToPrototypeConnection(
   connector: TradingFoxConnector,
   language: WorkspaceLanguage,
 ): PrototypeApiConnection {
+  const isBinanceDemoConnector = connector.isMock && isBinanceDemoExchangePlatform(connector.exchangePlatform);
+
   return {
     accountName: connector.name,
-    accountBalance: connector.accountEquity ?? connector.mockMarginBalance ?? null,
+    accountBalance: connector.accountEquity ?? (isBinanceDemoConnector ? null : connector.mockMarginBalance ?? null),
     connectedAtLabel: formatTradingFoxDateLabel(connector.updatedAt, language),
     displayName: connector.displayName,
     exchangePlatform: connector.exchangePlatform,
     id: connector.id,
     isMock: connector.isMock,
-    mockMarginBalance: connector.mockMarginBalance ?? null,
+    mockMarginBalance: isBinanceDemoConnector ? null : connector.mockMarginBalance ?? null,
     status: "connected",
     whitelistIp: connector.whitelistIp,
   };
+}
+
+function isBinanceDemoExchangePlatform(exchangePlatform: string): boolean {
+  const normalizedPlatform = exchangePlatform.replace(/[\s_-]/gu, "").toLowerCase();
+  return normalizedPlatform === "binance" || normalizedPlatform === "binancedemo" || normalizedPlatform === "bn";
 }
 
 function formatTradingFoxDateLabel(value: string, language: WorkspaceLanguage): string {
