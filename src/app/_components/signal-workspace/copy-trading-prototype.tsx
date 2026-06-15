@@ -1653,11 +1653,11 @@ function ExchangeApiSetupLayer({
       <section
         aria-label={accountCopy.apiSetup.title}
         aria-modal="true"
-        className="fixed inset-x-0 bottom-0 z-[115] max-h-[94dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(860px,calc(100dvh-2rem))] sm:max-w-[920px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
+        className="fixed inset-x-0 bottom-0 z-[115] h-[94dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:h-[min(760px,calc(100dvh-2rem))] sm:max-w-[920px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
         role="dialog"
       >
         <form
-          className={isDarkTheme ? "flex max-h-[94dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[min(860px,calc(100dvh-2rem))]" : "flex max-h-[94dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[min(860px,calc(100dvh-2rem))]"}
+          className={isDarkTheme ? "flex h-full flex-col border border-white/[0.085] bg-[#111820] text-slate-100" : "flex h-full flex-col border border-[#D5E4EF] bg-white text-slate-950"}
           onSubmit={(event) => event.preventDefault()}
         >
           <header className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
