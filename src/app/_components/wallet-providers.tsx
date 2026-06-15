@@ -5,6 +5,7 @@ import {
   darkTheme,
   getDefaultConfig,
   RainbowKitProvider,
+  type WalletList,
 } from "@rainbow-me/rainbowkit";
 import {
   binanceWallet,
@@ -19,14 +20,51 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, http } from "wagmi";
 import { arbitrum, base, bsc, mainnet, optimism, polygon } from "wagmi/chains";
+import { isWalletConnectConfigured, rainbowKitProjectId } from "@/app/_lib/wallet-connect";
 
-const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "YOUR_PROJECT_ID";
+type RainbowKitWalletFactory = WalletList[number]["wallets"][number];
+
+const installedOnlyWallet = (createWallet: RainbowKitWalletFactory): RainbowKitWalletFactory => {
+  return (params) => {
+    const wallet = createWallet(params);
+
+    return {
+      ...wallet,
+      hidden: () => !wallet.installed || wallet.hidden?.() === true,
+    };
+  };
+};
+
+const walletGroups = isWalletConnectConfigured
+  ? [
+      {
+        groupName: "推荐",
+        wallets: [metaMaskWallet, walletConnectWallet, coinbaseWallet],
+      },
+      {
+        groupName: "流行",
+        wallets: [binanceWallet, okxWallet, bybitWallet, rabbyWallet, injectedWallet],
+      },
+    ]
+  : [
+      {
+        groupName: "浏览器插件",
+        wallets: [
+          installedOnlyWallet(metaMaskWallet),
+          installedOnlyWallet(binanceWallet),
+          installedOnlyWallet(okxWallet),
+          installedOnlyWallet(bybitWallet),
+          installedOnlyWallet(rabbyWallet),
+          injectedWallet,
+        ],
+      },
+    ];
 
 const walletConfig = getDefaultConfig({
   appName: "SmartKline",
   appUrl: "https://www.smartkline.com",
   chains: [mainnet, arbitrum, base, optimism, polygon, bsc],
-  projectId: walletConnectProjectId,
+  projectId: rainbowKitProjectId,
   ssr: true,
   transports: {
     [mainnet.id]: http(),
@@ -36,16 +74,7 @@ const walletConfig = getDefaultConfig({
     [polygon.id]: http(),
     [bsc.id]: http(),
   },
-  wallets: [
-    {
-      groupName: "推荐",
-      wallets: [metaMaskWallet, walletConnectWallet, coinbaseWallet],
-    },
-    {
-      groupName: "流行",
-      wallets: [binanceWallet, okxWallet, bybitWallet, rabbyWallet, injectedWallet],
-    },
-  ],
+  wallets: walletGroups,
 });
 
 export function WalletProviders({ children }: { children: ReactNode }) {

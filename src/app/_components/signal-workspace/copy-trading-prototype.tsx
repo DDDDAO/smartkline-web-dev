@@ -3,11 +3,12 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useSignTypedData } from "wagmi";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import { WORKSPACE_COPY, type WorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import { isWalletConnectConfigured } from "@/app/_lib/wallet-connect";
 import { intervals } from "@/app/_lib/demo-data";
 import {
   fetchHistoricalCandles,
@@ -1449,7 +1450,6 @@ function ExchangeApiSetupLayer({
   const [isAgentBinding, setIsAgentBinding] = useState(false);
   const [isSavingManual, setIsSavingManual] = useState(false);
   const { address: connectedWalletAddress } = useAccount();
-  const { openConnectModal } = useConnectModal();
   const { signTypedDataAsync } = useSignTypedData();
   const accountCopy = copy.workspace.accountCenter;
   const isDemoExchange = selectedExchange.mode === "demo";
@@ -1567,11 +1567,7 @@ function ExchangeApiSetupLayer({
     setAgentBindingStep(accountCopy.apiSetup.hyperliquidAgentStepConnect);
     const selectedWalletAddress = connectedWalletAddress?.trim() ?? "";
     if (!selectedWalletAddress) {
-      if (!openConnectModal) {
-        setAgentBindingError(accountCopy.apiSetup.hyperliquidAgentWalletMissing);
-        return;
-      }
-      openConnectModal();
+      setAgentBindingError(accountCopy.apiSetup.hyperliquidAgentWalletMissing);
       return;
     }
 
@@ -1891,6 +1887,16 @@ function HyperliquidAgentWalletPanel({
     : agentWalletAddress
       ? accountCopy.apiSetup.hyperliquidAgentContinueAuthorize
       : accountCopy.apiSetup.hyperliquidAgentConnectAuthorize;
+  const renderConnectButton = (openConnectModal: (() => void) | undefined) => (
+    <button
+      className={getPrimaryButtonClassName(isDarkTheme)}
+      disabled={isBinding || !openConnectModal}
+      type="button"
+      onClick={() => openConnectModal?.()}
+    >
+      {actionLabel}
+    </button>
+  );
 
   return (
     <section className={isDarkTheme ? "rounded-[24px] border border-sky-300/20 bg-sky-300/[0.07] p-4" : "rounded-[24px] border border-[#BFE7FB] bg-[#F1FBFF] p-4"}>
@@ -1908,15 +1914,26 @@ function HyperliquidAgentWalletPanel({
           <p className={isDarkTheme ? "mt-2 max-w-2xl text-sm leading-6 text-slate-300" : "mt-2 max-w-2xl text-sm leading-6 text-slate-700"}>
             {accountCopy.apiSetup.hyperliquidAgentDescription}
           </p>
+          {!isWalletConnectConfigured ? (
+            <div className={isDarkTheme ? "mt-3 rounded-2xl border border-amber-300/15 bg-amber-300/[0.08] px-3 py-2 text-xs leading-5 text-amber-100" : "mt-3 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800"}>
+              {accountCopy.apiSetup.hyperliquidWalletConnectMissing}
+            </div>
+          ) : null}
         </div>
-        <button
-          className={getPrimaryButtonClassName(isDarkTheme)}
-          disabled={isBinding}
-          type="button"
-          onClick={() => onBind()}
-        >
-          {actionLabel}
-        </button>
+        <ConnectButton.Custom>
+          {({ account, mounted, openConnectModal }) => (
+            mounted && account ? (
+              <button
+                className={getPrimaryButtonClassName(isDarkTheme)}
+                disabled={isBinding}
+                type="button"
+                onClick={() => onBind()}
+              >
+                {actionLabel}
+              </button>
+            ) : renderConnectButton(openConnectModal)
+          )}
+        </ConnectButton.Custom>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-4">
