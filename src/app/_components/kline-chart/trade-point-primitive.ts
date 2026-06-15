@@ -96,9 +96,10 @@ type TradePointCandleCoordinates = {
 };
 
 /**
- * Source-owned trade points stay as avatar markers. User-owned strategy history
- * orders can opt into plain B/S labels by omitting the avatar and passing a
- * buy/sell action label, matching the KOL signal entry/exit marker language.
+ * Source-owned trade points stay as avatar markers. Callers that intentionally
+ * omit avatars can still render compact B/S text labels by passing a buy/sell
+ * action label; personal trade history keeps its user identity in the marker
+ * payload instead.
  */
 export class TradePointPrimitive implements ISeriesPrimitive<Time> {
   private readonly avatarImages = new TradePointAvatarImageCache();
