@@ -16,7 +16,7 @@ import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
 import type { TradingFoxPosition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
 import type { KlineChartProps } from "@/app/_components/kline-chart";
 import type { ChartTimeFocusRequest } from "@/app/_components/kline-chart/types";
-import type { CopyTradingTradeMarker, CopyTradingTrader } from "@/app/_types/copy-trading";
+import type { CopyTradingEventType, CopyTradingTradeMarker, CopyTradingTrader } from "@/app/_types/copy-trading";
 import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 import { SourceAvatar } from "./card-ui";
@@ -1355,7 +1355,7 @@ function StrategyDetailView({
   const [isDeletingStrategy, setIsDeletingStrategy] = useState(false);
   const [tradeHistoryPageOffset, setTradeHistoryPageOffset] = useState(0);
   const [isTradeKlineOpen, setIsTradeKlineOpen] = useState(false);
-  const [selectedTradeKlineOrderId, setSelectedTradeKlineOrderId] = useState<string | null>(null);
+  const [selectedTradeKlineRowId, setSelectedTradeKlineRowId] = useState<string | null>(null);
   const [tradeKlineInterval, setTradeKlineInterval] = useState<KlineInterval>("15m");
   const strategyCopy = copy.workspace.accountCenter.strategy;
 
@@ -1396,29 +1396,37 @@ function StrategyDetailView({
   const canSyncPositions = Boolean(detail?.trader.enabled) && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
   const orderItems = detail?.orderHistory?.items ?? [];
   const visibleOrderItems = orderItems.slice(0, TRADE_HISTORY_PAGE_SIZE);
-  const selectedTradeKlineOrder = visibleOrderItems.find((order) => order.clientOrderId === selectedTradeKlineOrderId) ?? visibleOrderItems[0] ?? null;
+  const signalSourceOrderItems = detail?.orderHistory?.signalSourceOrders ?? [];
+  const signalSourceIdentityById = createSignalSourceIdentityById(detail?.signalSources ?? [], liveStrategy);
+  const visibleTradeHistoryRows = createTradeHistoryRows({
+    orders: visibleOrderItems,
+    signalSourceIdentityById,
+    signalSourceOrders: signalSourceOrderItems,
+    strategy: liveStrategy,
+  });
+  const selectedTradeKlineRow = visibleTradeHistoryRows.find((row) => row.id === selectedTradeKlineRowId) ?? visibleTradeHistoryRows.find((row) => row.kind === "me") ?? visibleTradeHistoryRows[0] ?? null;
   const tradeHistoryOffset = detail?.orderHistory?.offset ?? tradeHistoryPageOffset;
   const hasPreviousTradeHistoryPage = tradeHistoryOffset > 0;
   const hasNextTradeHistoryPage = Boolean(detail?.orderHistory?.hasMore) || orderItems.length > TRADE_HISTORY_PAGE_SIZE;
   const shouldShowTradeHistoryPagination = hasPreviousTradeHistoryPage || hasNextTradeHistoryPage;
-  const tradeHistoryRangeLabel = createOpenEndedPageRangeLabel(tradeHistoryOffset, visibleOrderItems.length);
+  const tradeHistoryRangeLabel = createOpenEndedPageRangeLabel(tradeHistoryOffset, visibleTradeHistoryRows.length);
   const detailPositions = detail?.positions ?? EMPTY_TRADING_FOX_POSITIONS;
   const copyPositionMarkPricesBySymbol = useMemo(
     () => createCopyPositionMarkPricesBySymbol(detailPositions),
     [detailPositions],
   );
 
-  const openTradeKline = (order: TradingFoxOrderItem) => {
-    setSelectedTradeKlineOrderId(order.clientOrderId);
+  const openTradeKline = (row: TradeHistoryRow) => {
+    setSelectedTradeKlineRowId(row.id);
     setIsTradeKlineOpen(true);
   };
 
   const toggleTradeKline = () => {
-    if (!selectedTradeKlineOrder) {
+    if (!selectedTradeKlineRow) {
       return;
     }
 
-    setSelectedTradeKlineOrderId(selectedTradeKlineOrder.clientOrderId);
+    setSelectedTradeKlineRowId(selectedTradeKlineRow.id);
     setIsTradeKlineOpen((currentValue) => !currentValue);
   };
 
@@ -1604,7 +1612,7 @@ function StrategyDetailView({
               </div>
               <button
                 className={getSoftButtonClassName(isDarkTheme)}
-                disabled={!selectedTradeKlineOrder}
+                disabled={!selectedTradeKlineRow}
                 type="button"
                 onClick={toggleTradeKline}
               >
@@ -1612,25 +1620,25 @@ function StrategyDetailView({
               </button>
             </div>
             {detail.orderHistoryError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.orderHistoryError, copy)}</p> : null}
-            {isTradeKlineOpen && selectedTradeKlineOrder ? (
+            {isTradeKlineOpen && selectedTradeKlineRow ? (
               <TradeHistoryKlinePanel
                 copy={copy}
                 interval={tradeKlineInterval}
                 isDarkTheme={isDarkTheme}
-                order={selectedTradeKlineOrder}
-                orders={visibleOrderItems}
+                row={selectedTradeKlineRow}
+                rows={visibleTradeHistoryRows}
                 strategy={liveStrategy}
                 onIntervalChange={setTradeKlineInterval}
               />
             ) : null}
-            {visibleOrderItems.length > 0 ? (
+            {visibleTradeHistoryRows.length > 0 ? (
               <>
                 <TradeHistoryTable
-                  activeKlineOrderId={selectedTradeKlineOrder?.clientOrderId ?? null}
+                  activeKlineRowId={selectedTradeKlineRow?.id ?? null}
                   isDarkTheme={isDarkTheme}
-                  orders={visibleOrderItems}
+                  rows={visibleTradeHistoryRows}
                   strategyCopy={strategyCopy}
-                  onOrderKlineOpen={openTradeKline}
+                  onRowKlineOpen={openTradeKline}
                 />
                 {shouldShowTradeHistoryPagination ? (
                   <div className="mt-3">
@@ -1710,9 +1718,32 @@ async function requestStrategyPositionSync(strategyId: string, ratioPercent: num
 type StrategyCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
 type SignalSourcePosition = TradingFoxStrategyDetail["signalSources"][number]["positions"][number];
 type TradingFoxOrderItem = NonNullable<TradingFoxStrategyDetail["orderHistory"]>["items"][number];
+type TradingFoxSignalSourceOrderItem = NonNullable<TradingFoxStrategyDetail["orderHistory"]>["signalSourceOrders"][number];
 type CopyPositionMarkPricesBySymbol = ReadonlyMap<string, number>;
+type SignalSourceIdentityById = ReadonlyMap<string, TradeHistorySourceIdentity>;
 
 const EMPTY_TRADING_FOX_POSITIONS: readonly TradingFoxPosition[] = [];
+
+type TradeHistorySourceIdentity = {
+  avatarUrl: string | null;
+  id: string;
+  name: string;
+};
+
+type TradeHistoryRow = {
+  action: string | undefined;
+  id: string;
+  kind: "me" | "signalSource";
+  order: TradingFoxOrderItem | null;
+  price: number | null;
+  quantity: number | null;
+  signalSourceOrder: TradingFoxSignalSourceOrderItem | null;
+  source: TradeHistorySourceIdentity;
+  sourceTimeMs: number;
+  status: string | undefined;
+  symbol: string;
+  timestamp: string;
+};
 
 type PositionSummaryModel = {
   availableMargin: number | null;
@@ -2166,20 +2197,163 @@ function SignalSourcePositionTable({
   );
 }
 
+function createSignalSourceIdentityById(
+  signalSources: readonly TradingFoxStrategyDetail["signalSources"][number][],
+  strategy: PrototypeStrategy,
+): SignalSourceIdentityById {
+  const identities = new Map<string, TradeHistorySourceIdentity>();
+  signalSources.forEach((source) => {
+    const sourceId = source.signalSourceId.trim();
+    if (!sourceId) {
+      return;
+    }
+    identities.set(sourceId, {
+      avatarUrl: null,
+      id: sourceId,
+      name: source.name || sourceId,
+    });
+  });
+
+  if (strategy.traderId.trim()) {
+    identities.set(strategy.traderId, {
+      avatarUrl: strategy.avatarUrl || null,
+      id: strategy.traderId,
+      name: strategy.traderName,
+    });
+  }
+
+  return identities;
+}
+
+function createTradeHistoryRows({
+  orders,
+  signalSourceIdentityById,
+  signalSourceOrders,
+  strategy,
+}: {
+  orders: readonly TradingFoxOrderItem[];
+  signalSourceIdentityById: SignalSourceIdentityById;
+  signalSourceOrders: readonly TradingFoxSignalSourceOrderItem[];
+  strategy: PrototypeStrategy;
+}): TradeHistoryRow[] {
+  return [
+    ...orders.map((order) => createMyTradeHistoryRow(order, strategy)),
+    ...signalSourceOrders.map((order) => createSignalSourceTradeHistoryRow(order, signalSourceIdentityById, strategy)),
+  ].sort(compareTradeHistoryRows);
+}
+
+function createMyTradeHistoryRow(order: TradingFoxOrderItem, strategy: PrototypeStrategy): TradeHistoryRow {
+  return {
+    action: order.side,
+    id: `me:${order.clientOrderId}`,
+    kind: "me",
+    order,
+    price: finiteNumberOrNull(order.price),
+    quantity: finiteNumberOrNull(order.contractAmount),
+    signalSourceOrder: null,
+    source: {
+      avatarUrl: strategy.avatarUrl || null,
+      id: strategy.traderId,
+      name: strategy.traderName,
+    },
+    sourceTimeMs: getTimestampMs(order.timestamp),
+    status: order.status,
+    symbol: order.symbol,
+    timestamp: order.timestamp,
+  };
+}
+
+function createSignalSourceTradeHistoryRow(
+  order: TradingFoxSignalSourceOrderItem,
+  signalSourceIdentityById: SignalSourceIdentityById,
+  strategy: PrototypeStrategy,
+): TradeHistoryRow {
+  const fallbackName = order.signalSourceName || order.signalSourceId || strategy.traderName;
+  const source = signalSourceIdentityById.get(order.signalSourceId) ?? {
+    avatarUrl: null,
+    id: order.signalSourceId || strategy.traderId,
+    name: fallbackName,
+  };
+  const sourceTimestamp = order.timestamp || order.sourceTimestamp || "";
+
+  return {
+    action: order.action,
+    id: `source:${order.eventId || `${order.signalSourceId}:${order.symbol}:${sourceTimestamp}`}`,
+    kind: "signalSource",
+    order: null,
+    price: getSignalSourceOrderPrice(order),
+    quantity: getSignalSourceOrderQuantity(order),
+    signalSourceOrder: order,
+    source: {
+      ...source,
+      name: order.signalSourceName || source.name || fallbackName,
+    },
+    sourceTimeMs: getTimestampMs(sourceTimestamp),
+    status: undefined,
+    symbol: order.symbol,
+    timestamp: sourceTimestamp,
+  };
+}
+
+function compareTradeHistoryRows(left: TradeHistoryRow, right: TradeHistoryRow): number {
+  if (left.sourceTimeMs !== right.sourceTimeMs) {
+    return right.sourceTimeMs - left.sourceTimeMs;
+  }
+  if (left.kind !== right.kind) {
+    return left.kind === "me" ? -1 : 1;
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function getTimestampMs(value: string | undefined): number {
+  const timestamp = Date.parse(value ?? "");
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function getSignalSourceOrderQuantity(order: TradingFoxSignalSourceOrderItem): number | null {
+  const quantity = finiteNumberOrNull(order.deltaQty);
+  return quantity === null ? null : Math.abs(quantity);
+}
+
+function getSignalSourceOrderPrice(order: TradingFoxSignalSourceOrderItem): number | null {
+  return firstFiniteNumber(
+    order.price,
+    order.metadata?.eventPrice,
+    order.metadata?.event_price,
+    order.metadata?.price,
+    order.markPrice,
+    order.metadata?.markPrice,
+    order.metadata?.mark_price,
+    order.entryPrice,
+    order.metadata?.entryPrice,
+    order.metadata?.entry_price,
+  );
+}
+
+function firstFiniteNumber(...values: readonly unknown[]): number | null {
+  for (const value of values) {
+    const number = finiteNumberOrNull(value);
+    if (number !== null) {
+      return number;
+    }
+  }
+  return null;
+}
+
 function TradeHistoryKlinePanel({
   copy,
   interval,
   isDarkTheme,
-  order,
-  orders,
+  row,
+  rows,
   strategy,
   onIntervalChange,
 }: {
   copy: WorkspaceCopy;
   interval: KlineInterval;
   isDarkTheme: boolean;
-  order: TradingFoxOrderItem;
-  orders: readonly TradingFoxOrderItem[];
+  row: TradeHistoryRow;
+  rows: readonly TradeHistoryRow[];
   strategy: PrototypeStrategy;
   onIntervalChange: (interval: KlineInterval) => void;
 }) {
@@ -2195,37 +2369,37 @@ function TradeHistoryKlinePanel({
     key: "",
   });
   const [isLoadingOlderHistory, setIsLoadingOlderHistory] = useState(false);
-  const symbol = toCopyTradingMarketSymbol(order.symbol);
-  const chartKey = `${order.clientOrderId}:${symbol}:${interval}`;
+  const symbol = toCopyTradingMarketSymbol(row.symbol);
+  const chartKey = `${row.id}:${symbol}:${interval}`;
   const candles = candleState.key === chartKey ? candleState.candles : EMPTY_MARKET_CANDLES;
   const canLoadOlderHistory = candleState.key === chartKey ? candleState.canLoadOlderHistory : false;
   const loadError = candleState.key === chartKey ? candleState.error : "";
   const language = resolveWorkspaceLanguage(copy);
   const tradeMarkers = useMemo(
-    () => createOrderTradeMarkers({
-      orders,
+    () => createTradeHistoryTradeMarkers({
+      rows,
       selectedSymbol: symbol,
       strategy,
       strategyCopy: copy.workspace.accountCenter.strategy,
     }),
-    [copy.workspace.accountCenter.strategy, orders, strategy, symbol],
+    [copy.workspace.accountCenter.strategy, rows, strategy, symbol],
   );
   const focusTimeRequest = useMemo<ChartTimeFocusRequest | null>(() => {
-    const sourceTimeMs = Date.parse(order.timestamp);
+    const sourceTimeMs = Date.parse(row.timestamp);
     if (!Number.isFinite(sourceTimeMs)) {
       return null;
     }
 
     return {
-      key: `copy-strategy-order:${order.clientOrderId}:${symbol}:${interval}:${sourceTimeMs}`,
+      key: `copy-strategy-row:${row.id}:${symbol}:${interval}:${sourceTimeMs}`,
       sourceTimeMs,
     };
-  }, [interval, order.clientOrderId, order.timestamp, symbol]);
+  }, [interval, row.id, row.timestamp, symbol]);
 
   useEffect(() => {
     let isActive = true;
     const abortController = new AbortController();
-    const sourceTimeMs = Date.parse(order.timestamp);
+    const sourceTimeMs = Date.parse(row.timestamp);
     const requestKey = chartKey;
 
     fetchHistoricalCandles(symbol, interval, {
@@ -2260,7 +2434,7 @@ function TradeHistoryKlinePanel({
       isActive = false;
       abortController.abort();
     };
-  }, [chartKey, interval, order.timestamp, symbol]);
+  }, [chartKey, interval, row.timestamp, symbol]);
 
   const loadOlderHistory = useCallback(async () => {
     if (isLoadingOlderHistory || !canLoadOlderHistory) {
@@ -2308,7 +2482,7 @@ function TradeHistoryKlinePanel({
         <div>
           <div className="text-sm font-black">{copy.workspace.accountCenter.strategy.tradeHistoryKlineTitle}</div>
           <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
-            {symbol} · {formatDetailDate(order.timestamp)}
+            {symbol} · {formatDetailDate(row.timestamp)}
           </div>
         </div>
         <div className={isDarkTheme ? "inline-flex w-max items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5" : "inline-flex w-max items-center gap-1 rounded-full border border-[#E5EAF0] bg-white p-0.5"}>
@@ -2363,21 +2537,21 @@ function TradeHistoryKlinePanel({
 }
 
 function TradeHistoryTable({
-  activeKlineOrderId,
+  activeKlineRowId,
   isDarkTheme,
-  orders,
+  rows,
   strategyCopy,
-  onOrderKlineOpen,
+  onRowKlineOpen,
 }: {
-  activeKlineOrderId: string | null;
+  activeKlineRowId: string | null;
   isDarkTheme: boolean;
-  orders: readonly TradingFoxOrderItem[];
+  rows: readonly TradeHistoryRow[];
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
-  onOrderKlineOpen: (order: TradingFoxOrderItem) => void;
+  onRowKlineOpen: (row: TradeHistoryRow) => void;
 }) {
   return (
     <div className="kol-scroll-area mt-3 overflow-x-auto">
-      <table className="min-w-[980px] w-full border-collapse text-left text-sm">
+      <table className="min-w-[1080px] w-full border-collapse text-left text-sm">
         <thead>
           <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#DDE8F0] text-xs font-black text-slate-500"}>
             <th className="px-3 py-3">{strategyCopy.orderTime}</th>
@@ -2391,29 +2565,29 @@ function TradeHistoryTable({
           </tr>
         </thead>
         <tbody>
-          {orders.map((order) => {
-            const price = numberOrZero(order.price);
-            const quantity = numberOrZero(order.contractAmount);
-            const notional = price * quantity;
-            const isActiveKlineOrder = order.clientOrderId === activeKlineOrderId;
+          {rows.map((row) => {
+            const notional = row.price !== null && row.quantity !== null ? row.price * row.quantity : null;
+            const isActiveKlineRow = row.id === activeKlineRowId;
             return (
-              <tr key={order.clientOrderId} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0"}>
-                <td className="px-3 py-4 font-semibold">{formatDetailDate(order.timestamp)}</td>
-                <td className="px-3 py-4 font-semibold">{strategyCopy.orderSourceMe}</td>
+              <tr key={row.id} className={getTradeHistoryRowClassName(isDarkTheme, row.kind, isActiveKlineRow)}>
+                <td className="px-3 py-4 font-semibold">{formatDetailDate(row.timestamp)}</td>
+                <td className="px-3 py-4">
+                  <TradeHistorySourceCell isDarkTheme={isDarkTheme} row={row} strategyCopy={strategyCopy} />
+                </td>
                 <td className="px-3 py-4 font-black">
                   <button
-                    className={isActiveKlineOrder ? "rounded-full bg-sky-400/15 px-2 py-1 text-sky-400" : "rounded-full px-2 py-1 underline underline-offset-2 transition hover:bg-sky-400/10 hover:text-sky-400"}
+                    className={isActiveKlineRow ? "rounded-full bg-sky-400/15 px-2 py-1 text-sky-400" : "rounded-full px-2 py-1 underline underline-offset-2 transition hover:bg-sky-400/10 hover:text-sky-400"}
                     type="button"
-                    onClick={() => onOrderKlineOpen(order)}
+                    onClick={() => onRowKlineOpen(row)}
                   >
-                    {order.symbol}
+                    {row.symbol}
                   </button>
                 </td>
-                <td className={`px-3 py-4 font-black ${getSideClassName(isDarkTheme, order.side)}`}>{formatOrderSide(order.side, strategyCopy)}</td>
-                <td className="px-3 py-4 font-semibold">{formatDetailNumber(order.price)}</td>
-                <td className="px-3 py-4 font-semibold">{formatDetailNumber(order.contractAmount)}</td>
+                <td className={`px-3 py-4 font-black ${getTradeHistorySideClassName(isDarkTheme, row)}`}>{formatTradeHistoryAction(row, strategyCopy)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(row.price)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(row.quantity)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailCurrency(notional)}</td>
-                <td className={isDarkTheme ? "px-3 py-4 font-black text-emerald-300" : "px-3 py-4 font-black text-emerald-600"}>{formatOrderStatus(order.status, strategyCopy)}</td>
+                <td className={row.kind === "me" ? (isDarkTheme ? "px-3 py-4 font-black text-emerald-300" : "px-3 py-4 font-black text-emerald-600") : (isDarkTheme ? "px-3 py-4 font-semibold text-slate-500" : "px-3 py-4 font-semibold text-slate-400")}>{row.kind === "me" ? formatOrderStatus(row.status, strategyCopy) : "--"}</td>
               </tr>
             );
           })}
@@ -2421,6 +2595,62 @@ function TradeHistoryTable({
       </table>
     </div>
   );
+}
+
+function TradeHistorySourceCell({
+  isDarkTheme,
+  row,
+  strategyCopy,
+}: {
+  isDarkTheme: boolean;
+  row: TradeHistoryRow;
+  strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
+}) {
+  if (row.kind === "me") {
+    return (
+      <div className="inline-flex items-center gap-2">
+        <span className={isDarkTheme ? "grid h-8 w-8 place-items-center rounded-full bg-sky-400/15 text-xs font-black text-sky-200" : "grid h-8 w-8 place-items-center rounded-full bg-[#EAF8FE] text-xs font-black text-[#008DCC]"}>
+          {strategyCopy.orderSourceMe}
+        </span>
+        <div className="min-w-0">
+          <div className="text-sm font-black">{strategyCopy.orderSourceMe}</div>
+          <div className={isDarkTheme ? "mt-0.5 max-w-36 truncate text-[10px] font-semibold text-slate-500" : "mt-0.5 max-w-36 truncate text-[10px] font-semibold text-slate-400"}>{row.source.name}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <SourceAvatar isDarkTheme={isDarkTheme} name={row.source.name} url={row.source.avatarUrl} />
+      <div className="min-w-0">
+        <div className="max-w-44 truncate text-sm font-black">{row.source.name}</div>
+        <div className={isDarkTheme ? "mt-0.5 max-w-44 truncate text-[10px] font-semibold text-slate-500" : "mt-0.5 max-w-44 truncate text-[10px] font-semibold text-slate-400"}>
+          {row.source.id}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getTradeHistoryRowClassName(isDarkTheme: boolean, kind: TradeHistoryRow["kind"], isActive: boolean): string {
+  if (kind === "signalSource") {
+    if (isActive) {
+      return isDarkTheme
+        ? "border-b border-sky-400/20 bg-sky-400/[0.08] shadow-[inset_3px_0_0_rgba(56,189,248,0.75)] last:border-0"
+        : "border-b border-[#B7E8FC] bg-[#EAF8FE] shadow-[inset_3px_0_0_#00A6F4] last:border-0";
+    }
+    return isDarkTheme
+      ? "border-b border-white/[0.06] bg-white/[0.025] shadow-[inset_3px_0_0_rgba(148,163,184,0.35)] last:border-0"
+      : "border-b border-[#DDE8F0] bg-[#F8FAFC] shadow-[inset_3px_0_0_#CBD5E1] last:border-0";
+  }
+
+  if (isActive) {
+    return isDarkTheme
+      ? "border-b border-sky-400/20 bg-sky-400/[0.08] last:border-0"
+      : "border-b border-[#B7E8FC] bg-[#EAF8FE] last:border-0";
+  }
+  return isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0";
 }
 
 function RowsPaginationControls({
@@ -2462,63 +2692,72 @@ function RowsPaginationControls({
   );
 }
 
-function createOrderTradeMarkers({
-  orders,
+function createTradeHistoryTradeMarkers({
+  rows,
   selectedSymbol,
   strategy,
   strategyCopy,
 }: {
-  orders: readonly TradingFoxOrderItem[];
+  rows: readonly TradeHistoryRow[];
   selectedSymbol: MarketSymbol;
   strategy: PrototypeStrategy;
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
 }): CopyTradingTradeMarker[] {
-  return orders
-    .filter((order) => toCopyTradingMarketSymbol(order.symbol) === selectedSymbol)
-    .map((order) => createOrderTradeMarker(order, strategy, strategyCopy))
+  return rows
+    .filter((row) => toCopyTradingMarketSymbol(row.symbol) === selectedSymbol)
+    .map((row) => createTradeHistoryTradeMarker(row, strategy, strategyCopy))
     .filter((marker): marker is CopyTradingTradeMarker => marker !== null)
     .sort((left, right) => left.sourceTimeMs - right.sourceTimeMs);
 }
 
-function createOrderTradeMarker(
-  order: TradingFoxOrderItem,
+function createTradeHistoryTradeMarker(
+  row: TradeHistoryRow,
   strategy: PrototypeStrategy,
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"],
 ): CopyTradingTradeMarker | null {
-  const sourceTimeMs = Date.parse(order.timestamp);
+  const sourceTimeMs = Date.parse(row.timestamp);
   if (!Number.isFinite(sourceTimeMs)) {
     return null;
   }
 
-  const price = finiteNumberOrNull(order.price);
-  const side = normalizeOrderTradeMarkerSide(order.side);
-  const actionLabel = formatOrderSide(order.side, strategyCopy);
+  const price = row.price;
+  const side = getTradeHistoryMarkerSide(row);
+  const actionLabel = formatTradeHistoryAction(row, strategyCopy);
   const priceText = price === null ? null : formatDetailNumber(price);
+  const traderName = row.kind === "me" ? strategy.traderName : row.source.name;
+  const traderId = row.kind === "me" ? strategy.traderId : row.source.id;
 
   return {
     actionLabel,
-    avatarUrl: strategy.avatarUrl || null,
-    detail: `${formatDetailDate(order.timestamp)} · ${formatOrderStatus(order.status, strategyCopy)}`,
+    avatarUrl: row.kind === "me" ? strategy.avatarUrl || null : row.source.avatarUrl,
+    detail: row.kind === "me" ? `${formatDetailDate(row.timestamp)} · ${formatOrderStatus(row.status, strategyCopy)}` : formatDetailDate(row.timestamp),
     direction: side === "buy" ? "long" : "short",
-    eventId: order.clientOrderId,
-    eventType: "open",
-    id: `copy-strategy-order:${order.clientOrderId}`,
-    occurredAtText: formatDetailDate(order.timestamp),
+    eventId: row.id,
+    eventType: getTradeHistoryMarkerEventType(row),
+    id: `copy-strategy-row:${row.id}`,
+    occurredAtText: formatDetailDate(row.timestamp),
     price,
     priceText,
     side,
-    signalId: `copy-strategy-order:${order.clientOrderId}`,
+    signalId: `copy-strategy-row:${row.id}`,
     sourceTimeMs,
-    symbol: toCopyTradingMarketSymbol(order.symbol),
-    title: priceText ? `${actionLabel} ${order.symbol} @ ${priceText}` : `${actionLabel} ${order.symbol}`,
-    traderId: strategy.traderId,
-    traderName: strategy.traderName,
+    symbol: toCopyTradingMarketSymbol(row.symbol),
+    title: priceText ? `${traderName} · ${actionLabel} ${row.symbol} @ ${priceText}` : `${traderName} · ${actionLabel} ${row.symbol}`,
+    traderId,
+    traderName,
   };
 }
 
-function normalizeOrderTradeMarkerSide(value: string): "buy" | "sell" {
-  const normalizedValue = value.trim().toUpperCase();
+function normalizeOrderTradeMarkerSide(value: string | undefined): "buy" | "sell" {
+  const normalizedValue = (value ?? "").trim().toUpperCase();
   return normalizedValue.includes("SELL") || normalizedValue.includes("SHORT") ? "sell" : "buy";
+}
+
+function getTradeHistoryMarkerSide(row: TradeHistoryRow): "buy" | "sell" {
+  if (row.kind === "signalSource") {
+    return normalizeOrderTradeMarkerSide(row.signalSourceOrder?.side || row.action);
+  }
+  return normalizeOrderTradeMarkerSide(row.action);
 }
 
 function resolveInitialTradeHistoryKlineUntilMs(sourceTimeMs: number, interval: KlineInterval): number | undefined {
@@ -2674,6 +2913,56 @@ function formatOrderSide(value: string | undefined, strategyCopy: WorkspaceCopy[
     return strategyCopy.orderOpenShort;
   }
   return value || "--";
+}
+
+function formatTradeHistoryAction(row: TradeHistoryRow, strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"]): string {
+  if (row.kind === "me") {
+    return formatOrderSide(row.action, strategyCopy);
+  }
+
+  const normalizedAction = (row.action ?? "").toLowerCase();
+  const normalizedSide = row.signalSourceOrder?.side.toLowerCase() ?? "";
+  const isShort = normalizedSide.includes("short") || normalizedSide.includes("sell") || normalizedAction.includes("short");
+  if (normalizedAction.includes("close")) {
+    return isShort ? strategyCopy.orderCloseShort : strategyCopy.orderCloseLong;
+  }
+  if (normalizedAction.includes("reduce")) {
+    return isShort ? strategyCopy.orderReduceShort : strategyCopy.orderReduceLong;
+  }
+  if (normalizedAction.includes("add") || normalizedAction.includes("increase")) {
+    return isShort ? strategyCopy.orderAddShort : strategyCopy.orderAddLong;
+  }
+  if (normalizedAction.includes("open")) {
+    return isShort ? strategyCopy.orderOpenShort : strategyCopy.orderOpenLong;
+  }
+  if (normalizedSide.includes("short") || normalizedSide.includes("sell")) {
+    return strategyCopy.orderOpenShort;
+  }
+  if (normalizedSide.includes("long") || normalizedSide.includes("buy")) {
+    return strategyCopy.orderOpenLong;
+  }
+  return row.action || row.signalSourceOrder?.side || "--";
+}
+
+function getTradeHistorySideClassName(isDarkTheme: boolean, row: TradeHistoryRow): string {
+  if (row.kind === "me") {
+    return getSideClassName(isDarkTheme, row.action);
+  }
+  return getSideClassName(isDarkTheme, row.signalSourceOrder?.side || row.action);
+}
+
+function getTradeHistoryMarkerEventType(row: TradeHistoryRow): CopyTradingEventType {
+  const normalizedAction = (row.action ?? "").toLowerCase();
+  if (normalizedAction.includes("close")) {
+    return "close";
+  }
+  if (normalizedAction.includes("reduce")) {
+    return "reduce";
+  }
+  if (normalizedAction.includes("add") || normalizedAction.includes("increase")) {
+    return "add";
+  }
+  return "open";
 }
 
 function formatOrderStatus(value: string | undefined, strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"]): string {

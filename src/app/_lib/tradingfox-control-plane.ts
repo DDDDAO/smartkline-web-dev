@@ -139,10 +139,25 @@ export type TradingFoxOrderHistory = {
   signalSourceOrders: Array<{
     eventId: string;
     signalSourceId: string;
+    signalSourceName?: string;
+    signalType?: string;
+    exchange?: string;
     symbol: string;
     side: string;
     action: string;
+    prevQty?: string;
+    currQty?: string;
+    deltaQty?: string;
+    isFullClose?: boolean;
+    positionVersion?: number;
+    tradeSeq?: number;
+    sourceTimestamp?: string;
     timestamp: string;
+    metadata?: Record<string, unknown>;
+    price?: string | number;
+    priceSource?: string;
+    entryPrice?: string | number;
+    markPrice?: string | number;
   }>;
   tradeLogs: Array<{
     id: number;
