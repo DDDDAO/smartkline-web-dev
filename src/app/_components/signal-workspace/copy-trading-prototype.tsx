@@ -1397,19 +1397,21 @@ function StrategyDetailView({
   const parsedSyncRatioPercent = Number(syncRatioPercent);
   const canSyncPositions = Boolean(detail?.trader.enabled) && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
   const orderItems = detail?.orderHistory?.items ?? [];
-  const visibleOrderItems = orderItems.slice(0, TRADE_HISTORY_PAGE_SIZE);
   const signalSourceOrderItems = detail?.orderHistory?.signalSourceOrders ?? [];
+  const tradeLogItems = detail?.orderHistory?.tradeLogs ?? [];
   const signalSourceIdentityById = createSignalSourceIdentityById(detail?.signalSources ?? [], liveStrategy);
-  const visibleTradeHistoryRows = createTradeHistoryRows({
-    orders: visibleOrderItems,
+  const tradeHistoryOffset = detail?.orderHistory?.offset ?? tradeHistoryPageOffset;
+  const allTradeHistoryRows = createTradeHistoryRows({
+    orders: orderItems,
     signalSourceIdentityById,
     signalSourceOrders: signalSourceOrderItems,
     strategy: liveStrategy,
+    tradeLogs: tradeLogItems,
   });
+  const visibleTradeHistoryRows = allTradeHistoryRows.slice(tradeHistoryOffset, tradeHistoryOffset + TRADE_HISTORY_PAGE_SIZE);
   const selectedTradeKlineRow = visibleTradeHistoryRows.find((row) => row.id === selectedTradeKlineRowId) ?? visibleTradeHistoryRows.find((row) => row.kind === "me") ?? visibleTradeHistoryRows[0] ?? null;
-  const tradeHistoryOffset = detail?.orderHistory?.offset ?? tradeHistoryPageOffset;
   const hasPreviousTradeHistoryPage = tradeHistoryOffset > 0;
-  const hasNextTradeHistoryPage = Boolean(detail?.orderHistory?.hasMore) || orderItems.length > TRADE_HISTORY_PAGE_SIZE;
+  const hasNextTradeHistoryPage = allTradeHistoryRows.length > tradeHistoryOffset + TRADE_HISTORY_PAGE_SIZE || Boolean(detail?.orderHistory?.hasMore);
   const shouldShowTradeHistoryPagination = hasPreviousTradeHistoryPage || hasNextTradeHistoryPage;
   const tradeHistoryRangeLabel = createOpenEndedPageRangeLabel(tradeHistoryOffset, visibleTradeHistoryRows.length);
   const detailPositions = detail?.positions ?? EMPTY_TRADING_FOX_POSITIONS;
@@ -1726,6 +1728,7 @@ type StrategyCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
 type SignalSourcePosition = TradingFoxStrategyDetail["signalSources"][number]["positions"][number];
 type TradingFoxOrderItem = NonNullable<TradingFoxStrategyDetail["orderHistory"]>["items"][number];
 type TradingFoxSignalSourceOrderItem = NonNullable<TradingFoxStrategyDetail["orderHistory"]>["signalSourceOrders"][number];
+type TradingFoxTradeLogItem = NonNullable<TradingFoxStrategyDetail["orderHistory"]>["tradeLogs"][number];
 type CopyPositionMarkPricesBySymbol = ReadonlyMap<string, number>;
 type SignalSourceIdentityById = ReadonlyMap<string, TradeHistorySourceIdentity>;
 
@@ -1740,16 +1743,18 @@ type TradeHistorySourceIdentity = {
 type TradeHistoryRow = {
   action: string | undefined;
   id: string;
-  kind: "me" | "signalSource";
+  kind: "me" | "signalSource" | "tradeLog";
   order: TradingFoxOrderItem | null;
   price: number | null;
   quantity: number | null;
+  side: string | undefined;
   signalSourceOrder: TradingFoxSignalSourceOrderItem | null;
   source: TradeHistorySourceIdentity;
   sourceTimeMs: number;
   status: string | undefined;
   symbol: string;
   timestamp: string;
+  tradeLog: TradingFoxTradeLogItem | null;
 };
 
 type PositionSummaryModel = {
@@ -2237,15 +2242,18 @@ function createTradeHistoryRows({
   signalSourceIdentityById,
   signalSourceOrders,
   strategy,
+  tradeLogs,
 }: {
   orders: readonly TradingFoxOrderItem[];
   signalSourceIdentityById: SignalSourceIdentityById;
   signalSourceOrders: readonly TradingFoxSignalSourceOrderItem[];
   strategy: PrototypeStrategy;
+  tradeLogs: readonly TradingFoxTradeLogItem[];
 }): TradeHistoryRow[] {
   return [
     ...orders.map((order) => createMyTradeHistoryRow(order, strategy)),
     ...signalSourceOrders.map((order) => createSignalSourceTradeHistoryRow(order, signalSourceIdentityById, strategy)),
+    ...tradeLogs.map((log) => createTradeLogHistoryRow(log, signalSourceIdentityById, strategy)),
   ].sort(compareTradeHistoryRows);
 }
 
@@ -2257,6 +2265,7 @@ function createMyTradeHistoryRow(order: TradingFoxOrderItem, strategy: Prototype
     order,
     price: finiteNumberOrNull(order.price),
     quantity: finiteNumberOrNull(order.contractAmount),
+    side: order.side,
     signalSourceOrder: null,
     source: {
       avatarUrl: strategy.avatarUrl || null,
@@ -2267,6 +2276,7 @@ function createMyTradeHistoryRow(order: TradingFoxOrderItem, strategy: Prototype
     status: order.status,
     symbol: order.symbol,
     timestamp: order.timestamp,
+    tradeLog: null,
   };
 }
 
@@ -2290,6 +2300,7 @@ function createSignalSourceTradeHistoryRow(
     order: null,
     price: getSignalSourceOrderPrice(order),
     quantity: getSignalSourceOrderQuantity(order),
+    side: order.side,
     signalSourceOrder: order,
     source: {
       ...source,
@@ -2299,6 +2310,48 @@ function createSignalSourceTradeHistoryRow(
     status: undefined,
     symbol: order.symbol,
     timestamp: sourceTimestamp,
+    tradeLog: null,
+  };
+}
+
+function createTradeLogHistoryRow(
+  log: TradingFoxTradeLogItem,
+  signalSourceIdentityById: SignalSourceIdentityById,
+  strategy: PrototypeStrategy,
+): TradeHistoryRow {
+  const trade = log.ssTradeInfo ?? {};
+  const config = log.ssConfig ?? {};
+  const orderData = log.orderData ?? {};
+  const sourceId = firstString(
+    trade.signalSourceId,
+    trade.signalSourceID,
+    config.signalSourceId,
+    config.signalSourceID,
+    strategy.traderId,
+  );
+  const source = signalSourceIdentityById.get(sourceId) ?? {
+    avatarUrl: null,
+    id: sourceId,
+    name: sourceId || strategy.traderName,
+  };
+  const timestamp = firstString(trade.timestamp, trade.signalTimestamp, log.timestamp);
+  const side = getTradeLogSide(log);
+
+  return {
+    action: log.type,
+    id: `trade-log:${log.id}`,
+    kind: "tradeLog",
+    order: null,
+    price: firstFiniteNumber(trade.price, orderData.orderPrice, orderData.price, orderData.markPrice),
+    quantity: getTradeLogQuantity(log),
+    side,
+    signalSourceOrder: null,
+    source,
+    sourceTimeMs: getTimestampMs(timestamp),
+    status: getTradeLogReason(log),
+    symbol: firstString(trade.symbol, orderData.symbol) || "--",
+    timestamp,
+    tradeLog: log,
   };
 }
 
@@ -2307,9 +2360,20 @@ function compareTradeHistoryRows(left: TradeHistoryRow, right: TradeHistoryRow):
     return right.sourceTimeMs - left.sourceTimeMs;
   }
   if (left.kind !== right.kind) {
-    return left.kind === "me" ? -1 : 1;
+    return getTradeHistoryRowKindRank(left.kind) - getTradeHistoryRowKindRank(right.kind);
   }
   return left.id.localeCompare(right.id);
+}
+
+function getTradeHistoryRowKindRank(kind: TradeHistoryRow["kind"]): number {
+  switch (kind) {
+    case "signalSource":
+      return 0;
+    case "me":
+      return 1;
+    case "tradeLog":
+      return 2;
+  }
 }
 
 function getTimestampMs(value: string | undefined): number {
@@ -2337,6 +2401,39 @@ function getSignalSourceOrderPrice(order: TradingFoxSignalSourceOrderItem): numb
   );
 }
 
+function getTradeLogQuantity(log: TradingFoxTradeLogItem): number | null {
+  const trade = log.ssTradeInfo ?? {};
+  const orderData = log.orderData ?? {};
+  const quantity = firstFiniteNumber(trade.amountAbsolute, trade.nomAmount, orderData.contractAmount, orderData.amount);
+  return quantity === null ? null : Math.abs(quantity);
+}
+
+function getTradeLogSide(log: TradingFoxTradeLogItem): string | undefined {
+  const trade = log.ssTradeInfo ?? {};
+  const orderData = log.orderData ?? {};
+  const explicitSide = firstString(orderData.side, orderData.ccxtOrderSide, orderData.CCXTOrderSide);
+  if (explicitSide) {
+    return explicitSide;
+  }
+
+  const amount = firstFiniteNumber(trade.nomAmount);
+  if (amount === null) {
+    return undefined;
+  }
+  if (amount > 0) {
+    return "buy";
+  }
+  if (amount < 0) {
+    return "sell";
+  }
+  return undefined;
+}
+
+function getTradeLogReason(log: TradingFoxTradeLogItem): string {
+  const additional = log.additionalInfo ?? {};
+  return firstString(additional.skipReason, additional.errorCode, log.errorMessage, log.type) || "--";
+}
+
 function firstFiniteNumber(...values: readonly unknown[]): number | null {
   for (const value of values) {
     const number = finiteNumberOrNull(value);
@@ -2345,6 +2442,21 @@ function firstFiniteNumber(...values: readonly unknown[]): number | null {
     }
   }
   return null;
+}
+
+function firstString(...values: readonly unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string") {
+      const trimmedValue = value.trim();
+      if (trimmedValue) {
+        return trimmedValue;
+      }
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+  return "";
 }
 
 function TradeHistoryKlinePanel({
@@ -2594,7 +2706,7 @@ function TradeHistoryTable({
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(row.price)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(row.quantity)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailCurrency(notional)}</td>
-                <td className={row.kind === "me" ? (isDarkTheme ? "px-3 py-4 font-black text-emerald-300" : "px-3 py-4 font-black text-emerald-600") : (isDarkTheme ? "px-3 py-4 font-semibold text-slate-500" : "px-3 py-4 font-semibold text-slate-400")}>{row.kind === "me" ? formatOrderStatus(row.status, strategyCopy) : "--"}</td>
+                <td className={getTradeHistoryStatusClassName(isDarkTheme, row)}>{formatTradeHistoryStatus(row, strategyCopy)}</td>
               </tr>
             );
           })}
@@ -2633,7 +2745,7 @@ function TradeHistorySourceCell({
       <div className="min-w-0">
         <div className="max-w-44 truncate text-sm font-black">{row.source.name}</div>
         <div className={isDarkTheme ? "mt-0.5 max-w-44 truncate text-[10px] font-semibold text-slate-500" : "mt-0.5 max-w-44 truncate text-[10px] font-semibold text-slate-400"}>
-          {row.source.id}
+          {row.kind === "tradeLog" ? `${strategyCopy.tradeEventNoOrder} #${row.tradeLog?.id ?? "--"}` : row.source.id}
         </div>
       </div>
     </div>
@@ -2641,6 +2753,17 @@ function TradeHistorySourceCell({
 }
 
 function getTradeHistoryRowClassName(isDarkTheme: boolean, kind: TradeHistoryRow["kind"], isActive: boolean): string {
+  if (kind === "tradeLog") {
+    if (isActive) {
+      return isDarkTheme
+        ? "border-b border-rose-400/20 bg-rose-400/[0.08] shadow-[inset_3px_0_0_rgba(251,113,133,0.85)] last:border-0"
+        : "border-b border-rose-200 bg-rose-50 shadow-[inset_3px_0_0_#f43f5e] last:border-0";
+    }
+    return isDarkTheme
+      ? "border-b border-white/[0.06] bg-rose-400/[0.035] shadow-[inset_3px_0_0_rgba(251,113,133,0.6)] last:border-0"
+      : "border-b border-[#F3D3DA] bg-rose-50/70 shadow-[inset_3px_0_0_#fb7185] last:border-0";
+  }
+
   if (kind === "signalSource") {
     if (isActive) {
       return isDarkTheme
@@ -2929,9 +3052,12 @@ function formatTradeHistoryAction(row: TradeHistoryRow, strategyCopy: WorkspaceC
   if (row.kind === "me") {
     return formatOrderSide(row.action, strategyCopy);
   }
+  if (row.kind === "tradeLog") {
+    return row.side ? formatOrderSide(row.side, strategyCopy) : strategyCopy.tradeEventNoOrder;
+  }
 
   const normalizedAction = (row.action ?? "").toLowerCase();
-  const normalizedSide = row.signalSourceOrder?.side.toLowerCase() ?? "";
+  const normalizedSide = row.side?.toLowerCase() ?? "";
   const isShort = normalizedSide.includes("short") || normalizedSide.includes("sell") || normalizedAction.includes("short");
   if (normalizedAction.includes("close")) {
     return isShort ? strategyCopy.orderCloseShort : strategyCopy.orderCloseLong;
@@ -2955,10 +3081,30 @@ function formatTradeHistoryAction(row: TradeHistoryRow, strategyCopy: WorkspaceC
 }
 
 function getTradeHistorySideClassName(isDarkTheme: boolean, row: TradeHistoryRow): string {
-  if (row.kind === "me") {
-    return getSideClassName(isDarkTheme, row.action);
+  if (row.kind === "tradeLog" && !row.side) {
+    return isDarkTheme ? "text-rose-300" : "text-rose-600";
   }
-  return getSideClassName(isDarkTheme, row.signalSourceOrder?.side || row.action);
+  return getSideClassName(isDarkTheme, row.side || row.action);
+}
+
+function formatTradeHistoryStatus(row: TradeHistoryRow, strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"]): string {
+  if (row.kind === "me") {
+    return formatOrderStatus(row.status, strategyCopy);
+  }
+  if (row.kind === "tradeLog") {
+    return row.status || strategyCopy.tradeEventNoOrder;
+  }
+  return "--";
+}
+
+function getTradeHistoryStatusClassName(isDarkTheme: boolean, row: TradeHistoryRow): string {
+  if (row.kind === "me") {
+    return isDarkTheme ? "px-3 py-4 font-black text-emerald-300" : "px-3 py-4 font-black text-emerald-600";
+  }
+  if (row.kind === "tradeLog") {
+    return isDarkTheme ? "px-3 py-4 font-black text-rose-300" : "px-3 py-4 font-black text-rose-600";
+  }
+  return isDarkTheme ? "px-3 py-4 font-semibold text-slate-500" : "px-3 py-4 font-semibold text-slate-400";
 }
 
 function formatOrderStatus(value: string | undefined, strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"]): string {
