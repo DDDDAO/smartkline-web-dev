@@ -91,6 +91,7 @@ type AccountCenterPrototypeProps = {
   onApiSetupOpen: () => void;
   onApiSetupOpenChange: (isOpen: boolean) => void;
   onClose: () => void;
+  onConnectionDelete: (connectionId: number) => Promise<void> | void;
   onConnectionSave: (input: PrototypeConnectionSaveInput) => void;
   onLogin: () => void;
   onLogout: () => void;
@@ -174,6 +175,7 @@ export function AccountCenterPrototype({
   onApiSetupOpen,
   onApiSetupOpenChange,
   onClose,
+  onConnectionDelete,
   onConnectionSave,
   onLogin,
   onLogout,
@@ -288,7 +290,9 @@ export function AccountCenterPrototype({
                             key={connection.id}
                             accountCopy={accountCopy}
                             apiConnection={connection}
+                            isDisabled={isAuthLoading}
                             isDarkTheme={isDarkTheme}
+                            onDelete={onConnectionDelete}
                           />
                         ))}
                         <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
@@ -382,6 +386,7 @@ export function AccountManagementPanel({
   telegramUser,
   onApiSetupOpen,
   onApiSetupOpenChange,
+  onConnectionDelete,
   onConnectionSave,
   onLogin,
   onLogout,
@@ -400,6 +405,7 @@ export function AccountManagementPanel({
   telegramUser: TelegramSessionUser | null;
   onApiSetupOpen: () => void;
   onApiSetupOpenChange: (isOpen: boolean) => void;
+  onConnectionDelete: (connectionId: number) => Promise<void> | void;
   onConnectionSave: (input: PrototypeConnectionSaveInput) => void;
   onLogin: () => void;
   onLogout: () => void;
@@ -484,7 +490,9 @@ export function AccountManagementPanel({
                     key={connection.id}
                     accountCopy={accountCopy}
                     apiConnection={connection}
+                    isDisabled={isAuthLoading}
                     isDarkTheme={isDarkTheme}
+                    onDelete={onConnectionDelete}
                   />
                 )) : (
                   <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-4 text-sm leading-5 text-slate-600"}>
@@ -1019,11 +1027,15 @@ function SignalSourceOptionContent({
 function ApiConnectionCard({
   accountCopy,
   apiConnection,
+  isDisabled,
   isDarkTheme,
+  onDelete,
 }: {
   accountCopy: WorkspaceCopy["workspace"]["accountCenter"];
   apiConnection: PrototypeApiConnection;
+  isDisabled: boolean;
   isDarkTheme: boolean;
+  onDelete: (connectionId: number) => Promise<void> | void;
 }) {
   const exchangeLabel = getConnectionExchangeLabel(accountCopy, apiConnection);
   const exchange = getConnectionExchange(apiConnection);
@@ -1065,6 +1077,16 @@ function ApiConnectionCard({
           ) : null}
           <div className={isDarkTheme ? "mt-3 text-xs text-emerald-200/70" : "mt-3 text-xs text-emerald-700/75"}>
             #{apiConnection.id} · {accountCopy.api.updatedAt}: {apiConnection.connectedAtLabel || "--"}
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button
+              className={getDangerButtonClassName(isDarkTheme)}
+              disabled={isDisabled}
+              type="button"
+              onClick={() => void onDelete(apiConnection.id)}
+            >
+              {accountCopy.api.deleteAction}
+            </button>
           </div>
         </div>
       </div>

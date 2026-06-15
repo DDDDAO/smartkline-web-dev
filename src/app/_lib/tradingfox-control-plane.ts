@@ -371,6 +371,28 @@ export async function createTradingFoxConnector(
   return getTradingFoxAccount(session);
 }
 
+export async function deleteTradingFoxConnector(
+  session: TelegramAuthSession,
+  connectorId: string,
+): Promise<TradingFoxAccountResponse> {
+  const userId = tradingFoxUserIdFromSession(session);
+  const parsedConnectorId = parsePositiveInteger(connectorId, "connectorId");
+  const connector = await getConnectorForUser(parsedConnectorId, userId);
+  if (connector.dead) {
+    throw new TradingFoxApiError("Exchange connector not found.", 404);
+  }
+
+  const traders = await tradingFoxRequest<{ items: TradingFoxTrader[] }>(`/v1/traders?userId=${userId}&traderType=COPY_TRADING`);
+  const attachedTrader = traders.items.find((trader) => trader.exchangeConnectorId === parsedConnectorId);
+  if (attachedTrader) {
+    throw new TradingFoxApiError("Delete strategies that use this exchange account before deleting the account.", 409);
+  }
+
+  await tradingFoxRequest<void>(`/v1/exchange-connectors/${parsedConnectorId}`, { method: "DELETE" });
+
+  return getTradingFoxAccount(session);
+}
+
 export async function getTradingFoxConnectorWhitelistIP(
   session: TelegramAuthSession,
   input: { exchangePlatform?: unknown },
