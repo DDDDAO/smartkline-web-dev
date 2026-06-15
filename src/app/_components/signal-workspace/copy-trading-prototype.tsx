@@ -1132,12 +1132,7 @@ function ExchangeApiSetupLayer({
                       <span className={isDarkTheme ? "rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-200" : "rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700"}>
                         {accountCopy.apiSetup.noWhitelistIpRequired}
                       </span>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        <button className={getSoftButtonClassName(isDarkTheme)} type="button">↗ {accountCopy.apiSetup.register}</button>
-                        <button className={getSoftButtonClassName(isDarkTheme)} type="button">▣ {accountCopy.apiSetup.guide}</button>
-                      </div>
-                    )}
+                    ) : null}
                   </div>
                 </section>
 
