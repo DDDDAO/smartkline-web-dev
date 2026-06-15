@@ -18,6 +18,8 @@ const TRADE_POINT_EDGE_PADDING = 18;
 const TRADE_POINT_CANDLE_GAP = 7;
 const TRADE_POINT_POINTER_SIZE = 5;
 const TRADE_POINT_STACK_GAP = 30;
+const TRADE_POINT_TEXT_MARKER_HEIGHT = 24;
+const TRADE_POINT_TEXT_MARKER_PADDING_X = 9;
 const TRADE_POINT_VISIBLE_RANGE_PADDING_BARS = 24;
 const TRADE_POINT_MAX_MARKERS_PER_CANDLE_SIDE = 4;
 const TRADE_POINT_MAX_VISIBLE_MARKERS = 360;
@@ -37,9 +39,11 @@ type DrawnTradePoint = {
   priceText?: string | null;
   side: "buy" | "sell";
   signalId: string;
+  textMarkerLabel: string | null;
   title: string;
   traderName?: string;
   width: number;
+  height: number;
   x: number;
   y: number;
 };
@@ -92,9 +96,9 @@ type TradePointCandleCoordinates = {
 };
 
 /**
- * Top Signal trade points are source-owned avatar markers. The colored ring and
- * pointer encode buy/sell without adding B/S text, so dense charts stay closer
- * to the KOL avatar language used elsewhere in the workspace.
+ * Source-owned trade points stay as avatar markers. User-owned strategy history
+ * orders can opt into plain BUY/SELL labels by omitting the avatar and passing a
+ * BUY/SELL action label, matching the KOL signal entry/exit marker language.
  */
 export class TradePointPrimitive implements ISeriesPrimitive<Time> {
   private readonly avatarImages = new TradePointAvatarImageCache();
@@ -317,7 +321,13 @@ function createTradePointDrawingState(input: {
     }
 
     stackIndexes.set(stackKey, currentStackIndex + 1);
-    const width = isActive ? TRADE_POINT_ACTIVE_MARKER_DIAMETER : TRADE_POINT_MARKER_DIAMETER;
+    const textMarkerLabel = resolveTradePointTextMarkerLabel(marker);
+    const width = textMarkerLabel
+      ? measureTradePointTextMarkerWidth(textMarkerLabel, isActive)
+      : isActive ? TRADE_POINT_ACTIVE_MARKER_DIAMETER : TRADE_POINT_MARKER_DIAMETER;
+    const height = textMarkerLabel
+      ? TRADE_POINT_TEXT_MARKER_HEIGHT + (isActive ? 2 : 0)
+      : width;
     const avatarUrl = marker.avatarUrl ?? null;
     const candleBoundaryY = marker.side === "buy" ? coordinates.buyBoundaryY : coordinates.sellBoundaryY;
 
@@ -335,14 +345,16 @@ function createTradePointDrawingState(input: {
       priceText: marker.priceText,
       side: marker.side,
       signalId: marker.signalId,
+      textMarkerLabel,
       title: marker.title,
       traderName: marker.traderName,
       width,
+      height,
       x: normalizedX,
       y: clampPointY(
-        candleBoundaryY + createStackOffset(marker.side, currentStackIndex, width),
+        candleBoundaryY + createStackOffset(marker.side, currentStackIndex, height),
         paneSize.height,
-        width,
+        height,
       ),
     });
     if (!isActive) {
@@ -454,9 +466,11 @@ function drawTradePoint(ctx: CanvasRenderingContext2D, input: {
   y: number;
 }) {
   const { item, pixelRatio, theme, x, y } = input;
-  const colors = getTradePointColors(item.side, theme);
-  const diameter = item.width * pixelRatio;
-  const radius = diameter / 2;
+  const colors = item.textMarkerLabel
+    ? getTradePointTextMarkerColors(item.side, theme)
+    : getTradePointColors(item.side, theme);
+  const markerHeight = item.height * pixelRatio;
+  const radius = markerHeight / 2;
   const pointerSize = TRADE_POINT_POINTER_SIZE * pixelRatio;
 
   ctx.save();
@@ -468,16 +482,52 @@ function drawTradePoint(ctx: CanvasRenderingContext2D, input: {
   }
 
   drawMarkerPointer(ctx, item.side, x, y, radius, pointerSize, colors.border, pixelRatio);
-  drawAvatarCircle(ctx, {
-    colors,
-    item,
-    pixelRatio,
-    radius,
-    theme,
-    x,
-    y,
-  });
+  if (item.textMarkerLabel) {
+    drawTextMarkerBadge(ctx, { colors, item, pixelRatio, radius, x, y });
+  } else {
+    drawAvatarCircle(ctx, {
+      colors,
+      item,
+      pixelRatio,
+      radius,
+      theme,
+      x,
+      y,
+    });
+  }
   ctx.restore();
+}
+
+function drawTextMarkerBadge(ctx: CanvasRenderingContext2D, input: {
+  colors: ReturnType<typeof getTradePointColors>;
+  item: DrawnTradePoint;
+  pixelRatio: number;
+  radius: number;
+  x: number;
+  y: number;
+}) {
+  const { colors, item, pixelRatio, radius, x, y } = input;
+  const width = item.width * pixelRatio;
+  const height = item.height * pixelRatio;
+  const left = x - width / 2;
+  const top = y - height / 2;
+  const borderRadius = radius;
+  const label = item.textMarkerLabel ?? item.initials;
+
+  ctx.beginPath();
+  ctx.roundRect(left, top, width, height, borderRadius);
+  ctx.fillStyle = colors.border;
+  ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.lineWidth = Math.max(1, 1.2 * pixelRatio);
+  ctx.strokeStyle = colors.innerRing;
+  ctx.stroke();
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `900 ${Math.max(10, 11 * pixelRatio)}px Arial, Helvetica, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, x, y + 0.4 * pixelRatio);
 }
 
 function drawAvatarCircle(ctx: CanvasRenderingContext2D, input: {
@@ -627,17 +677,30 @@ function toNumberCoordinate(coordinate: number | null): number | null {
   return coordinate === null ? null : Number(coordinate);
 }
 
-function createStackOffset(side: "buy" | "sell", stackIndex: number, markerDiameter: number): number {
-  const baseOffset = TRADE_POINT_CANDLE_GAP + TRADE_POINT_POINTER_SIZE + markerDiameter / 2;
+function createStackOffset(side: "buy" | "sell", stackIndex: number, markerHeight: number): number {
+  const baseOffset = TRADE_POINT_CANDLE_GAP + TRADE_POINT_POINTER_SIZE + markerHeight / 2;
   const stackedOffset = baseOffset + stackIndex * TRADE_POINT_STACK_GAP;
   return side === "buy" ? stackedOffset : -stackedOffset;
 }
 
-function clampPointY(y: number, paneHeight: number, markerDiameter: number): number {
-  const markerHalfHeight = markerDiameter / 2 + TRADE_POINT_POINTER_SIZE;
+function clampPointY(y: number, paneHeight: number, markerHeight: number): number {
+  const markerHalfHeight = markerHeight / 2 + TRADE_POINT_POINTER_SIZE;
   const minY = markerHalfHeight + 6;
   const maxY = Math.max(minY, paneHeight - markerHalfHeight - 6);
   return Math.min(Math.max(y, minY), maxY);
+}
+
+function resolveTradePointTextMarkerLabel(marker: KlineTradePointMarker): string | null {
+  if (marker.avatarUrl) {
+    return null;
+  }
+
+  const label = marker.actionLabel?.trim().toUpperCase();
+  return label === "BUY" || label === "SELL" ? label : null;
+}
+
+function measureTradePointTextMarkerWidth(label: string, isActive: boolean): number {
+  return label.length * 7 + TRADE_POINT_TEXT_MARKER_PADDING_X * 2 + (isActive ? 4 : 0);
 }
 
 function getMarkerInitials(value: string): string {
@@ -690,6 +753,20 @@ function getTradePointColors(side: "buy" | "sell", theme: ChartTheme) {
     border: isBuy ? "#16a34a" : "#dc2626",
     glow: isBuy ? "rgba(22, 163, 74, 0.32)" : "rgba(220, 38, 38, 0.30)",
     innerRing: "rgba(255,255,255,0.78)",
+    surface: "#FFFFFF",
+  };
+}
+
+function getTradePointTextMarkerColors(side: "buy" | "sell", theme: ChartTheme) {
+  const isBuy = side === "buy";
+  const border = isBuy ? "#2FBD85" : "#F6465D";
+
+  return {
+    border,
+    glow: isBuy
+      ? theme === "dark" ? "rgba(47, 189, 133, 0.38)" : "rgba(47, 189, 133, 0.28)"
+      : theme === "dark" ? "rgba(246, 70, 93, 0.38)" : "rgba(246, 70, 93, 0.28)",
+    innerRing: "rgba(255,255,255,0.82)",
     surface: "#FFFFFF",
   };
 }

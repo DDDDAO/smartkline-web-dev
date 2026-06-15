@@ -3256,7 +3256,7 @@ function createTradeHistoryTradeMarker(
 
   return {
     actionLabel,
-    avatarUrl: strategy.avatarUrl || null,
+    avatarUrl: null,
     detail: `${formatDetailDate(row.timestamp)} · ${formatOrderStatus(row.status, strategyCopy)}`,
     direction: side === "buy" ? "long" : "short",
     eventId: row.id,
@@ -3271,7 +3271,7 @@ function createTradeHistoryTradeMarker(
     symbol: toCopyTradingMarketSymbol(row.symbol),
     title: `${actionLabel} ${row.symbol}${priceSuffix}`,
     traderId: strategy.traderId,
-    traderName: strategy.traderName || actionLabel,
+    traderName: actionLabel,
   };
 }
 
