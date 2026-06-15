@@ -143,19 +143,22 @@ export type PrototypeConnectionSaveInput = {
   ipAddress?: string;
   isMock: boolean;
   mockMarginBalance?: number;
+  password?: string;
+  privateKey?: string;
   secret?: string;
+  walletAddress?: string;
 };
 
 const EXCHANGES = [
-  { id: "binance", apiManagementUrl: "https://www.binance.com/en/my/settings/api-management", connectorExchangePlatform: "Binance", defaultAccountName: "Binance #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api", registrationUrl: "https://accounts.binance.com/register" },
-  { id: "okx", apiManagementUrl: "https://www.okx.com/account/my-api", connectorExchangePlatform: "OKX", defaultAccountName: "OKX #1", enabled: true, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api", registrationUrl: "https://www.okx.com/join" },
-  { id: "hyperliquid", apiManagementUrl: "https://app.hyperliquid.xyz/API", connectorExchangePlatform: "Hyperliquid", defaultAccountName: "Hyperliquid #1", enabled: true, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api", registrationUrl: "https://app.hyperliquid.xyz/" },
-  { id: "aster", apiManagementUrl: "https://www.asterdex.com/en/api-management", connectorExchangePlatform: "Aster", defaultAccountName: "Aster #1", enabled: true, fallback: "AS", logoPath: "/exchanges/aster/brand/icon.png", mode: "api", registrationUrl: "https://www.asterdex.com/en" },
-  { id: "bitget", apiManagementUrl: "https://www.bitget.com/account/newapi", connectorExchangePlatform: "Bitget", defaultAccountName: "Bitget #1", enabled: true, fallback: "BG", logoPath: "/exchanges/bitget/brand/icon.png", mode: "api", registrationUrl: "https://www.bitget.com/register" },
-  { id: "bybit", apiManagementUrl: "https://www.bybit.com/app/user/api-management", connectorExchangePlatform: "Bybit", defaultAccountName: "Bybit #1", enabled: true, fallback: "BY", logoPath: "/exchanges/bybit/brand/icon.png", mode: "api", registrationUrl: "https://www.bybit.com/register" },
-  { id: "gate", apiManagementUrl: "https://www.gate.com/myaccount/apikeys", connectorExchangePlatform: "Gate", defaultAccountName: "Gate #1", enabled: true, fallback: "GT", logoPath: "/exchanges/gate/brand/icon.png", mode: "api", registrationUrl: "https://www.gate.com/signup" },
-  { id: "mockExchange", apiManagementUrl: null, connectorExchangePlatform: "Mock", defaultAccountName: "Mock Exchange #1", enabled: true, fallback: "MX", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo", registrationUrl: null },
-  { id: "binanceDemo", apiManagementUrl: BINANCE_DEMO_API_MANAGEMENT_URL, connectorExchangePlatform: "Binance", defaultAccountName: "Binance Demo #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo", registrationUrl: null },
+  { id: "binance", apiManagementUrl: "https://www.binance.com/en/my/settings/api-management", connectorExchangePlatform: "Binance", defaultAccountName: "Binance #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "api", registrationUrl: "https://accounts.binance.com/register", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
+  { id: "okx", apiManagementUrl: "https://www.okx.com/account/my-api", connectorExchangePlatform: "OKX", defaultAccountName: "OKX #1", enabled: true, fallback: "OK", logoPath: "/exchanges/okx/brand/icon.png", mode: "api", registrationUrl: "https://www.okx.com/join", requiresApiPassword: true, requiresPrivateKey: false, requiresWalletAddress: false },
+  { id: "hyperliquid", apiManagementUrl: "https://app.hyperliquid.xyz/API", connectorExchangePlatform: "Hyperliquid", defaultAccountName: "Hyperliquid #1", enabled: true, fallback: "HL", logoPath: "/exchanges/hyperliquid/brand/icon.png", mode: "api", registrationUrl: "https://app.hyperliquid.xyz/", requiresApiPassword: false, requiresPrivateKey: true, requiresWalletAddress: true },
+  { id: "aster", apiManagementUrl: "https://www.asterdex.com/en/api-management", connectorExchangePlatform: "Aster", defaultAccountName: "Aster #1", enabled: true, fallback: "AS", logoPath: "/exchanges/aster/brand/icon.png", mode: "api", registrationUrl: "https://www.asterdex.com/en", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: true },
+  { id: "bitget", apiManagementUrl: "https://www.bitget.com/account/newapi", connectorExchangePlatform: "Bitget", defaultAccountName: "Bitget #1", enabled: true, fallback: "BG", logoPath: "/exchanges/bitget/brand/icon.png", mode: "api", registrationUrl: "https://www.bitget.com/register", requiresApiPassword: true, requiresPrivateKey: false, requiresWalletAddress: false },
+  { id: "bybit", apiManagementUrl: "https://www.bybit.com/app/user/api-management", connectorExchangePlatform: "Bybit", defaultAccountName: "Bybit #1", enabled: true, fallback: "BY", logoPath: "/exchanges/bybit/brand/icon.png", mode: "api", registrationUrl: "https://www.bybit.com/register", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
+  { id: "gate", apiManagementUrl: "https://www.gate.com/myaccount/apikeys", connectorExchangePlatform: "Gate", defaultAccountName: "Gate #1", enabled: true, fallback: "GT", logoPath: "/exchanges/gate/brand/icon.png", mode: "api", registrationUrl: "https://www.gate.com/signup", requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
+  { id: "mockExchange", apiManagementUrl: null, connectorExchangePlatform: "Mock", defaultAccountName: "Mock Exchange #1", enabled: true, fallback: "MX", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo", registrationUrl: null, requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
+  { id: "binanceDemo", apiManagementUrl: BINANCE_DEMO_API_MANAGEMENT_URL, connectorExchangePlatform: "Binance", defaultAccountName: "Binance Demo #1", enabled: true, fallback: "BN", logoPath: "/exchanges/binance/brand/icon.png", mode: "demo", registrationUrl: null, requiresApiPassword: false, requiresPrivateKey: false, requiresWalletAddress: false },
 ] as const;
 type PrototypeExchange = typeof EXCHANGES[number];
 type PrototypeExchangeId = PrototypeExchange["id"];
@@ -1399,6 +1402,9 @@ function ExchangeApiSetupLayer({
   const [mockMarginBalance, setMockMarginBalance] = useState(String(initialMockMarginBalance ?? 10000));
   const [apiKey, setApiKey] = useState("");
   const [secret, setSecret] = useState("");
+  const [apiPassword, setApiPassword] = useState("");
+  const [walletAddress, setWalletAddress] = useState("");
+  const [privateKey, setPrivateKey] = useState("");
   const [hasCopiedIp, setHasCopiedIp] = useState(false);
   const [whitelistIp, setWhitelistIp] = useState("");
   const [whitelistIpError, setWhitelistIpError] = useState("");
@@ -1408,17 +1414,26 @@ function ExchangeApiSetupLayer({
   const isBuiltInMockExchange = selectedExchange.id === "mockExchange";
   const isBinanceDemoExchange = selectedExchange.id === "binanceDemo";
   const isLiveExchange = !isDemoExchange;
-  const requiresApiCredentials = !isBuiltInMockExchange;
+  const isHyperliquidExchange = selectedExchange.id === "hyperliquid";
+  const requiresApiCredentials = !isBuiltInMockExchange && !isHyperliquidExchange;
+  const requiresApiPassword = selectedExchange.requiresApiPassword;
+  const requiresWalletAddress = selectedExchange.requiresWalletAddress;
+  const requiresPrivateKey = selectedExchange.requiresPrivateKey;
   const parsedMockMarginBalance = Number(mockMarginBalance);
   const hasValidMockMarginBalance = Number.isFinite(parsedMockMarginBalance) && parsedMockMarginBalance > 0 && parsedMockMarginBalance <= MOCK_MARGIN_BALANCE_MAX;
-  const hasApiCredentials = apiKey.trim().length > 0 && secret.trim().length > 0;
+  const hasApiCredentials = !requiresApiCredentials || (apiKey.trim().length > 0 && secret.trim().length > 0);
+  const hasApiPassword = !requiresApiPassword || apiPassword.trim().length > 0;
+  const hasWalletAddress = !requiresWalletAddress || walletAddress.trim().length > 0;
+  const hasPrivateKey = !requiresPrivateKey || privateKey.trim().length > 0;
   const hasWhitelistIp = whitelistIp.trim().length > 0;
+  const walletAddressLabel = isHyperliquidExchange ? accountCopy.apiSetup.mainWalletAddress : accountCopy.apiSetup.walletAddress;
+  const walletAddressPlaceholder = isHyperliquidExchange ? accountCopy.apiSetup.mainWalletAddressPlaceholder : accountCopy.apiSetup.walletAddressPlaceholder;
 
   const canSave = isBuiltInMockExchange
     ? accountName.trim().length > 0 && hasValidMockMarginBalance
     : isBinanceDemoExchange
       ? accountName.trim().length > 0 && hasApiCredentials
-      : accountName.trim().length > 0 && hasApiCredentials && hasWhitelistIp && !isWhitelistIpLoading;
+      : accountName.trim().length > 0 && hasApiCredentials && hasApiPassword && hasWalletAddress && hasPrivateKey && hasWhitelistIp && !isWhitelistIpLoading;
 
   useEffect(() => {
     let isMounted = true;
@@ -1485,6 +1500,9 @@ function ExchangeApiSetupLayer({
     setHasCopiedIp(false);
     setApiKey("");
     setSecret("");
+    setApiPassword("");
+    setWalletAddress("");
+    setPrivateKey("");
     setAccountName((currentAccountName) => {
       const trimmedAccountName = currentAccountName.trim();
       if (trimmedAccountName.length > 0 && trimmedAccountName !== previousDefaultAccountName) {
@@ -1597,6 +1615,9 @@ function ExchangeApiSetupLayer({
                         <>
                           <PrototypeInput autoComplete="off" fieldName="api-key" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiKey} placeholder={accountCopy.apiSetup.apiKeyPlaceholder} value={apiKey} onChange={setApiKey} />
                           <PrototypeInput autoComplete="new-password" fieldName="secret" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.secret} placeholder={accountCopy.apiSetup.secretPlaceholder} type="password" value={secret} onChange={setSecret} />
+                          {requiresApiPassword ? (
+                            <PrototypeInput autoComplete="new-password" fieldName="api-password" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiPassword} placeholder={accountCopy.apiSetup.apiPasswordPlaceholder} type="password" value={apiPassword} onChange={setApiPassword} />
+                          ) : null}
                         </>
                       ) : null}
                       {isBuiltInMockExchange ? (
@@ -1662,12 +1683,25 @@ function ExchangeApiSetupLayer({
                     <section className={getModalSectionClassName(isDarkTheme)}>
                       <h3 className="text-base font-black">{accountCopy.api.title}</h3>
                       <p className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
-                        {accountCopy.apiSetup.liveBinanceDescription}
+                        {accountCopy.apiSetup.liveExchangeDescription}
                       </p>
                       <div className="mt-4 grid gap-3">
                         <PrototypeInput autoComplete="off" fieldName="account-name" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.accountName} value={accountName} onChange={setAccountName} />
-                        <PrototypeInput autoComplete="off" fieldName="api-key" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiKey} placeholder={accountCopy.apiSetup.apiKeyPlaceholder} value={apiKey} onChange={setApiKey} />
-                        <PrototypeInput autoComplete="new-password" fieldName="secret" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.secret} placeholder={accountCopy.apiSetup.secretPlaceholder} type="password" value={secret} onChange={setSecret} />
+                        {requiresApiCredentials ? (
+                          <>
+                            <PrototypeInput autoComplete="off" fieldName="api-key" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiKey} placeholder={accountCopy.apiSetup.apiKeyPlaceholder} value={apiKey} onChange={setApiKey} />
+                            <PrototypeInput autoComplete="new-password" fieldName="secret" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.secret} placeholder={accountCopy.apiSetup.secretPlaceholder} type="password" value={secret} onChange={setSecret} />
+                            {requiresApiPassword ? (
+                              <PrototypeInput autoComplete="new-password" fieldName="api-password" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.apiPassword} placeholder={accountCopy.apiSetup.apiPasswordPlaceholder} type="password" value={apiPassword} onChange={setApiPassword} />
+                            ) : null}
+                          </>
+                        ) : null}
+                        {requiresWalletAddress ? (
+                          <PrototypeInput autoComplete="off" fieldName="wallet-address" isDarkTheme={isDarkTheme} label={walletAddressLabel} placeholder={walletAddressPlaceholder} value={walletAddress} onChange={setWalletAddress} />
+                        ) : null}
+                        {requiresPrivateKey ? (
+                          <PrototypeInput autoComplete="new-password" fieldName="private-key" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.privateKey} placeholder={accountCopy.apiSetup.privateKeyPlaceholder} type="password" value={privateKey} onChange={setPrivateKey} />
+                        ) : null}
                       </div>
                       <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-slate-500" : "mt-3 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.sensitiveNote}</p>
                     </section>
@@ -1691,7 +1725,10 @@ function ExchangeApiSetupLayer({
                 ipAddress: isLiveExchange ? whitelistIp.trim() : undefined,
                 isMock: isDemoExchange,
                 mockMarginBalance: isBuiltInMockExchange && hasValidMockMarginBalance ? parsedMockMarginBalance : undefined,
+                password: requiresApiPassword ? apiPassword.trim() : undefined,
+                privateKey: requiresPrivateKey ? privateKey.trim() : undefined,
                 secret: requiresApiCredentials ? secret.trim() : undefined,
+                walletAddress: requiresWalletAddress ? walletAddress.trim() : undefined,
               })}
             >
               {accountCopy.apiSetup.save}
