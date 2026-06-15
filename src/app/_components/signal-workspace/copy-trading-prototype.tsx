@@ -41,6 +41,7 @@ export type PrototypeApiConnection = {
 };
 
 export type PrototypeStrategyStatus = "running" | "paused" | "stopped";
+export type PrototypeStrategyType = "copyTrading" | "mario";
 
 export type PrototypeStrategy = {
   apiAccountName: string;
@@ -49,20 +50,35 @@ export type PrototypeStrategy = {
   avatarUrl: string;
   createdAtLabel: string;
   eventsCount: number;
+  followRatioPercent?: number;
   id: string;
   platform: string;
   positionsCount: number;
   status: PrototypeStrategyStatus;
   stopLossPercent: number;
+  strategyType?: PrototypeStrategyType;
   takeProfitPercent: number;
   traderId: string;
   traderName: string;
   unrealizedPnl?: number;
 };
 
+export type PrototypeStrategyCreateInput = {
+  exchangeConnectorId: number;
+  strategyType: "mario";
+} | {
+  exchangeConnectorId: number;
+  followRatioPercent: 100;
+  stopLossPercent: number;
+  strategyType: "copyTrading";
+  takeProfitPercent: number;
+  target: CopyTradingPrototypeTarget;
+};
+
 type AccountCenterPrototypeProps = {
   apiConnection: PrototypeApiConnection;
   apiConnections: readonly PrototypeApiConnection[];
+  availableSignalSources: readonly CopyTradingPrototypeTarget[];
   copy: WorkspaceCopy;
   isApiSetupOpen: boolean;
   isAuthLoading: boolean;
@@ -77,6 +93,7 @@ type AccountCenterPrototypeProps = {
   onConnectionSave: (input: PrototypeConnectionSaveInput) => void;
   onLogin: () => void;
   onLogout: () => void;
+  onStrategyCreate: (input: PrototypeStrategyCreateInput) => Promise<void> | void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 };
@@ -121,6 +138,7 @@ export type PrototypeConnectionSaveInput = {
   accountName: string;
   apiKey?: string;
   exchangePlatform: string;
+  ipAddress?: string;
   isMock: boolean;
   mockMarginBalance?: number;
   secret?: string;
@@ -143,6 +161,7 @@ type PrototypeExchangeId = PrototypeExchange["id"];
 export function AccountCenterPrototype({
   apiConnection,
   apiConnections,
+  availableSignalSources,
   copy,
   isApiSetupOpen,
   isAuthLoading,
@@ -157,15 +176,23 @@ export function AccountCenterPrototype({
   onConnectionSave,
   onLogin,
   onLogout,
+  onStrategyCreate,
   onStrategyDelete,
   onStrategyStatusChange,
 }: AccountCenterPrototypeProps) {
   const accountCopy = copy.workspace.accountCenter;
   const isDrawerModal = !isApiSetupOpen && !isCoveredByModal;
   const hasApiConnections = apiConnections.length > 0;
+  const [isStrategyCreateOpen, setIsStrategyCreateOpen] = useState(false);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
-
+  const openStrategyDetail = (strategy: PrototypeStrategy) => {
+    if (getPrototypeStrategyType(strategy) === "mario") {
+      window.location.assign("/mario-dashboard");
+      return;
+    }
+    setSelectedStrategyId(strategy.id);
+  };
 
   return (
     <>
@@ -276,8 +303,13 @@ export function AccountCenterPrototype({
 
                   <section className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
                     <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-sm font-black">{accountCopy.strategy.title}</h3>
-                      <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{strategies.length}</span>
+                      <div>
+                        <h3 className="text-sm font-black">{accountCopy.strategy.title}</h3>
+                        <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-400"}>{accountCopy.strategyCreate.count(strategies.length)}</div>
+                      </div>
+                      <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={() => setIsStrategyCreateOpen(true)}>
+                        {accountCopy.strategyCreate.action}
+                      </button>
                     </div>
                     <div className="mt-3 grid gap-3">
                       {strategies.length > 0 ? strategies.map((strategy) => (
@@ -286,7 +318,7 @@ export function AccountCenterPrototype({
                           copy={copy}
                           isDarkTheme={isDarkTheme}
                           strategy={strategy}
-                          onOpenDetail={setSelectedStrategyId}
+                          onOpenDetail={openStrategyDetail}
                           onStrategyDelete={onStrategyDelete}
                           onStrategyStatusChange={onStrategyStatusChange}
                         />
@@ -322,6 +354,17 @@ export function AccountCenterPrototype({
           }}
         />
       ) : null}
+      {isStrategyCreateOpen ? (
+        <StrategyCreateLayer
+          apiConnections={apiConnections}
+          availableSignalSources={availableSignalSources}
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          strategies={strategies}
+          onClose={() => setIsStrategyCreateOpen(false)}
+          onCreate={onStrategyCreate}
+        />
+      ) : null}
     </>
   );
 }
@@ -329,6 +372,7 @@ export function AccountCenterPrototype({
 export function AccountManagementPanel({
   apiConnection,
   apiConnections,
+  availableSignalSources,
   copy,
   isApiSetupOpen,
   isAuthLoading,
@@ -340,11 +384,13 @@ export function AccountManagementPanel({
   onConnectionSave,
   onLogin,
   onLogout,
+  onStrategyCreate,
   onStrategyDelete,
   onStrategyStatusChange,
 }: {
   apiConnection: PrototypeApiConnection;
   apiConnections: readonly PrototypeApiConnection[];
+  availableSignalSources: readonly CopyTradingPrototypeTarget[];
   copy: WorkspaceCopy;
   isApiSetupOpen: boolean;
   isAuthLoading: boolean;
@@ -356,13 +402,22 @@ export function AccountManagementPanel({
   onConnectionSave: (input: PrototypeConnectionSaveInput) => void;
   onLogin: () => void;
   onLogout: () => void;
+  onStrategyCreate: (input: PrototypeStrategyCreateInput) => Promise<void> | void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
   const accountCopy = copy.workspace.accountCenter;
   const hasApiConnections = apiConnections.length > 0;
+  const [isStrategyCreateOpen, setIsStrategyCreateOpen] = useState(false);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
+  const openStrategyDetail = (strategy: PrototypeStrategy) => {
+    if (getPrototypeStrategyType(strategy) === "mario") {
+      window.location.assign("/mario-dashboard");
+      return;
+    }
+    setSelectedStrategyId(strategy.id);
+  };
 
   return (
     <section className="kol-scroll-area h-full min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5 lg:px-6 lg:py-6">
@@ -443,8 +498,13 @@ export function AccountManagementPanel({
 
             <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-base font-black">{accountCopy.strategy.title}</h2>
-                <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{strategies.length}</span>
+                <div>
+                  <h2 className="text-base font-black">{accountCopy.strategy.title}</h2>
+                  <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-400"}>{accountCopy.strategyCreate.count(strategies.length)}</div>
+                </div>
+                <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={() => setIsStrategyCreateOpen(true)}>
+                  {accountCopy.strategyCreate.action}
+                </button>
               </div>
               <div className="mt-3 grid gap-3">
                 {strategies.length > 0 ? strategies.map((strategy) => (
@@ -453,7 +513,7 @@ export function AccountManagementPanel({
                     copy={copy}
                     isDarkTheme={isDarkTheme}
                     strategy={strategy}
-                    onOpenDetail={setSelectedStrategyId}
+                    onOpenDetail={openStrategyDetail}
                     onStrategyDelete={onStrategyDelete}
                     onStrategyStatusChange={onStrategyStatusChange}
                   />
@@ -480,6 +540,17 @@ export function AccountManagementPanel({
             onConnectionSave(input);
             onApiSetupOpenChange(false);
           }}
+        />
+      ) : null}
+      {isStrategyCreateOpen ? (
+        <StrategyCreateLayer
+          apiConnections={apiConnections}
+          availableSignalSources={availableSignalSources}
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          strategies={strategies}
+          onClose={() => setIsStrategyCreateOpen(false)}
+          onCreate={onStrategyCreate}
         />
       ) : null}
     </section>
@@ -632,6 +703,318 @@ export function CopyTradingPrototypeModal({
   );
 }
 
+function StrategyCreateLayer({
+  apiConnections,
+  availableSignalSources,
+  copy,
+  isDarkTheme,
+  strategies,
+  onClose,
+  onCreate,
+}: {
+  apiConnections: readonly PrototypeApiConnection[];
+  availableSignalSources: readonly CopyTradingPrototypeTarget[];
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  strategies: readonly PrototypeStrategy[];
+  onClose: () => void;
+  onCreate: (input: PrototypeStrategyCreateInput) => Promise<void> | void;
+}) {
+  const accountCopy = copy.workspace.accountCenter;
+  const strategyCreateCopy = accountCopy.strategyCreate;
+  const [strategyType, setStrategyType] = useState<PrototypeStrategyType>("copyTrading");
+  const [selectedConnectorId, setSelectedConnectorId] = useState("");
+  const [selectedSignalSourceId, setSelectedSignalSourceId] = useState("");
+  const [takeProfitPercent, setTakeProfitPercent] = useState("20");
+  const [stopLossPercent, setStopLossPercent] = useState("10");
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const occupiedConnectorIds = useMemo(() => new Set(strategies
+    .filter((strategy) => strategy.status !== "stopped")
+    .map((strategy) => strategy.exchangeConnectorId)), [strategies]);
+  const availableApiConnections = useMemo(() => apiConnections.filter((connection) =>
+    connection.status === "connected" && !occupiedConnectorIds.has(connection.id),
+  ), [apiConnections, occupiedConnectorIds]);
+  const selectedApiConnection = availableApiConnections.find((connection) => String(connection.id) === selectedConnectorId) ?? availableApiConnections[0] ?? null;
+  const selectedTradingAccountId = selectedApiConnection ? String(selectedApiConnection.id) : "";
+  const selectedSignalSource = availableSignalSources.find((target) => target.trader.trader_id === selectedSignalSourceId) ?? availableSignalSources[0] ?? null;
+  const parsedTakeProfit = Number(takeProfitPercent);
+  const parsedStopLoss = Number(stopLossPercent);
+  const canCreate = selectedApiConnection !== null
+    && !isSubmitting
+    && (strategyType === "mario" || (
+      selectedSignalSource !== null
+      && Number.isFinite(parsedTakeProfit)
+      && Number.isFinite(parsedStopLoss)
+      && parsedTakeProfit > 0
+      && parsedStopLoss > 0
+    ));
+
+
+  const submitStrategy = async () => {
+    if (!canCreate || !selectedApiConnection) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError("");
+    try {
+      if (strategyType === "mario") {
+        await onCreate({
+          exchangeConnectorId: selectedApiConnection.id,
+          strategyType: "mario",
+        });
+      } else if (selectedSignalSource) {
+        await onCreate({
+          exchangeConnectorId: selectedApiConnection.id,
+          followRatioPercent: 100,
+          stopLossPercent: parsedStopLoss,
+          strategyType: "copyTrading",
+          takeProfitPercent: parsedTakeProfit,
+          target: selectedSignalSource,
+        });
+      }
+      onClose();
+    } catch (error) {
+      setSubmitError(getTradingFoxErrorMessage(error, copy));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        aria-label={copy.common.close}
+        className={isDarkTheme ? "fixed inset-0 z-[95] bg-black/52 backdrop-blur-[4px]" : "fixed inset-0 z-[95] bg-slate-950/24 backdrop-blur-[4px]"}
+        type="button"
+        onClick={onClose}
+      />
+      <section
+        aria-label={strategyCreateCopy.modalTitle}
+        aria-modal="true"
+        className="fixed inset-x-0 bottom-0 z-[100] max-h-[92dvh] overflow-hidden rounded-t-[28px] shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(760px,calc(100dvh-2rem))] sm:max-w-[560px] sm:-translate-y-1/2 sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"
+        role="dialog"
+      >
+        <div className={isDarkTheme ? "flex max-h-[92dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[min(760px,calc(100dvh-2rem))]" : "flex max-h-[92dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[min(760px,calc(100dvh-2rem))]"}>
+          <div className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>{strategyCreateCopy.modalEyebrow}</div>
+                <h2 className="mt-2 text-xl font-black tracking-tight">{strategyCreateCopy.modalTitle}</h2>
+                <p className={isDarkTheme ? "mt-2 text-sm leading-5 text-slate-400" : "mt-2 text-sm leading-5 text-slate-600"}>{strategyCreateCopy.modalDescription}</p>
+              </div>
+              <button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} type="button" onClick={onClose}>
+                <span aria-hidden="true" className="text-lg leading-none">×</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+            <section className="grid gap-3 sm:grid-cols-2">
+              <StrategyTypeOptionButton
+                description={strategyCreateCopy.copyTradingDescription}
+                isDarkTheme={isDarkTheme}
+                isSelected={strategyType === "copyTrading"}
+                title={strategyCreateCopy.copyTradingTitle}
+                onSelect={() => setStrategyType("copyTrading")}
+              />
+              <StrategyTypeOptionButton
+                description={strategyCreateCopy.marioDescription}
+                isDarkTheme={isDarkTheme}
+                isSelected={strategyType === "mario"}
+                title={strategyCreateCopy.marioTitle}
+                onSelect={() => setStrategyType("mario")}
+              />
+            </section>
+
+            <label className="block">
+              <span className={getLabelClassName(isDarkTheme)}>{strategyCreateCopy.apiSelect}</span>
+              {availableApiConnections.length > 0 ? (
+                <TradingAccountSelect
+                  accountCopy={accountCopy}
+                  connections={availableApiConnections}
+                  isDarkTheme={isDarkTheme}
+                  value={selectedTradingAccountId}
+                  onChange={setSelectedConnectorId}
+                />
+              ) : (
+                <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold" : "mt-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold"}>
+                  {apiConnections.length > 0 ? strategyCreateCopy.noAvailableAccount : accountCopy.copyTrading.apiRequired}
+                </div>
+              )}
+            </label>
+
+            {strategyType === "copyTrading" ? (
+              <>
+                <label className="block">
+                  <span className={getLabelClassName(isDarkTheme)}>{strategyCreateCopy.signalSourceSelect}</span>
+                  {availableSignalSources.length > 0 ? (
+                    <SignalSourceSelect
+                      copy={copy}
+                      isDarkTheme={isDarkTheme}
+                      sources={availableSignalSources}
+                      value={selectedSignalSource?.trader.trader_id ?? ""}
+                      onChange={setSelectedSignalSourceId}
+                    />
+                  ) : (
+                    <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold" : "mt-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold"}>
+                      {strategyCreateCopy.signalSourceEmpty}
+                    </div>
+                  )}
+                </label>
+                <div className={isDarkTheme ? "rounded-2xl border border-sky-300/15 bg-sky-300/[0.07] px-3 py-3" : "rounded-2xl border border-sky-100 bg-sky-50 px-3 py-3"}>
+                  <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.14em] text-sky-200/70" : "text-[11px] font-black uppercase tracking-[0.14em] text-sky-700/70"}>{strategyCreateCopy.followRatioLabel}</div>
+                  <div className={isDarkTheme ? "mt-1 text-sm font-black text-sky-100" : "mt-1 text-sm font-black text-sky-800"}>{strategyCreateCopy.followRatioValue}</div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <PercentInput
+                    copyLabel={accountCopy.copyTrading.takeProfit}
+                    fieldName="create-take-profit"
+                    isDarkTheme={isDarkTheme}
+                    placeholder={accountCopy.copyTrading.takeProfitPlaceholder}
+                    value={takeProfitPercent}
+                    onChange={setTakeProfitPercent}
+                  />
+                  <PercentInput
+                    copyLabel={accountCopy.copyTrading.stopLoss}
+                    fieldName="create-stop-loss"
+                    isDarkTheme={isDarkTheme}
+                    placeholder={accountCopy.copyTrading.stopLossPlaceholder}
+                    value={stopLossPercent}
+                    onChange={setStopLossPercent}
+                  />
+                </div>
+                <div className={isDarkTheme ? "rounded-2xl border border-amber-300/15 bg-amber-300/[0.07] px-3 py-3 text-xs leading-5 text-amber-100/80" : "rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800"}>
+                  {strategyCreateCopy.copyTradingRiskNote}
+                </div>
+              </>
+            ) : (
+              <div className={isDarkTheme ? "rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.07] px-3 py-3 text-xs leading-5 text-emerald-100/80" : "rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800"}>
+                {strategyCreateCopy.marioDashboardHint}
+              </div>
+            )}
+
+            {submitError ? <p className={getInlineErrorClassName(isDarkTheme)}>{submitError}</p> : null}
+          </div>
+
+          <div className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5"}>
+            <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onClose}>{copy.common.close}</button>
+            <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canCreate} type="button" onClick={() => void submitStrategy()}>
+              {isSubmitting ? strategyCreateCopy.starting : strategyCreateCopy.start}
+            </button>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function StrategyTypeOptionButton({
+  description,
+  isDarkTheme,
+  isSelected,
+  title,
+  onSelect,
+}: {
+  description: string;
+  isDarkTheme: boolean;
+  isSelected: boolean;
+  title: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      aria-pressed={isSelected}
+      className={getStrategyTypeOptionClassName(isDarkTheme, isSelected)}
+      type="button"
+      onClick={onSelect}
+    >
+      <span className="block text-sm font-black">{title}</span>
+      <span className={isDarkTheme ? "mt-2 block text-xs leading-5 text-slate-400" : "mt-2 block text-xs leading-5 text-slate-600"}>{description}</span>
+    </button>
+  );
+}
+
+function SignalSourceSelect({
+  copy,
+  isDarkTheme,
+  sources,
+  value,
+  onChange,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  sources: readonly CopyTradingPrototypeTarget[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const selectedSource = sources.find((source) => source.trader.trader_id === value) ?? sources[0];
+
+  return (
+    <SelectPrimitive.Root value={value} onValueChange={onChange}>
+      <SelectPrimitive.Trigger
+        className={isDarkTheme
+          ? "mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-left text-sm font-bold text-slate-100 outline-none transition hover:bg-white/[0.055] focus:border-sky-400/45 focus:ring-2 focus:ring-sky-400/10 data-[placeholder]:text-slate-500"
+          : "mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-[#D5E4EF] bg-white px-3 py-2 text-left text-sm font-bold text-slate-950 shadow-sm outline-none transition hover:bg-[#F8FAFC] focus:border-[#7DBEFF] focus:ring-2 focus:ring-[#16AFF5]/10 data-[placeholder]:text-slate-400"}
+      >
+        <SignalSourceOptionContent copy={copy} isDarkTheme={isDarkTheme} target={selectedSource} />
+        <SelectPrimitive.Icon asChild>
+          <span aria-hidden="true" className={isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-400"}>⌄</span>
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          className={isDarkTheme
+            ? "z-[130] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
+            : "z-[130] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
+          position="popper"
+          sideOffset={8}
+        >
+          <SelectPrimitive.Viewport className="grid gap-1">
+            {sources.map((target) => (
+              <SelectPrimitive.Item
+                key={target.trader.trader_id}
+                className={isDarkTheme
+                  ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-sky-400/10 data-[state=checked]:text-sky-100"
+                  : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-[#F8FAFC] data-[state=checked]:bg-[#EAF8FE] data-[state=checked]:text-[#007DB8]"}
+                value={target.trader.trader_id}
+              >
+                <SelectPrimitive.ItemText asChild>
+                  <SignalSourceOptionContent copy={copy} isDarkTheme={isDarkTheme} target={target} />
+                </SelectPrimitive.ItemText>
+                <SelectPrimitive.ItemIndicator className="text-xs font-black">✓</SelectPrimitive.ItemIndicator>
+              </SelectPrimitive.Item>
+            ))}
+          </SelectPrimitive.Viewport>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
+  );
+}
+
+function SignalSourceOptionContent({
+  copy,
+  isDarkTheme,
+  target,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  target: CopyTradingPrototypeTarget;
+}) {
+  return (
+    <span className="flex min-w-0 flex-1 items-center gap-2">
+      <SourceAvatar isDarkTheme={isDarkTheme} name={target.trader.name} url={target.trader.avatar} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-black">{target.trader.name}</span>
+        <span className={isDarkTheme ? "mt-0.5 block truncate text-xs font-semibold text-slate-500" : "mt-0.5 block truncate text-xs font-semibold text-slate-500"}>
+          {target.trader.platform} · {copy.workspace.topSignals.currentPositions}: {target.positionsCount} · {copy.workspace.topSignals.tradeHistory}: {target.eventsCount}
+        </span>
+      </span>
+    </span>
+  );
+}
+
 function ApiConnectionCard({
   accountCopy,
   apiConnection,
@@ -710,7 +1093,7 @@ function AccountConnectionExchangeIcon({
       {canShowLogo ? (
         <Image
           alt=""
-          className="absolute h-8 w-8 object-contain"
+          className="absolute h-8 w-8 rounded-lg object-contain"
           height={32}
           loading="lazy"
           src={logoPath}
@@ -971,7 +1354,7 @@ function ExchangeApiSetupLayer({
   const canSave = isBuiltInMockExchange
     ? accountName.trim().length > 0 && hasValidMockMarginBalance
     : isBinanceDemoExchange
-      ? accountName.trim().length > 0 && hasValidMockMarginBalance && hasApiCredentials
+      ? accountName.trim().length > 0 && hasApiCredentials
       : accountName.trim().length > 0 && hasApiCredentials && hasWhitelistIp && !isWhitelistIpLoading;
 
   useEffect(() => {
@@ -1131,12 +1514,7 @@ function ExchangeApiSetupLayer({
                       <span className={isDarkTheme ? "rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-200" : "rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700"}>
                         {accountCopy.apiSetup.noWhitelistIpRequired}
                       </span>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        <button className={getSoftButtonClassName(isDarkTheme)} type="button">↗ {accountCopy.apiSetup.register}</button>
-                        <button className={getSoftButtonClassName(isDarkTheme)} type="button">▣ {accountCopy.apiSetup.guide}</button>
-                      </div>
-                    )}
+                    ) : null}
                   </div>
                 </section>
 
@@ -1167,6 +1545,7 @@ function ExchangeApiSetupLayer({
                           <PrototypeInput autoComplete="new-password" fieldName="secret" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.secret} placeholder={accountCopy.apiSetup.secretPlaceholder} type="password" value={secret} onChange={setSecret} />
                         </>
                       ) : null}
+                      {isBuiltInMockExchange ? (
                       <div>
                         <PrototypeInput
                           autoComplete="off"
@@ -1192,6 +1571,7 @@ function ExchangeApiSetupLayer({
                         </div>
                         <p className={isDarkTheme ? "mt-2 text-xs leading-5 text-slate-500" : "mt-2 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.mockMarginBalanceLimit}</p>
                       </div>
+                      ) : null}
                     </div>
                     <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-slate-500" : "mt-3 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.sensitiveNote}</p>
                   </section>
@@ -1254,8 +1634,9 @@ function ExchangeApiSetupLayer({
                 accountName: accountName.trim() || selectedExchange.defaultAccountName,
                 apiKey: requiresApiCredentials ? apiKey.trim() : undefined,
                 exchangePlatform: selectedExchange.connectorExchangePlatform,
+                ipAddress: isLiveExchange ? whitelistIp.trim() : undefined,
                 isMock: isDemoExchange,
-                mockMarginBalance: isDemoExchange && hasValidMockMarginBalance ? parsedMockMarginBalance : undefined,
+                mockMarginBalance: isBuiltInMockExchange && hasValidMockMarginBalance ? parsedMockMarginBalance : undefined,
                 secret: requiresApiCredentials ? secret.trim() : undefined,
               })}
             >
@@ -1279,19 +1660,22 @@ function PrototypeStrategyCard({
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
   strategy: PrototypeStrategy;
-  onOpenDetail: (strategyId: string) => void;
+  onOpenDetail: (strategy: PrototypeStrategy) => void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
-  const strategyCopy = copy.workspace.accountCenter.strategy;
+  const accountCopy = copy.workspace.accountCenter;
+  const strategyCopy = accountCopy.strategy;
+  const strategyType = getPrototypeStrategyType(strategy);
   const statusLabel = getStrategyStatusLabel(strategyCopy, strategy.status);
+  const typeLabel = strategyType === "mario" ? accountCopy.strategyCreate.marioTypeChip : accountCopy.strategyCreate.copyTradingTypeChip;
 
   return (
     <article className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] p-3" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
       <button
         className="block w-full text-left"
         type="button"
-        onClick={() => onOpenDetail(strategy.id)}
+        onClick={() => onOpenDetail(strategy)}
       >
       <div className="flex items-start gap-3">
         <SourceAvatar isDarkTheme={isDarkTheme} name={strategy.traderName} url={strategy.avatarUrl} />
@@ -1299,6 +1683,7 @@ function PrototypeStrategyCard({
           <div className="flex min-w-0 items-center gap-2">
             <h4 className="truncate text-sm font-black">{strategy.traderName}</h4>
             <span className={getStrategyStatusClassName(isDarkTheme, strategy.status)}>{statusLabel}</span>
+            <span className={isDarkTheme ? "shrink-0 rounded-full bg-white/[0.055] px-2 py-0.5 text-[10px] font-black text-slate-300" : "shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-500"}>{typeLabel}</span>
           </div>
           <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
             {strategy.platform} · {strategy.apiAccountName}
@@ -1312,7 +1697,7 @@ function PrototypeStrategyCard({
         <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.unrealizedPnl} value={formatSignedDetailCurrency(strategy.unrealizedPnl)} valueClassName={getPnlClassName(isDarkTheme, numberOrZero(strategy.unrealizedPnl))} />
       </div>
       <p className={isDarkTheme ? "mt-3 text-[11px] leading-5 text-slate-500" : "mt-3 text-[11px] leading-5 text-slate-500"}>
-        {strategyCopy.stopNote}
+        {strategyType === "mario" ? accountCopy.strategyCreate.marioCardHint : strategyCopy.stopNote}
       </p>
       </button>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -1353,7 +1738,7 @@ function StrategyDetailView({
   const [isDeletingStrategy, setIsDeletingStrategy] = useState(false);
   const [tradeHistoryPageOffset, setTradeHistoryPageOffset] = useState(0);
   const [isTradeKlineOpen, setIsTradeKlineOpen] = useState(false);
-  const [selectedTradeKlineOrderId, setSelectedTradeKlineOrderId] = useState<string | null>(null);
+  const [selectedTradeKlineRowId, setSelectedTradeKlineRowId] = useState<string | null>(null);
   const [tradeKlineInterval, setTradeKlineInterval] = useState<KlineInterval>("15m");
   const strategyCopy = copy.workspace.accountCenter.strategy;
 
@@ -1393,30 +1778,40 @@ function StrategyDetailView({
   const parsedSyncRatioPercent = Number(syncRatioPercent);
   const canSyncPositions = Boolean(detail?.trader.enabled) && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
   const orderItems = detail?.orderHistory?.items ?? [];
-  const visibleOrderItems = orderItems.slice(0, TRADE_HISTORY_PAGE_SIZE);
-  const selectedTradeKlineOrder = visibleOrderItems.find((order) => order.clientOrderId === selectedTradeKlineOrderId) ?? visibleOrderItems[0] ?? null;
+  const signalSourceOrderItems = detail?.orderHistory?.signalSourceOrders ?? [];
+  const tradeLogItems = detail?.orderHistory?.tradeLogs ?? [];
+  const signalSourceIdentityById = createSignalSourceIdentityById(detail?.signalSources ?? [], liveStrategy);
   const tradeHistoryOffset = detail?.orderHistory?.offset ?? tradeHistoryPageOffset;
+  const allTradeHistoryRows = createTradeHistoryRows({
+    orders: orderItems,
+    signalSourceIdentityById,
+    signalSourceOrders: signalSourceOrderItems,
+    strategy: liveStrategy,
+    tradeLogs: tradeLogItems,
+  });
+  const visibleTradeHistoryRows = allTradeHistoryRows.slice(tradeHistoryOffset, tradeHistoryOffset + TRADE_HISTORY_PAGE_SIZE);
+  const selectedTradeKlineRow = visibleTradeHistoryRows.find((row) => row.id === selectedTradeKlineRowId) ?? visibleTradeHistoryRows.find((row) => row.kind === "me") ?? visibleTradeHistoryRows[0] ?? null;
   const hasPreviousTradeHistoryPage = tradeHistoryOffset > 0;
-  const hasNextTradeHistoryPage = Boolean(detail?.orderHistory?.hasMore) || orderItems.length > TRADE_HISTORY_PAGE_SIZE;
+  const hasNextTradeHistoryPage = allTradeHistoryRows.length > tradeHistoryOffset + TRADE_HISTORY_PAGE_SIZE || Boolean(detail?.orderHistory?.hasMore);
   const shouldShowTradeHistoryPagination = hasPreviousTradeHistoryPage || hasNextTradeHistoryPage;
-  const tradeHistoryRangeLabel = createOpenEndedPageRangeLabel(tradeHistoryOffset, visibleOrderItems.length);
+  const tradeHistoryRangeLabel = createOpenEndedPageRangeLabel(tradeHistoryOffset, visibleTradeHistoryRows.length);
   const detailPositions = detail?.positions ?? EMPTY_TRADING_FOX_POSITIONS;
   const copyPositionMarkPricesBySymbol = useMemo(
     () => createCopyPositionMarkPricesBySymbol(detailPositions),
     [detailPositions],
   );
 
-  const openTradeKline = (order: TradingFoxOrderItem) => {
-    setSelectedTradeKlineOrderId(order.clientOrderId);
+  const openTradeKline = (row: TradeHistoryRow) => {
+    setSelectedTradeKlineRowId(row.id);
     setIsTradeKlineOpen(true);
   };
 
   const toggleTradeKline = () => {
-    if (!selectedTradeKlineOrder) {
+    if (!selectedTradeKlineRow) {
       return;
     }
 
-    setSelectedTradeKlineOrderId(selectedTradeKlineOrder.clientOrderId);
+    setSelectedTradeKlineRowId(selectedTradeKlineRow.id);
     setIsTradeKlineOpen((currentValue) => !currentValue);
   };
 
@@ -1602,7 +1997,7 @@ function StrategyDetailView({
               </div>
               <button
                 className={getSoftButtonClassName(isDarkTheme)}
-                disabled={!selectedTradeKlineOrder}
+                disabled={!selectedTradeKlineRow}
                 type="button"
                 onClick={toggleTradeKline}
               >
@@ -1610,25 +2005,25 @@ function StrategyDetailView({
               </button>
             </div>
             {detail.orderHistoryError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.orderHistoryError, copy)}</p> : null}
-            {isTradeKlineOpen && selectedTradeKlineOrder ? (
+            {isTradeKlineOpen && selectedTradeKlineRow ? (
               <TradeHistoryKlinePanel
                 copy={copy}
                 interval={tradeKlineInterval}
                 isDarkTheme={isDarkTheme}
-                order={selectedTradeKlineOrder}
-                orders={visibleOrderItems}
+                row={selectedTradeKlineRow}
+                rows={visibleTradeHistoryRows}
                 strategy={liveStrategy}
                 onIntervalChange={setTradeKlineInterval}
               />
             ) : null}
-            {visibleOrderItems.length > 0 ? (
+            {visibleTradeHistoryRows.length > 0 ? (
               <>
                 <TradeHistoryTable
-                  activeKlineOrderId={selectedTradeKlineOrder?.clientOrderId ?? null}
+                  activeKlineRowId={selectedTradeKlineRow?.id ?? null}
                   isDarkTheme={isDarkTheme}
-                  orders={visibleOrderItems}
+                  rows={visibleTradeHistoryRows}
                   strategyCopy={strategyCopy}
-                  onOrderKlineOpen={openTradeKline}
+                  onRowKlineOpen={openTradeKline}
                 />
                 {shouldShowTradeHistoryPagination ? (
                   <div className="mt-3">
@@ -1660,11 +2055,16 @@ async function requestTradingFoxConnectorWhitelistIP(exchangePlatform: string): 
     cache: "no-store",
     credentials: "same-origin",
   });
-  const payload = await response.json() as { error?: string; whitelistIp?: string };
+  const payload = await response.json() as {
+    error?: string;
+    ipAddress?: { address?: string };
+    whitelistIp?: string;
+  };
   if (!response.ok) {
     throw new Error(payload.error || `Whitelist IP request failed with status ${response.status}.`);
   }
-  return typeof payload.whitelistIp === "string" ? payload.whitelistIp.trim() : "";
+  const ipAddress = typeof payload.ipAddress?.address === "string" ? payload.ipAddress.address.trim() : "";
+  return ipAddress || (typeof payload.whitelistIp === "string" ? payload.whitelistIp.trim() : "");
 }
 
 async function requestStrategyDetail(
@@ -1708,9 +2108,35 @@ async function requestStrategyPositionSync(strategyId: string, ratioPercent: num
 type StrategyCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
 type SignalSourcePosition = TradingFoxStrategyDetail["signalSources"][number]["positions"][number];
 type TradingFoxOrderItem = NonNullable<TradingFoxStrategyDetail["orderHistory"]>["items"][number];
+type TradingFoxSignalSourceOrderItem = NonNullable<TradingFoxStrategyDetail["orderHistory"]>["signalSourceOrders"][number];
+type TradingFoxTradeLogItem = NonNullable<TradingFoxStrategyDetail["orderHistory"]>["tradeLogs"][number];
 type CopyPositionMarkPricesBySymbol = ReadonlyMap<string, number>;
+type SignalSourceIdentityById = ReadonlyMap<string, TradeHistorySourceIdentity>;
 
 const EMPTY_TRADING_FOX_POSITIONS: readonly TradingFoxPosition[] = [];
+
+type TradeHistorySourceIdentity = {
+  avatarUrl: string | null;
+  id: string;
+  name: string;
+};
+
+type TradeHistoryRow = {
+  action: string | undefined;
+  id: string;
+  kind: "me" | "signalSource" | "tradeLog";
+  order: TradingFoxOrderItem | null;
+  price: number | null;
+  quantity: number | null;
+  side: string | undefined;
+  signalSourceOrder: TradingFoxSignalSourceOrderItem | null;
+  source: TradeHistorySourceIdentity;
+  sourceTimeMs: number;
+  status: string | undefined;
+  symbol: string;
+  timestamp: string;
+  tradeLog: TradingFoxTradeLogItem | null;
+};
 
 type PositionSummaryModel = {
   availableMargin: number | null;
@@ -2164,20 +2590,270 @@ function SignalSourcePositionTable({
   );
 }
 
+function createSignalSourceIdentityById(
+  signalSources: readonly TradingFoxStrategyDetail["signalSources"][number][],
+  strategy: PrototypeStrategy,
+): SignalSourceIdentityById {
+  const identities = new Map<string, TradeHistorySourceIdentity>();
+  signalSources.forEach((source) => {
+    const sourceId = source.signalSourceId.trim();
+    if (!sourceId) {
+      return;
+    }
+    identities.set(sourceId, {
+      avatarUrl: null,
+      id: sourceId,
+      name: source.name || sourceId,
+    });
+  });
+
+  if (strategy.traderId.trim()) {
+    identities.set(strategy.traderId, {
+      avatarUrl: strategy.avatarUrl || null,
+      id: strategy.traderId,
+      name: strategy.traderName,
+    });
+  }
+
+  return identities;
+}
+
+function createTradeHistoryRows({
+  orders,
+  signalSourceIdentityById,
+  signalSourceOrders,
+  strategy,
+  tradeLogs,
+}: {
+  orders: readonly TradingFoxOrderItem[];
+  signalSourceIdentityById: SignalSourceIdentityById;
+  signalSourceOrders: readonly TradingFoxSignalSourceOrderItem[];
+  strategy: PrototypeStrategy;
+  tradeLogs: readonly TradingFoxTradeLogItem[];
+}): TradeHistoryRow[] {
+  return [
+    ...orders.map((order) => createMyTradeHistoryRow(order, strategy)),
+    ...signalSourceOrders.map((order) => createSignalSourceTradeHistoryRow(order, signalSourceIdentityById, strategy)),
+    ...tradeLogs.map((log) => createTradeLogHistoryRow(log, signalSourceIdentityById, strategy)),
+  ].sort(compareTradeHistoryRows);
+}
+
+function createMyTradeHistoryRow(order: TradingFoxOrderItem, strategy: PrototypeStrategy): TradeHistoryRow {
+  return {
+    action: order.side,
+    id: `me:${order.clientOrderId}`,
+    kind: "me",
+    order,
+    price: finiteNumberOrNull(order.price),
+    quantity: finiteNumberOrNull(order.contractAmount),
+    side: order.side,
+    signalSourceOrder: null,
+    source: {
+      avatarUrl: strategy.avatarUrl || null,
+      id: strategy.traderId,
+      name: strategy.traderName,
+    },
+    sourceTimeMs: getTimestampMs(order.timestamp),
+    status: order.status,
+    symbol: order.symbol,
+    timestamp: order.timestamp,
+    tradeLog: null,
+  };
+}
+
+function createSignalSourceTradeHistoryRow(
+  order: TradingFoxSignalSourceOrderItem,
+  signalSourceIdentityById: SignalSourceIdentityById,
+  strategy: PrototypeStrategy,
+): TradeHistoryRow {
+  const fallbackName = order.signalSourceName || order.signalSourceId || strategy.traderName;
+  const source = signalSourceIdentityById.get(order.signalSourceId) ?? {
+    avatarUrl: null,
+    id: order.signalSourceId || strategy.traderId,
+    name: fallbackName,
+  };
+  const sourceTimestamp = order.timestamp || order.sourceTimestamp || "";
+
+  return {
+    action: order.action,
+    id: `source:${order.eventId || `${order.signalSourceId}:${order.symbol}:${sourceTimestamp}`}`,
+    kind: "signalSource",
+    order: null,
+    price: getSignalSourceOrderPrice(order),
+    quantity: getSignalSourceOrderQuantity(order),
+    side: order.side,
+    signalSourceOrder: order,
+    source: {
+      ...source,
+      name: order.signalSourceName || source.name || fallbackName,
+    },
+    sourceTimeMs: getTimestampMs(sourceTimestamp),
+    status: undefined,
+    symbol: order.symbol,
+    timestamp: sourceTimestamp,
+    tradeLog: null,
+  };
+}
+
+function createTradeLogHistoryRow(
+  log: TradingFoxTradeLogItem,
+  signalSourceIdentityById: SignalSourceIdentityById,
+  strategy: PrototypeStrategy,
+): TradeHistoryRow {
+  const trade = log.ssTradeInfo ?? {};
+  const config = log.ssConfig ?? {};
+  const orderData = log.orderData ?? {};
+  const sourceId = firstString(
+    trade.signalSourceId,
+    trade.signalSourceID,
+    config.signalSourceId,
+    config.signalSourceID,
+    strategy.traderId,
+  );
+  const source = signalSourceIdentityById.get(sourceId) ?? {
+    avatarUrl: null,
+    id: sourceId,
+    name: sourceId || strategy.traderName,
+  };
+  const timestamp = firstString(trade.timestamp, trade.signalTimestamp, log.timestamp);
+  const side = getTradeLogSide(log);
+
+  return {
+    action: log.type,
+    id: `trade-log:${log.id}`,
+    kind: "tradeLog",
+    order: null,
+    price: firstFiniteNumber(trade.price, orderData.orderPrice, orderData.price, orderData.markPrice),
+    quantity: getTradeLogQuantity(log),
+    side,
+    signalSourceOrder: null,
+    source,
+    sourceTimeMs: getTimestampMs(timestamp),
+    status: getTradeLogReason(log),
+    symbol: firstString(trade.symbol, orderData.symbol) || "--",
+    timestamp,
+    tradeLog: log,
+  };
+}
+
+function compareTradeHistoryRows(left: TradeHistoryRow, right: TradeHistoryRow): number {
+  if (left.sourceTimeMs !== right.sourceTimeMs) {
+    return right.sourceTimeMs - left.sourceTimeMs;
+  }
+  if (left.kind !== right.kind) {
+    return getTradeHistoryRowKindRank(left.kind) - getTradeHistoryRowKindRank(right.kind);
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function getTradeHistoryRowKindRank(kind: TradeHistoryRow["kind"]): number {
+  switch (kind) {
+    case "signalSource":
+      return 0;
+    case "me":
+      return 1;
+    case "tradeLog":
+      return 2;
+  }
+}
+
+function getTimestampMs(value: string | undefined): number {
+  const timestamp = Date.parse(value ?? "");
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function getSignalSourceOrderQuantity(order: TradingFoxSignalSourceOrderItem): number | null {
+  const quantity = finiteNumberOrNull(order.deltaQty);
+  return quantity === null ? null : Math.abs(quantity);
+}
+
+function getSignalSourceOrderPrice(order: TradingFoxSignalSourceOrderItem): number | null {
+  return firstFiniteNumber(
+    order.price,
+    order.metadata?.eventPrice,
+    order.metadata?.event_price,
+    order.metadata?.price,
+    order.markPrice,
+    order.metadata?.markPrice,
+    order.metadata?.mark_price,
+    order.entryPrice,
+    order.metadata?.entryPrice,
+    order.metadata?.entry_price,
+  );
+}
+
+function getTradeLogQuantity(log: TradingFoxTradeLogItem): number | null {
+  const trade = log.ssTradeInfo ?? {};
+  const orderData = log.orderData ?? {};
+  const quantity = firstFiniteNumber(trade.amountAbsolute, trade.nomAmount, orderData.contractAmount, orderData.amount);
+  return quantity === null ? null : Math.abs(quantity);
+}
+
+function getTradeLogSide(log: TradingFoxTradeLogItem): string | undefined {
+  const trade = log.ssTradeInfo ?? {};
+  const orderData = log.orderData ?? {};
+  const explicitSide = firstString(orderData.side, orderData.ccxtOrderSide, orderData.CCXTOrderSide);
+  if (explicitSide) {
+    return explicitSide;
+  }
+
+  const amount = firstFiniteNumber(trade.nomAmount);
+  if (amount === null) {
+    return undefined;
+  }
+  if (amount > 0) {
+    return "buy";
+  }
+  if (amount < 0) {
+    return "sell";
+  }
+  return undefined;
+}
+
+function getTradeLogReason(log: TradingFoxTradeLogItem): string {
+  const additional = log.additionalInfo ?? {};
+  return firstString(additional.skipReason, additional.errorCode, log.errorMessage, log.type) || "--";
+}
+
+function firstFiniteNumber(...values: readonly unknown[]): number | null {
+  for (const value of values) {
+    const number = finiteNumberOrNull(value);
+    if (number !== null) {
+      return number;
+    }
+  }
+  return null;
+}
+
+function firstString(...values: readonly unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string") {
+      const trimmedValue = value.trim();
+      if (trimmedValue) {
+        return trimmedValue;
+      }
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+  return "";
+}
+
 function TradeHistoryKlinePanel({
   copy,
   interval,
   isDarkTheme,
-  order,
-  orders,
+  row,
+  rows,
   strategy,
   onIntervalChange,
 }: {
   copy: WorkspaceCopy;
   interval: KlineInterval;
   isDarkTheme: boolean;
-  order: TradingFoxOrderItem;
-  orders: readonly TradingFoxOrderItem[];
+  row: TradeHistoryRow;
+  rows: readonly TradeHistoryRow[];
   strategy: PrototypeStrategy;
   onIntervalChange: (interval: KlineInterval) => void;
 }) {
@@ -2193,37 +2869,37 @@ function TradeHistoryKlinePanel({
     key: "",
   });
   const [isLoadingOlderHistory, setIsLoadingOlderHistory] = useState(false);
-  const symbol = toCopyTradingMarketSymbol(order.symbol);
-  const chartKey = `${order.clientOrderId}:${symbol}:${interval}`;
+  const symbol = toCopyTradingMarketSymbol(row.symbol);
+  const chartKey = `${row.id}:${symbol}:${interval}`;
   const candles = candleState.key === chartKey ? candleState.candles : EMPTY_MARKET_CANDLES;
   const canLoadOlderHistory = candleState.key === chartKey ? candleState.canLoadOlderHistory : false;
   const loadError = candleState.key === chartKey ? candleState.error : "";
   const language = resolveWorkspaceLanguage(copy);
   const tradeMarkers = useMemo(
-    () => createOrderTradeMarkers({
-      orders,
+    () => createTradeHistoryTradeMarkers({
+      rows,
       selectedSymbol: symbol,
       strategy,
       strategyCopy: copy.workspace.accountCenter.strategy,
     }),
-    [copy.workspace.accountCenter.strategy, orders, strategy, symbol],
+    [copy.workspace.accountCenter.strategy, rows, strategy, symbol],
   );
   const focusTimeRequest = useMemo<ChartTimeFocusRequest | null>(() => {
-    const sourceTimeMs = Date.parse(order.timestamp);
+    const sourceTimeMs = Date.parse(row.timestamp);
     if (!Number.isFinite(sourceTimeMs)) {
       return null;
     }
 
     return {
-      key: `copy-strategy-order:${order.clientOrderId}:${symbol}:${interval}:${sourceTimeMs}`,
+      key: `copy-strategy-row:${row.id}:${symbol}:${interval}:${sourceTimeMs}`,
       sourceTimeMs,
     };
-  }, [interval, order.clientOrderId, order.timestamp, symbol]);
+  }, [interval, row.id, row.timestamp, symbol]);
 
   useEffect(() => {
     let isActive = true;
     const abortController = new AbortController();
-    const sourceTimeMs = Date.parse(order.timestamp);
+    const sourceTimeMs = Date.parse(row.timestamp);
     const requestKey = chartKey;
 
     fetchHistoricalCandles(symbol, interval, {
@@ -2258,7 +2934,7 @@ function TradeHistoryKlinePanel({
       isActive = false;
       abortController.abort();
     };
-  }, [chartKey, interval, order.timestamp, symbol]);
+  }, [chartKey, interval, row.timestamp, symbol]);
 
   const loadOlderHistory = useCallback(async () => {
     if (isLoadingOlderHistory || !canLoadOlderHistory) {
@@ -2306,7 +2982,7 @@ function TradeHistoryKlinePanel({
         <div>
           <div className="text-sm font-black">{copy.workspace.accountCenter.strategy.tradeHistoryKlineTitle}</div>
           <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
-            {symbol} · {formatDetailDate(order.timestamp)}
+            {symbol} · {formatDetailDate(row.timestamp)}
           </div>
         </div>
         <div className={isDarkTheme ? "inline-flex w-max items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5" : "inline-flex w-max items-center gap-1 rounded-full border border-[#E5EAF0] bg-white p-0.5"}>
@@ -2361,21 +3037,21 @@ function TradeHistoryKlinePanel({
 }
 
 function TradeHistoryTable({
-  activeKlineOrderId,
+  activeKlineRowId,
   isDarkTheme,
-  orders,
+  rows,
   strategyCopy,
-  onOrderKlineOpen,
+  onRowKlineOpen,
 }: {
-  activeKlineOrderId: string | null;
+  activeKlineRowId: string | null;
   isDarkTheme: boolean;
-  orders: readonly TradingFoxOrderItem[];
+  rows: readonly TradeHistoryRow[];
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
-  onOrderKlineOpen: (order: TradingFoxOrderItem) => void;
+  onRowKlineOpen: (row: TradeHistoryRow) => void;
 }) {
   return (
     <div className="kol-scroll-area mt-3 overflow-x-auto">
-      <table className="min-w-[980px] w-full border-collapse text-left text-sm">
+      <table className="min-w-[1080px] w-full border-collapse text-left text-sm">
         <thead>
           <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#DDE8F0] text-xs font-black text-slate-500"}>
             <th className="px-3 py-3">{strategyCopy.orderTime}</th>
@@ -2389,29 +3065,29 @@ function TradeHistoryTable({
           </tr>
         </thead>
         <tbody>
-          {orders.map((order) => {
-            const price = numberOrZero(order.price);
-            const quantity = numberOrZero(order.contractAmount);
-            const notional = price * quantity;
-            const isActiveKlineOrder = order.clientOrderId === activeKlineOrderId;
+          {rows.map((row) => {
+            const notional = row.price !== null && row.quantity !== null ? row.price * row.quantity : null;
+            const isActiveKlineRow = row.id === activeKlineRowId;
             return (
-              <tr key={order.clientOrderId} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0"}>
-                <td className="px-3 py-4 font-semibold">{formatDetailDate(order.timestamp)}</td>
-                <td className="px-3 py-4 font-semibold">{strategyCopy.orderSourceMe}</td>
+              <tr key={row.id} className={getTradeHistoryRowClassName(isDarkTheme, row.kind, isActiveKlineRow)}>
+                <td className="px-3 py-4 font-semibold">{formatDetailDate(row.timestamp)}</td>
+                <td className="px-3 py-4">
+                  <TradeHistorySourceCell isDarkTheme={isDarkTheme} row={row} strategyCopy={strategyCopy} />
+                </td>
                 <td className="px-3 py-4 font-black">
                   <button
-                    className={isActiveKlineOrder ? "rounded-full bg-sky-400/15 px-2 py-1 text-sky-400" : "rounded-full px-2 py-1 underline underline-offset-2 transition hover:bg-sky-400/10 hover:text-sky-400"}
+                    className={isActiveKlineRow ? "rounded-full bg-sky-400/15 px-2 py-1 text-sky-400" : "rounded-full px-2 py-1 underline underline-offset-2 transition hover:bg-sky-400/10 hover:text-sky-400"}
                     type="button"
-                    onClick={() => onOrderKlineOpen(order)}
+                    onClick={() => onRowKlineOpen(row)}
                   >
-                    {order.symbol}
+                    {row.symbol}
                   </button>
                 </td>
-                <td className={`px-3 py-4 font-black ${getSideClassName(isDarkTheme, order.side)}`}>{formatOrderSide(order.side, strategyCopy)}</td>
-                <td className="px-3 py-4 font-semibold">{formatDetailNumber(order.price)}</td>
-                <td className="px-3 py-4 font-semibold">{formatDetailNumber(order.contractAmount)}</td>
+                <td className={`px-3 py-4 font-black ${getTradeHistorySideClassName(isDarkTheme, row)}`}>{formatTradeHistoryAction(row, strategyCopy)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(row.price)}</td>
+                <td className="px-3 py-4 font-semibold">{formatDetailNumber(row.quantity)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailCurrency(notional)}</td>
-                <td className={isDarkTheme ? "px-3 py-4 font-black text-emerald-300" : "px-3 py-4 font-black text-emerald-600"}>{formatOrderStatus(order.status, strategyCopy)}</td>
+                <td className={getTradeHistoryStatusClassName(isDarkTheme, row)}>{formatTradeHistoryStatus(row, strategyCopy)}</td>
               </tr>
             );
           })}
@@ -2419,6 +3095,73 @@ function TradeHistoryTable({
       </table>
     </div>
   );
+}
+
+function TradeHistorySourceCell({
+  isDarkTheme,
+  row,
+  strategyCopy,
+}: {
+  isDarkTheme: boolean;
+  row: TradeHistoryRow;
+  strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
+}) {
+  if (row.kind === "me") {
+    return (
+      <div className="inline-flex items-center gap-2">
+        <span className={isDarkTheme ? "grid h-8 w-8 place-items-center rounded-full bg-sky-400/15 text-xs font-black text-sky-200" : "grid h-8 w-8 place-items-center rounded-full bg-[#EAF8FE] text-xs font-black text-[#008DCC]"}>
+          {strategyCopy.orderSourceMe}
+        </span>
+        <div className="min-w-0">
+          <div className="text-sm font-black">{strategyCopy.orderSourceMe}</div>
+          <div className={isDarkTheme ? "mt-0.5 max-w-36 truncate text-[10px] font-semibold text-slate-500" : "mt-0.5 max-w-36 truncate text-[10px] font-semibold text-slate-400"}>{row.source.name}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <SourceAvatar isDarkTheme={isDarkTheme} name={row.source.name} url={row.source.avatarUrl} />
+      <div className="min-w-0">
+        <div className="max-w-44 truncate text-sm font-black">{row.source.name}</div>
+        <div className={isDarkTheme ? "mt-0.5 max-w-44 truncate text-[10px] font-semibold text-slate-500" : "mt-0.5 max-w-44 truncate text-[10px] font-semibold text-slate-400"}>
+          {row.kind === "tradeLog" ? `${strategyCopy.tradeEventNoOrder} #${row.tradeLog?.id ?? "--"}` : row.source.id}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getTradeHistoryRowClassName(isDarkTheme: boolean, kind: TradeHistoryRow["kind"], isActive: boolean): string {
+  if (kind === "tradeLog") {
+    if (isActive) {
+      return isDarkTheme
+        ? "border-b border-rose-400/20 bg-rose-400/[0.08] shadow-[inset_3px_0_0_rgba(251,113,133,0.85)] last:border-0"
+        : "border-b border-rose-200 bg-rose-50 shadow-[inset_3px_0_0_#f43f5e] last:border-0";
+    }
+    return isDarkTheme
+      ? "border-b border-white/[0.06] bg-rose-400/[0.035] shadow-[inset_3px_0_0_rgba(251,113,133,0.6)] last:border-0"
+      : "border-b border-[#F3D3DA] bg-rose-50/70 shadow-[inset_3px_0_0_#fb7185] last:border-0";
+  }
+
+  if (kind === "signalSource") {
+    if (isActive) {
+      return isDarkTheme
+        ? "border-b border-sky-400/20 bg-sky-400/[0.08] shadow-[inset_3px_0_0_rgba(56,189,248,0.75)] last:border-0"
+        : "border-b border-[#B7E8FC] bg-[#EAF8FE] shadow-[inset_3px_0_0_#00A6F4] last:border-0";
+    }
+    return isDarkTheme
+      ? "border-b border-white/[0.06] bg-white/[0.025] shadow-[inset_3px_0_0_rgba(148,163,184,0.35)] last:border-0"
+      : "border-b border-[#DDE8F0] bg-[#F8FAFC] shadow-[inset_3px_0_0_#CBD5E1] last:border-0";
+  }
+
+  if (isActive) {
+    return isDarkTheme
+      ? "border-b border-sky-400/20 bg-sky-400/[0.08] last:border-0"
+      : "border-b border-[#B7E8FC] bg-[#EAF8FE] last:border-0";
+  }
+  return isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0";
 }
 
 function RowsPaginationControls({
@@ -2460,63 +3203,75 @@ function RowsPaginationControls({
   );
 }
 
-function createOrderTradeMarkers({
-  orders,
+function createTradeHistoryTradeMarkers({
+  rows,
   selectedSymbol,
   strategy,
   strategyCopy,
 }: {
-  orders: readonly TradingFoxOrderItem[];
+  rows: readonly TradeHistoryRow[];
   selectedSymbol: MarketSymbol;
   strategy: PrototypeStrategy;
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
 }): CopyTradingTradeMarker[] {
-  return orders
-    .filter((order) => toCopyTradingMarketSymbol(order.symbol) === selectedSymbol)
-    .map((order) => createOrderTradeMarker(order, strategy, strategyCopy))
+  return rows
+    .filter((row) => row.kind === "me" && toCopyTradingMarketSymbol(row.symbol) === selectedSymbol)
+    .map((row) => createTradeHistoryTradeMarker(row, strategy, strategyCopy))
     .filter((marker): marker is CopyTradingTradeMarker => marker !== null)
     .sort((left, right) => left.sourceTimeMs - right.sourceTimeMs);
 }
 
-function createOrderTradeMarker(
-  order: TradingFoxOrderItem,
+function createTradeHistoryTradeMarker(
+  row: TradeHistoryRow,
   strategy: PrototypeStrategy,
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"],
 ): CopyTradingTradeMarker | null {
-  const sourceTimeMs = Date.parse(order.timestamp);
+  const sourceTimeMs = Date.parse(row.timestamp);
   if (!Number.isFinite(sourceTimeMs)) {
     return null;
   }
 
-  const price = finiteNumberOrNull(order.price);
-  const side = normalizeOrderTradeMarkerSide(order.side);
-  const actionLabel = formatOrderSide(order.side, strategyCopy);
+  const price = row.price;
+  const side = getTradeHistoryMarkerSide(row);
+  const actionLabel = formatTradeHistoryMarkerAction(side);
   const priceText = price === null ? null : formatDetailNumber(price);
+  const priceSuffix = priceText ? ` @ ${priceText}` : "";
 
   return {
     actionLabel,
-    avatarUrl: strategy.avatarUrl || null,
-    detail: `${formatDetailDate(order.timestamp)} · ${formatOrderStatus(order.status, strategyCopy)}`,
+    avatarUrl: null,
+    detail: `${formatDetailDate(row.timestamp)} · ${formatOrderStatus(row.status, strategyCopy)}`,
     direction: side === "buy" ? "long" : "short",
-    eventId: order.clientOrderId,
+    eventId: row.id,
     eventType: "open",
-    id: `copy-strategy-order:${order.clientOrderId}`,
-    occurredAtText: formatDetailDate(order.timestamp),
+    id: `copy-strategy-row:${row.id}`,
+    occurredAtText: formatDetailDate(row.timestamp),
     price,
     priceText,
     side,
-    signalId: `copy-strategy-order:${order.clientOrderId}`,
+    signalId: `copy-strategy-row:${row.id}`,
     sourceTimeMs,
-    symbol: toCopyTradingMarketSymbol(order.symbol),
-    title: priceText ? `${actionLabel} ${order.symbol} @ ${priceText}` : `${actionLabel} ${order.symbol}`,
+    symbol: toCopyTradingMarketSymbol(row.symbol),
+    title: `${actionLabel} ${row.symbol}${priceSuffix}`,
     traderId: strategy.traderId,
-    traderName: strategy.traderName,
+    traderName: actionLabel,
   };
 }
 
-function normalizeOrderTradeMarkerSide(value: string): "buy" | "sell" {
-  const normalizedValue = value.trim().toUpperCase();
+function normalizeOrderTradeMarkerSide(value: string | undefined): "buy" | "sell" {
+  const normalizedValue = (value ?? "").trim().toUpperCase();
   return normalizedValue.includes("SELL") || normalizedValue.includes("SHORT") ? "sell" : "buy";
+}
+
+function getTradeHistoryMarkerSide(row: TradeHistoryRow): "buy" | "sell" {
+  if (row.kind === "signalSource") {
+    return normalizeOrderTradeMarkerSide(row.signalSourceOrder?.side || row.action);
+  }
+  return normalizeOrderTradeMarkerSide(row.action);
+}
+
+function formatTradeHistoryMarkerAction(side: "buy" | "sell"): "BUY" | "SELL" {
+  return side === "buy" ? "BUY" : "SELL";
 }
 
 function resolveInitialTradeHistoryKlineUntilMs(sourceTimeMs: number, interval: KlineInterval): number | undefined {
@@ -2672,6 +3427,65 @@ function formatOrderSide(value: string | undefined, strategyCopy: WorkspaceCopy[
     return strategyCopy.orderOpenShort;
   }
   return value || "--";
+}
+
+function formatTradeHistoryAction(row: TradeHistoryRow, strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"]): string {
+  if (row.kind === "me") {
+    return formatOrderSide(row.action, strategyCopy);
+  }
+  if (row.kind === "tradeLog") {
+    return row.side ? formatOrderSide(row.side, strategyCopy) : strategyCopy.tradeEventNoOrder;
+  }
+
+  const normalizedAction = (row.action ?? "").toLowerCase();
+  const normalizedSide = row.side?.toLowerCase() ?? "";
+  const isShort = normalizedSide.includes("short") || normalizedSide.includes("sell") || normalizedAction.includes("short");
+  if (normalizedAction.includes("close")) {
+    return isShort ? strategyCopy.orderCloseShort : strategyCopy.orderCloseLong;
+  }
+  if (normalizedAction.includes("reduce")) {
+    return isShort ? strategyCopy.orderReduceShort : strategyCopy.orderReduceLong;
+  }
+  if (normalizedAction.includes("add") || normalizedAction.includes("increase")) {
+    return isShort ? strategyCopy.orderAddShort : strategyCopy.orderAddLong;
+  }
+  if (normalizedAction.includes("open")) {
+    return isShort ? strategyCopy.orderOpenShort : strategyCopy.orderOpenLong;
+  }
+  if (normalizedSide.includes("short") || normalizedSide.includes("sell")) {
+    return strategyCopy.orderOpenShort;
+  }
+  if (normalizedSide.includes("long") || normalizedSide.includes("buy")) {
+    return strategyCopy.orderOpenLong;
+  }
+  return row.action || row.signalSourceOrder?.side || "--";
+}
+
+function getTradeHistorySideClassName(isDarkTheme: boolean, row: TradeHistoryRow): string {
+  if (row.kind === "tradeLog" && !row.side) {
+    return isDarkTheme ? "text-rose-300" : "text-rose-600";
+  }
+  return getSideClassName(isDarkTheme, row.side || row.action);
+}
+
+function formatTradeHistoryStatus(row: TradeHistoryRow, strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"]): string {
+  if (row.kind === "me") {
+    return formatOrderStatus(row.status, strategyCopy);
+  }
+  if (row.kind === "tradeLog") {
+    return row.status || strategyCopy.tradeEventNoOrder;
+  }
+  return "--";
+}
+
+function getTradeHistoryStatusClassName(isDarkTheme: boolean, row: TradeHistoryRow): string {
+  if (row.kind === "me") {
+    return isDarkTheme ? "px-3 py-4 font-black text-emerald-300" : "px-3 py-4 font-black text-emerald-600";
+  }
+  if (row.kind === "tradeLog") {
+    return isDarkTheme ? "px-3 py-4 font-black text-rose-300" : "px-3 py-4 font-black text-rose-600";
+  }
+  return isDarkTheme ? "px-3 py-4 font-semibold text-slate-500" : "px-3 py-4 font-semibold text-slate-400";
 }
 
 function formatOrderStatus(value: string | undefined, strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"]): string {
@@ -2904,6 +3718,22 @@ function getIconButtonClassName(isDarkTheme: boolean): string {
 
 function getLabelClassName(isDarkTheme: boolean): string {
   return isDarkTheme ? "text-xs font-black text-slate-300" : "text-xs font-black text-slate-700";
+}
+
+function getPrototypeStrategyType(strategy: PrototypeStrategy): PrototypeStrategyType {
+  return strategy.strategyType ?? "copyTrading";
+}
+
+function getStrategyTypeOptionClassName(isDarkTheme: boolean, isSelected: boolean): string {
+  if (isSelected) {
+    return isDarkTheme
+      ? "rounded-2xl border border-sky-400/30 bg-sky-400/10 px-3 py-3 text-left text-sky-100 shadow-[0_0_0_3px_rgba(56,189,248,0.10)]"
+      : "rounded-2xl border border-[#B7E8FC] bg-[#EAF8FE] px-3 py-3 text-left text-[#007DB8] shadow-[0_0_0_3px_rgba(22,175,245,0.10)]";
+  }
+
+  return isDarkTheme
+    ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-left text-slate-200 transition hover:bg-white/[0.055]"
+    : "rounded-2xl border border-[#E5EAF0] bg-white px-3 py-3 text-left text-slate-900 transition hover:border-[#BFE7FB] hover:bg-[#F4FBFF]";
 }
 
 function getStrategyStatusLabel(strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"], status: PrototypeStrategyStatus): string {

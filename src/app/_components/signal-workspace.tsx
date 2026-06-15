@@ -91,6 +91,7 @@ import {
   type PrototypeApiConnection,
   type PrototypeConnectionSaveInput,
   type PrototypeStrategy,
+  type PrototypeStrategyCreateInput,
   type PrototypeStrategyStatus,
 } from "./signal-workspace/copy-trading-prototype";
 import { TopSignalsPanel, type PnlColorMode, type TopSignalReturnCurveState } from "./signal-workspace/top-signals-panel";
@@ -105,9 +106,11 @@ const PAPER_POSITION_PRICE_UPDATE_INTERVAL_MS = 1_000;
 const TOP_SIGNAL_PRICE_UPDATE_INTERVAL_MS = 3_000;
 const COMPACT_LAYOUT_MEDIA_QUERY = "(max-width: 1023px)";
 const PNL_COLOR_MODE_STORAGE_KEY = "smartkline:pnl-color-mode";
+const MARIO_STRATEGIES_STORAGE_PREFIX = "smartkline:mario-strategies";
 const TELEGRAM_DISCUSSION_GROUP_URL =
   process.env.NEXT_PUBLIC_TELEGRAM_GROUP_URL ?? "https://t.me/smartkline";
 const EMPTY_COPY_TRADING_TRADE_MARKERS: readonly CopyTradingTradeMarker[] = [];
+const EMPTY_COPY_TRADING_PROTOTYPE_TARGETS: readonly CopyTradingPrototypeTarget[] = [];
 const EMPTY_MARKET_SYMBOL_LIST: readonly string[] = [];
 const EMPTY_STRUCTURED_SIGNALS: readonly StructuredSignal[] = [];
 const LOGGED_OUT_AUTH_ME: TelegramAuthMeResponse = {
@@ -204,6 +207,10 @@ export function SignalWorkspace() {
   const [prototypeStrategies, setPrototypeStrategies] = useState<
     PrototypeStrategy[]
   >([]);
+  const [prototypeMarioStrategies, setPrototypeMarioStrategies] = useState<
+    PrototypeStrategy[]
+  >([]);
+  const [isMarioStrategiesHydrated, setIsMarioStrategiesHydrated] = useState(false);
   const [copyTradingTarget, setCopyTradingTarget] =
     useState<CopyTradingPrototypeTarget | null>(null);
   const [pendingCopyTradingTarget, setPendingCopyTradingTarget] =
@@ -270,6 +277,17 @@ export function SignalWorkspace() {
     () => new Set(topSignalsSnapshot?.traders.filter(isActiveCopyTradingTrader).map((trader) => trader.trader_id) ?? []),
     [topSignalsSnapshot],
   );
+  const copyTradingSignalSourceTargets = useMemo(
+    () => createCopyTradingPrototypeTargets(topSignalsSnapshot),
+    [topSignalsSnapshot],
+  );
+  const prototypeStrategyList = useMemo(
+    () => [...prototypeMarioStrategies, ...prototypeStrategies],
+    [prototypeMarioStrategies, prototypeStrategies],
+  );
+  const marioStrategiesStorageKey = authMe.telegramUser?.id
+    ? `${MARIO_STRATEGIES_STORAGE_PREFIX}:${authMe.telegramUser.id}`
+    : "";
   const effectiveTopSignalsSourceFilterId = topSignalsSourceFilterId === "all" || topSignalsActiveSourceIds.has(topSignalsSourceFilterId)
     ? topSignalsSourceFilterId
     : "all";
@@ -297,7 +315,7 @@ export function SignalWorkspace() {
     () => createTopSignalsSignalBiasSummary(topSignalsSnapshot, symbol),
     [symbol, topSignalsSnapshot],
   );
-  const shouldLoadTopSignalsSnapshot = isTopSignalsTab;
+  const shouldLoadTopSignalsSnapshot = isTopSignalsTab || isAccountManagementTab;
 
   const {
     candlesBySymbol: paperPositionCandlesBySymbol,
@@ -398,6 +416,7 @@ export function SignalWorkspace() {
       setAuthMe(LOGGED_OUT_AUTH_ME);
       setPrototypeApiConnections([]);
       setPrototypeStrategies([]);
+      setPrototypeMarioStrategies([]);
     }
   }, []);
   const applyTradingFoxAccount = useCallback((account: TradingFoxAccountResponse) => {
@@ -405,6 +424,33 @@ export function SignalWorkspace() {
     setPrototypeApiConnections(connectors.map((connector) => mapTradingFoxConnectorToPrototypeConnection(connector, language)));
     setPrototypeStrategies(account.strategies);
   }, [language]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (!marioStrategiesStorageKey) {
+        setPrototypeMarioStrategies([]);
+        setIsMarioStrategiesHydrated(false);
+        return;
+      }
+
+      setPrototypeMarioStrategies(readStoredMarioStrategies(marioStrategiesStorageKey));
+      setIsMarioStrategiesHydrated(true);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [marioStrategiesStorageKey]);
+
+  useEffect(() => {
+    if (!marioStrategiesStorageKey || !isMarioStrategiesHydrated) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(marioStrategiesStorageKey, JSON.stringify(prototypeMarioStrategies));
+    } catch {
+      // Local Mario records are optional until the dedicated backend strategy exists.
+    }
+  }, [isMarioStrategiesHydrated, marioStrategiesStorageKey, prototypeMarioStrategies]);
 
   const handleCommunityModalJoin = useCallback(() => {
     handleTelegramDiscussionJoin();
@@ -1418,6 +1464,7 @@ export function SignalWorkspace() {
           accountName: input.accountName,
           apiKey: input.apiKey,
           exchangePlatform: input.exchangePlatform,
+          ipAddress: input.ipAddress,
           isMock: input.isMock,
           mockMarginBalance: input.mockMarginBalance,
           secret: input.secret,
@@ -1457,6 +1504,30 @@ export function SignalWorkspace() {
     }
   }, []);
 
+  const requestPrototypeCopyStrategyStart = useCallback(async (input: {
+    exchangeConnectorId: number;
+    stopLossPercent: number;
+    takeProfitPercent: number;
+    target: CopyTradingPrototypeTarget;
+  }) => {
+    const account = await requestTradingFoxAccount("/api/tradingfox/copy-strategies", {
+      body: JSON.stringify({
+        avatarUrl: input.target.trader.avatar,
+        eventsCount: input.target.eventsCount,
+        platform: input.target.trader.platform,
+        positionsCount: input.target.positionsCount,
+        exchangeConnectorId: input.exchangeConnectorId,
+        signalSourceId: input.target.trader.trader_id,
+        stopLossPercent: input.stopLossPercent,
+        takeProfitPercent: input.takeProfitPercent,
+        traderName: input.target.trader.name,
+      }),
+      method: "POST",
+    });
+    applyTradingFoxAccount(account);
+    handleProductTabChange("accountManagement");
+  }, [applyTradingFoxAccount, handleProductTabChange]);
+
   const handlePrototypeStrategyStart = useCallback(async (input: {
     exchangeConnectorId: number;
     stopLossPercent: number;
@@ -1470,27 +1541,12 @@ export function SignalWorkspace() {
 
     setIsTradingFoxLoading(true);
     try {
-      const account = await requestTradingFoxAccount("/api/tradingfox/copy-strategies", {
-        body: JSON.stringify({
-          avatarUrl: input.target.trader.avatar,
-          eventsCount: input.target.eventsCount,
-          platform: input.target.trader.platform,
-          positionsCount: input.target.positionsCount,
-          exchangeConnectorId: input.exchangeConnectorId,
-          signalSourceId: input.target.trader.trader_id,
-          stopLossPercent: input.stopLossPercent,
-          takeProfitPercent: input.takeProfitPercent,
-          traderName: input.target.trader.name,
-        }),
-        method: "POST",
-      });
-      applyTradingFoxAccount(account);
+      await requestPrototypeCopyStrategyStart(input);
       setCopyTradingTarget(null);
-      handleProductTabChange("accountManagement");
       setWorkspaceNotification({
         id: `copy-strategy-created-${Date.now()}`,
         kind: "success",
-        message: copyRef.current.workspace.accountCenter.apiSetup.connectedToast,
+        message: copyRef.current.workspace.accountCenter.strategyCreate.copyTradingCreatedToast,
         meta: input.target.trader.name,
         title: copyRef.current.workspace.accountCenter.copyTrading.start,
       });
@@ -1505,12 +1561,76 @@ export function SignalWorkspace() {
     } finally {
       setIsTradingFoxLoading(false);
     }
-  }, [applyTradingFoxAccount, authMe.isLoggedIn, handleProductTabChange, startTelegramLogin]);
+  }, [authMe.isLoggedIn, requestPrototypeCopyStrategyStart, startTelegramLogin]);
+
+  const handlePrototypeStrategyCreate = useCallback(async (input: PrototypeStrategyCreateInput) => {
+    if (!authMe.isLoggedIn) {
+      startTelegramLogin();
+      throw new Error(copyRef.current.workspace.accountCenter.strategyCreate.loginRequired);
+    }
+
+    setIsTradingFoxLoading(true);
+    try {
+      if (input.strategyType === "copyTrading") {
+        await requestPrototypeCopyStrategyStart({
+          exchangeConnectorId: input.exchangeConnectorId,
+          stopLossPercent: input.stopLossPercent,
+          takeProfitPercent: input.takeProfitPercent,
+          target: input.target,
+        });
+        setWorkspaceNotification({
+          id: `copy-strategy-created-${Date.now()}`,
+          kind: "success",
+          message: copyRef.current.workspace.accountCenter.strategyCreate.copyTradingCreatedToast,
+          meta: input.target.trader.name,
+          title: copyRef.current.workspace.accountCenter.strategyCreate.modalTitle,
+        });
+        return;
+      }
+
+      const connector = prototypeApiConnections.find((connection) => connection.id === input.exchangeConnectorId && connection.status === "connected") ?? null;
+      if (!connector) {
+        throw new Error(copyRef.current.workspace.accountCenter.copyTrading.apiRequired);
+      }
+
+      const marioStrategy = createMarioPrototypeStrategy(connector, copyRef.current, language);
+      setPrototypeMarioStrategies((currentStrategies) => [marioStrategy, ...currentStrategies]);
+      handleProductTabChange("accountManagement");
+      setWorkspaceNotification({
+        id: `mario-strategy-created-${Date.now()}`,
+        kind: "success",
+        message: copyRef.current.workspace.accountCenter.strategyCreate.marioCreatedToast,
+        meta: connector.accountName,
+        title: copyRef.current.workspace.accountCenter.strategyCreate.marioTitle,
+      });
+    } catch (error) {
+      const meta = input.strategyType === "copyTrading" ? input.target.trader.name : String(input.exchangeConnectorId);
+      setWorkspaceNotification({
+        id: `strategy-create-error-${Date.now()}`,
+        kind: "error",
+        message: getTradingFoxErrorMessage(error, copyRef.current),
+        meta,
+        title: copyRef.current.workspace.accountCenter.strategyCreate.modalTitle,
+      });
+      throw error;
+    } finally {
+      setIsTradingFoxLoading(false);
+    }
+  }, [authMe.isLoggedIn, handleProductTabChange, language, prototypeApiConnections, requestPrototypeCopyStrategyStart, startTelegramLogin]);
 
   const handlePrototypeStrategyStatusChange = useCallback(async (
     strategyId: string,
     status: PrototypeStrategyStatus,
   ) => {
+    if (prototypeMarioStrategies.some((strategy) => strategy.id === strategyId)) {
+      setPrototypeMarioStrategies((currentStrategies) =>
+        currentStrategies.map((strategy) =>
+          strategy.id === strategyId ? { ...strategy, status } : strategy,
+        ),
+      );
+      return;
+    }
+
     const previousStrategies = prototypeStrategies;
     setPrototypeStrategies((currentStrategies) =>
       currentStrategies.map((strategy) =>
@@ -1535,9 +1655,21 @@ export function SignalWorkspace() {
       });
       throw error;
     }
-  }, [applyTradingFoxAccount, prototypeStrategies]);
+  }, [applyTradingFoxAccount, prototypeMarioStrategies, prototypeStrategies]);
 
   const handlePrototypeStrategyDelete = useCallback(async (strategyId: string) => {
+    if (prototypeMarioStrategies.some((strategy) => strategy.id === strategyId)) {
+      setPrototypeMarioStrategies((currentStrategies) => currentStrategies.filter((strategy) => strategy.id !== strategyId));
+      setWorkspaceNotification({
+        id: `mario-strategy-delete-${Date.now()}`,
+        kind: "success",
+        message: copyRef.current.workspace.accountCenter.strategy.deleteSuccess,
+        meta: strategyId,
+        title: copyRef.current.workspace.accountCenter.strategy.title,
+      });
+      return;
+    }
+
     const previousStrategies = prototypeStrategies;
     setPrototypeStrategies((currentStrategies) => currentStrategies.filter((strategy) => strategy.id !== strategyId));
 
@@ -1564,7 +1696,7 @@ export function SignalWorkspace() {
       });
       throw error;
     }
-  }, [applyTradingFoxAccount, prototypeStrategies]);
+  }, [applyTradingFoxAccount, prototypeMarioStrategies, prototypeStrategies]);
 
   const openCommunityConversion = useCallback((signal: StructuredSignal) => {
     handleSignalSelect(signal);
@@ -1744,17 +1876,19 @@ export function SignalWorkspace() {
           <AccountManagementPanel
             apiConnection={prototypeApiConnection}
             apiConnections={prototypeApiConnections}
+            availableSignalSources={copyTradingSignalSourceTargets}
             copy={copy}
             isApiSetupOpen={isApiSetupOpen}
             isAuthLoading={isAuthLoading || isTradingFoxLoading}
             isDarkTheme={isDarkTheme}
             telegramUser={authMe.telegramUser}
-            strategies={prototypeStrategies}
+            strategies={prototypeStrategyList}
             onApiSetupOpen={() => setIsApiSetupOpen(true)}
             onApiSetupOpenChange={handleApiSetupOpenChange}
             onConnectionSave={handlePrototypeConnectionSave}
             onLogin={startTelegramLogin}
             onLogout={handleLogout}
+            onStrategyCreate={handlePrototypeStrategyCreate}
             onStrategyDelete={handlePrototypeStrategyDelete}
             onStrategyStatusChange={handlePrototypeStrategyStatusChange}
           />
@@ -1820,7 +1954,7 @@ export function SignalWorkspace() {
         apiConnections={prototypeApiConnections}
         copy={copy}
         isDarkTheme={isDarkTheme}
-        strategies={prototypeStrategies}
+        strategies={prototypeStrategyList}
         target={copyTradingTarget}
         onClose={() => setCopyTradingTarget(null)}
         onStart={handlePrototypeStrategyStart}
@@ -1898,6 +2032,124 @@ async function requestTradingFoxAccount(path: string, init?: RequestInit): Promi
   return await response.json() as TradingFoxAccountResponse;
 }
 
+function createCopyTradingPrototypeTargets(snapshot: CopyTradingRadarSnapshot | null): readonly CopyTradingPrototypeTarget[] {
+  if (!snapshot) {
+    return EMPTY_COPY_TRADING_PROTOTYPE_TARGETS;
+  }
+
+  const positionsByTraderId = new Map<string, number>();
+  for (const position of snapshot.positions) {
+    positionsByTraderId.set(position.trader_id, (positionsByTraderId.get(position.trader_id) ?? 0) + 1);
+  }
+
+  const eventsByTraderId = new Map<string, number>();
+  for (const event of snapshot.events) {
+    eventsByTraderId.set(event.trader_id, (eventsByTraderId.get(event.trader_id) ?? 0) + 1);
+  }
+
+  return snapshot.traders
+    .filter(isActiveCopyTradingTrader)
+    .map((trader) => ({
+      eventsCount: eventsByTraderId.get(trader.trader_id) ?? 0,
+      positionsCount: positionsByTraderId.get(trader.trader_id) ?? 0,
+      trader,
+    }))
+    .sort(compareCopyTradingPrototypeTargets);
+}
+
+function compareCopyTradingPrototypeTargets(
+  left: CopyTradingPrototypeTarget,
+  right: CopyTradingPrototypeTarget,
+): number {
+  return right.trader.monthly_return - left.trader.monthly_return
+    || right.positionsCount - left.positionsCount
+    || right.eventsCount - left.eventsCount
+    || left.trader.name.localeCompare(right.trader.name);
+}
+
+function createMarioPrototypeStrategy(
+  connector: PrototypeApiConnection,
+  copy: WorkspaceCopy,
+  language: WorkspaceLanguage,
+): PrototypeStrategy {
+  const now = new Date().toISOString();
+
+  return {
+    apiAccountName: connector.accountName,
+    accountEquity: connector.accountBalance ?? undefined,
+    avatarUrl: "/logo-mark.svg",
+    createdAtLabel: formatTradingFoxDateLabel(now, language),
+    eventsCount: 0,
+    exchangeConnectorId: connector.id,
+    followRatioPercent: 100,
+    id: `mario-${connector.id}-${Date.now()}`,
+    platform: "Mario",
+    positionsCount: 0,
+    status: "running",
+    stopLossPercent: 0,
+    strategyType: "mario",
+    takeProfitPercent: 0,
+    traderId: `mario-${connector.id}`,
+    traderName: copy.workspace.accountCenter.strategyCreate.marioStrategyName,
+    unrealizedPnl: 0,
+  };
+}
+
+function readStoredMarioStrategies(storageKey: string): PrototypeStrategy[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(storageKey);
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsedValue = JSON.parse(rawValue) as unknown;
+    if (!Array.isArray(parsedValue)) {
+      return [];
+    }
+
+    return parsedValue
+      .map(normalizeStoredMarioStrategy)
+      .filter((strategy): strategy is PrototypeStrategy => strategy !== null);
+  } catch {
+    return [];
+  }
+}
+
+function normalizeStoredMarioStrategy(value: unknown): PrototypeStrategy | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Partial<PrototypeStrategy>;
+  if (record.strategyType !== "mario" || typeof record.id !== "string" || typeof record.exchangeConnectorId !== "number") {
+    return null;
+  }
+
+  return {
+    apiAccountName: typeof record.apiAccountName === "string" ? record.apiAccountName : "Binance",
+    accountEquity: typeof record.accountEquity === "number" ? record.accountEquity : undefined,
+    avatarUrl: typeof record.avatarUrl === "string" ? record.avatarUrl : "/logo-mark.svg",
+    createdAtLabel: typeof record.createdAtLabel === "string" ? record.createdAtLabel : "--",
+    eventsCount: typeof record.eventsCount === "number" ? record.eventsCount : 0,
+    exchangeConnectorId: record.exchangeConnectorId,
+    followRatioPercent: 100,
+    id: record.id,
+    platform: typeof record.platform === "string" ? record.platform : "Mario",
+    positionsCount: typeof record.positionsCount === "number" ? record.positionsCount : 0,
+    status: record.status === "paused" || record.status === "stopped" ? record.status : "running",
+    stopLossPercent: 0,
+    strategyType: "mario",
+    takeProfitPercent: 0,
+    traderId: typeof record.traderId === "string" ? record.traderId : `mario-${record.exchangeConnectorId}`,
+    traderName: typeof record.traderName === "string" ? record.traderName : "Mario Strategy",
+    unrealizedPnl: typeof record.unrealizedPnl === "number" ? record.unrealizedPnl : 0,
+  };
+}
+
 function createEmptyPrototypeApiConnection(): PrototypeApiConnection {
   return {
     accountName: "Mock Exchange #1",
@@ -1915,18 +2167,25 @@ function mapTradingFoxConnectorToPrototypeConnection(
   connector: TradingFoxConnector,
   language: WorkspaceLanguage,
 ): PrototypeApiConnection {
+  const isBinanceDemoConnector = connector.isMock && isBinanceDemoExchangePlatform(connector.exchangePlatform);
+
   return {
     accountName: connector.name,
-    accountBalance: connector.accountEquity ?? connector.mockMarginBalance ?? null,
+    accountBalance: connector.accountEquity ?? (isBinanceDemoConnector ? null : connector.mockMarginBalance ?? null),
     connectedAtLabel: formatTradingFoxDateLabel(connector.updatedAt, language),
     displayName: connector.displayName,
     exchangePlatform: connector.exchangePlatform,
     id: connector.id,
     isMock: connector.isMock,
-    mockMarginBalance: connector.mockMarginBalance ?? null,
+    mockMarginBalance: isBinanceDemoConnector ? null : connector.mockMarginBalance ?? null,
     status: "connected",
-    whitelistIp: connector.whitelistIp,
+    whitelistIp: connector.ipAddress?.address ?? connector.whitelistIp,
   };
+}
+
+function isBinanceDemoExchangePlatform(exchangePlatform: string): boolean {
+  const normalizedPlatform = exchangePlatform.replace(/[\s_-]/gu, "").toLowerCase();
+  return normalizedPlatform === "binance" || normalizedPlatform === "binancedemo" || normalizedPlatform === "bn";
 }
 
 function formatTradingFoxDateLabel(value: string, language: WorkspaceLanguage): string {

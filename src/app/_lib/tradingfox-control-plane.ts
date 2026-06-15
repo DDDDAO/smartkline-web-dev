@@ -5,8 +5,24 @@ const DEFAULT_TRADINGFOX_CONTROL_PLANE_API_BASE_URL = "https://api.smartkline.co
 const DEFAULT_MOCK_MARGIN_BALANCE = 10_000;
 const DEFAULT_DEMO_EXCHANGE_PLATFORM = "Mock";
 const TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT = 50;
+const TRADINGFOX_ORDER_HISTORY_FETCH_LIMIT = 500;
 type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
 type TradingFoxLiveExchangePlatform = "Binance";
+
+/**
+ * Public subset of the TradingFox IP pool record. The backend record can carry
+ * proxy auth/internal routing fields; the Next.js API must not expose them.
+ */
+export type TradingFoxIPAddress = {
+  address: string;
+  createdAt?: string;
+  expiresAt?: string;
+  location?: string;
+  port?: number;
+  status: string;
+  updatedAt?: string;
+  workerId?: string;
+};
 
 export type TradingFoxConnector = {
   id: number;
@@ -19,6 +35,7 @@ export type TradingFoxConnector = {
   isMock: boolean;
   mockMarginBalance?: number;
   positionSideDual: boolean;
+  ipAddress?: TradingFoxIPAddress | null;
   whitelistIp?: string;
   dead: boolean;
   createdAt: string;
@@ -136,20 +153,43 @@ export type TradingFoxOrderHistory = {
   limit?: number;
   offset?: number;
   returnedCount?: number;
+  signalSourceOrdersNextCursor?: string;
   signalSourceOrders: Array<{
     eventId: string;
     signalSourceId: string;
+    signalSourceName?: string;
+    signalType?: string;
+    exchange?: string;
     symbol: string;
     side: string;
     action: string;
+    prevQty?: string;
+    currQty?: string;
+    deltaQty?: string;
+    isFullClose?: boolean;
+    positionVersion?: number;
+    tradeSeq?: number;
+    sourceTimestamp?: string;
     timestamp: string;
+    metadata?: Record<string, unknown>;
+    price?: string | number;
+    priceSource?: string;
+    entryPrice?: string | number;
+    markPrice?: string | number;
   }>;
   tradeLogs: Array<{
     id: number;
     type: string;
     errorMessage?: string;
+    ssTradeInfo?: Record<string, unknown>;
+    ssConfig?: Record<string, unknown>;
+    orderData?: Record<string, unknown>;
+    additionalInfo?: Record<string, unknown>;
     timestamp: string;
+    traderId?: number;
   }>;
+  tradeLogsNextCursor?: string;
+  traderOrdersNextCursor?: string;
 };
 
 export type TradingFoxStrategyDetail = {
@@ -180,12 +220,14 @@ export type CreateMockConnectorInput = {
 };
 
 export type CreateConnectorInput = CreateMockConnectorInput & {
+  ipAddress?: unknown;
   isMock?: unknown;
 };
 
 export type TradingFoxConnectorWhitelistIP = {
   userId: number;
   exchangePlatform: string;
+  ipAddress: TradingFoxIPAddress;
   whitelistIp: string;
 };
 
@@ -273,7 +315,9 @@ export async function createTradingFoxMockConnector(
   const userId = tradingFoxUserIdFromSession(session);
   const exchangePlatform = normalizeDemoExchangePlatform(input.exchangePlatform) ?? DEFAULT_DEMO_EXCHANGE_PLATFORM;
   const accountName = normalizeOptionalText(input.accountName) || defaultDemoAccountName(exchangePlatform);
-  const mockMarginBalance = normalizePositiveNumber(input.mockMarginBalance) ?? DEFAULT_MOCK_MARGIN_BALANCE;
+  const mockMarginBalance = exchangePlatform === "Mock"
+    ? normalizePositiveNumber(input.mockMarginBalance) ?? DEFAULT_MOCK_MARGIN_BALANCE
+    : undefined;
   const credentials = createDemoExchangeCredentials(exchangePlatform, input);
 
   await tradingFoxRequest<TradingFoxConnector>("/v1/exchange-connectors", {
@@ -308,11 +352,13 @@ export async function createTradingFoxConnector(
 
   const accountName = normalizeOptionalText(input.accountName) || defaultLiveAccountName(exchangePlatform);
   const credentials = createLiveExchangeCredentials(exchangePlatform, input);
+  const ipAddress = await resolveTradingFoxConnectorIPAddress(userId, input.ipAddress);
 
   await tradingFoxRequest<TradingFoxConnector>("/v1/exchange-connectors", {
     body: JSON.stringify({
       credentials,
       exchangePlatform,
+      ipAddress: ipAddress.address,
       isMock: false,
       name: accountName,
       positionSideDual: false,
@@ -330,12 +376,14 @@ export async function getTradingFoxConnectorWhitelistIP(
 ): Promise<TradingFoxConnectorWhitelistIP> {
   const userId = tradingFoxUserIdFromSession(session);
   const exchangePlatform = normalizeLiveExchangePlatform(input.exchangePlatform) ?? "Binance";
-  const query = new URLSearchParams({
-    exchangePlatform,
-    userId: String(userId),
-  });
+  const ipAddress = await resolveTradingFoxConnectorIPAddress(userId);
 
-  return tradingFoxRequest<TradingFoxConnectorWhitelistIP>(`/v1/exchange-connectors/whitelist-ip?${query.toString()}`);
+  return {
+    exchangePlatform,
+    ipAddress,
+    userId,
+    whitelistIp: ipAddress.address,
+  };
 }
 
 export async function createTradingFoxCopyStrategy(
@@ -481,14 +529,14 @@ export async function getTradingFoxCopyStrategyDetail(
     settleTradingFoxRequest<{ items: TradingFoxPosition[] }>(`/v1/traders/${traderId}/positions`),
     settleTradingFoxRequest<{ items: TradingFoxSignalSource[] }>(`/v1/traders/${traderId}/signal-source-positions`),
     settleTradingFoxRequest<TradingFoxOrderHistory>(
-      `/v1/traders/${traderId}/orders?limit=${orderHistoryPage.limit}&offset=${orderHistoryPage.offset}`,
+      `/v1/traders/${traderId}/orders?limit=${orderHistoryPage.fetchLimit}`,
     ),
   ]);
 
   return {
     account: accountStatus.value?.account ?? null,
     accountError: accountStatus.error,
-    accountInitialEquity: connector?.mockMarginBalance,
+    accountInitialEquity: connector && !isBinanceDemoConnector(connector) ? connector.mockMarginBalance : undefined,
     orderHistory: orderHistory.value ? applyTradingFoxOrderHistoryPage(orderHistory.value, orderHistoryPage) : null,
     orderHistoryError: orderHistory.error,
     positions: positions.value?.items ?? [],
@@ -600,12 +648,85 @@ function pickActiveConnectors(connectors: TradingFoxConnector[]): TradingFoxConn
 }
 
 function redactTradingFoxConnectorCredentials(connector: TradingFoxConnector): TradingFoxConnector {
-  const whitelistIp = connector.whitelistIp ?? stringValue(connector.credentials.whitelistIp);
+  const ipAddress = normalizeTradingFoxIPAddress(connector.ipAddress);
+  const whitelistIp = ipAddress?.address ?? connector.whitelistIp ?? stringValue(connector.credentials.whitelistIp);
 
   return {
     ...connector,
     credentials: {},
+    ipAddress,
     whitelistIp: whitelistIp || undefined,
+  };
+}
+
+async function resolveTradingFoxConnectorIPAddress(userId: number, requestedIPAddress?: unknown): Promise<TradingFoxIPAddress> {
+  const ipAddresses = await getActiveTradingFoxIPAddresses();
+  const normalizedRequestedIPAddress = normalizeOptionalText(requestedIPAddress);
+
+  if (normalizedRequestedIPAddress) {
+    const selectedIPAddress = ipAddresses.find((ipAddress) => ipAddress.address === normalizedRequestedIPAddress);
+    if (!selectedIPAddress) {
+      throw new TradingFoxApiError("Selected TradingFox IP address is not active.", 409);
+    }
+    return selectedIPAddress;
+  }
+
+  if (ipAddresses.length === 0) {
+    throw new TradingFoxApiError("No active TradingFox IP address is available.", 409);
+  }
+
+  return ipAddresses[Math.max(0, userId - 1) % ipAddresses.length];
+}
+
+async function getActiveTradingFoxIPAddresses(): Promise<TradingFoxIPAddress[]> {
+  const response = await tradingFoxRequest<{ items?: unknown[] }>("/v1/ip-addresses?status=active");
+  const items = Array.isArray(response.items) ? response.items : [];
+  return items
+    .map(normalizeTradingFoxIPAddress)
+    .filter((ipAddress): ipAddress is TradingFoxIPAddress => ipAddress !== null)
+    .filter(isUsableTradingFoxIPAddress)
+    .sort((a, b) => a.address.localeCompare(b.address));
+}
+
+function isUsableTradingFoxIPAddress(ipAddress: TradingFoxIPAddress): boolean {
+  if (ipAddress.status.toLowerCase() !== "active") {
+    return false;
+  }
+  if (!ipAddress.expiresAt) {
+    return true;
+  }
+
+  const expiresAt = Date.parse(ipAddress.expiresAt);
+  return Number.isFinite(expiresAt) && expiresAt > Date.now();
+}
+
+function normalizeTradingFoxIPAddress(value: unknown): TradingFoxIPAddress | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const address = normalizeOptionalText(value.address);
+  if (!address) {
+    return null;
+  }
+
+  const port = normalizeNonNegativeInteger(value.port);
+  const createdAt = normalizeOptionalText(value.createdAt);
+  const expiresAt = normalizeOptionalText(value.expiresAt);
+  const location = normalizeOptionalText(value.location);
+  const status = normalizeOptionalText(value.status) || "unknown";
+  const updatedAt = normalizeOptionalText(value.updatedAt);
+  const workerId = normalizeOptionalText(value.workerId);
+
+  return {
+    address,
+    ...(createdAt ? { createdAt } : {}),
+    ...(expiresAt ? { expiresAt } : {}),
+    ...(location ? { location } : {}),
+    ...(port > 0 ? { port } : {}),
+    status,
+    ...(updatedAt ? { updatedAt } : {}),
+    ...(workerId ? { workerId } : {}),
   };
 }
 
@@ -715,28 +836,41 @@ function isBinanceDemoConnector(connector: TradingFoxConnector): boolean {
 }
 
 function normalizeTradingFoxOrderHistoryPage(input: TradingFoxCopyStrategyDetailInput): {
+  fetchLimit: number;
   limit: number;
   offset: number;
 } {
   const normalizedLimit = normalizePositiveInteger(input.orderLimit) ?? TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT;
+  const limit = Math.min(TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT, normalizedLimit);
+  const offset = normalizeNonNegativeInteger(input.orderOffset);
   return {
-    limit: Math.min(TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT, normalizedLimit),
-    offset: normalizeNonNegativeInteger(input.orderOffset),
+    fetchLimit: Math.min(TRADINGFOX_ORDER_HISTORY_FETCH_LIMIT, offset + limit),
+    limit,
+    offset,
   };
 }
 
 function applyTradingFoxOrderHistoryPage(
   orderHistory: TradingFoxOrderHistory,
-  page: { limit: number; offset: number },
+  page: { fetchLimit: number; limit: number; offset: number },
 ): TradingFoxOrderHistory {
-  const items = orderHistory.items.slice(0, page.limit);
+  const items = orderHistory.items.slice(0, page.fetchLimit);
+  const signalSourceOrders = orderHistory.signalSourceOrders.slice(0, page.fetchLimit);
+  const tradeLogs = orderHistory.tradeLogs.slice(0, page.fetchLimit);
+  const hasCursorMore = Boolean(
+    orderHistory.traderOrdersNextCursor
+    || orderHistory.signalSourceOrdersNextCursor
+    || orderHistory.tradeLogsNextCursor,
+  );
   return {
     ...orderHistory,
-    hasMore: orderHistory.hasMore ?? orderHistory.items.length >= page.limit,
+    hasMore: orderHistory.hasMore ?? hasCursorMore,
     items,
     limit: page.limit,
     offset: page.offset,
-    returnedCount: items.length,
+    returnedCount: Math.min(page.limit, Math.max(0, items.length - page.offset)),
+    signalSourceOrders,
+    tradeLogs,
   };
 }
 
