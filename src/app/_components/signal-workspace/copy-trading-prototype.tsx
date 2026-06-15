@@ -642,13 +642,16 @@ function ApiConnectionCard({
   isDarkTheme: boolean;
 }) {
   const exchangeLabel = getConnectionExchangeLabel(accountCopy, apiConnection);
+  const exchange = getConnectionExchange(apiConnection);
 
   return (
     <div className={isDarkTheme ? "rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.06] p-3" : "rounded-3xl border border-emerald-100 bg-emerald-50/70 p-3"}>
       <div className="flex items-start gap-3">
-        <div className={isDarkTheme ? "grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-400/10 text-xs font-black text-emerald-200" : "grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-xs font-black text-emerald-700 shadow-sm"}>
-          {getConnectionFallback(apiConnection)}
-        </div>
+        <AccountConnectionExchangeIcon
+          exchange={exchange}
+          fallback={getConnectionFallback(apiConnection)}
+          isDarkTheme={isDarkTheme}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <div className="truncate text-sm font-black">{apiConnection.accountName}</div>
@@ -681,6 +684,41 @@ function ApiConnectionCard({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function AccountConnectionExchangeIcon({
+  exchange,
+  fallback,
+  isDarkTheme,
+}: {
+  exchange: PrototypeExchange | null;
+  fallback: string;
+  isDarkTheme: boolean;
+}) {
+  const logoPath = exchange?.logoPath ?? "";
+  const [failedLogoPath, setFailedLogoPath] = useState<string | null>(null);
+  const canShowLogo = Boolean(logoPath) && failedLogoPath !== logoPath;
+  const shellClassName = isDarkTheme
+    ? "relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-emerald-400/10 text-xs font-black text-emerald-200"
+    : "relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white text-xs font-black text-emerald-700 shadow-sm";
+
+  return (
+    <div className={shellClassName}>
+      <span className="leading-none">{fallback}</span>
+      {canShowLogo ? (
+        <Image
+          alt=""
+          className="absolute h-8 w-8 object-contain"
+          height={32}
+          loading="lazy"
+          src={logoPath}
+          unoptimized
+          width={32}
+          onError={() => setFailedLogoPath(logoPath)}
+        />
+      ) : null}
     </div>
   );
 }
