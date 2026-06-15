@@ -710,7 +710,7 @@ function AccountConnectionExchangeIcon({
       {canShowLogo ? (
         <Image
           alt=""
-          className="absolute h-8 w-8 object-contain"
+          className="absolute h-8 w-8 rounded-lg object-contain"
           height={32}
           loading="lazy"
           src={logoPath}
