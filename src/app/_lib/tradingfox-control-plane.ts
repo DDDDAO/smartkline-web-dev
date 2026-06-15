@@ -83,6 +83,7 @@ export type TradingFoxCopyStrategy = {
   id: string;
   platform: string;
   positionsCount: number;
+  startedAt: string;
   status: "running" | "paused" | "stopped";
   stopLossPercent: number;
   takeProfitPercent: number;
@@ -537,7 +538,7 @@ export async function getTradingFoxCopyStrategyDetail(
     account: accountStatus.value?.account ?? null,
     accountError: accountStatus.error,
     accountInitialEquity: connector && !isBinanceDemoConnector(connector) ? connector.mockMarginBalance : undefined,
-    orderHistory: orderHistory.value ? applyTradingFoxOrderHistoryPage(orderHistory.value, orderHistoryPage) : null,
+    orderHistory: orderHistory.value ? applyTradingFoxOrderHistoryPage(orderHistory.value, orderHistoryPage, strategy.startedAt) : null,
     orderHistoryError: orderHistory.error,
     positions: positions.value?.items ?? [],
     positionsError: positions.error,
@@ -853,18 +854,21 @@ function normalizeTradingFoxOrderHistoryPage(input: TradingFoxCopyStrategyDetail
 function applyTradingFoxOrderHistoryPage(
   orderHistory: TradingFoxOrderHistory,
   page: { fetchLimit: number; limit: number; offset: number },
+  startedAt: string,
 ): TradingFoxOrderHistory {
-  const items = orderHistory.items.slice(0, page.fetchLimit);
-  const signalSourceOrders = orderHistory.signalSourceOrders.slice(0, page.fetchLimit);
-  const tradeLogs = orderHistory.tradeLogs.slice(0, page.fetchLimit);
+  const filteredOrderHistory = filterTradingFoxOrderHistorySince(orderHistory, startedAt);
+  const items = filteredOrderHistory.items.slice(0, page.fetchLimit);
+  const signalSourceOrders = filteredOrderHistory.signalSourceOrders.slice(0, page.fetchLimit);
+  const tradeLogs = filteredOrderHistory.tradeLogs.slice(0, page.fetchLimit);
   const hasCursorMore = Boolean(
     orderHistory.traderOrdersNextCursor
     || orderHistory.signalSourceOrdersNextCursor
     || orderHistory.tradeLogsNextCursor,
   );
+  const hasFilteredPageFilled = Math.max(items.length, signalSourceOrders.length, tradeLogs.length) >= page.fetchLimit;
   return {
     ...orderHistory,
-    hasMore: orderHistory.hasMore ?? hasCursorMore,
+    hasMore: orderHistory.hasMore ?? (hasCursorMore && hasFilteredPageFilled),
     items,
     limit: page.limit,
     offset: page.offset,
@@ -872,6 +876,27 @@ function applyTradingFoxOrderHistoryPage(
     signalSourceOrders,
     tradeLogs,
   };
+}
+
+function filterTradingFoxOrderHistorySince(orderHistory: TradingFoxOrderHistory, startedAt: string): TradingFoxOrderHistory {
+  const startedAtMs = Date.parse(startedAt);
+  if (!Number.isFinite(startedAtMs)) {
+    return orderHistory;
+  }
+
+  return {
+    ...orderHistory,
+    items: orderHistory.items.filter((item) => isTradingFoxHistoryTimestampAfter(item.timestamp, startedAtMs)),
+    signalSourceOrders: orderHistory.signalSourceOrders.filter((item) =>
+      isTradingFoxHistoryTimestampAfter(item.timestamp || item.sourceTimestamp, startedAtMs),
+    ),
+    tradeLogs: orderHistory.tradeLogs.filter((item) => isTradingFoxHistoryTimestampAfter(item.timestamp, startedAtMs)),
+  };
+}
+
+function isTradingFoxHistoryTimestampAfter(value: string | undefined, startedAtMs: number): boolean {
+  const timestamp = Date.parse(value ?? "");
+  return Number.isFinite(timestamp) && timestamp >= startedAtMs;
 }
 
 function mapCopyStrategy(trader: TradingFoxTrader, connector: TradingFoxConnector | null): TradingFoxCopyStrategy | null {
@@ -891,6 +916,7 @@ function mapCopyStrategy(trader: TradingFoxTrader, connector: TradingFoxConnecto
     id: String(trader.id),
     platform: stringValue(metadata.platform) || "Copy Trading",
     positionsCount: numberValue(metadata.positionsCount),
+    startedAt: stringValue(signalSourceConfig?.startTime) || trader.createdAt,
     status: mapBackendStrategyStatus(trader),
     stopLossPercent: numberValue(metadata.stopLossPercent, 10),
     takeProfitPercent: numberValue(metadata.takeProfitPercent, 20),
