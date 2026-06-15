@@ -2384,6 +2384,7 @@ function StrategyDetailView({
                 row={selectedTradeKlineRow}
                 rows={allTradeHistoryRows}
                 strategy={liveStrategy}
+                telegramUser={telegramUser}
                 onIntervalChange={setTradeKlineInterval}
               />
             ) : null}
@@ -3339,6 +3340,7 @@ function TradeHistoryKlinePanel({
   row,
   rows,
   strategy,
+  telegramUser,
   onIntervalChange,
 }: {
   copy: WorkspaceCopy;
@@ -3347,6 +3349,7 @@ function TradeHistoryKlinePanel({
   row: TradeHistoryRow;
   rows: readonly TradeHistoryRow[];
   strategy: PrototypeStrategy;
+  telegramUser: TelegramSessionUser | null;
   onIntervalChange: (interval: KlineInterval) => void;
 }) {
   const [candleState, setCandleState] = useState<{
@@ -3383,8 +3386,9 @@ function TradeHistoryKlinePanel({
       selectedSymbol: symbol,
       strategy,
       strategyCopy: copy.workspace.accountCenter.strategy,
+      telegramUser,
     }),
-    [copy.workspace.accountCenter.strategy, rows, strategy, symbol],
+    [copy.workspace.accountCenter.strategy, rows, strategy, symbol, telegramUser],
   );
   const focusTimeRequest = useMemo<ChartTimeFocusRequest | null>(() => {
     const sourceTimeMs = Date.parse(anchorRow.timestamp);
@@ -3826,15 +3830,17 @@ function createTradeHistoryTradeMarkers({
   selectedSymbol,
   strategy,
   strategyCopy,
+  telegramUser,
 }: {
   rows: readonly TradeHistoryRow[];
   selectedSymbol: MarketSymbol;
   strategy: PrototypeStrategy;
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
+  telegramUser: TelegramSessionUser | null;
 }): CopyTradingTradeMarker[] {
   return rows
     .filter((row) => row.kind === "me" && toCopyTradingMarketSymbol(row.symbol) === selectedSymbol)
-    .map((row) => createTradeHistoryTradeMarker(row, strategy, strategyCopy))
+    .map((row) => createTradeHistoryTradeMarker(row, strategy, strategyCopy, telegramUser))
     .filter((marker): marker is CopyTradingTradeMarker => marker !== null)
     .sort((left, right) => left.sourceTimeMs - right.sourceTimeMs);
 }
@@ -3843,6 +3849,7 @@ function createTradeHistoryTradeMarker(
   row: TradeHistoryRow,
   strategy: PrototypeStrategy,
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"],
+  telegramUser: TelegramSessionUser | null,
 ): CopyTradingTradeMarker | null {
   const sourceTimeMs = Date.parse(row.timestamp);
   if (!Number.isFinite(sourceTimeMs)) {
@@ -3851,13 +3858,14 @@ function createTradeHistoryTradeMarker(
 
   const price = row.price;
   const side = getTradeHistoryMarkerSide(row);
-  const actionLabel = formatTradeHistoryMarkerAction(side);
+  const traderName = getTradeHistoryUserMarkerName(telegramUser, strategyCopy.orderSourceMe);
+  const actionLabel = strategyCopy.orderSourceMe;
   const priceText = price === null ? null : formatDetailNumber(price);
   const priceSuffix = priceText ? ` @ ${priceText}` : "";
 
   return {
     actionLabel,
-    avatarUrl: null,
+    avatarUrl: telegramUser?.avatarUrl ?? null,
     detail: `${formatDetailDate(row.timestamp)} · ${formatOrderStatus(row.status, strategyCopy)}`,
     direction: side === "buy" ? "long" : "short",
     eventId: row.id,
@@ -3870,10 +3878,24 @@ function createTradeHistoryTradeMarker(
     signalId: `copy-strategy-row:${row.id}`,
     sourceTimeMs,
     symbol: toCopyTradingMarketSymbol(row.symbol),
-    title: `${actionLabel} ${row.symbol}${priceSuffix}`,
+    title: `${traderName} ${row.symbol}${priceSuffix}`,
     traderId: strategy.traderId,
-    traderName: actionLabel,
+    traderName,
   };
+}
+
+function getTradeHistoryUserMarkerName(user: TelegramSessionUser | null, fallback: string): string {
+  const name = user?.name?.trim();
+  if (name) {
+    return name;
+  }
+
+  const username = user?.username?.trim();
+  if (username) {
+    return username.startsWith("@") ? username : `@${username}`;
+  }
+
+  return fallback;
 }
 
 function normalizeOrderTradeMarkerSide(value: string | undefined): "buy" | "sell" {
@@ -3886,10 +3908,6 @@ function getTradeHistoryMarkerSide(row: TradeHistoryRow): "buy" | "sell" {
     return normalizeOrderTradeMarkerSide(row.signalSourceOrder?.side || row.action);
   }
   return normalizeOrderTradeMarkerSide(row.action);
-}
-
-function formatTradeHistoryMarkerAction(side: "buy" | "sell"): "BUY" | "SELL" {
-  return side === "buy" ? "BUY" : "SELL";
 }
 
 function resolveInitialTradeHistoryKlineUntilMs(sourceTimeMs: number, interval: KlineInterval): number | undefined {
