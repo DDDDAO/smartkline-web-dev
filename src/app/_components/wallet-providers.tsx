@@ -5,6 +5,7 @@ import {
   darkTheme,
   getDefaultConfig,
   RainbowKitProvider,
+  type WalletList,
 } from "@rainbow-me/rainbowkit";
 import {
   binanceWallet,
@@ -21,6 +22,19 @@ import { WagmiProvider, http } from "wagmi";
 import { arbitrum, base, bsc, mainnet, optimism, polygon } from "wagmi/chains";
 import { isWalletConnectConfigured, rainbowKitProjectId } from "@/app/_lib/wallet-connect";
 
+type RainbowKitWalletFactory = WalletList[number]["wallets"][number];
+
+const installedOnlyWallet = (createWallet: RainbowKitWalletFactory): RainbowKitWalletFactory => {
+  return (params) => {
+    const wallet = createWallet(params);
+
+    return {
+      ...wallet,
+      hidden: () => !wallet.installed || wallet.hidden?.() === true,
+    };
+  };
+};
+
 const walletGroups = isWalletConnectConfigured
   ? [
       {
@@ -35,7 +49,14 @@ const walletGroups = isWalletConnectConfigured
   : [
       {
         groupName: "浏览器插件",
-        wallets: [injectedWallet],
+        wallets: [
+          installedOnlyWallet(metaMaskWallet),
+          installedOnlyWallet(binanceWallet),
+          installedOnlyWallet(okxWallet),
+          installedOnlyWallet(bybitWallet),
+          installedOnlyWallet(rabbyWallet),
+          injectedWallet,
+        ],
       },
     ];
 
