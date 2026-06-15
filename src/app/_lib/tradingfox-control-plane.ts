@@ -8,6 +8,21 @@ const TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT = 50;
 type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
 type TradingFoxLiveExchangePlatform = "Binance";
 
+/**
+ * Public subset of the TradingFox IP pool record. The backend record can carry
+ * proxy auth/internal routing fields; the Next.js API must not expose them.
+ */
+export type TradingFoxIPAddress = {
+  address: string;
+  createdAt?: string;
+  expiresAt?: string;
+  location?: string;
+  port?: number;
+  status: string;
+  updatedAt?: string;
+  workerId?: string;
+};
+
 export type TradingFoxConnector = {
   id: number;
   userId: number;
@@ -19,6 +34,7 @@ export type TradingFoxConnector = {
   isMock: boolean;
   mockMarginBalance?: number;
   positionSideDual: boolean;
+  ipAddress?: TradingFoxIPAddress | null;
   whitelistIp?: string;
   dead: boolean;
   createdAt: string;
@@ -195,12 +211,14 @@ export type CreateMockConnectorInput = {
 };
 
 export type CreateConnectorInput = CreateMockConnectorInput & {
+  ipAddress?: unknown;
   isMock?: unknown;
 };
 
 export type TradingFoxConnectorWhitelistIP = {
   userId: number;
   exchangePlatform: string;
+  ipAddress: TradingFoxIPAddress;
   whitelistIp: string;
 };
 
@@ -325,11 +343,13 @@ export async function createTradingFoxConnector(
 
   const accountName = normalizeOptionalText(input.accountName) || defaultLiveAccountName(exchangePlatform);
   const credentials = createLiveExchangeCredentials(exchangePlatform, input);
+  const ipAddress = await resolveTradingFoxConnectorIPAddress(userId, input.ipAddress);
 
   await tradingFoxRequest<TradingFoxConnector>("/v1/exchange-connectors", {
     body: JSON.stringify({
       credentials,
       exchangePlatform,
+      ipAddress: ipAddress.address,
       isMock: false,
       name: accountName,
       positionSideDual: false,
@@ -347,12 +367,14 @@ export async function getTradingFoxConnectorWhitelistIP(
 ): Promise<TradingFoxConnectorWhitelistIP> {
   const userId = tradingFoxUserIdFromSession(session);
   const exchangePlatform = normalizeLiveExchangePlatform(input.exchangePlatform) ?? "Binance";
-  const query = new URLSearchParams({
-    exchangePlatform,
-    userId: String(userId),
-  });
+  const ipAddress = await resolveTradingFoxConnectorIPAddress(userId);
 
-  return tradingFoxRequest<TradingFoxConnectorWhitelistIP>(`/v1/exchange-connectors/whitelist-ip?${query.toString()}`);
+  return {
+    exchangePlatform,
+    ipAddress,
+    userId,
+    whitelistIp: ipAddress.address,
+  };
 }
 
 export async function createTradingFoxCopyStrategy(
@@ -617,12 +639,85 @@ function pickActiveConnectors(connectors: TradingFoxConnector[]): TradingFoxConn
 }
 
 function redactTradingFoxConnectorCredentials(connector: TradingFoxConnector): TradingFoxConnector {
-  const whitelistIp = connector.whitelistIp ?? stringValue(connector.credentials.whitelistIp);
+  const ipAddress = normalizeTradingFoxIPAddress(connector.ipAddress);
+  const whitelistIp = ipAddress?.address ?? connector.whitelistIp ?? stringValue(connector.credentials.whitelistIp);
 
   return {
     ...connector,
     credentials: {},
+    ipAddress,
     whitelistIp: whitelistIp || undefined,
+  };
+}
+
+async function resolveTradingFoxConnectorIPAddress(userId: number, requestedIPAddress?: unknown): Promise<TradingFoxIPAddress> {
+  const ipAddresses = await getActiveTradingFoxIPAddresses();
+  const normalizedRequestedIPAddress = normalizeOptionalText(requestedIPAddress);
+
+  if (normalizedRequestedIPAddress) {
+    const selectedIPAddress = ipAddresses.find((ipAddress) => ipAddress.address === normalizedRequestedIPAddress);
+    if (!selectedIPAddress) {
+      throw new TradingFoxApiError("Selected TradingFox IP address is not active.", 409);
+    }
+    return selectedIPAddress;
+  }
+
+  if (ipAddresses.length === 0) {
+    throw new TradingFoxApiError("No active TradingFox IP address is available.", 409);
+  }
+
+  return ipAddresses[Math.max(0, userId - 1) % ipAddresses.length];
+}
+
+async function getActiveTradingFoxIPAddresses(): Promise<TradingFoxIPAddress[]> {
+  const response = await tradingFoxRequest<{ items?: unknown[] }>("/v1/ip-addresses?status=active");
+  const items = Array.isArray(response.items) ? response.items : [];
+  return items
+    .map(normalizeTradingFoxIPAddress)
+    .filter((ipAddress): ipAddress is TradingFoxIPAddress => ipAddress !== null)
+    .filter(isUsableTradingFoxIPAddress)
+    .sort((a, b) => a.address.localeCompare(b.address));
+}
+
+function isUsableTradingFoxIPAddress(ipAddress: TradingFoxIPAddress): boolean {
+  if (ipAddress.status.toLowerCase() !== "active") {
+    return false;
+  }
+  if (!ipAddress.expiresAt) {
+    return true;
+  }
+
+  const expiresAt = Date.parse(ipAddress.expiresAt);
+  return Number.isFinite(expiresAt) && expiresAt > Date.now();
+}
+
+function normalizeTradingFoxIPAddress(value: unknown): TradingFoxIPAddress | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const address = normalizeOptionalText(value.address);
+  if (!address) {
+    return null;
+  }
+
+  const port = normalizeNonNegativeInteger(value.port);
+  const createdAt = normalizeOptionalText(value.createdAt);
+  const expiresAt = normalizeOptionalText(value.expiresAt);
+  const location = normalizeOptionalText(value.location);
+  const status = normalizeOptionalText(value.status) || "unknown";
+  const updatedAt = normalizeOptionalText(value.updatedAt);
+  const workerId = normalizeOptionalText(value.workerId);
+
+  return {
+    address,
+    ...(createdAt ? { createdAt } : {}),
+    ...(expiresAt ? { expiresAt } : {}),
+    ...(location ? { location } : {}),
+    ...(port > 0 ? { port } : {}),
+    status,
+    ...(updatedAt ? { updatedAt } : {}),
+    ...(workerId ? { workerId } : {}),
   };
 }
 

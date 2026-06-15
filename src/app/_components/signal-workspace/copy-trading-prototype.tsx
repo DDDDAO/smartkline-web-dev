@@ -121,6 +121,7 @@ export type PrototypeConnectionSaveInput = {
   accountName: string;
   apiKey?: string;
   exchangePlatform: string;
+  ipAddress?: string;
   isMock: boolean;
   mockMarginBalance?: number;
   secret?: string;
@@ -1256,6 +1257,7 @@ function ExchangeApiSetupLayer({
                 accountName: accountName.trim() || selectedExchange.defaultAccountName,
                 apiKey: requiresApiCredentials ? apiKey.trim() : undefined,
                 exchangePlatform: selectedExchange.connectorExchangePlatform,
+                ipAddress: isLiveExchange ? whitelistIp.trim() : undefined,
                 isMock: isDemoExchange,
                 mockMarginBalance: isBuiltInMockExchange && hasValidMockMarginBalance ? parsedMockMarginBalance : undefined,
                 secret: requiresApiCredentials ? secret.trim() : undefined,
@@ -1670,11 +1672,16 @@ async function requestTradingFoxConnectorWhitelistIP(exchangePlatform: string): 
     cache: "no-store",
     credentials: "same-origin",
   });
-  const payload = await response.json() as { error?: string; whitelistIp?: string };
+  const payload = await response.json() as {
+    error?: string;
+    ipAddress?: { address?: string };
+    whitelistIp?: string;
+  };
   if (!response.ok) {
     throw new Error(payload.error || `Whitelist IP request failed with status ${response.status}.`);
   }
-  return typeof payload.whitelistIp === "string" ? payload.whitelistIp.trim() : "";
+  const ipAddress = typeof payload.ipAddress?.address === "string" ? payload.ipAddress.address.trim() : "";
+  return ipAddress || (typeof payload.whitelistIp === "string" ? payload.whitelistIp.trim() : "");
 }
 
 async function requestStrategyDetail(

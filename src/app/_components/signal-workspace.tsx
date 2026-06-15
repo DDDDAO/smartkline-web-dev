@@ -1418,6 +1418,7 @@ export function SignalWorkspace() {
           accountName: input.accountName,
           apiKey: input.apiKey,
           exchangePlatform: input.exchangePlatform,
+          ipAddress: input.ipAddress,
           isMock: input.isMock,
           mockMarginBalance: input.mockMarginBalance,
           secret: input.secret,
@@ -1927,7 +1928,7 @@ function mapTradingFoxConnectorToPrototypeConnection(
     isMock: connector.isMock,
     mockMarginBalance: isBinanceDemoConnector ? null : connector.mockMarginBalance ?? null,
     status: "connected",
-    whitelistIp: connector.whitelistIp,
+    whitelistIp: connector.ipAddress?.address ?? connector.whitelistIp,
   };
 }
 
