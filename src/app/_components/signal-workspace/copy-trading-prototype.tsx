@@ -1665,9 +1665,9 @@ function ExchangeApiSetupLayer({
             </div>
           </header>
 
-          <div className="kol-scroll-area min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 lg:overflow-hidden">
-            <div className="grid gap-4 lg:h-full lg:min-h-0 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <aside className={isDarkTheme ? "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3 lg:h-full" : "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3 lg:h-full"}>
+          <div className="kol-scroll-area min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+            <div className="grid items-stretch gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+              <aside className={isDarkTheme ? "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3" : "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3"}>
                 <div className={isDarkTheme ? "px-1 pb-2 text-xs font-black text-slate-300" : "px-1 pb-2 text-xs font-black text-slate-700"}>
                   {accountCopy.apiSetup.selectExchange}
                 </div>
@@ -1692,7 +1692,7 @@ function ExchangeApiSetupLayer({
                 </div>
               </aside>
 
-              <main className="grid min-w-0 gap-4 lg:min-h-0 lg:content-start lg:overflow-y-auto lg:pr-1">
+              <main className="grid min-w-0 gap-4">
                 <section className={getModalSectionClassName(isDarkTheme)}>
                   <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
