@@ -7,7 +7,7 @@ const DEFAULT_DEMO_EXCHANGE_PLATFORM = "Mock";
 const TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT = 50;
 const TRADINGFOX_ORDER_HISTORY_FETCH_LIMIT = 500;
 type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
-type TradingFoxLiveExchangePlatform = "Binance";
+type TradingFoxLiveExchangePlatform = "Aster" | "Binance" | "Bitget" | "Bybit" | "Gate" | "Hyperliquid" | "OKX";
 
 /**
  * Public subset of the TradingFox IP pool record. The backend record can carry
@@ -348,11 +348,11 @@ export async function createTradingFoxConnector(
   const userId = tradingFoxUserIdFromSession(session);
   const exchangePlatform = normalizeLiveExchangePlatform(input.exchangePlatform);
   if (!exchangePlatform) {
-    throw new TradingFoxApiError("Only Binance live connector is supported.", 400);
+    throw new TradingFoxApiError("Unsupported live exchange connector.", 400);
   }
 
   const accountName = normalizeOptionalText(input.accountName) || defaultLiveAccountName(exchangePlatform);
-  const credentials = createLiveExchangeCredentials(exchangePlatform, input);
+  const credentials = createLiveExchangeCredentials(input);
   const ipAddress = await resolveTradingFoxConnectorIPAddress(userId, input.ipAddress);
 
   await tradingFoxRequest<TradingFoxConnector>("/v1/exchange-connectors", {
@@ -754,6 +754,30 @@ function normalizeLiveExchangePlatform(value: unknown): TradingFoxLiveExchangePl
     return "Binance";
   }
 
+  if (normalizedValue === "okx") {
+    return "OKX";
+  }
+
+  if (normalizedValue === "hyperliquid" || normalizedValue === "hl") {
+    return "Hyperliquid";
+  }
+
+  if (normalizedValue === "aster" || normalizedValue === "as") {
+    return "Aster";
+  }
+
+  if (normalizedValue === "bitget" || normalizedValue === "bg") {
+    return "Bitget";
+  }
+
+  if (normalizedValue === "bybit" || normalizedValue === "by") {
+    return "Bybit";
+  }
+
+  if (normalizedValue === "gate" || normalizedValue === "gt") {
+    return "Gate";
+  }
+
   return null;
 }
 
@@ -789,14 +813,7 @@ function createDemoExchangeCredentials(
   };
 }
 
-function createLiveExchangeCredentials(
-  exchangePlatform: TradingFoxLiveExchangePlatform,
-  input: CreateConnectorInput,
-): Record<string, unknown> {
-  if (exchangePlatform !== "Binance") {
-    throw new TradingFoxApiError("Only Binance live connector is supported.", 400);
-  }
-
+function createLiveExchangeCredentials(input: CreateConnectorInput): Record<string, unknown> {
   return {
     apiKey: requireText(input.apiKey, "apiKey"),
     secret: requireText(input.secret, "secret"),
