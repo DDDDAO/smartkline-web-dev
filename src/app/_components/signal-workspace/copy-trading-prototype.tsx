@@ -3,6 +3,8 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import * as SelectPrimitive from "@radix-ui/react-select";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useAccount, useSignTypedData } from "wagmi";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import { WORKSPACE_COPY, type WorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
@@ -146,16 +148,8 @@ const KlineChart = dynamic<KlineChartProps>(
   { loading: () => null },
 );
 const HYPERLIQUID_DEPOSIT_URL = "https://app.hyperliquid.xyz/portfolio";
-
-type EIP1193Provider = {
-  request<T = unknown>(args: { method: string; params?: Record<string, unknown> | unknown[] }): Promise<T>;
-};
-
-declare global {
-  interface Window {
-    ethereum?: EIP1193Provider;
-  }
-}
+type SignTypedDataAsync = ReturnType<typeof useSignTypedData>["signTypedDataAsync"];
+type WagmiSignTypedDataVariables = Parameters<SignTypedDataAsync>[0];
 
 export type PrototypeConnectionSaveInput = {
   accountName: string;
@@ -1454,6 +1448,9 @@ function ExchangeApiSetupLayer({
   const [agentBindingStep, setAgentBindingStep] = useState("");
   const [isAgentBinding, setIsAgentBinding] = useState(false);
   const [isSavingManual, setIsSavingManual] = useState(false);
+  const { address: connectedWalletAddress } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const { signTypedDataAsync } = useSignTypedData();
   const accountCopy = copy.workspace.accountCenter;
   const isDemoExchange = selectedExchange.mode === "demo";
   const isBuiltInMockExchange = selectedExchange.id === "mockExchange";
@@ -1471,6 +1468,7 @@ function ExchangeApiSetupLayer({
   const hasWalletAddress = !requiresWalletAddress || walletAddress.trim().length > 0;
   const hasPrivateKey = !requiresPrivateKey || privateKey.trim().length > 0;
   const hasWhitelistIp = whitelistIp.trim().length > 0;
+  const agentWalletDisplayAddress = agentWalletAddress || connectedWalletAddress || "";
   const walletAddressLabel = isHyperliquidExchange ? accountCopy.apiSetup.mainWalletAddress : accountCopy.apiSetup.walletAddress;
   const walletAddressPlaceholder = isHyperliquidExchange ? accountCopy.apiSetup.mainWalletAddressPlaceholder : accountCopy.apiSetup.walletAddressPlaceholder;
 
@@ -1567,27 +1565,24 @@ function ExchangeApiSetupLayer({
 
     setAgentBindingError("");
     setAgentBindingStep(accountCopy.apiSetup.hyperliquidAgentStepConnect);
+    const selectedWalletAddress = connectedWalletAddress?.trim() ?? "";
+    if (!selectedWalletAddress) {
+      if (!openConnectModal) {
+        setAgentBindingError(accountCopy.apiSetup.hyperliquidAgentWalletMissing);
+        return;
+      }
+      openConnectModal();
+      return;
+    }
+
     setIsAgentBinding(true);
     try {
-      const provider = window.ethereum;
-      if (!provider) {
-        throw new Error(accountCopy.apiSetup.hyperliquidAgentWalletMissing);
-      }
-
-      const accounts = await provider.request<unknown>({
-        method: "eth_requestAccounts",
-      });
-      const connectedWalletAddress = Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0].trim() : "";
-      if (!connectedWalletAddress) {
-        throw new Error(accountCopy.apiSetup.hyperliquidAgentWalletMissing);
-      }
-
-      setAgentWalletAddress(connectedWalletAddress);
-      setWalletAddress(connectedWalletAddress);
+      setAgentWalletAddress(selectedWalletAddress);
+      setWalletAddress(selectedWalletAddress);
       setAgentBindingStep(accountCopy.apiSetup.hyperliquidAgentStepCreate);
       const bindingStart = await requestHyperliquidAgentBindingStart({
         accountName: accountName.trim() || selectedExchange.defaultAccountName,
-        walletAddress: connectedWalletAddress,
+        walletAddress: selectedWalletAddress,
       });
       const approveAgentAction = findHyperliquidSigningAction(bindingStart.actions, "approveAgent");
       const approveBuilderFeeAction = findHyperliquidSigningAction(bindingStart.actions, "approveBuilderFee");
@@ -1596,9 +1591,9 @@ function ExchangeApiSetupLayer({
       }
 
       setAgentBindingStep(accountCopy.apiSetup.hyperliquidAgentStepApproveAgent);
-      const approveAgentSignature = await signHyperliquidTypedData(provider, connectedWalletAddress, approveAgentAction);
+      const approveAgentSignature = await signHyperliquidTypedData(signTypedDataAsync, selectedWalletAddress, approveAgentAction);
       setAgentBindingStep(accountCopy.apiSetup.hyperliquidAgentStepApproveBuilderFee);
-      const approveBuilderFeeSignature = await signHyperliquidTypedData(provider, connectedWalletAddress, approveBuilderFeeAction);
+      const approveBuilderFeeSignature = await signHyperliquidTypedData(signTypedDataAsync, selectedWalletAddress, approveBuilderFeeAction);
       setAgentBindingStep(accountCopy.apiSetup.hyperliquidAgentStepComplete);
       const account = await requestHyperliquidAgentBindingComplete(bindingStart.binding.id, {
         approveAgentSignature,
@@ -1676,11 +1671,11 @@ function ExchangeApiSetupLayer({
 
           <div className="kol-scroll-area min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
             <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <aside className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3"}>
+              <aside className={isDarkTheme ? "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3 lg:max-h-[min(520px,calc(100dvh-14rem))]" : "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3 lg:max-h-[min(520px,calc(100dvh-14rem))]"}>
                 <div className={isDarkTheme ? "px-1 pb-2 text-xs font-black text-slate-300" : "px-1 pb-2 text-xs font-black text-slate-700"}>
                   {accountCopy.apiSetup.selectExchange}
                 </div>
-                <div className="kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:overflow-visible lg:pb-0">
+                <div className="kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:min-h-0 lg:flex-1 lg:content-start lg:overflow-x-hidden lg:overflow-y-auto lg:overscroll-contain lg:pb-0 lg:pr-1">
                   {EXCHANGES.map((exchange) => (
                     <button
                       key={exchange.id}
@@ -1783,7 +1778,7 @@ function ExchangeApiSetupLayer({
                         accountCopy={accountCopy}
                         agentBindingError={agentBindingError}
                         agentBindingStep={agentBindingStep}
-                        agentWalletAddress={agentWalletAddress}
+                        agentWalletAddress={agentWalletDisplayAddress}
                         isBinding={isAgentBinding}
                         isDarkTheme={isDarkTheme}
                         onBind={handleHyperliquidAgentBind}
@@ -1891,6 +1886,12 @@ function HyperliquidAgentWalletPanel({
   isDarkTheme: boolean;
   onBind: () => void;
 }) {
+  const actionLabel = isBinding
+    ? agentBindingStep || accountCopy.apiSetup.hyperliquidAgentBinding
+    : agentWalletAddress
+      ? accountCopy.apiSetup.hyperliquidAgentContinueAuthorize
+      : accountCopy.apiSetup.hyperliquidAgentConnectAuthorize;
+
   return (
     <section className={isDarkTheme ? "rounded-[24px] border border-sky-300/20 bg-sky-300/[0.07] p-4" : "rounded-[24px] border border-[#BFE7FB] bg-[#F1FBFF] p-4"}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1914,7 +1915,7 @@ function HyperliquidAgentWalletPanel({
           type="button"
           onClick={() => onBind()}
         >
-          {isBinding ? (agentBindingStep || accountCopy.apiSetup.hyperliquidAgentBinding) : accountCopy.apiSetup.hyperliquidAgentConnectAuthorize}
+          {actionLabel}
         </button>
       </div>
 
@@ -2497,14 +2498,17 @@ function findHyperliquidSigningAction(
 }
 
 async function signHyperliquidTypedData(
-  provider: EIP1193Provider,
+  signTypedDataAsync: SignTypedDataAsync,
   walletAddress: string,
   action: TradingFoxHyperliquidSigningAction,
 ): Promise<string> {
-  const signature = await provider.request<unknown>({
-    method: "eth_signTypedData_v4",
-    params: [walletAddress, JSON.stringify(action.typedData)],
-  });
+  const signature = await signTypedDataAsync({
+    account: walletAddress as `0x${string}`,
+    domain: action.typedData.domain,
+    message: action.typedData.message,
+    primaryType: action.typedData.primaryType,
+    types: action.typedData.types,
+  } as unknown as WagmiSignTypedDataVariables);
   if (typeof signature !== "string" || !signature.trim()) {
     throw new Error("Wallet did not return a typed-data signature.");
   }
