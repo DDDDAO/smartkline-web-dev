@@ -206,7 +206,7 @@ const zh = {
         noWhitelistIpRequired: "无需白名单 IP",
         privateKey: "私钥",
         privateKeyPlaceholder: "请输入私钥",
-        registerRebate: "注册（手续费折扣）",
+        registerRebate: "注册(手续费折扣)",
         save: "保存配置",
         secret: "Secret",
         secretPlaceholder: "输入密钥",
