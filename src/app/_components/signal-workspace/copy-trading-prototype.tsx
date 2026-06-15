@@ -1671,11 +1671,11 @@ function ExchangeApiSetupLayer({
 
           <div className="kol-scroll-area min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
             <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <aside className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3"}>
+              <aside className={isDarkTheme ? "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3 lg:max-h-[min(520px,calc(100dvh-14rem))]" : "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3 lg:max-h-[min(520px,calc(100dvh-14rem))]"}>
                 <div className={isDarkTheme ? "px-1 pb-2 text-xs font-black text-slate-300" : "px-1 pb-2 text-xs font-black text-slate-700"}>
                   {accountCopy.apiSetup.selectExchange}
                 </div>
-                <div className="kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:overflow-visible lg:pb-0">
+                <div className="kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:min-h-0 lg:flex-1 lg:content-start lg:overflow-x-hidden lg:overflow-y-auto lg:overscroll-contain lg:pb-0 lg:pr-1">
                   {EXCHANGES.map((exchange) => (
                     <button
                       key={exchange.id}
