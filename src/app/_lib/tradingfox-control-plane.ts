@@ -273,7 +273,9 @@ export async function createTradingFoxMockConnector(
   const userId = tradingFoxUserIdFromSession(session);
   const exchangePlatform = normalizeDemoExchangePlatform(input.exchangePlatform) ?? DEFAULT_DEMO_EXCHANGE_PLATFORM;
   const accountName = normalizeOptionalText(input.accountName) || defaultDemoAccountName(exchangePlatform);
-  const mockMarginBalance = normalizePositiveNumber(input.mockMarginBalance) ?? DEFAULT_MOCK_MARGIN_BALANCE;
+  const mockMarginBalance = exchangePlatform === "Mock"
+    ? normalizePositiveNumber(input.mockMarginBalance) ?? DEFAULT_MOCK_MARGIN_BALANCE
+    : undefined;
   const credentials = createDemoExchangeCredentials(exchangePlatform, input);
 
   await tradingFoxRequest<TradingFoxConnector>("/v1/exchange-connectors", {
@@ -488,7 +490,7 @@ export async function getTradingFoxCopyStrategyDetail(
   return {
     account: accountStatus.value?.account ?? null,
     accountError: accountStatus.error,
-    accountInitialEquity: connector?.mockMarginBalance,
+    accountInitialEquity: connector && !isBinanceDemoConnector(connector) ? connector.mockMarginBalance : undefined,
     orderHistory: orderHistory.value ? applyTradingFoxOrderHistoryPage(orderHistory.value, orderHistoryPage) : null,
     orderHistoryError: orderHistory.error,
     positions: positions.value?.items ?? [],

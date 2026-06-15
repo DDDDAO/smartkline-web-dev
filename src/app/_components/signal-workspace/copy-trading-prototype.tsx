@@ -971,7 +971,7 @@ function ExchangeApiSetupLayer({
   const canSave = isBuiltInMockExchange
     ? accountName.trim().length > 0 && hasValidMockMarginBalance
     : isBinanceDemoExchange
-      ? accountName.trim().length > 0 && hasValidMockMarginBalance && hasApiCredentials
+      ? accountName.trim().length > 0 && hasApiCredentials
       : accountName.trim().length > 0 && hasApiCredentials && hasWhitelistIp && !isWhitelistIpLoading;
 
   useEffect(() => {
@@ -1167,6 +1167,7 @@ function ExchangeApiSetupLayer({
                           <PrototypeInput autoComplete="new-password" fieldName="secret" isDarkTheme={isDarkTheme} label={accountCopy.apiSetup.secret} placeholder={accountCopy.apiSetup.secretPlaceholder} type="password" value={secret} onChange={setSecret} />
                         </>
                       ) : null}
+                      {isBuiltInMockExchange ? (
                       <div>
                         <PrototypeInput
                           autoComplete="off"
@@ -1192,6 +1193,7 @@ function ExchangeApiSetupLayer({
                         </div>
                         <p className={isDarkTheme ? "mt-2 text-xs leading-5 text-slate-500" : "mt-2 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.mockMarginBalanceLimit}</p>
                       </div>
+                      ) : null}
                     </div>
                     <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-slate-500" : "mt-3 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.sensitiveNote}</p>
                   </section>
@@ -1255,7 +1257,7 @@ function ExchangeApiSetupLayer({
                 apiKey: requiresApiCredentials ? apiKey.trim() : undefined,
                 exchangePlatform: selectedExchange.connectorExchangePlatform,
                 isMock: isDemoExchange,
-                mockMarginBalance: isDemoExchange && hasValidMockMarginBalance ? parsedMockMarginBalance : undefined,
+                mockMarginBalance: isBuiltInMockExchange && hasValidMockMarginBalance ? parsedMockMarginBalance : undefined,
                 secret: requiresApiCredentials ? secret.trim() : undefined,
               })}
             >
