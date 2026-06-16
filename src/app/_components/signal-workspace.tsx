@@ -402,9 +402,17 @@ export function SignalWorkspace({
     )
     : false;
   const isDarkTheme = theme === "dark";
+  // Account management is document-style content, so it must use browser-page
+  // scrolling instead of the chart workspace's locked viewport shell.
+  const pageHeightClassName = isAccountManagementTab
+    ? "min-h-dvh overflow-y-auto"
+    : "min-h-dvh overflow-y-auto lg:h-screen lg:overflow-hidden";
+  const workspaceBodyClassName = isAccountManagementTab
+    ? "min-w-0 flex-1"
+    : "min-w-0 flex-1 lg:min-h-0 lg:overflow-hidden";
   const pageClassName = isDarkTheme
-    ? "flex min-h-dvh w-full flex-col overflow-x-hidden overflow-y-auto bg-[#0B0E11] text-slate-100 lg:h-screen lg:overflow-hidden"
-    : "flex min-h-dvh w-full flex-col overflow-x-hidden overflow-y-auto bg-[#F1F4F8] text-slate-900 lg:h-screen lg:overflow-hidden";
+    ? `flex w-full flex-col overflow-x-hidden bg-[#0B0E11] text-slate-100 ${pageHeightClassName}`
+    : `flex w-full flex-col overflow-x-hidden bg-[#F1F4F8] text-slate-900 ${pageHeightClassName}`;
   const workspaceGridClassName = isRightPanelCollapsed
     ? "motion-fx-7-workspace-grid relative flex min-h-0 flex-col gap-3 p-3 pb-28 lg:grid lg:h-full lg:p-4 lg:pb-4 lg:grid-cols-[minmax(0,1fr)]"
     : "motion-fx-7-workspace-grid relative flex min-h-0 flex-col gap-3 p-3 pb-28 lg:grid lg:h-full lg:gap-4 lg:p-4 lg:pb-4 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]";
@@ -1844,7 +1852,7 @@ export function SignalWorkspace({
           onThemeToggle={toggleTheme}
         />
       </div>
-      <div className="min-w-0 flex-1 lg:min-h-0 lg:overflow-hidden">
+      <div className={workspaceBodyClassName}>
         {isChartSplitProductTab ? (
           <section
             className={workspaceGridClassName}

@@ -448,8 +448,8 @@ export function AccountManagementPanel({
   };
 
   return (
-    <section className="kol-scroll-area h-full min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5 lg:px-6 lg:py-6">
-      <div className="mx-auto grid w-full max-w-6xl gap-5">
+    <section className="min-h-0 flex-1 px-3 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4 lg:px-6 lg:py-5">
+      <div className="mx-auto grid w-full max-w-6xl gap-4 sm:gap-5">
         <header className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-5 text-slate-100" : "rounded-[28px] border border-[#E5EAF0] bg-white p-5 text-slate-950 shadow-sm"}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
