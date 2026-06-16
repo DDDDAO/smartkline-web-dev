@@ -1,14 +1,24 @@
 diff --git a/QrCode.ts b/QrCode.ts
-index 9d29de4c7e0d6e1088af98f45417a7ed0e0ef1e7..c0b425733521ad4270e858eaa61c989330db0fda 100644
+index 9d29de4c7e0d6e1088af98f45417a7ed0e0ef1e7..8a50c40e1830f9ff85b638e9f0243a294a4f58e1 100644
 --- a/QrCode.ts
 +++ b/QrCode.ts
-@@ -14 +14 @@ export function create(value: string, options: QrCode.Options = {}): QrCode {
+@@ -13,2 +13,2 @@ export function create(value: string, options: QrCode.Options = {}): QrCode {
+-  const grid = encodeQR(value, 'raw', {
 -    border: 0,
++  const gridWithBorder = encodeQR(value, 'raw', {
 +    border: 1,
+@@ -18 +18,2 @@ export function create(value: string, options: QrCode.Options = {}): QrCode {
+   })
++  const grid = gridWithBorder.slice(1, -1).map((row) => row.slice(1, -1))
 diff --git a/_dist/QrCode.js b/_dist/QrCode.js
-index b1806526c3d100ca6f1e9259b4dfbcd416a33927..c594a0cc0f948a225302caa6dcdcf601ac804fbd 100644
+index b1806526c3d100ca6f1e9259b4dfbcd416a33927..c868944fd297a7fe3a523db97072c1022447baca 100644
 --- a/_dist/QrCode.js
 +++ b/_dist/QrCode.js
-@@ -5 +5 @@ export function create(value, options = {}) {
+@@ -4,2 +4,2 @@ export function create(value, options = {}) {
+-    const grid = encodeQR(value, 'raw', {
 -        border: 0,
++    const gridWithBorder = encodeQR(value, 'raw', {
 +        border: 1,
+@@ -9 +9,2 @@ export function create(value, options = {}) {
+     });
++    const grid = gridWithBorder.slice(1, -1).map((row) => row.slice(1, -1));
