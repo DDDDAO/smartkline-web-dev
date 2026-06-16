@@ -88,7 +88,7 @@ export type PrototypeStrategyCreateInput = {
   target: CopyTradingPrototypeTarget;
 };
 
-type AccountCenterPrototypeProps = {
+export type AccountCenterPrototypeProps = {
   apiConnection: PrototypeApiConnection;
   apiConnections: readonly PrototypeApiConnection[];
   availableSignalSources: readonly CopyTradingPrototypeTarget[];
@@ -113,7 +113,7 @@ type AccountCenterPrototypeProps = {
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 };
 
-type CopyTradingPrototypeModalProps = {
+export type CopyTradingPrototypeModalProps = {
   apiConnection: PrototypeApiConnection;
   apiConnections: readonly PrototypeApiConnection[];
   copy: WorkspaceCopy;

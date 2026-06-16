@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { markets } from "@/app/_lib/demo-data";
@@ -83,22 +84,21 @@ import {
   WorkspaceProductTabs,
   type WorkspaceProductTab,
 } from "./signal-workspace/product-tabs";
-import {
-  AccountEntryButton,
-  AccountManagementPanel,
-  CopyTradingPrototypeModal,
-  type CopyTradingPrototypeTarget,
-  type PrototypeApiConnection,
-  type PrototypeConnectionSaveInput,
-  type PrototypeStrategy,
-  type PrototypeStrategyCreateInput,
-  type PrototypeStrategyStatus,
+import { AccountEntryButton } from "./signal-workspace/account-entry-button";
+import type {
+  CopyTradingPrototypeTarget,
+  PrototypeApiConnection,
+  PrototypeConnectionSaveInput,
+  PrototypeStrategy,
+  PrototypeStrategyCreateInput,
+  PrototypeStrategyStatus,
 } from "./signal-workspace/copy-trading-prototype";
 import { TopSignalsPanel, type PnlColorMode, type TopSignalReturnCurveState } from "./signal-workspace/top-signals-panel";
 import type { TelegramAuthMeResponse } from "@/app/_lib/auth/telegram-auth";
 import type { TradingFoxAccountResponse, TradingFoxConnector } from "@/app/_lib/tradingfox-control-plane";
 
 const MAX_VISIBLE_KOL_SIGNAL_HISTORY = 1_000;
+const PAPER_POSITION_PRIORITY_SIGNAL_LIMIT = 160;
 const NOTIFICATION_DISMISS_MS = 6_500;
 const KOL_SIGNAL_POLL_INTERVAL_MS = 30_000;
 const TOP_SIGNALS_POLL_INTERVAL_MS = 60_000;
@@ -127,6 +127,14 @@ const WORKSPACE_TAB_ROUTE_SEGMENTS: Readonly<Record<WorkspaceProductTab, string>
   topSignals: "signal",
   accountManagement: "account",
 };
+const AccountManagementPanelWithWallet = dynamic(
+  () => import("./signal-workspace/account-wallet-boundary").then((module) => module.AccountManagementPanelWithWallet),
+  { loading: () => null },
+);
+const CopyTradingPrototypeModalWithWallet = dynamic(
+  () => import("./signal-workspace/account-wallet-boundary").then((module) => module.CopyTradingPrototypeModalWithWallet),
+  { loading: () => null },
+);
 
 type WorkspaceNotificationKind = "error" | "info" | "success";
 
@@ -246,13 +254,25 @@ export function SignalWorkspace({
   const isAccountManagementTab = activeProductTab === "accountManagement";
   const shouldUsePaperPositions = !isTopSignalsTab && !isAccountManagementTab;
   const kolSignals = useMemo(() => sortSignalsForKolPanel(signals), [signals]);
-  const paperPositionSignals = useMemo(
-    () => shouldUsePaperPositions ? signals : EMPTY_STRUCTURED_SIGNALS,
-    [shouldUsePaperPositions, signals],
-  );
   const watchlistedKolSourceKeys = useMemo(
     () => new Set(watchlist.kolSources.map((source) => source.key)),
     [watchlist.kolSources],
+  );
+  const paperPositionSignals = useMemo(
+    () => createPrioritizedPaperPositionSignals({
+      activeProductTab,
+      activeSignal,
+      signals: kolSignals,
+      shouldUsePaperPositions,
+      watchlistedKolSourceKeys,
+    }),
+    [
+      activeProductTab,
+      activeSignal,
+      kolSignals,
+      shouldUsePaperPositions,
+      watchlistedKolSourceKeys,
+    ],
   );
   const watchlistedTopSignalSourceIds = useMemo(
     () => new Set(watchlist.topSignalSources.map((source) => source.id)),
@@ -1933,7 +1953,7 @@ export function SignalWorkspace({
             )}
           </section>
         ) : isAccountManagementTab ? (
-          <AccountManagementPanel
+          <AccountManagementPanelWithWallet
             apiConnection={prototypeApiConnection}
             apiConnections={prototypeApiConnections}
             availableSignalSources={copyTradingSignalSourceTargets}
@@ -2010,17 +2030,19 @@ export function SignalWorkspace({
           onTradeSelect={handleTopSignalTradeSelect}
         />
       ) : null}
-      <CopyTradingPrototypeModal
-        key={copyTradingTarget?.trader.trader_id ?? "empty"}
-        apiConnection={prototypeApiConnection}
-        apiConnections={prototypeApiConnections}
-        copy={copy}
-        isDarkTheme={isDarkTheme}
-        strategies={prototypeStrategyList}
-        target={copyTradingTarget}
-        onClose={() => setCopyTradingTarget(null)}
-        onStart={handlePrototypeStrategyStart}
-      />
+      {copyTradingTarget ? (
+        <CopyTradingPrototypeModalWithWallet
+          key={copyTradingTarget.trader.trader_id}
+          apiConnection={prototypeApiConnection}
+          apiConnections={prototypeApiConnections}
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          strategies={prototypeStrategyList}
+          target={copyTradingTarget}
+          onClose={() => setCopyTradingTarget(null)}
+          onStart={handlePrototypeStrategyStart}
+        />
+      ) : null}
       <OnboardingGuide
         copy={copy.onboarding}
         isCompactLayout={isCompactLayout}
@@ -2127,6 +2149,68 @@ function compareCopyTradingPrototypeTargets(
     || right.positionsCount - left.positionsCount
     || right.eventsCount - left.eventsCount
     || left.trader.name.localeCompare(right.trader.name);
+}
+
+function createPrioritizedPaperPositionSignals({
+  activeProductTab,
+  activeSignal,
+  signals,
+  shouldUsePaperPositions,
+  watchlistedKolSourceKeys,
+}: {
+  activeProductTab: WorkspaceProductTab;
+  activeSignal: StructuredSignal | null;
+  signals: readonly StructuredSignal[];
+  shouldUsePaperPositions: boolean;
+  watchlistedKolSourceKeys: ReadonlySet<string>;
+}): readonly StructuredSignal[] {
+  if (!shouldUsePaperPositions) {
+    return EMPTY_STRUCTURED_SIGNALS;
+  }
+
+  if (activeProductTab === "kolFollow") {
+    return signals.slice(0, PAPER_POSITION_PRIORITY_SIGNAL_LIMIT);
+  }
+
+  /**
+   * Paper-position simulation is the expensive realtime path: it fetches 1m
+   * candles and recomputes lifecycle state as live prices move. Prioritizing the
+   * selected card, watched KOLs, and recent feed keeps the visible workspace
+   * accurate without opening candle streams for the full seven-day history.
+   */
+  const prioritizedSignals: StructuredSignal[] = [];
+  const selectedSignalIds = new Set<string>();
+  const addSignal = (signal: StructuredSignal | null | undefined) => {
+    if (!signal || selectedSignalIds.has(signal.id)) {
+      return;
+    }
+
+    selectedSignalIds.add(signal.id);
+    prioritizedSignals.push(signal);
+  };
+
+  addSignal(activeSignal);
+
+  for (const signal of signals) {
+    if (prioritizedSignals.length >= PAPER_POSITION_PRIORITY_SIGNAL_LIMIT) {
+      break;
+    }
+
+    const sourceKey = createKolSourceWatchKey(signal.source_name);
+    if (watchlistedKolSourceKeys.has(sourceKey)) {
+      addSignal(signal);
+    }
+  }
+
+  for (const signal of signals) {
+    if (prioritizedSignals.length >= PAPER_POSITION_PRIORITY_SIGNAL_LIMIT) {
+      break;
+    }
+
+    addSignal(signal);
+  }
+
+  return prioritizedSignals;
 }
 
 function createMarioPrototypeStrategy(
