@@ -251,9 +251,6 @@ export function AccountCenterPrototype({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-black tracking-tight">{accountCopy.drawer.title}</h2>
-                  <p className={isDarkTheme ? "mt-1 text-sm leading-5 text-slate-400" : "mt-1 text-sm leading-5 text-slate-600"}>
-                    {accountCopy.drawer.description}
-                  </p>
                 </div>
                 <button
                   aria-label={copy.common.close}
@@ -306,7 +303,7 @@ export function AccountCenterPrototype({
                       <div>
                         <h3 className="text-sm font-black">{accountCopy.api.title}</h3>
                         <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>
-                          {hasApiConnections ? accountCopy.api.connectedDescription : accountCopy.api.emptyDescription}
+                          {accountCopy.api.connectedCount(apiConnections.length)}
                         </p>
                       </div>
                       <span className={hasApiConnections
@@ -460,7 +457,7 @@ export function AccountManagementPanel({
     {
       key: "api",
       label: accountCopy.tabs.api,
-      meta: hasApiConnections ? accountCopy.api.connected : accountCopy.api.empty,
+      meta: accountCopy.api.connectedCount(apiConnections.length),
     },
     {
       key: "notifications",
@@ -488,9 +485,6 @@ export function AccountManagementPanel({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h1 className="text-2xl font-black tracking-tight">{accountCopy.drawer.title}</h1>
-              <p className={isDarkTheme ? "mt-2 max-w-2xl text-sm leading-6 text-slate-400" : "mt-2 max-w-2xl text-sm leading-6 text-slate-600"}>
-                {accountCopy.drawer.description}
-              </p>
             </div>
             {telegramUser ? (
               <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onLogout}>
@@ -552,7 +546,7 @@ export function AccountManagementPanel({
                   <div>
                     <h2 className="text-base font-black">{accountCopy.tabs.api}</h2>
                     <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>
-                      {hasApiConnections ? accountCopy.api.connectedDescription : accountCopy.api.emptyDescription}
+                      {accountCopy.api.connectedCount(apiConnections.length)}
                     </p>
                   </div>
                   <span className={hasApiConnections

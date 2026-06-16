@@ -166,6 +166,7 @@ const zh = {
         addAction: "新增交易所账户",
         bindAction: "新增交易所账户",
         connected: "已连接",
+        connectedCount: (count: number) => `已连接 ${count} 个 API`,
         connectedDescription: "已绑定的交易所 API（包含真实和 Mock），可用于跟单策略。",
         deleteAction: "删除",
         deleteBlockedByStrategy: "这个 API 账户仍有策略在使用，请先删除对应策略后再删除账户。",
@@ -261,7 +262,6 @@ const zh = {
       },
       drawer: {
         connectedAccounts: "已连接账户",
-        description: "管理 API 连接和一键跟单策略。",
         openAccount: "打开账户中心",
         riskNote: "100% 等比跟随会按账户比例映射仓位；真实执行前还需要完整风控和交易确认。",
         title: "账户中心",
@@ -923,6 +923,7 @@ const en: WorkspaceCopy = {
         addAction: "Add exchange account",
         bindAction: "Add exchange account",
         connected: "Connected",
+        connectedCount: (count) => `${count} APIs connected`,
         connectedDescription: "Bound exchange APIs, including live and mock accounts, are available for copy-trading strategies.",
         deleteAction: "Delete",
         deleteBlockedByStrategy: "This API account is still used by a strategy. Delete the strategy before deleting the account.",
@@ -1018,7 +1019,6 @@ const en: WorkspaceCopy = {
       },
       drawer: {
         connectedAccounts: "Connected accounts",
-        description: "Manage API connections and one-click copy strategies.",
         openAccount: "Open account center",
         riskNote: "100% proportional following maps positions by account ratio; real execution still needs full risk controls.",
         title: "Account Center",
