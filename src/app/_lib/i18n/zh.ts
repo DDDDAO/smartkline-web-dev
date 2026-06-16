@@ -771,4 +771,3 @@ export const zh = {
     themeSwitchToLight: "切换到浅色模式",
   },
 } as const;
-
