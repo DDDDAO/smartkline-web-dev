@@ -222,6 +222,7 @@ export function SignalWorkspace({
   const [authMe, setAuthMe] = useState<TelegramAuthMeResponse>(LOGGED_OUT_AUTH_ME);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isTradingFoxLoading, setIsTradingFoxLoading] = useState(false);
+  const [isTradingFoxAccountLoaded, setIsTradingFoxAccountLoaded] = useState(false);
   const [isApiSetupOpen, setIsApiSetupOpen] = useState(false);
   const [prototypeApiConnections, setPrototypeApiConnections] = useState<PrototypeApiConnection[]>([]);
   const prototypeApiConnection = prototypeApiConnections[0] ?? createEmptyPrototypeApiConnection();
@@ -255,6 +256,7 @@ export function SignalWorkspace({
     signals[0] ??
     null;
   const isIntelTab = activeProductTab === "intel";
+  const isKolFollowTab = activeProductTab === "kolFollow";
   const isTopSignalsTab = activeProductTab === "topSignals";
   const isStrategySquareTab = activeProductTab === "strategySquare";
   const isAccountManagementTab = activeProductTab === "accountManagement";
@@ -347,6 +349,7 @@ export function SignalWorkspace({
     () => createTopSignalsSignalBiasSummary(topSignalsSnapshot, symbol),
     [symbol, topSignalsSnapshot],
   );
+  const shouldLoadKolSignals = isProductTabHydrated && (isIntelTab || isKolFollowTab);
   const shouldLoadTopSignalsSnapshot = isTopSignalsTab || isAccountManagementTab;
 
   const {
@@ -454,6 +457,7 @@ export function SignalWorkspace({
       });
     } finally {
       setAuthMe(LOGGED_OUT_AUTH_ME);
+      setIsTradingFoxAccountLoaded(false);
       setPrototypeApiConnections([]);
       setPrototypeStrategies([]);
       setPrototypeMarioStrategies([]);
@@ -463,6 +467,7 @@ export function SignalWorkspace({
     const connectors = account.connectors ?? (account.connector ? [account.connector] : []);
     setPrototypeApiConnections(connectors.map((connector) => mapTradingFoxConnectorToPrototypeConnection(connector, language)));
     setPrototypeStrategies(account.strategies);
+    setIsTradingFoxAccountLoaded(true);
   }, [language]);
 
   useEffect(() => {
@@ -588,8 +593,13 @@ export function SignalWorkspace({
       }
 
       if (!authMe.isLoggedIn) {
+        setIsTradingFoxAccountLoaded(false);
         setPrototypeApiConnections([]);
         setPrototypeStrategies([]);
+        return;
+      }
+
+      if (!isAccountManagementTab || isTradingFoxAccountLoaded) {
         return;
       }
 
@@ -621,7 +631,7 @@ export function SignalWorkspace({
     return () => {
       isMounted = false;
     };
-  }, [applyTradingFoxAccount, authMe.isLoggedIn, isAuthLoading]);
+  }, [applyTradingFoxAccount, authMe.isLoggedIn, isAccountManagementTab, isAuthLoading, isTradingFoxAccountLoaded]);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -857,7 +867,7 @@ export function SignalWorkspace({
   }, [workspaceNotification]);
 
   useEffect(() => {
-    if (hasEvaluatedAutoOnboardingRef.current || !isWorkspaceMotionVisible || kolSignalSourceStatus.isLoading) {
+    if (!isIntelTab || hasEvaluatedAutoOnboardingRef.current || !isWorkspaceMotionVisible || kolSignalSourceStatus.isLoading) {
       return;
     }
 
@@ -868,7 +878,7 @@ export function SignalWorkspace({
 
     const timeoutId = window.setTimeout(startOnboardingGuide, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [isWorkspaceMotionVisible, kolSignalSourceStatus.isLoading, startOnboardingGuide]);
+  }, [isIntelTab, isWorkspaceMotionVisible, kolSignalSourceStatus.isLoading, startOnboardingGuide]);
 
   useEffect(() => {
     let isActive = true;
@@ -898,6 +908,10 @@ export function SignalWorkspace({
   }, []);
 
   useEffect(() => {
+    if (!shouldLoadKolSignals) {
+      return;
+    }
+
     let isActive = true;
     let isPolling = false;
     let pollingIntervalId: number | null = null;
@@ -1025,7 +1039,7 @@ export function SignalWorkspace({
         window.clearInterval(pollingIntervalId);
       }
     };
-  }, []);
+  }, [shouldLoadKolSignals]);
 
   useEffect(() => {
     if (!shouldLoadTopSignalsSnapshot) {
@@ -1363,9 +1377,41 @@ export function SignalWorkspace({
     });
   }, []);
 
-  const handleCopyTradingRequest = useCallback((target: CopyTradingPrototypeTarget) => {
+  const handleCopyTradingRequest = useCallback(async (target: CopyTradingPrototypeTarget) => {
     if (!authMe.isLoggedIn) {
       startTelegramLogin();
+      return;
+    }
+
+    if (!isTradingFoxAccountLoaded) {
+      setIsTradingFoxLoading(true);
+      try {
+        const account = await requestTradingFoxAccount("/api/tradingfox/account");
+        const connectors = account.connectors ?? (account.connector ? [account.connector] : []);
+        const nextApiConnection = connectors
+          .map((connector) => mapTradingFoxConnectorToPrototypeConnection(connector, language))[0]
+          ?? createEmptyPrototypeApiConnection();
+        applyTradingFoxAccount(account);
+
+        if (nextApiConnection.status !== "connected") {
+          setPendingCopyTradingTarget(target);
+          handleProductTabChange("accountManagement");
+          setIsApiSetupOpen(true);
+          return;
+        }
+
+        setCopyTradingTarget(target);
+      } catch (error) {
+        setWorkspaceNotification({
+          id: `tradingfox-account-error-${Date.now()}`,
+          kind: "error",
+          message: getTradingFoxErrorMessage(error, copyRef.current),
+          meta: "TradingFox",
+          title: copyRef.current.workspace.accountCenter.api.title,
+        });
+      } finally {
+        setIsTradingFoxLoading(false);
+      }
       return;
     }
 
@@ -1377,7 +1423,7 @@ export function SignalWorkspace({
     }
 
     setCopyTradingTarget(target);
-  }, [authMe.isLoggedIn, handleProductTabChange, prototypeApiConnection.status, startTelegramLogin]);
+  }, [applyTradingFoxAccount, authMe.isLoggedIn, handleProductTabChange, isTradingFoxAccountLoaded, language, prototypeApiConnection.status, startTelegramLogin]);
 
   const handleMockStrategyCopy = useCallback((strategyName: string) => {
     setWorkspaceNotification({
