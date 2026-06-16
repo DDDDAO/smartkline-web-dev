@@ -64,6 +64,7 @@ const STRATEGY_TYPE_FILTERS: readonly StrategySquareTypeFilter[] = [
 const SORT_KEYS: readonly StrategySquareSortKey[] = ["profit", "returnRate", "drawdown", "newest"];
 const STRATEGY_WINDOWS: readonly StrategySquareWindow[] = ["7d", "30d", "90d"];
 const ALL_PROJECTS_PAGE_SIZE = 20;
+const RECOMMENDED_STRATEGY_LIMIT = 3;
 const WINDOW_METRIC_MULTIPLIERS: Readonly<Record<StrategySquareWindow, {
   drawdown: number;
   profit: number;
@@ -1097,24 +1098,8 @@ function createRecommendationSections(
       featuredMetric: "profit",
       key: "highPnl",
       sortKey: "profit",
-      strategies: strategies.slice().sort((left, right) => right.metrics.profit30dUsd - left.metrics.profit30dUsd).slice(0, 4),
+      strategies: strategies.slice().sort((left, right) => right.metrics.profit30dUsd - left.metrics.profit30dUsd).slice(0, RECOMMENDED_STRATEGY_LIMIT),
       title: panelCopy.rankings.highPnl,
-    },
-    {
-      description: panelCopy.metrics.returnRate,
-      featuredMetric: "returnRate",
-      key: "highReturn",
-      sortKey: "returnRate",
-      strategies: strategies.slice().sort((left, right) => compareNullableDesc(left.metrics.returnRate, right.metrics.returnRate)).slice(0, 4),
-      title: panelCopy.rankings.topReturn,
-    },
-    {
-      description: panelCopy.metrics.maxDrawdown30d,
-      featuredMetric: "drawdown",
-      key: "lowDrawdown",
-      sortKey: "drawdown",
-      strategies: strategies.slice().sort((left, right) => compareNullableAsc(left.metrics.maxDrawdown, right.metrics.maxDrawdown)).slice(0, 4),
-      title: panelCopy.rankings.lowDrawdown,
     },
   ];
 }
