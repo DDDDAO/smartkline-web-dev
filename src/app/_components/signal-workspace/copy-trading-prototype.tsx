@@ -1256,7 +1256,7 @@ function ApiConnectionCard({
   const exchange = getConnectionExchange(apiConnection);
 
   return (
-    <div className={isDarkTheme ? "rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.06] p-3" : "rounded-3xl border border-emerald-100 bg-emerald-50/70 p-3"}>
+    <div className={isDarkTheme ? "rounded-3xl border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-3xl border border-[#E5EAF0] bg-white p-3 shadow-sm"}>
       <div className="flex items-start gap-3">
         <AccountConnectionExchangeIcon
           exchange={exchange}
@@ -1266,8 +1266,11 @@ function ApiConnectionCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <div className="truncate text-sm font-black">{apiConnection.accountName}</div>
+              <div className="truncate text-sm font-black">{apiConnection.accountName}</div>
+              <div className={isDarkTheme ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-slate-500"}>
+                #{apiConnection.id} · {accountCopy.api.updatedAt}: {apiConnection.connectedAtLabel || "--"}
+              </div>
+              <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
                 {apiConnection.isMock ? (
                   <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
                     {accountCopy.api.mockBadge}
@@ -1279,7 +1282,7 @@ function ApiConnectionCard({
                   </span>
                 ) : null}
                 {apiConnection.bindingLabel && !apiConnection.isMock ? (
-                  <span className={isDarkTheme ? "rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-slate-300" : "rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-600"}>
+                  <span className={isDarkTheme ? "rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-slate-300" : "rounded-full bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-black text-slate-600"}>
                     {apiConnection.bindingLabel}
                   </span>
                 ) : null}
@@ -1312,9 +1315,6 @@ function ApiConnectionCard({
               </div>
             </div>
           ) : null}
-          <div className={isDarkTheme ? "mt-3 text-xs text-emerald-200/70" : "mt-3 text-xs text-emerald-700/75"}>
-            #{apiConnection.id} · {accountCopy.api.updatedAt}: {apiConnection.connectedAtLabel || "--"}
-          </div>
         </div>
       </div>
     </div>
