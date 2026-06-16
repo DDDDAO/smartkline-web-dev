@@ -1,40 +1,39 @@
-import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { COPY_TRADING_RADAR_TRADE_LIMIT, isActiveCopyTradingTrader } from "@/app/_lib/copy-trading-radar-api";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { isActiveCopyTradingTrader } from "@/app/_lib/copy-trading-radar-api";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { PriceColorMode } from "@/app/_components/kline-chart/types";
 import type { CopyTradingPrototypeTarget } from "./copy-trading-prototype";
 import type {
   CopyTradingDirection,
   CopyTradingEvent,
-  CopyTradingEventType,
   CopyTradingPosition,
   CopyTradingRadarSnapshot,
   CopyTradingReturnCurvePoint,
-  CopyTradingRiskLevel,
   CopyTradingTrader,
 } from "@/app/_types/copy-trading";
 import type { KolSignalSourceStatus } from "./types";
 import { FavoriteStarButton, SignalField, SourceAvatar, SymbolIcon } from "./card-ui";
 
 export type PnlColorMode = PriceColorMode;
-
-export type TopSignalReturnCurveState = {
-  error: string | null;
-  hasLoaded: boolean;
-  isLoading: boolean;
-  points: CopyTradingReturnCurvePoint[];
-  updatedAt: string | null;
-};
+export type TopSignalPerformanceWindow = "7d" | "30d" | "90d" | "180d";
+export type TopSignalSortKey =
+  | "aum"
+  | "copierPnl"
+  | "followers"
+  | "maxDrawdown"
+  | "pnl"
+  | "roi"
+  | "sharpeRatio";
 
 type TopSignalsPanelProps = {
   activeSourceId: string;
-  activeTradeEventId: string;
   copy: WorkspaceCopy;
   headerAction?: ReactNode;
   isDarkTheme: boolean;
+  performanceWindow: TopSignalPerformanceWindow;
   pnlColorMode: PnlColorMode;
-  returnCurvesBySourceId?: Readonly<Record<string, TopSignalReturnCurveState>>;
   snapshot: CopyTradingRadarSnapshot | null;
+  sortKey: TopSignalSortKey;
   sourceFilterId: string;
   sourceStatus: KolSignalSourceStatus;
   variant?: "desktop" | "mobileSheet";
@@ -44,14 +43,8 @@ type TopSignalsPanelProps = {
   onSourceSelect: (sourceId: string) => void;
   onSourceWatchToggle?: (trader: CopyTradingTrader) => void;
   onCopyTradingRequest?: (target: CopyTradingPrototypeTarget) => void;
-  onReturnCurveLoad?: (trader: CopyTradingTrader) => Promise<void>;
-  onTradeHistoryLoadMore?: (input: {
-    limit: number;
-    offset: number;
-    positions: readonly CopyTradingPosition[];
-    trader: CopyTradingTrader;
-  }) => Promise<{ hasMore: boolean; returnedCount: number }>;
-  onTradeSelect: (event: CopyTradingEvent) => void;
+  onPerformanceWindowChange: (window: TopSignalPerformanceWindow) => void;
+  onSortKeyChange: (sortKey: TopSignalSortKey) => void;
 };
 
 type TopSignalSourceModel = {
@@ -62,11 +55,8 @@ type TopSignalSourceModel = {
 
 const COMPACT_POSITION_ROWS_PER_SOURCE_CARD = 10;
 const EXPANDED_POSITION_ROWS_PER_PAGE = 100;
-const TRADE_EVENT_ROWS_PER_PAGE = 100;
-const TOP_SIGNAL_FACE_SWAP_BACK_ROWS_DELAY_MS = 80;
 const TOP_SIGNAL_ACTIVE_CARD_SCROLL_GAP_PX = 8;
-const TOP_SIGNAL_ACTIVE_TRADE_SPOTLIGHT_MS = 1_800;
-const EXPANDED_HISTORY_CARD_MIN_HEIGHT = "clamp(420px, 68vh, 680px)";
+const EXPANDED_POSITION_CARD_MIN_HEIGHT = "clamp(420px, 68vh, 680px)";
 const RETURN_CURVE_MAX_RENDER_POINTS = 160;
 const RETURN_CURVE_SVG_HEIGHT = 92;
 const RETURN_CURVE_SVG_WIDTH = 320;
@@ -78,15 +68,26 @@ const SMARTKLINE_SOURCE_AVATAR_STYLE: CSSProperties = {
   backgroundSize: "72%",
 };
 
+const TOP_SIGNAL_PERFORMANCE_WINDOWS: readonly TopSignalPerformanceWindow[] = ["7d", "30d", "90d", "180d"];
+const TOP_SIGNAL_SORT_OPTIONS: readonly TopSignalSortKey[] = [
+  "pnl",
+  "roi",
+  "maxDrawdown",
+  "aum",
+  "followers",
+  "copierPnl",
+  "sharpeRatio",
+];
+
 export function TopSignalsPanel({
   activeSourceId,
-  activeTradeEventId,
   copy,
   headerAction,
   isDarkTheme,
+  performanceWindow,
   pnlColorMode,
-  returnCurvesBySourceId,
   snapshot,
+  sortKey,
   sourceFilterId,
   sourceStatus,
   variant = "desktop",
@@ -96,27 +97,20 @@ export function TopSignalsPanel({
   onSourceSelect,
   onSourceWatchToggle,
   onCopyTradingRequest,
-  onReturnCurveLoad,
-  onTradeHistoryLoadMore,
-  onTradeSelect,
+  onPerformanceWindowChange,
+  onSortKeyChange,
 }: TopSignalsPanelProps) {
   const [flippedSourceIds, setFlippedSourceIds] = useState<ReadonlySet<string>>(() => new Set());
   const [positionPageOffsetsBySourceId, setPositionPageOffsetsBySourceId] = useState<Readonly<Record<string, number>>>(() => ({}));
-  const [tradePageOffsetsBySourceId, setTradePageOffsetsBySourceId] = useState<Readonly<Record<string, number>>>(() => ({}));
-  const [exhaustedTradeHistorySourceIds, setExhaustedTradeHistorySourceIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [loadingTradeHistorySourceIds, setLoadingTradeHistorySourceIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [spotlightTradeEventId, setSpotlightTradeEventId] = useState("");
   const panelScrollRef = useRef<HTMLDivElement | null>(null);
   const sourceCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const tradeListRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const tradeRowRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-  const spotlightClearTimeoutRef = useRef<number | null>(null);
   const models = useMemo(() => createTopSignalSourceModels(snapshot), [snapshot]);
   const activeModels = useMemo(() => models.filter((model) => isActiveCopyTradingTrader(model.trader)), [models]);
-  const filteredModels = useMemo(() => filterTopSignalSourceModelsBySource(activeModels, sourceFilterId), [activeModels, sourceFilterId]);
+  const sortedActiveModels = useMemo(() => sortTopSignalSourceModels(activeModels, sortKey), [activeModels, sortKey]);
+  const filteredModels = useMemo(() => filterTopSignalSourceModelsBySource(sortedActiveModels, sourceFilterId), [sortedActiveModels, sourceFilterId]);
   const watchedModels = useMemo(
-    () => activeModels.filter((model) => watchlistedSourceIds?.has(model.trader.trader_id)).slice(0, 8),
-    [activeModels, watchlistedSourceIds],
+    () => sortedActiveModels.filter((model) => watchlistedSourceIds?.has(model.trader.trader_id)).slice(0, 8),
+    [sortedActiveModels, watchlistedSourceIds],
   );
   const isMobileSheet = variant === "mobileSheet";
   const panelCopy = copy.workspace.topSignals;
@@ -138,30 +132,6 @@ export function TopSignalsPanel({
 
     sourceCardRefs.current.delete(sourceId);
   }, []);
-  const rememberTradeRowElement = useCallback((eventId: string, element: HTMLButtonElement | null) => {
-    if (element) {
-      tradeRowRefs.current.set(eventId, element);
-      return;
-    }
-
-    tradeRowRefs.current.delete(eventId);
-  }, []);
-  const rememberTradeListElement = useCallback((sourceId: string, element: HTMLDivElement | null) => {
-    if (element) {
-      tradeListRefs.current.set(sourceId, element);
-      return;
-    }
-
-    tradeListRefs.current.delete(sourceId);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (spotlightClearTimeoutRef.current !== null) {
-        window.clearTimeout(spotlightClearTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const toggleSourceFlip = (input: {
     isFlipped: boolean;
@@ -169,9 +139,6 @@ export function TopSignalsPanel({
   }) => {
     const { isFlipped, sourceId } = input;
     onSourceSelect(sourceId);
-    if (sourceFilterId === "all" && !isFlipped) {
-      onSourceFilterChange(sourceId);
-    }
 
     setFlippedSourceIds((currentSourceIds) => {
       const nextSourceIds = new Set(currentSourceIds);
@@ -216,163 +183,25 @@ export function TopSignalsPanel({
       };
     });
   };
-  const showPreviousTradePage = (model: TopSignalSourceModel) => {
-    const sourceId = model.trader.trader_id;
-    setTradePageOffsetsBySourceId((currentOffsetsBySourceId) => {
-      const currentOffset = getSafePageOffset(currentOffsetsBySourceId[sourceId] ?? 0, model.events.length, TRADE_EVENT_ROWS_PER_PAGE);
-      const nextOffset = Math.max(0, currentOffset - TRADE_EVENT_ROWS_PER_PAGE);
-      if (nextOffset === currentOffset) {
-        return currentOffsetsBySourceId;
-      }
-
-      return {
-        ...currentOffsetsBySourceId,
-        [sourceId]: nextOffset,
-      };
-    });
-  };
-  const showNextTradePage = async (model: TopSignalSourceModel) => {
-    const sourceId = model.trader.trader_id;
-    const currentOffset = getSafePageOffset(tradePageOffsetsBySourceId[sourceId] ?? 0, model.events.length, TRADE_EVENT_ROWS_PER_PAGE);
-    const nextOffset = currentOffset + TRADE_EVENT_ROWS_PER_PAGE;
-    const shouldRequestNextPage = Boolean(onTradeHistoryLoadMore)
-      && nextOffset >= model.events.length
-      && model.events.length >= COPY_TRADING_RADAR_TRADE_LIMIT
-      && !exhaustedTradeHistorySourceIds.has(sourceId)
-      && !loadingTradeHistorySourceIds.has(sourceId);
-
-    if (!shouldRequestNextPage) {
-      setTradePageOffsetsBySourceId((currentOffsetsBySourceId) => {
-        const safeCurrentOffset = getSafePageOffset(currentOffsetsBySourceId[sourceId] ?? 0, model.events.length, TRADE_EVENT_ROWS_PER_PAGE);
-        const safeNextOffset = Math.min(
-          getSafePageOffset(model.events.length - 1, model.events.length, TRADE_EVENT_ROWS_PER_PAGE),
-          safeCurrentOffset + TRADE_EVENT_ROWS_PER_PAGE,
-        );
-        if (safeNextOffset === safeCurrentOffset) {
-          return currentOffsetsBySourceId;
-        }
-
-        return {
-          ...currentOffsetsBySourceId,
-          [sourceId]: safeNextOffset,
-        };
-      });
-      return;
-    }
-
-    setLoadingTradeHistorySourceIds((currentSourceIds) => new Set(currentSourceIds).add(sourceId));
-    try {
-      const page = await onTradeHistoryLoadMore?.({
-        limit: TRADE_EVENT_ROWS_PER_PAGE,
-        offset: model.events.length,
-        positions: model.positions,
-        trader: model.trader,
-      });
-      if (!page?.hasMore) {
-        setExhaustedTradeHistorySourceIds((currentSourceIds) => new Set(currentSourceIds).add(sourceId));
-      }
-      if ((page?.returnedCount ?? 0) > 0) {
-        setTradePageOffsetsBySourceId((currentOffsetsBySourceId) => ({
-          ...currentOffsetsBySourceId,
-          [sourceId]: nextOffset,
-        }));
-      }
-    } finally {
-      setLoadingTradeHistorySourceIds((currentSourceIds) => {
-        const nextSourceIds = new Set(currentSourceIds);
-        nextSourceIds.delete(sourceId);
-        return nextSourceIds;
-      });
-    }
-  };
-
   useEffect(() => {
-    if (!activeSourceId || !activeTradeEventId) {
+    if (!activeSourceId) {
       return;
     }
 
-    const activeModel = activeModels.find((model) => model.trader.trader_id === activeSourceId);
-    const activeEventIndex = activeModel?.events.findIndex((event) => event.event_id === activeTradeEventId) ?? -1;
-    if (activeEventIndex < 0) {
-      return;
-    }
-
-    const nextOffset = Math.floor(activeEventIndex / TRADE_EVENT_ROWS_PER_PAGE) * TRADE_EVENT_ROWS_PER_PAGE;
-    const timeoutId = window.setTimeout(() => {
-      setTradePageOffsetsBySourceId((currentOffsetsBySourceId) => {
-        if ((currentOffsetsBySourceId[activeSourceId] ?? 0) === nextOffset) {
-          return currentOffsetsBySourceId;
-        }
-
-        return {
-          ...currentOffsetsBySourceId,
-          [activeSourceId]: nextOffset,
-        };
-      });
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [activeModels, activeSourceId, activeTradeEventId]);
-
-  useEffect(() => {
-    if (!activeTradeEventId) {
-      return;
-    }
-
-    const frameIds: number[] = [];
-    const timeoutIds: number[] = [];
-    const requestScrollFrame = (callback: FrameRequestCallback) => {
-      const frameId = window.requestAnimationFrame(callback);
-      frameIds.push(frameId);
-    };
-    const requestTimeout = (callback: () => void, delay: number) => {
-      const timeoutId = window.setTimeout(callback, delay);
-      timeoutIds.push(timeoutId);
-    };
-    const scrollToActiveTrade = () => {
+    const frameId = window.requestAnimationFrame(() => {
       const sourceCard = sourceCardRefs.current.get(activeSourceId);
-      if (sourceCard) {
-        scrollElementIntoContainer(panelScrollRef.current, sourceCard, {
-          block: "start",
-          offset: TOP_SIGNAL_ACTIVE_CARD_SCROLL_GAP_PX,
-        });
+      if (!sourceCard) {
+        return;
       }
 
-      requestScrollFrame(() => {
-        const tradeRow = tradeRowRefs.current.get(activeTradeEventId);
-        if (!tradeRow) {
-          return;
-        }
-
-        const tradeList = tradeListRefs.current.get(activeSourceId);
-        if (tradeList?.contains(tradeRow)) {
-          scrollElementIntoContainer(tradeList, tradeRow, { block: "center" });
-        } else {
-          tradeRow.scrollIntoView({ block: "center", inline: "nearest" });
-        }
-
+      scrollElementIntoContainer(panelScrollRef.current, sourceCard, {
+        block: "start",
+        offset: TOP_SIGNAL_ACTIVE_CARD_SCROLL_GAP_PX,
       });
-    };
+    });
 
-    requestTimeout(() => {
-      requestScrollFrame(scrollToActiveTrade);
-    }, TOP_SIGNAL_FACE_SWAP_BACK_ROWS_DELAY_MS + 40);
-    requestTimeout(() => {
-      setSpotlightTradeEventId(activeTradeEventId);
-      if (spotlightClearTimeoutRef.current !== null) {
-        window.clearTimeout(spotlightClearTimeoutRef.current);
-      }
-      spotlightClearTimeoutRef.current = window.setTimeout(() => {
-        setSpotlightTradeEventId((currentTradeEventId) =>
-          currentTradeEventId === activeTradeEventId ? "" : currentTradeEventId,
-        );
-        spotlightClearTimeoutRef.current = null;
-      }, TOP_SIGNAL_ACTIVE_TRADE_SPOTLIGHT_MS);
-    }, TOP_SIGNAL_FACE_SWAP_BACK_ROWS_DELAY_MS + 120);
-    return () => {
-      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      frameIds.forEach((frameId) => window.cancelAnimationFrame(frameId));
-    };
-  }, [activeSourceId, activeTradeEventId, filteredModels.length, sourceFilterId]);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [activeSourceId, filteredModels.length, sourceFilterId]);
 
   return (
     <aside className={shellClassName}>
@@ -409,6 +238,16 @@ export function TopSignalsPanel({
             onSourceChange={onSourceFilterChange}
           />
         ) : null}
+        {activeModels.length > 0 ? (
+          <TopSignalPerformanceToolbar
+            copy={copy}
+            isDarkTheme={isDarkTheme}
+            performanceWindow={performanceWindow}
+            sortKey={sortKey}
+            onPerformanceWindowChange={onPerformanceWindowChange}
+            onSortKeyChange={onSortKeyChange}
+          />
+        ) : null}
         {watchedModels.length > 0 ? (
           <WatchedTopSignalSources
             copy={copy}
@@ -423,10 +262,6 @@ export function TopSignalsPanel({
                 return;
               }
 
-              const latestEvent = model.events[0] ?? null;
-              if (latestEvent) {
-                onTradeSelect(latestEvent);
-              }
             }}
           />
         ) : null}
@@ -450,52 +285,35 @@ export function TopSignalsPanel({
         ) : null}
         {filteredModels.map((model) => {
           const isActive = model.trader.trader_id === activeSourceId;
-          const isLocallyFlipped = sourceFilterId !== "all" && flippedSourceIds.has(model.trader.trader_id);
-          const isForcedFlipped = Boolean(activeTradeEventId) && isActive && !isLocallyFlipped;
-          const isFlipped = isLocallyFlipped || isForcedFlipped;
+          const isFlipped = flippedSourceIds.has(model.trader.trader_id);
           return (
             <TopSignalSourceCard
               key={model.trader.trader_id}
-              activeTradeEventId={activeTradeEventId}
               cardRef={(element) => rememberSourceCardElement(model.trader.trader_id, element)}
               copy={copy}
+              expandPositionList={sourceFilterId !== "all" && filteredModels.length === 1}
               isActive={isActive}
               isDarkTheme={isDarkTheme}
               isFlipped={isFlipped}
               isWatchlisted={watchlistedSourceIds?.has(model.trader.trader_id) ?? false}
-              pnlColorMode={pnlColorMode}
-              canLoadMoreRemoteTrades={Boolean(onTradeHistoryLoadMore)
-                && model.events.length >= COPY_TRADING_RADAR_TRADE_LIMIT
-                && !exhaustedTradeHistorySourceIds.has(model.trader.trader_id)}
-              expandPositionList={sourceFilterId !== "all" && filteredModels.length === 1}
-              isLoadingMoreTrades={loadingTradeHistorySourceIds.has(model.trader.trader_id)}
               model={model}
+              performanceWindow={performanceWindow}
+              pnlColorMode={pnlColorMode}
               positionPageOffset={positionPageOffsetsBySourceId[model.trader.trader_id] ?? 0}
-              spotlightTradeEventId={spotlightTradeEventId}
-              returnCurveState={returnCurvesBySourceId?.[model.trader.trader_id] ?? null}
-              tradePageOffset={tradePageOffsetsBySourceId[model.trader.trader_id] ?? 0}
-              onFlipToggle={() => toggleSourceFlip({
-                isFlipped,
-                sourceId: model.trader.trader_id,
-              })}
               onCardSelect={() => onSourceSelect(model.trader.trader_id)}
-              onPositionSelect={onPositionSelect}
-              onNextPositionPage={() => showNextPositionPage(model)}
-              onNextTradePage={() => {
-                void showNextTradePage(model).catch(() => undefined);
-              }}
-              onPreviousPositionPage={() => showPreviousPositionPage(model)}
-              onPreviousTradePage={() => showPreviousTradePage(model)}
-              onTradeListMount={(element) => rememberTradeListElement(model.trader.trader_id, element)}
-              onTradeRowMount={rememberTradeRowElement}
-              onWatchToggle={onSourceWatchToggle ? () => onSourceWatchToggle(model.trader) : undefined}
               onCopyTradingRequest={onCopyTradingRequest ? () => onCopyTradingRequest({
                 eventsCount: model.events.length,
                 positionsCount: model.positions.length,
                 trader: model.trader,
               }) : undefined}
-              onReturnCurveLoad={onReturnCurveLoad ? () => onReturnCurveLoad(model.trader) : undefined}
-              onTradeSelect={onTradeSelect}
+              onFlipToggle={() => toggleSourceFlip({
+                isFlipped,
+                sourceId: model.trader.trader_id,
+              })}
+              onNextPositionPage={() => showNextPositionPage(model)}
+              onPositionSelect={onPositionSelect}
+              onPreviousPositionPage={() => showPreviousPositionPage(model)}
+              onWatchToggle={onSourceWatchToggle ? () => onSourceWatchToggle(model.trader) : undefined}
             />
           );
         })}
@@ -674,6 +492,78 @@ function SourceFilterOption({
   );
 }
 
+function TopSignalPerformanceToolbar({
+  copy,
+  isDarkTheme,
+  performanceWindow,
+  sortKey,
+  onPerformanceWindowChange,
+  onSortKeyChange,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  performanceWindow: TopSignalPerformanceWindow;
+  sortKey: TopSignalSortKey;
+  onPerformanceWindowChange: (window: TopSignalPerformanceWindow) => void;
+  onSortKeyChange: (sortKey: TopSignalSortKey) => void;
+}) {
+  const panelCopy = copy.workspace.topSignals;
+  const shellClassName = isDarkTheme
+    ? "rounded-[20px] border border-white/[0.075] bg-[#181A20] p-3"
+    : "rounded-[20px] border border-[#E5EAF0] bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
+  const labelClassName = isDarkTheme
+    ? "text-[10px] font-black uppercase tracking-[0.12em] text-slate-500"
+    : "text-[10px] font-black uppercase tracking-[0.12em] text-slate-400";
+  const selectClassName = isDarkTheme
+    ? "h-9 rounded-2xl border border-white/[0.075] bg-[#0F131A] px-3 text-xs font-bold text-slate-100 outline-none transition focus:border-sky-400/45"
+    : "h-9 rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC] px-3 text-xs font-bold text-slate-800 outline-none transition focus:border-[#7DD7FA]";
+
+  return (
+    <section className={shellClassName}>
+      <div className="grid gap-3">
+        <div>
+          <div className={labelClassName}>{panelCopy.performanceWindow}</div>
+          <div className="mt-2 grid grid-cols-4 gap-1.5">
+            {TOP_SIGNAL_PERFORMANCE_WINDOWS.map((window) => {
+              const isActive = window === performanceWindow;
+              const buttonClassName = isActive
+                ? "rounded-2xl bg-[#00A6F4] px-2.5 py-2 text-xs font-black text-white shadow-[0_10px_22px_rgba(0,166,244,0.20)]"
+                : isDarkTheme
+                  ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-2.5 py-2 text-xs font-bold text-slate-300 transition hover:bg-white/[0.065]"
+                  : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-2.5 py-2 text-xs font-bold text-slate-600 transition hover:border-[#B7E8FC] hover:bg-[#F4FBFF]";
+              return (
+                <button
+                  key={window}
+                  aria-pressed={isActive}
+                  className={buttonClassName}
+                  type="button"
+                  onClick={() => onPerformanceWindowChange(window)}
+                >
+                  {panelCopy.performanceWindows[window]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <label className="grid gap-2">
+          <span className={labelClassName}>{panelCopy.sortBy}</span>
+          <select
+            className={selectClassName}
+            value={sortKey}
+            onChange={(event) => onSortKeyChange(event.target.value as TopSignalSortKey)}
+          >
+            {TOP_SIGNAL_SORT_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {panelCopy.sortOptions[option]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
+
 function SmartKlineSourceAvatarMini({
   isActive,
   isDarkTheme,
@@ -799,72 +689,69 @@ function WatchedTopSignalSources({
 }
 
 function TopSignalSourceCard({
-  activeTradeEventId,
-  canLoadMoreRemoteTrades,
   cardRef,
   copy,
+  expandPositionList,
   isActive,
   isDarkTheme,
-  expandPositionList,
   isFlipped,
-  isLoadingMoreTrades,
   isWatchlisted,
   model,
+  performanceWindow,
   pnlColorMode,
   positionPageOffset,
-  returnCurveState,
-  spotlightTradeEventId,
-  tradePageOffset,
-  onFlipToggle,
   onCardSelect,
-  onPositionSelect,
-  onNextPositionPage,
-  onNextTradePage,
-  onPreviousPositionPage,
-  onPreviousTradePage,
-  onTradeListMount,
-  onTradeRowMount,
-  onWatchToggle,
   onCopyTradingRequest,
-  onReturnCurveLoad,
-  onTradeSelect,
+  onFlipToggle,
+  onNextPositionPage,
+  onPositionSelect,
+  onPreviousPositionPage,
+  onWatchToggle,
 }: {
-  activeTradeEventId: string;
-  canLoadMoreRemoteTrades: boolean;
   cardRef?: (element: HTMLDivElement | null) => void;
   copy: WorkspaceCopy;
+  expandPositionList: boolean;
   isActive: boolean;
   isDarkTheme: boolean;
-  expandPositionList: boolean;
   isFlipped: boolean;
-  isLoadingMoreTrades: boolean;
   isWatchlisted: boolean;
   model: TopSignalSourceModel;
+  performanceWindow: TopSignalPerformanceWindow;
   pnlColorMode: PnlColorMode;
   positionPageOffset: number;
-  returnCurveState: TopSignalReturnCurveState | null;
-  spotlightTradeEventId: string;
-  tradePageOffset: number;
-  onFlipToggle: () => void;
   onCardSelect: () => void;
-  onPositionSelect: (position: CopyTradingPosition) => void;
-  onNextPositionPage: () => void;
-  onNextTradePage: () => void;
-  onPreviousPositionPage: () => void;
-  onPreviousTradePage: () => void;
-  onTradeListMount?: (element: HTMLDivElement | null) => void;
-  onTradeRowMount?: (eventId: string, element: HTMLButtonElement | null) => void;
-  onWatchToggle?: () => void;
   onCopyTradingRequest?: () => void;
-  onReturnCurveLoad?: () => Promise<void>;
-  onTradeSelect: (event: CopyTradingEvent) => void;
+  onFlipToggle: () => void;
+  onNextPositionPage: () => void;
+  onPositionSelect: (position: CopyTradingPosition) => void;
+  onPreviousPositionPage: () => void;
+  onWatchToggle?: () => void;
 }) {
   const panelCopy = copy.workspace.topSignals;
-  const cardClassName = getTopSignalCardClassName(isDarkTheme, isActive, model.positions.length > 0 ? "live" : model.events.length > 0 ? "pending" : "muted");
+  const performance = model.trader.performance;
+  const cardClassName = getTopSignalCardClassName(isDarkTheme, isActive, performance ? "live" : model.positions.length > 0 ? "pending" : "muted");
   const backCardClassName = getTopSignalCardBackClassName(isDarkTheme);
+  const frontFaceRef = useRef<HTMLDivElement | null>(null);
+  const [lockedCardHeight, setLockedCardHeight] = useState<number | null>(null);
+  const shouldLockCardHeight = !expandPositionList;
+  const lockedCardHeightStyle = getTopSignalCardHeightStyle({
+    expandPositionList,
+    isFlipped,
+    lockedCardHeight,
+    shouldLockCardHeight,
+  });
+  const positionScrollAreaClassName = isDarkTheme ? "kol-scroll-area kol-scroll-area-dark" : "kol-scroll-area";
   const positionListClassName = expandPositionList
-    ? "grid gap-2 overflow-visible"
-    : "kol-scroll-area grid max-h-[246px] gap-2 overflow-x-hidden overflow-y-auto pr-1";
+    ? `${positionScrollAreaClassName} grid min-h-0 flex-1 gap-2 overflow-x-hidden overflow-y-auto pr-1`
+    : `${positionScrollAreaClassName} grid max-h-[246px] gap-2 overflow-x-hidden overflow-y-auto pr-1`;
+  const positionsCardClassName = expandPositionList
+    ? isDarkTheme
+      ? "mt-3 flex min-h-0 flex-1 flex-col rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
+      : "mt-3 flex min-h-0 flex-1 flex-col rounded-2xl border border-[#E5EAF0] bg-white p-3"
+    : isDarkTheme
+      ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
+      : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3";
+  const positionsBodyClassName = expandPositionList ? "mt-2 flex min-h-0 flex-1 flex-col gap-2" : "mt-2 grid gap-2";
   const positionPageSize = expandPositionList ? EXPANDED_POSITION_ROWS_PER_PAGE : COMPACT_POSITION_ROWS_PER_SOURCE_CARD;
   const safePositionPageOffset = expandPositionList
     ? getSafePageOffset(positionPageOffset, model.positions.length, EXPANDED_POSITION_ROWS_PER_PAGE)
@@ -875,30 +762,6 @@ function TopSignalSourceCard({
   const shouldShowPositionPagination = hasPreviousPositionPage || hasNextPositionPage;
   const shouldShowCompactPositionNotice = !expandPositionList && model.positions.length > COMPACT_POSITION_ROWS_PER_SOURCE_CARD;
   const positionPageRange = createPageRangeLabel(safePositionPageOffset, visiblePositions.length, model.positions.length);
-  const safeTradePageOffset = getSafePageOffset(tradePageOffset, model.events.length, TRADE_EVENT_ROWS_PER_PAGE);
-  const visibleEvents = selectVisibleTradeEvents(model.events, safeTradePageOffset, TRADE_EVENT_ROWS_PER_PAGE);
-  const hasPreviousTradePage = safeTradePageOffset > 0;
-  const hasLoadedNextTradePage = safeTradePageOffset + TRADE_EVENT_ROWS_PER_PAGE < model.events.length;
-  const canLoadNextRemoteTradePage = canLoadMoreRemoteTrades && safeTradePageOffset + TRADE_EVENT_ROWS_PER_PAGE >= model.events.length;
-  const shouldShowTradePagination = hasPreviousTradePage || hasLoadedNextTradePage || canLoadNextRemoteTradePage;
-  const tradePageRange = createPageRangeLabel(safeTradePageOffset, visibleEvents.length, model.events.length);
-  const nextTradePageLabel = isLoadingMoreTrades
-    ? panelCopy.loadingMoreTrades
-    : canLoadNextRemoteTradePage && !hasLoadedNextTradePage
-      ? panelCopy.loadMoreTradeHistory
-      : panelCopy.nextTradesPage;
-  const shouldRenderFrontRows = !isFlipped;
-  const frontFaceRef = useRef<HTMLDivElement | null>(null);
-  const deferredIsFlipped = useDeferredValue(isFlipped);
-  const [lockedCardHeight, setLockedCardHeight] = useState<number | null>(null);
-  const shouldLockCardHeight = !expandPositionList;
-  const shouldRenderBackRows = isFlipped && (!expandPositionList || deferredIsFlipped);
-  const lockedCardHeightStyle = getTopSignalCardHeightStyle({
-    expandPositionList,
-    isFlipped,
-    lockedCardHeight,
-    shouldLockCardHeight,
-  });
   const totalNotionalValue = sumPositionNotionalValue(model.positions);
   const totalPositionMarginValue = sumPositionMarginValue(model.positions);
   const totalLeverage = calculateTotalLeverage({
@@ -908,6 +771,14 @@ function TopSignalSourceCard({
   });
   const totalUnrealizedPnlAmount = sumPositionUnrealizedPnlAmount(model.positions);
   const aggregatePnlRatio = calculateAggregatePnlRatio(totalUnrealizedPnlAmount, totalNotionalValue);
+  const shouldRenderBackRows = isFlipped;
+  const performanceAsset = performance?.copier_pnl_asset || "USDT";
+  const performanceRoi = performance?.roi ?? model.trader.monthly_return;
+  const performancePnl = performance?.pnl ?? totalUnrealizedPnlAmount;
+  const performanceFollowers = performance?.followers ?? model.trader.followers;
+  const performanceMaxDrawdown = performance?.max_drawdown ?? model.trader.max_drawdown;
+  const performanceWinRate = performance?.win_rate ?? model.trader.win_rate;
+  const performanceMarginBalance = performance?.margin_balance ?? model.trader.margin_balance;
 
   useLayoutEffect(() => {
     if (isFlipped || !shouldLockCardHeight) {
@@ -930,21 +801,7 @@ function TopSignalSourceCard({
     const resizeObserver = new ResizeObserver(updateLockedCardHeight);
     resizeObserver.observe(frontFace);
     return () => resizeObserver.disconnect();
-  }, [isFlipped, model.events.length, model.positions.length, shouldLockCardHeight]);
-
-  useEffect(() => {
-    if (!isFlipped || !onReturnCurveLoad || returnCurveState?.error || returnCurveState?.hasLoaded || returnCurveState?.isLoading) {
-      return;
-    }
-
-    void onReturnCurveLoad().catch(() => undefined);
-  }, [
-    isFlipped,
-    onReturnCurveLoad,
-    returnCurveState?.error,
-    returnCurveState?.hasLoaded,
-    returnCurveState?.isLoading,
-  ]);
+  }, [isFlipped, model.positions.length, performance, shouldLockCardHeight]);
 
   return (
     <div ref={cardRef} className="signal-card-scene will-change-transform" style={lockedCardHeightStyle}>
@@ -966,7 +823,82 @@ function TopSignalSourceCard({
         >
           <div className="motion-fx-3-front-panel flex min-w-0 flex-col">
             <SourceHeader
-              actionLabel={panelCopy.flipToHistory}
+              actionLabel={panelCopy.flipToPositions}
+              copy={copy}
+              isDarkTheme={isDarkTheme}
+              isWatchlisted={isWatchlisted}
+              model={model}
+              onActionToggle={onFlipToggle}
+              onWatchToggle={onWatchToggle}
+            />
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className={getNeutralBadgeClassName(isDarkTheme)}>
+                {panelCopy.performanceOverview}
+              </span>
+              <span className={getNeutralBadgeClassName(isDarkTheme)}>
+                {panelCopy.currentPositions}: {model.positions.length}
+              </span>
+              {performanceFollowers !== null && performanceFollowers !== undefined ? (
+                <span className={getNeutralBadgeClassName(isDarkTheme)}>
+                  {panelCopy.followers}: {formatInteger(performanceFollowers)}
+                </span>
+              ) : null}
+            </div>
+            <div className="signal-card-field-layer mt-3 grid gap-2 text-xs sm:grid-cols-2">
+              <SignalField
+                isDarkTheme={isDarkTheme}
+                label={panelCopy.roi}
+                value={formatSignedPercent(performanceRoi)}
+                valueClassName={getPnlFieldClassName(isDarkTheme, performanceRoi, pnlColorMode)}
+              />
+              <SignalField
+                isDarkTheme={isDarkTheme}
+                label={panelCopy.pnl}
+                value={formatSignedCurrency(performancePnl)}
+                valueClassName={getPnlFieldClassName(isDarkTheme, performancePnl, pnlColorMode)}
+              />
+              <SignalField
+                isDarkTheme={isDarkTheme}
+                label={panelCopy.copierPnl}
+                value={formatSignedAssetAmount(performance?.copier_pnl ?? null, performanceAsset)}
+                valueClassName={getPnlFieldClassName(isDarkTheme, performance?.copier_pnl ?? null, pnlColorMode)}
+              />
+              <SignalField isDarkTheme={isDarkTheme} label={panelCopy.sharpeRatio} value={formatDecimal(performance?.sharpe_ratio ?? null)} />
+              <SignalField isDarkTheme={isDarkTheme} label={panelCopy.maxDrawdown} value={formatPercent(performanceMaxDrawdown)} />
+              <SignalField isDarkTheme={isDarkTheme} label={panelCopy.winRate} value={formatPercent(performanceWinRate)} />
+              <SignalField isDarkTheme={isDarkTheme} label={panelCopy.aum} value={formatAssetAmount(performance?.aum ?? null, performanceAsset)} />
+              <SignalField isDarkTheme={isDarkTheme} label={panelCopy.leaderMarginBalance} value={formatAssetAmount(performanceMarginBalance, performanceAsset)} />
+            </div>
+            {!performance ? (
+              <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-[11px] font-medium text-slate-500" : "mt-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-2 text-[11px] font-medium text-slate-500"}>
+                {panelCopy.frontendSortFallbackHint}
+              </div>
+            ) : null}
+            <TopSignalPerformanceCurveCard
+              copy={copy}
+              isDarkTheme={isDarkTheme}
+              performance={performance}
+              performanceWindow={performanceWindow}
+              pnlColorMode={pnlColorMode}
+            />
+            {onCopyTradingRequest ? (
+              <TopSignalCopyTradingAction
+                copy={copy}
+                isDarkTheme={isDarkTheme}
+                onClick={onCopyTradingRequest}
+              />
+            ) : null}
+          </div>
+        </div>
+
+        <div
+          className={`${backCardClassName} motion-fx-3-card-face-back signal-card-face signal-card-back`}
+          aria-hidden={!isFlipped}
+          style={lockedCardHeightStyle}
+        >
+          <div className="motion-fx-3-back-panel flex h-full min-h-0 flex-col">
+            <SourceHeader
+              actionLabel={panelCopy.flipToPerformance}
               copy={copy}
               isDarkTheme={isDarkTheme}
               isWatchlisted={isWatchlisted}
@@ -979,11 +911,10 @@ function TopSignalSourceCard({
                 {panelCopy.currentPositions}: {model.positions.length}
               </span>
               <span className={getNeutralBadgeClassName(isDarkTheme)}>
-                {panelCopy.tradeHistory}: {model.events.length}
+                {panelCopy.margin}: {formatAssetAmount(model.trader.margin_balance, performanceAsset)}
               </span>
             </div>
             <div className="signal-card-field-layer mt-3 grid gap-2 text-xs sm:grid-cols-2">
-              <SignalField isDarkTheme={isDarkTheme} label={panelCopy.margin} value={formatCurrency(model.trader.margin_balance)} />
               <SignalField isDarkTheme={isDarkTheme} label={panelCopy.notional} value={formatCurrency(totalNotionalValue)} />
               <SignalField isDarkTheme={isDarkTheme} label={panelCopy.totalLeverage} value={formatLeverage(totalLeverage)} />
               <SignalField
@@ -992,14 +923,15 @@ function TopSignalSourceCard({
                 value={formatPnlWithRatio(totalUnrealizedPnlAmount, aggregatePnlRatio)}
                 valueClassName={getPnlFieldClassName(isDarkTheme, totalUnrealizedPnlAmount, pnlColorMode)}
               />
+              <SignalField isDarkTheme={isDarkTheme} label={panelCopy.positionCount} value={formatInteger(model.positions.length)} />
             </div>
-            <div className={isDarkTheme ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3"}>
+            <div className={positionsCardClassName}>
               <div className="flex items-center justify-between gap-3">
                 <span className={isDarkTheme ? "text-xs font-bold text-slate-100" : "text-xs font-bold text-slate-900"}>{panelCopy.currentPositions}</span>
                 <span className={isDarkTheme ? "text-[10px] font-medium text-slate-500" : "text-[10px] font-medium text-slate-400"}>{panelCopy.positionHint}</span>
               </div>
-              <div className="mt-2 grid gap-2">
-                {model.positions.length > 0 && shouldRenderFrontRows ? (
+              <div className={positionsBodyClassName}>
+                {model.positions.length > 0 && shouldRenderBackRows ? (
                   <div className={positionListClassName}>
                     {visiblePositions.map((position) => (
                       <PositionRow
@@ -1014,15 +946,15 @@ function TopSignalSourceCard({
                   </div>
                 ) : model.positions.length > 0 ? null : (
                   <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-3 text-xs text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-white px-3 py-3 text-xs text-slate-500"}>
-                    {model.events.length > 0 ? panelCopy.historyOnly : panelCopy.noPositions}
+                    {panelCopy.noPositions}
                   </div>
                 )}
-                {shouldRenderFrontRows && shouldShowCompactPositionNotice ? (
+                {shouldRenderBackRows && shouldShowCompactPositionNotice ? (
                   <div className={isDarkTheme ? "rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-[11px] font-medium text-slate-500" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-2 text-[11px] font-medium text-slate-500"}>
                     {panelCopy.visiblePositionsNotice(visiblePositions.length, model.positions.length)}
                   </div>
                 ) : null}
-                {shouldRenderFrontRows && shouldShowPositionPagination ? (
+                {shouldRenderBackRows && shouldShowPositionPagination ? (
                   <RowsPaginationControls
                     canGoNext={hasNextPositionPage}
                     canGoPrevious={hasPreviousPositionPage}
@@ -1045,109 +977,36 @@ function TopSignalSourceCard({
             ) : null}
           </div>
         </div>
-
-        <div
-          className={`${backCardClassName} motion-fx-3-card-face-back signal-card-face signal-card-back`}
-          aria-hidden={!isFlipped}
-          style={lockedCardHeightStyle}
-        >
-          <div className="motion-fx-3-back-panel flex h-full min-h-0 flex-col">
-            <SourceHeader
-              actionLabel={panelCopy.flipToPositions}
-              copy={copy}
-              isDarkTheme={isDarkTheme}
-              isWatchlisted={isWatchlisted}
-              model={model}
-              onActionToggle={onFlipToggle}
-              onWatchToggle={onWatchToggle}
-            />
-            <SignalReturnCurveCard
-              canLoad={Boolean(onReturnCurveLoad)}
-              copy={copy}
-              isDarkTheme={isDarkTheme}
-              pnlColorMode={pnlColorMode}
-              state={returnCurveState}
-            />
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <span className={isDarkTheme ? "text-xs font-bold text-slate-100" : "text-xs font-bold text-slate-900"}>{panelCopy.tradeHistory}</span>
-              <span className={isDarkTheme ? "text-[10px] font-medium text-slate-500" : "text-[10px] font-medium text-slate-400"}>{panelCopy.tradeHint}</span>
-            </div>
-            {shouldRenderBackRows ? (
-              <div ref={onTradeListMount} className="mt-2 grid min-h-0 flex-1 gap-2 overflow-y-auto pr-1">
-                {model.events.length > 0 ? visibleEvents.map((event) => (
-                  <TradeEventRow
-                    key={event.event_id}
-                    copy={copy}
-                    event={event}
-                    isActive={event.event_id === activeTradeEventId}
-                    isDarkTheme={isDarkTheme}
-                    isSpotlighted={event.event_id === spotlightTradeEventId}
-                    rowRef={(element) => onTradeRowMount?.(event.event_id, element)}
-                    onTradeSelect={onTradeSelect}
-                  />
-                )) : (
-                  <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-3 text-xs text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-white px-3 py-3 text-xs text-slate-500"}>
-                    {panelCopy.noTrades}
-                  </div>
-                )}
-                {shouldShowTradePagination ? (
-                  <RowsPaginationControls
-                    canGoNext={hasLoadedNextTradePage || canLoadNextRemoteTradePage}
-                    canGoPrevious={hasPreviousTradePage}
-                    rangeLabel={tradePageRange}
-                    nextLabel={nextTradePageLabel}
-                    previousLabel={panelCopy.previousTradesPage}
-                    isLoading={isLoadingMoreTrades}
-                    isDarkTheme={isDarkTheme}
-                    onNext={onNextTradePage}
-                    onPrevious={onPreviousTradePage}
-                  />
-                ) : null}
-              </div>
-            ) : isFlipped ? (
-              <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-3 text-xs text-slate-400" : "mt-2 rounded-2xl border border-[#E5EAF0] bg-white px-3 py-3 text-xs text-slate-500"}>
-                {copy.paper.loading}
-              </div>
-            ) : null}
-            {onCopyTradingRequest ? (
-              <TopSignalCopyTradingAction
-                copy={copy}
-                isDarkTheme={isDarkTheme}
-                onClick={onCopyTradingRequest}
-              />
-            ) : null}
-          </div>
-        </div>
       </div>
     </div>
   );
 }
 
-function SignalReturnCurveCard({
-  canLoad,
+function TopSignalPerformanceCurveCard({
   copy,
   isDarkTheme,
+  performance,
+  performanceWindow,
   pnlColorMode,
-  state,
 }: {
-  canLoad: boolean;
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
+  performance: CopyTradingTrader["performance"];
+  performanceWindow: TopSignalPerformanceWindow;
   pnlColorMode: PnlColorMode;
-  state: TopSignalReturnCurveState | null;
 }) {
   const panelCopy = copy.workspace.topSignals;
-  const points = state?.points ?? [];
+  const points = performance?.return_curve ?? [];
   const latestPoint = points.length > 0 ? points[points.length - 1] : null;
-  const isLoading = canLoad && (!state || state.isLoading);
-  const errorText = state?.error ? `${panelCopy.returnCurveError}: ${state.error}` : null;
-  const metaText = state?.updatedAt
-    ? panelCopy.updatedAt(formatDisplayTime(state.updatedAt))
-    : panelCopy.returnCurveHint;
+  const metaText = performance?.updated_at
+    ? panelCopy.updatedAt(formatDisplayTime(performance.updated_at))
+    : panelCopy.performanceHint;
   const cardClassName = isDarkTheme
     ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
     : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3";
-  const latestClassName = getPnlClassName(isDarkTheme, latestPoint?.value ?? null, pnlColorMode);
+  const latestValue = latestPoint?.value ?? performance?.roi ?? null;
+  const latestClassName = getPnlClassName(isDarkTheme, latestValue, pnlColorMode);
+  const windowLabel = panelCopy.performanceWindows[performanceWindow] ?? performance?.window ?? performanceWindow;
 
   return (
     <div className={cardClassName}>
@@ -1161,7 +1020,7 @@ function SignalReturnCurveCard({
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <div className={latestClassName}>{latestPoint ? formatSignedPercent(latestPoint.value) : "--"}</div>
+          <div className={latestClassName}>{formatSignedPercent(latestValue)}</div>
           <div className={isDarkTheme ? "mt-1 text-[10px] text-slate-500" : "mt-1 text-[10px] text-slate-400"}>
             {panelCopy.returnCurveLatest}
           </div>
@@ -1175,20 +1034,16 @@ function SignalReturnCurveCard({
             pnlColorMode={pnlColorMode}
             points={points}
           />
-        ) : isLoading ? (
-          <div className={isDarkTheme ? "flex h-full items-center justify-center rounded-xl border border-white/[0.06] bg-[#181A20] text-xs text-slate-500" : "flex h-full items-center justify-center rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] text-xs text-slate-500"}>
-            {panelCopy.returnCurveLoading}
-          </div>
         ) : (
           <div className={isDarkTheme ? "flex h-full items-center justify-center rounded-xl border border-white/[0.06] bg-[#181A20] px-3 text-center text-xs text-slate-500" : "flex h-full items-center justify-center rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 text-center text-xs text-slate-500"}>
-            {errorText ?? panelCopy.returnCurveEmpty}
+            {panelCopy.returnCurveEmpty}
           </div>
         )}
       </div>
       {points.length > 0 ? (
         <div className={isDarkTheme ? "mt-2 flex items-center justify-between gap-3 text-[10px] text-slate-500" : "mt-2 flex items-center justify-between gap-3 text-[10px] text-slate-400"}>
           <span>{formatReturnCurveDate(points[0]?.timestamp ?? null)}</span>
-          <span className="truncate">{errorText ?? panelCopy.returnCurveWindow}</span>
+          <span className="truncate">{windowLabel}</span>
           <span>{formatReturnCurveDate(latestPoint?.timestamp ?? null)}</span>
         </div>
       ) : null}
@@ -1256,14 +1111,6 @@ function TopSignalReturnCurveChart({
       ) : null}
     </svg>
   );
-}
-
-function selectVisibleTradeEvents(
-  events: readonly CopyTradingEvent[],
-  pageOffset: number,
-  pageSize: number,
-): CopyTradingEvent[] {
-  return events.slice(pageOffset, pageOffset + pageSize);
 }
 
 function sampleReturnCurvePoints(
@@ -1420,7 +1267,10 @@ function getTopSignalCardHeightStyle({
   shouldLockCardHeight: boolean;
 }): CSSProperties | undefined {
   if (expandPositionList && isFlipped) {
-    return { minHeight: EXPANDED_HISTORY_CARD_MIN_HEIGHT };
+    return {
+      height: EXPANDED_POSITION_CARD_MIN_HEIGHT,
+      minHeight: EXPANDED_POSITION_CARD_MIN_HEIGHT,
+    };
   }
 
   if (lockedCardHeight === null || !shouldLockCardHeight) {
@@ -1666,56 +1516,6 @@ function PositionRow({
   );
 }
 
-function TradeEventRow({
-  copy,
-  event,
-  isActive,
-  isDarkTheme,
-  isSpotlighted,
-  rowRef,
-  onTradeSelect,
-}: {
-  copy: WorkspaceCopy;
-  event: CopyTradingEvent;
-  isActive: boolean;
-  isDarkTheme: boolean;
-  isSpotlighted: boolean;
-  rowRef?: (element: HTMLButtonElement | null) => void;
-  onTradeSelect: (event: CopyTradingEvent) => void;
-}) {
-  const panelCopy = copy.workspace.topSignals;
-  const rowClassName = getTradeEventRowClassName(isDarkTheme, isActive, isSpotlighted, event.severity);
-
-  return (
-    <button
-      aria-current={isActive ? "true" : undefined}
-      ref={rowRef}
-      className={rowClassName}
-      type="button"
-      onClick={(clickEvent) => {
-        clickEvent.stopPropagation();
-        onTradeSelect(event);
-      }}
-    >
-      <div className="flex items-start justify-between gap-3 text-left">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className={getEventBadgeClassName(isDarkTheme, event.severity)}>{formatEventType(event.event_type, copy)}</span>
-            <span className={getDirectionBadgeClassName(isDarkTheme, event.direction)}>{formatDirection(event.direction, copy)}</span>
-            <span className={isDarkTheme ? "text-[10px] font-medium text-slate-500" : "text-[10px] font-medium text-slate-400"}>{formatDisplayTime(event.occurred_at)}</span>
-          </div>
-          <div className={isDarkTheme ? "mt-1 truncate text-xs font-black text-slate-50" : "mt-1 truncate text-xs font-black text-slate-950"}>{event.symbol}</div>
-          <p className={isDarkTheme ? "mt-1 max-h-8 overflow-hidden text-[11px] leading-4 text-slate-400" : "mt-1 max-h-8 overflow-hidden text-[11px] leading-4 text-slate-600"}>{event.summary}</p>
-        </div>
-        <div className="shrink-0 text-right">
-          <div className={isDarkTheme ? "text-xs font-black text-slate-100" : "text-xs font-black text-slate-900"}>{formatPrice(event.event_price)}</div>
-          <div className={isDarkTheme ? "mt-1 text-[10px] text-slate-500" : "mt-1 text-[10px] text-slate-400"}>{panelCopy.price}</div>
-        </div>
-      </div>
-    </button>
-  );
-}
-
 function TopSignalsStateCard({ isDarkTheme, message, statusText, title, tone }: { isDarkTheme: boolean; message: string; statusText?: string; title: string; tone: "loading" | "pending" | "risk" }) {
   const cardClassName = getTopSignalStateCardClassName(isDarkTheme, tone);
 
@@ -1755,6 +1555,48 @@ function filterTopSignalSourceModelsBySource(models: readonly TopSignalSourceMod
   }
 
   return models.filter((model) => model.trader.trader_id === sourceId);
+}
+
+function sortTopSignalSourceModels(models: readonly TopSignalSourceModel[], sortKey: TopSignalSortKey): TopSignalSourceModel[] {
+  return [...models].sort((left, right) => {
+    const leftValue = getTopSignalSortValue(left, sortKey);
+    const rightValue = getTopSignalSortValue(right, sortKey);
+    if (leftValue === null && rightValue === null) {
+      return compareSourceModels(left, right);
+    }
+    if (leftValue === null) {
+      return 1;
+    }
+    if (rightValue === null) {
+      return -1;
+    }
+    if (leftValue !== rightValue) {
+      return sortKey === "maxDrawdown" ? leftValue - rightValue : rightValue - leftValue;
+    }
+    return compareSourceModels(left, right);
+  });
+}
+
+function getTopSignalSortValue(model: TopSignalSourceModel, sortKey: TopSignalSortKey): number | null {
+  const performance = model.trader.performance;
+  switch (sortKey) {
+    case "aum":
+      return performance?.aum ?? null;
+    case "copierPnl":
+      return performance?.copier_pnl ?? null;
+    case "followers":
+      return performance?.followers ?? model.trader.followers ?? null;
+    case "maxDrawdown":
+      return performance?.max_drawdown ?? model.trader.max_drawdown ?? null;
+    case "pnl":
+      return performance?.pnl ?? sumPositionUnrealizedPnlAmount(model.positions);
+    case "roi":
+      return performance?.roi ?? model.trader.monthly_return ?? calculateSourceModelPnlRatio(model);
+    case "sharpeRatio":
+      return performance?.sharpe_ratio ?? null;
+    default:
+      return null;
+  }
 }
 
 function groupBy<T>(items: readonly T[], keyOf: (item: T) => string): Map<string, T[]> {
@@ -1886,41 +1728,6 @@ function getNeutralBadgeClassName(isDarkTheme: boolean): string {
     : "inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700";
 }
 
-function getRiskBadgeClassName(isDarkTheme: boolean, riskLevel: CopyTradingRiskLevel): string {
-  if (riskLevel === "high") {
-    return isDarkTheme ? "rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-200" : "rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700";
-  }
-
-  if (riskLevel === "medium") {
-    return isDarkTheme ? "rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold text-amber-200" : "rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700";
-  }
-
-  return isDarkTheme ? "rounded-full bg-sky-400/15 px-2 py-0.5 text-[10px] font-bold text-sky-200" : "rounded-full bg-[#EAF8FE] px-2 py-0.5 text-[10px] font-bold text-[#008DCC]";
-}
-
-function getEventBadgeClassName(isDarkTheme: boolean, riskLevel: CopyTradingRiskLevel): string {
-  return getRiskBadgeClassName(isDarkTheme, riskLevel);
-}
-
-function getTradeEventRowClassName(isDarkTheme: boolean, isActive: boolean, isSpotlighted: boolean, riskLevel: CopyTradingRiskLevel): string {
-  const activeClassName = isActive
-    ? isDarkTheme
-      ? " border-sky-300/65 bg-sky-400/12 shadow-[0_0_0_1px_rgba(56,189,248,0.16),0_10px_22px_rgba(56,189,248,0.12)] ring-1 ring-sky-300/35"
-      : " border-[#2BB9F0] bg-[#EAF8FE] shadow-[0_0_0_1px_rgba(14,165,233,0.14),0_10px_22px_rgba(14,165,233,0.16)] ring-1 ring-[#7DD7FA]/50"
-    : "";
-  const spotlightClassName = isSpotlighted
-    ? isDarkTheme
-      ? " scale-[1.01] border-sky-300/70 bg-sky-400/15 shadow-[0_0_0_1px_rgba(56,189,248,0.24),0_14px_30px_rgba(56,189,248,0.18)] ring-2 ring-sky-300/55"
-      : " scale-[1.01] border-[#2BB9F0] bg-[#EAF8FE] shadow-[0_0_0_1px_rgba(14,165,233,0.18),0_14px_30px_rgba(14,165,233,0.20)] ring-2 ring-[#7DD7FA]/65"
-    : "";
-  const riskClassName = riskLevel === "high" ? (isDarkTheme ? " hover:border-rose-400/40" : " hover:border-rose-200") : "";
-  const baseClassName = isDarkTheme
-    ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-2 transition-[transform,box-shadow,border-color,background-color] duration-300 hover:bg-white/[0.055]"
-    : "rounded-2xl border border-[#E5EAF0] bg-white px-3 py-2 transition-[transform,box-shadow,border-color,background-color] duration-300 hover:bg-[#F8FAFC]";
-
-  return `${baseClassName}${activeClassName}${spotlightClassName}${riskClassName}`;
-}
-
 function getPnlClassName(isDarkTheme: boolean, value: number | null, pnlColorMode: PnlColorMode): string {
   if (value !== null && value > 0) {
     return getPositivePnlTextClassName(isDarkTheme, pnlColorMode, "text-xs");
@@ -1977,10 +1784,6 @@ function formatDirection(direction: CopyTradingDirection, copy: WorkspaceCopy): 
   return direction === "long" ? copy.kol.directionShort.long : copy.kol.directionShort.short;
 }
 
-function formatEventType(eventType: CopyTradingEventType, copy: WorkspaceCopy): string {
-  return copy.workspace.topSignals.eventTypes[eventType] ?? eventType;
-}
-
 function formatCurrency(value: number | null): string {
   if (value === null || !Number.isFinite(value)) {
     return "--";
@@ -2000,6 +1803,43 @@ function formatSignedCurrency(value: number | null): string {
 
   const prefix = value > 0 ? "+" : "-";
   return `${prefix}$${formatCompactNumber(Math.abs(value))}`;
+}
+
+function formatAssetAmount(value: number | null, asset: string): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  return `${formatCompactNumber(value)} ${asset}`;
+}
+
+function formatSignedAssetAmount(value: number | null, asset: string): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  if (value === 0) {
+    return `0 ${asset}`;
+  }
+
+  const prefix = value > 0 ? "+" : "-";
+  return `${prefix}${formatCompactNumber(Math.abs(value))} ${asset}`;
+}
+
+function formatDecimal(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  return value.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+}
+
+function formatInteger(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  return Math.round(value).toLocaleString("en-US");
 }
 
 function formatLeverage(value: number | null): string {
@@ -2042,16 +1882,20 @@ function formatCompactNumber(value: number): string {
   });
 }
 
-function formatPercent(value: number): string {
-  if (!Number.isFinite(value)) {
+function formatPercent(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
     return "--";
   }
 
-  return `${(value * 100).toFixed(1)}%`;
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+    style: "percent",
+  }).format(value);
 }
 
-function formatSignedPercent(value: number): string {
-  if (!Number.isFinite(value)) {
+function formatSignedPercent(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
     return "--";
   }
 

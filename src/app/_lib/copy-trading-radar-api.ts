@@ -14,6 +14,7 @@ import type {
   CopyTradingTradeMarker,
   CopyTradingTradeMarkerSide,
   CopyTradingTrader,
+  CopyTradingTraderPerformance,
   EquityEtfSignal,
 } from "@/app/_types/copy-trading";
 
@@ -205,6 +206,30 @@ type SignalCenterReturnCurveResponse = {
   window?: string | null;
 };
 
+type SignalCenterRadarSourcePerformance = {
+  aum?: number | string | null;
+  copierPnl?: number | string | null;
+  copier_pnl?: number | string | null;
+  copierPnlAsset?: string | null;
+  copier_pnl_asset?: string | null;
+  followers?: number | string | null;
+  marginBalance?: number | string | null;
+  margin_balance?: number | string | null;
+  maxDrawdown?: number | string | null;
+  max_drawdown?: number | string | null;
+  pnl?: number | string | null;
+  returnCurve?: SignalCenterReturnCurvePoint[] | null;
+  return_curve?: SignalCenterReturnCurvePoint[] | null;
+  roi?: number | string | null;
+  sharpeRatio?: number | string | null;
+  sharpe_ratio?: number | string | null;
+  updatedAt?: string | null;
+  updated_at?: string | null;
+  winRate?: number | string | null;
+  win_rate?: number | string | null;
+  window?: string | null;
+};
+
 export type CopyTradingTradeHistoryPage = {
   events: CopyTradingEvent[];
   hasMore: boolean;
@@ -213,6 +238,7 @@ export type CopyTradingTradeHistoryPage = {
 };
 
 type SignalCenterRadarSourceRuntime = {
+  performance?: SignalCenterRadarSourcePerformance | null;
   positions?: SignalCenterPositionSnapshot[] | null;
   source?: SignalCenterSignalSource | null;
   trades?: SignalCenterTradeEvent[] | null;
@@ -232,6 +258,7 @@ type SignalCenterRadarSnapshotResponse = {
 };
 
 type SourceRuntimeData = {
+  performance: SignalCenterRadarSourcePerformance | null;
   positions: SignalCenterPositionSnapshot[];
   source: SignalCenterSignalSource;
   trades: SignalCenterTradeEvent[];
@@ -266,9 +293,25 @@ type MockTradeBlueprint = {
   symbol: string;
 };
 
-export async function fetchCopyTradingRadarSnapshot(): Promise<CopyTradingRadarSnapshot> {
+export async function fetchCopyTradingRadarSnapshot({
+  includePerformance = false,
+  performanceWindow = "30d",
+}: {
+  includePerformance?: boolean;
+  performanceWindow?: CopyTradingReturnCurveWindow | string;
+} = {}): Promise<CopyTradingRadarSnapshot> {
+  const radarParams = new URLSearchParams({
+    includeSkipped: "false",
+    sourceLimit: String(COPY_TRADING_RADAR_SOURCE_LIMIT),
+    tradeLimit: String(COPY_TRADING_RADAR_TRADE_LIMIT),
+  });
+  if (includePerformance) {
+    radarParams.set("includePerformance", "true");
+    radarParams.set("window", performanceWindow);
+  }
+
   try {
-    const radarResponse = await requestSignalCenterJson<SignalCenterRadarSnapshotResponse>(`/v1/copy-trading-radar?sourceLimit=${COPY_TRADING_RADAR_SOURCE_LIMIT}&tradeLimit=${COPY_TRADING_RADAR_TRADE_LIMIT}&includeSkipped=false`);
+    const radarResponse = await requestSignalCenterJson<SignalCenterRadarSnapshotResponse>(`/v1/copy-trading-radar?${radarParams.toString()}`);
     const runtimeData = normalizeRadarRuntimeData(radarResponse.sources ?? []);
     return adaptSignalCenterRuntimeData(runtimeData, radarResponse.updatedAt ?? undefined);
   } catch {
@@ -347,17 +390,7 @@ export async function fetchCopyTradingSourceReturnCurve({
 function adaptSignalCenterReturnCurvePoints(
   response: SignalCenterReturnCurveResponse,
 ): CopyTradingReturnCurvePoint[] {
-  const points = readSignalCenterReturnCurvePointList(response)
-    .flatMap((point) => {
-      const timestamp = readSignalCenterReturnCurveTimestamp(point);
-      const value = readSignalCenterReturnCurveValue(point);
-      if (timestamp === null || value === null) {
-        return [];
-      }
-
-      return [{ timestamp, value }];
-    })
-    .sort((left, right) => left.timestamp - right.timestamp);
+  const points = adaptSignalCenterReturnCurvePointList(readSignalCenterReturnCurvePointList(response));
 
   return trimLeadingFlatReturnCurvePoints(points);
 }
@@ -548,7 +581,8 @@ function createMockSignalCenterRuntimeData(input: {
     tradesBySource.set(trade.sourceId, sourceTrades);
   }
 
-  return MOCK_SIGNAL_CENTER_SOURCES.map((source) => ({
+  return MOCK_SIGNAL_CENTER_SOURCES.map((source, index) => ({
+    performance: createMockSignalCenterPerformance(source.id, index, input.now),
     source: {
       ...source,
       positionsSyncedTime: formatDateTimeWithUtc8Offset(input.now),
@@ -556,6 +590,60 @@ function createMockSignalCenterRuntimeData(input: {
     positions: positionsBySource.get(source.id) ?? [],
     trades: tradesBySource.get(source.id) ?? [],
   }));
+}
+
+function createMockSignalCenterPerformance(
+  sourceId: string,
+  index: number,
+  now: Date,
+): SignalCenterRadarSourcePerformance {
+  const baseRoi = [3.7551, 1.2842, -0.1864][index] ?? 0.42;
+  const basePnl = [1_001_149.15, 286_420.8, -48_120.35][index] ?? 72_000;
+  const copierPnl = [-368_486.11, 92_144.2, -12_908.4][index] ?? 18_000;
+  const maxDrawdown = [0.6172, 0.284, 0.196][index] ?? 0.22;
+  const winRate = [0.65, 0.58, 0.47][index] ?? 0.55;
+  const aum = [1_089_278.35, 624_900.5, 218_730.1][index] ?? 300_000;
+  const marginBalance = [319_031.54, 128_000, 58_000][index] ?? 80_000;
+  const followers = [182, 74, 23][index] ?? 12;
+  const sharpRatio = [1.55, 1.18, 0.42][index] ?? 0.8;
+
+  return {
+    aum,
+    copierPnl,
+    copierPnlAsset: "USDT",
+    followers,
+    marginBalance,
+    maxDrawdown,
+    pnl: basePnl,
+    returnCurve: createMockReturnCurvePoints({ now, sourceId, targetRoi: baseRoi }),
+    roi: baseRoi,
+    sharpeRatio: sharpRatio,
+    updatedAt: formatDateTimeWithUtc8Offset(now),
+    winRate,
+    window: "30d",
+  };
+}
+
+function createMockReturnCurvePoints({
+  now,
+  sourceId,
+  targetRoi,
+}: {
+  now: Date;
+  sourceId: string;
+  targetRoi: number;
+}): SignalCenterReturnCurvePoint[] {
+  const seed = stableSeed(sourceId);
+  const pointCount = 30;
+  return Array.from({ length: pointCount }, (_, index) => {
+    const progress = index / (pointCount - 1);
+    const wave = Math.sin((seed % 9) + progress * Math.PI * 3) * 0.045;
+    const drawdown = index > pointCount * 0.42 && index < pointCount * 0.58 ? -Math.abs(targetRoi) * 0.1 : 0;
+    return {
+      timestamp: now.getTime() - (pointCount - 1 - index) * 24 * 60 * 60 * 1_000,
+      value: targetRoi * progress + wave + drawdown,
+    };
+  });
 }
 
 function createMockPositionBlueprints(): MockPositionBlueprint[] {
@@ -772,6 +860,7 @@ async function loadSourceRuntimeData(source: SignalCenterSignalSource): Promise<
   ]);
 
   return {
+    performance: null,
     source,
     positions: positionsResponse.positions ?? [],
     trades: tradesResponse.trades ?? [],
@@ -789,6 +878,7 @@ function normalizeRadarRuntimeData(runtimeSources: readonly SignalCenterRadarSou
       return [];
     }
     return [{
+      performance: runtimeSource.performance ?? null,
       source: runtimeSource.source,
       positions: runtimeSource.positions ?? [],
       trades: filterDisplayableSignalCenterTrades(runtimeSource.trades ?? []),
@@ -803,7 +893,7 @@ function adaptSignalCenterRuntimeData(
   const updatedAtDate = updatedAtSource instanceof Date ? updatedAtSource : new Date(updatedAtSource);
   const safeUpdatedAtDate = Number.isFinite(updatedAtDate.getTime()) ? updatedAtDate : new Date();
   const updatedAt = normalizeTimestamp(safeUpdatedAtDate.toISOString());
-  const traders = runtimeData.map(({ positions, source, trades }, index) => adaptSignalCenterTrader(source, positions, trades, index));
+  const traders = runtimeData.map(({ performance, positions, source, trades }, index) => adaptSignalCenterTrader(source, positions, trades, performance, index));
   const positions = runtimeData.flatMap(({ positions: snapshots, source }) =>
     adaptSignalCenterPositions(source, snapshots),
   );
@@ -823,6 +913,7 @@ function adaptSignalCenterTrader(
   source: SignalCenterSignalSource,
   positions: readonly SignalCenterPositionSnapshot[],
   trades: readonly SignalCenterTradeEvent[],
+  performance: SignalCenterRadarSourcePerformance | null,
   index: number,
 ): CopyTradingTrader {
   const seed = stableSeed(source.id || source.name || String(index));
@@ -832,23 +923,65 @@ function adaptSignalCenterTrader(
   const visiblePositionCount = positions.filter((position) => Math.abs(parseNumber(position.qty) ?? 0) > 0).length;
   const riskLevel = sourceStatus !== "ACTIVE" ? "high" : visiblePositionCount >= 4 ? "high" : visiblePositionCount >= 2 ? "medium" : "low";
   const marginBalance = parseNumber(source.margin);
+  const normalizedPerformance = adaptSignalCenterSourcePerformance(performance);
 
   return {
     trader_id: source.id,
     name: source.name || source.id,
     platform: source.signalType === SMART_MONEY_SIGNAL_TYPE ? DEFAULT_TRADER_PLATFORM : source.signalType || "Signal Center",
     avatar: source.avatarUrl ?? createAvatarDataUrl(source.name || source.id, seed % 360),
-    followers: 0,
-    margin_balance: marginBalance,
+    followers: normalizedPerformance?.followers ?? 0,
+    margin_balance: normalizedPerformance?.margin_balance ?? marginBalance,
     positions_synced_at: source.positionsSyncedTime ? normalizeTimestamp(source.positionsSyncedTime) : null,
     source_url: source.url ?? null,
     status: sourceStatus || "UNKNOWN",
     watch_status: index < 2 ? "pinned" : "watching",
-    monthly_return: clampSignedRatio(aggregatePnl / Math.max(1, Math.abs(marginBalance ?? 1))),
-    win_rate: clampPercent(trades.length === 0 ? 0 : trades.filter((trade) => !isLossTrade(trade)).length / trades.length),
-    max_drawdown: clampPercent(0.08 + (trades.filter((trade) => isLossTrade(trade)).length % 18) / 100),
+    monthly_return: normalizedPerformance?.roi ?? clampSignedRatio(aggregatePnl / Math.max(1, Math.abs(marginBalance ?? 1))),
+    win_rate: normalizedPerformance?.win_rate ?? clampPercent(trades.length === 0 ? 0 : trades.filter((trade) => !isLossTrade(trade)).length / trades.length),
+    max_drawdown: normalizedPerformance?.max_drawdown ?? clampPercent(0.08 + (trades.filter((trade) => isLossTrade(trade)).length % 18) / 100),
     risk_level: riskLevel,
+    performance: normalizedPerformance,
   };
+}
+
+function adaptSignalCenterSourcePerformance(
+  performance: SignalCenterRadarSourcePerformance | null,
+): CopyTradingTraderPerformance | null {
+  if (!performance) {
+    return null;
+  }
+
+  return {
+    aum: parseNumber(performance.aum),
+    copier_pnl: parseNumber(performance.copierPnl ?? performance.copier_pnl),
+    copier_pnl_asset: readNonEmptyString(performance.copierPnlAsset ?? performance.copier_pnl_asset) ?? "USDT",
+    followers: parseNonNegativeInteger(performance.followers),
+    margin_balance: parseNumber(performance.marginBalance ?? performance.margin_balance),
+    max_drawdown: parseNumber(performance.maxDrawdown ?? performance.max_drawdown),
+    pnl: parseNumber(performance.pnl),
+    return_curve: adaptSignalCenterReturnCurvePointList(performance.returnCurve ?? performance.return_curve ?? []),
+    roi: parseNumber(performance.roi),
+    sharpe_ratio: parseNumber(performance.sharpeRatio ?? performance.sharpe_ratio),
+    updated_at: normalizeNullableTimestamp(performance.updatedAt ?? performance.updated_at),
+    win_rate: parseNumber(performance.winRate ?? performance.win_rate),
+    window: readNonEmptyString(performance.window) ?? "30d",
+  };
+}
+
+function adaptSignalCenterReturnCurvePointList(
+  points: readonly SignalCenterReturnCurvePoint[],
+): CopyTradingReturnCurvePoint[] {
+  return points
+    .flatMap((point) => {
+      const timestamp = readSignalCenterReturnCurveTimestamp(point);
+      const value = readSignalCenterReturnCurveValue(point);
+      if (timestamp === null || value === null) {
+        return [];
+      }
+
+      return [{ timestamp, value }];
+    })
+    .sort((left, right) => left.timestamp - right.timestamp);
 }
 
 function createSignalCenterSourceFromTrader(trader: CopyTradingTrader): SignalCenterSignalSource {
@@ -1528,6 +1661,24 @@ function parseNumber(value: unknown): number | null {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseNonNegativeInteger(value: unknown): number | null {
+  const parsed = parseNumber(value);
+  if (parsed === null || parsed < 0) {
+    return null;
+  }
+
+  return Math.floor(parsed);
+}
+
+function readNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
 }
 
 function isFiniteNumber(value: number | null): value is number {

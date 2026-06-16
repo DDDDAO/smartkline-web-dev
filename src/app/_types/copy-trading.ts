@@ -4,6 +4,32 @@ export type CopyTradingDirection = "long" | "short";
 export type CopyTradingRiskLevel = "low" | "medium" | "high";
 export type CopyTradingWatchStatus = "pinned" | "watching" | "custom";
 export type CopyTradingPositionStatus = "holding" | "closed";
+export type CopyTradingReturnCurveWindow = "7d" | "30d" | "90d" | "180d" | "all";
+
+export type CopyTradingReturnCurvePoint = {
+  timestamp: number;
+  /**
+   * Signal Center normalizes return-curve values as ratios so the card can
+   * share the workspace percent formatter. For example, 0.1234 is +12.34%.
+   */
+  value: number;
+};
+
+export type CopyTradingTraderPerformance = {
+  aum: number | null;
+  copier_pnl: number | null;
+  copier_pnl_asset: string;
+  followers: number | null;
+  margin_balance: number | null;
+  max_drawdown: number | null;
+  pnl: number | null;
+  return_curve: CopyTradingReturnCurvePoint[];
+  roi: number | null;
+  sharpe_ratio: number | null;
+  updated_at: string | null;
+  win_rate: number | null;
+  window: CopyTradingReturnCurveWindow | string;
+};
 
 export type CopyTradingTrader = {
   trader_id: string;
@@ -20,6 +46,7 @@ export type CopyTradingTrader = {
   win_rate: number;
   max_drawdown: number;
   risk_level: CopyTradingRiskLevel;
+  performance: CopyTradingTraderPerformance | null;
 };
 
 export type CopyTradingPosition = {
@@ -88,17 +115,6 @@ export type CopyTradingRadarSnapshot = {
   events: CopyTradingEvent[];
   equity_etf_signals: EquityEtfSignal[];
   updated_at: string;
-};
-
-export type CopyTradingReturnCurveWindow = "7d" | "30d" | "90d" | "all";
-
-export type CopyTradingReturnCurvePoint = {
-  timestamp: number;
-  /**
-   * Signal Center normalizes return-curve values as ratios so the card can
-   * share the workspace percent formatter. For example, 0.1234 is +12.34%.
-   */
-  value: number;
 };
 
 export type CopyTradingReturnCurve = {
