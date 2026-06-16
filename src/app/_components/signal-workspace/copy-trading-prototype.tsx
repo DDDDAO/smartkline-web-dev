@@ -151,6 +151,7 @@ const KlineChart = dynamic<KlineChartProps>(
 const HYPERLIQUID_DEPOSIT_URL = "https://app.hyperliquid.xyz/portfolio";
 type SignTypedDataAsync = ReturnType<typeof useSignTypedData>["signTypedDataAsync"];
 type WagmiSignTypedDataVariables = Parameters<SignTypedDataAsync>[0];
+type AccountManagementTab = "api" | "strategies";
 
 export type PrototypeConnectionSaveInput = {
   accountName: string;
@@ -438,7 +439,24 @@ export function AccountManagementPanel({
   const hasApiConnections = apiConnections.length > 0;
   const [isStrategyCreateOpen, setIsStrategyCreateOpen] = useState(false);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
+  const [activeAccountTab, setActiveAccountTab] = useState<AccountManagementTab>("api");
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
+  const accountTabs: readonly {
+    key: AccountManagementTab;
+    label: string;
+    meta: string;
+  }[] = [
+    {
+      key: "api",
+      label: accountCopy.tabs.api,
+      meta: hasApiConnections ? accountCopy.api.connected : accountCopy.api.empty,
+    },
+    {
+      key: "strategies",
+      label: accountCopy.tabs.strategies,
+      meta: accountCopy.strategyCreate.count(strategies.length),
+    },
+  ];
   const openStrategyDetail = (strategy: PrototypeStrategy) => {
     if (getPrototypeStrategyType(strategy) === "mario") {
       window.location.assign("/mario-dashboard");
@@ -490,72 +508,95 @@ export function AccountManagementPanel({
             onStrategyStatusChange={onStrategyStatusChange}
           />
         ) : (
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-            <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-black">{accountCopy.api.title}</h2>
-                  <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>
-                    {hasApiConnections ? accountCopy.api.connectedDescription : accountCopy.api.emptyDescription}
-                  </p>
-                </div>
-                <span className={hasApiConnections
-                  ? isDarkTheme ? "rounded-full bg-emerald-400/15 px-2.5 py-1 text-[11px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700"
-                  : isDarkTheme ? "rounded-full bg-slate-700 px-2.5 py-1 text-[11px] font-black text-slate-300" : "rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600"}
-                >
-                  {hasApiConnections ? accountCopy.api.connected : accountCopy.api.empty}
-                </span>
-              </div>
-              <div className="mt-4 grid gap-3">
-                {hasApiConnections ? apiConnections.map((connection) => (
-                  <ApiConnectionCard
-                    key={connection.id}
-                    accountCopy={accountCopy}
-                    apiConnection={connection}
-                    isDisabled={isAuthLoading}
-                    isDarkTheme={isDarkTheme}
-                    onDelete={onConnectionDelete}
-                  />
-                )) : (
-                  <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-4 text-sm leading-5 text-slate-600"}>
-                    {accountCopy.api.emptyDescription}
-                  </div>
-                )}
-                <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
-                  {accountCopy.api.addAction}
-                </button>
-              </div>
-            </section>
+          <>
+            <nav
+              aria-label={accountCopy.drawer.title}
+              className={isDarkTheme ? "grid grid-cols-2 gap-2 rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-2" : "grid grid-cols-2 gap-2 rounded-[24px] border border-[#E5EAF0] bg-[#F8FAFC] p-2"}
+            >
+              {accountTabs.map((tab) => {
+                const isActive = tab.key === activeAccountTab;
+                return (
+                  <button
+                    key={tab.key}
+                    aria-pressed={isActive}
+                    className={getAccountCenterTabButtonClassName(isDarkTheme, isActive)}
+                    type="button"
+                    onClick={() => setActiveAccountTab(tab.key)}
+                  >
+                    <span className="truncate text-sm font-black">{tab.label}</span>
+                    <span className={isActive ? "mt-0.5 truncate text-[11px] font-bold opacity-80" : "mt-0.5 truncate text-[11px] font-bold opacity-70"}>{tab.meta}</span>
+                  </button>
+                );
+              })}
+            </nav>
 
-            <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-black">{accountCopy.strategy.title}</h2>
-                  <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-400"}>{accountCopy.strategyCreate.count(strategies.length)}</div>
-                </div>
-                <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={() => setIsStrategyCreateOpen(true)}>
-                  {accountCopy.strategyCreate.action}
-                </button>
-              </div>
-              <div className="mt-3 grid gap-3">
-                {strategies.length > 0 ? strategies.map((strategy) => (
-                  <PrototypeStrategyCard
-                    key={strategy.id}
-                    copy={copy}
-                    isDarkTheme={isDarkTheme}
-                    strategy={strategy}
-                    onOpenDetail={openStrategyDetail}
-                    onStrategyDelete={onStrategyDelete}
-                    onStrategyStatusChange={onStrategyStatusChange}
-                  />
-                )) : (
-                  <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-4 text-sm leading-5 text-slate-600"}>
-                    {accountCopy.strategy.empty}
+            {activeAccountTab === "api" ? (
+              <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-black">{accountCopy.tabs.api}</h2>
+                    <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>
+                      {hasApiConnections ? accountCopy.api.connectedDescription : accountCopy.api.emptyDescription}
+                    </p>
                   </div>
-                )}
-              </div>
-            </section>
-          </div>
+                  <span className={hasApiConnections
+                    ? isDarkTheme ? "rounded-full bg-emerald-400/15 px-2.5 py-1 text-[11px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700"
+                    : isDarkTheme ? "rounded-full bg-slate-700 px-2.5 py-1 text-[11px] font-black text-slate-300" : "rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600"}
+                  >
+                    {hasApiConnections ? accountCopy.api.connected : accountCopy.api.empty}
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-3">
+                  {hasApiConnections ? apiConnections.map((connection) => (
+                    <ApiConnectionCard
+                      key={connection.id}
+                      accountCopy={accountCopy}
+                      apiConnection={connection}
+                      isDisabled={isAuthLoading}
+                      isDarkTheme={isDarkTheme}
+                      onDelete={onConnectionDelete}
+                    />
+                  )) : (
+                    <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-4 text-sm leading-5 text-slate-600"}>
+                      {accountCopy.api.emptyDescription}
+                    </div>
+                  )}
+                  <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
+                    {accountCopy.api.addAction}
+                  </button>
+                </div>
+              </section>
+            ) : (
+              <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-black">{accountCopy.tabs.strategies}</h2>
+                    <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-400"}>{accountCopy.strategyCreate.count(strategies.length)}</div>
+                  </div>
+                  <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={() => setIsStrategyCreateOpen(true)}>
+                    {accountCopy.strategyCreate.action}
+                  </button>
+                </div>
+                <div className="mt-3 grid gap-3">
+                  {strategies.length > 0 ? strategies.map((strategy) => (
+                    <PrototypeStrategyCard
+                      key={strategy.id}
+                      copy={copy}
+                      isDarkTheme={isDarkTheme}
+                      strategy={strategy}
+                      onOpenDetail={openStrategyDetail}
+                      onStrategyDelete={onStrategyDelete}
+                      onStrategyStatusChange={onStrategyStatusChange}
+                    />
+                  )) : (
+                    <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-4 text-sm leading-5 text-slate-600"}>
+                      {accountCopy.strategy.empty}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+          </>
         )}
       </div>
 
@@ -585,6 +626,7 @@ export function AccountManagementPanel({
     </section>
   );
 }
+
 
 export function CopyTradingPrototypeModal({
   apiConnection,
@@ -4450,6 +4492,20 @@ function getExchangeButtonClassName(isDarkTheme: boolean, enabled: boolean, isSe
     ? "flex min-w-[220px] cursor-not-allowed items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-500 opacity-55"
     : "flex min-w-[220px] cursor-not-allowed items-center gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-500 opacity-60";
 }
+
+function getAccountCenterTabButtonClassName(isDarkTheme: boolean, isActive: boolean): string {
+  const baseClassName = "flex min-w-0 flex-col items-start rounded-2xl px-4 py-3 text-left transition";
+  if (isActive) {
+    return isDarkTheme
+      ? `${baseClassName} border border-sky-400/25 bg-sky-400/10 text-sky-100 shadow-[0_0_0_3px_rgba(56,189,248,0.08)]`
+      : `${baseClassName} border border-[#B7E8FC] bg-white text-[#007DB8] shadow-sm`;
+  }
+
+  return isDarkTheme
+    ? `${baseClassName} border border-transparent text-slate-400 hover:border-white/[0.075] hover:bg-white/[0.055] hover:text-slate-100`
+    : `${baseClassName} border border-transparent text-slate-500 hover:border-[#D5E4EF] hover:bg-white hover:text-slate-900`;
+}
+
 
 function getSoftButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme

@@ -266,6 +266,10 @@ const zh = {
         riskNote: "100% 等比跟随会按账户比例映射仓位；真实执行前还需要完整风控和交易确认。",
         title: "账户中心",
       },
+      tabs: {
+        api: "API 管理",
+        strategies: "我的策略",
+      },
       exchanges: {
         aster: "Aster",
         binance: "Binance",
@@ -981,6 +985,10 @@ const en: WorkspaceCopy = {
         openAccount: "Open account center",
         riskNote: "100% proportional following maps positions by account ratio; real execution still needs full risk controls.",
         title: "Account Center",
+      },
+      tabs: {
+        api: "API Management",
+        strategies: "My Strategies",
       },
       exchanges: {
         aster: "Aster",
