@@ -1,6 +1,8 @@
 const DEFAULT_SIGNAL_CENTER_API_BASE_URL = "https://api.smartkline.com/signal-center";
 const SIGNAL_CENTER_API_BASE_URL = process.env.SIGNAL_CENTER_API_BASE_URL ?? DEFAULT_SIGNAL_CENTER_API_BASE_URL;
 const SIGNAL_CENTER_API_TOKEN = process.env.SIGNAL_CENTER_API_TOKEN?.trim();
+const SIGNAL_CENTER_PROXY_CACHE_CONTROL = "public, s-maxage=15, stale-while-revalidate=45";
+const SIGNAL_CENTER_PROXY_ERROR_CACHE_CONTROL = "no-store";
 
 type SignalCenterRouteContext = {
   params: Promise<{ path?: string[] }>;
@@ -22,7 +24,12 @@ async function proxySignalCenterRequest(request: Request, context: SignalCenterR
   if (isProtectedSignalCenterPath(path) && !SIGNAL_CENTER_API_TOKEN) {
     return Response.json(
       { error: "SIGNAL_CENTER_API_TOKEN is not configured on the Next.js server." },
-      { status: 503 },
+      {
+        headers: {
+          "cache-control": SIGNAL_CENTER_PROXY_ERROR_CACHE_CONTROL,
+        },
+        status: 503,
+      },
     );
   }
   if (SIGNAL_CENTER_API_TOKEN) {
@@ -39,7 +46,12 @@ async function proxySignalCenterRequest(request: Request, context: SignalCenterR
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : String(error) },
-      { status: 502 },
+      {
+        headers: {
+          "cache-control": SIGNAL_CENTER_PROXY_ERROR_CACHE_CONTROL,
+        },
+        status: 502,
+      },
     );
   }
 }
@@ -66,11 +78,16 @@ async function createSignalCenterProxyResponse(
   if (contentType) {
     responseHeaders.set("content-type", contentType);
   }
+  responseHeaders.set(
+    "cache-control",
+    response.ok ? SIGNAL_CENTER_PROXY_CACHE_CONTROL : SIGNAL_CENTER_PROXY_ERROR_CACHE_CONTROL,
+  );
 
   if (shouldFilterSkippedTrades(pathSegments, requestUrl, contentType)) {
     const responseText = await response.text();
     try {
       return Response.json(filterSkippedTradesPayload(JSON.parse(responseText) as unknown), {
+        headers: responseHeaders,
         status: response.status,
         statusText: response.statusText,
       });
