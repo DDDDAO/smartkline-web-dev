@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy, WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { PnlColorMode } from "./top-signals-panel";
 
 type StrategySquareType = "copyTrading" | "dca" | "grid" | "mario" | "snowball";
@@ -8,16 +8,23 @@ type StrategySquareSortKey = "drawdown" | "newest" | "profit" | "returnRate";
 type StrategySquareStoreTab = "allProjects" | "recommended";
 type StrategySquareTypeFilter = StrategySquareType | "all";
 type StrategySquareFeaturedMetric = "drawdown" | "profit" | "returnRate";
+type StrategySquareWindow = "7d" | "30d" | "90d";
 
 type StrategySquareReturnPoint = {
   timestamp: number;
   value: number;
 };
 
-type StrategySquareItem = {
+type StrategySquareLocalizedContent = {
   configLines: readonly string[];
-  createdAt: string;
   description: string;
+  name: string;
+  tags: readonly string[];
+};
+
+type StrategySquareItem = {
+  content: Record<WorkspaceLanguage, StrategySquareLocalizedContent>;
+  createdAt: string;
   id: string;
   metrics: {
     maxDrawdown: number | null;
@@ -28,10 +35,8 @@ type StrategySquareItem = {
     tradeCount: number;
     winRate: number | null;
   };
-  name: string;
   returnCurve: readonly StrategySquareReturnPoint[];
   riskLevel: StrategySquareRiskLevel;
-  tags: readonly string[];
   type: StrategySquareType;
   updatedAt: string;
 };
@@ -55,6 +60,32 @@ const STRATEGY_TYPE_FILTERS: readonly StrategySquareTypeFilter[] = [
   "snowball",
 ];
 const SORT_KEYS: readonly StrategySquareSortKey[] = ["profit", "returnRate", "drawdown", "newest"];
+const STRATEGY_WINDOWS: readonly StrategySquareWindow[] = ["7d", "30d", "90d"];
+const WINDOW_METRIC_MULTIPLIERS: Readonly<Record<StrategySquareWindow, {
+  drawdown: number;
+  profit: number;
+  returnRate: number;
+  trades: number;
+}>> = {
+  "7d": {
+    drawdown: 0.45,
+    profit: 0.28,
+    returnRate: 0.32,
+    trades: 0.35,
+  },
+  "30d": {
+    drawdown: 1,
+    profit: 1,
+    returnRate: 1,
+    trades: 1,
+  },
+  "90d": {
+    drawdown: 1.45,
+    profit: 2.35,
+    returnRate: 2.1,
+    trades: 2.7,
+  },
+};
 const CURVE_WIDTH = 320;
 const CURVE_HEIGHT = 96;
 const CURVE_PADDING = 8;
@@ -63,9 +94,21 @@ const MOCK_CURVE_STEP_MS = 6 * 24 * 60 * 60 * 1_000;
 
 const MOCK_STRATEGIES: readonly StrategySquareItem[] = [
   {
-    configLines: ["Strategy type: signal portfolio", "Universe: BTC / ETH", "Sizing: volatility budget", "TP / SL: 24% / 11%"],
+    content: {
+      "en-US": {
+        configLines: ["Strategy type: signal portfolio", "Universe: BTC / ETH", "Sizing: volatility budget", "TP / SL: 24% / 11%"],
+        description: "Momentum template that follows high-conviction BTC and ETH signal clusters with fixed downside guards.",
+        name: "Momentum Rotation",
+        tags: ["BTC / ETH", "Momentum", "Guarded"],
+      },
+      "zh-CN": {
+        configLines: ["策略类型：信号组合", "标的范围：BTC / ETH", "仓位方式：波动率预算", "止盈 / 止损：24% / 11%"],
+        description: "围绕 BTC 和 ETH 的高置信信号做轮动，使用固定止损保护下行风险。",
+        name: "动量轮动策略",
+        tags: ["BTC / ETH", "动量", "带风控"],
+      },
+    },
     createdAt: "2026-04-08T09:00:00+08:00",
-    description: "A SmartKline maintained momentum template that follows high-conviction BTC and ETH signal clusters with fixed downside guards.",
     id: "sk-momentum-rotation",
     metrics: {
       maxDrawdown: 0.0619,
@@ -76,17 +119,27 @@ const MOCK_STRATEGIES: readonly StrategySquareItem[] = [
       tradeCount: 118,
       winRate: 0.642,
     },
-    name: "SK Momentum Rotation",
     returnCurve: createMockCurve([0, 0.018, 0.041, 0.032, 0.087, 0.12, 0.114, 0.168, 0.203, 0.248, 0.234, 0.292, 0.331, 0.369, 0.438]),
     riskLevel: "medium",
-    tags: ["BTC / ETH", "Momentum", "Guarded"],
     type: "copyTrading",
     updatedAt: "2026-06-16T08:10:00+08:00",
   },
   {
-    configLines: ["Strategy type: Mario", "Market mode: multi-symbol", "Risk engine: volatility budget", "Execution: signal + account guard"],
+    content: {
+      "en-US": {
+        configLines: ["Strategy type: Mario", "Market mode: multi-symbol", "Risk engine: volatility budget", "Execution: signal + account guard"],
+        description: "Balanced Mario template for multi-symbol trend participation with conservative execution guards.",
+        name: "Mario Balanced",
+        tags: ["Mario", "Balanced", "Multi-symbol"],
+      },
+      "zh-CN": {
+        configLines: ["策略类型：Mario", "市场模式：多标的", "风控引擎：波动率预算", "执行方式：信号 + 账户保护"],
+        description: "偏稳健的 Mario 多标的趋势策略，适合在趋势明确但波动较高时参与。",
+        name: "Mario 均衡策略",
+        tags: ["Mario", "均衡", "多标的"],
+      },
+    },
     createdAt: "2026-05-21T12:00:00+08:00",
-    description: "A balanced Mario template maintained by SmartKline for multi-symbol trend participation with conservative execution guards.",
     id: "sk-mario-balanced",
     metrics: {
       maxDrawdown: 0.0681,
@@ -97,17 +150,27 @@ const MOCK_STRATEGIES: readonly StrategySquareItem[] = [
       tradeCount: 86,
       winRate: 0.586,
     },
-    name: "SK Mario Balanced",
     returnCurve: createMockCurve([0, 0.012, 0.019, 0.038, 0.052, 0.077, 0.071, 0.094, 0.118, 0.143, 0.151, 0.173, 0.201, 0.236, 0.268]),
     riskLevel: "low",
-    tags: ["Mario", "Balanced", "Multi-symbol"],
     type: "mario",
     updatedAt: "2026-06-15T20:30:00+08:00",
   },
   {
-    configLines: ["Strategy type: DCA", "Symbol basket: BTC / SOL", "Safety orders: 5", "Deviation: adaptive 1.6% - 3.2%"],
+    content: {
+      "en-US": {
+        configLines: ["Strategy type: DCA", "Symbol basket: BTC / SOL", "Safety orders: 5", "Deviation: adaptive 1.6% - 3.2%"],
+        description: "DCA accumulation template for choppy markets, using wider safety orders when volatility expands.",
+        name: "DCA Volatility Ladder",
+        tags: ["DCA", "BTC", "SOL"],
+      },
+      "zh-CN": {
+        configLines: ["策略类型：DCA", "标的篮子：BTC / SOL", "安全单：5 档", "偏离区间：自适应 1.6% - 3.2%"],
+        description: "为震荡行情准备的分批建仓策略，波动扩大时自动拉宽安全单间距。",
+        name: "DCA 波动阶梯",
+        tags: ["DCA", "BTC", "SOL"],
+      },
+    },
     createdAt: "2026-05-03T16:20:00+08:00",
-    description: "A SmartKline DCA accumulation template for choppy markets, using wider safety orders when volatility expands.",
     id: "sk-dca-volatility-ladder",
     metrics: {
       maxDrawdown: 0.0948,
@@ -118,17 +181,27 @@ const MOCK_STRATEGIES: readonly StrategySquareItem[] = [
       tradeCount: 214,
       winRate: 0.611,
     },
-    name: "SK DCA Volatility Ladder",
     returnCurve: createMockCurve([0, -0.014, 0.006, 0.022, 0.017, 0.049, 0.075, 0.066, 0.101, 0.138, 0.172, 0.194, 0.226, 0.281, 0.312]),
     riskLevel: "medium",
-    tags: ["DCA", "BTC", "SOL"],
     type: "dca",
     updatedAt: "2026-06-14T18:40:00+08:00",
   },
   {
-    configLines: ["Strategy type: grid", "Range: dynamic 90D band", "Grid count: 42", "Rebalance: weekly"],
+    content: {
+      "en-US": {
+        configLines: ["Strategy type: grid", "Range: dynamic 90D band", "Grid count: 42", "Rebalance: weekly"],
+        description: "Range-trading template that keeps capital working during sideways BTC and ETH sessions.",
+        name: "Grid Market Maker Lite",
+        tags: ["Grid", "Range", "Low DD"],
+      },
+      "zh-CN": {
+        configLines: ["策略类型：网格", "价格区间：动态 90 天通道", "网格数量：42 档", "再平衡：每周"],
+        description: "为横盘行情准备的轻量网格策略，重点控制回撤并保持资金利用率。",
+        name: "轻量网格做市",
+        tags: ["网格", "震荡", "低回撤"],
+      },
+    },
     createdAt: "2026-03-29T11:45:00+08:00",
-    description: "A SmartKline range-trading template that keeps capital working during sideways BTC and ETH sessions.",
     id: "sk-grid-market-maker-lite",
     metrics: {
       maxDrawdown: 0.0926,
@@ -139,17 +212,27 @@ const MOCK_STRATEGIES: readonly StrategySquareItem[] = [
       tradeCount: 280,
       winRate: 0.704,
     },
-    name: "SK Grid Market Maker Lite",
     returnCurve: createMockCurve([0, 0.008, 0.017, 0.019, 0.034, 0.047, 0.061, 0.076, 0.081, 0.096, 0.109, 0.128, 0.141, 0.162, 0.184]),
     riskLevel: "low",
-    tags: ["Grid", "Range", "Low DD"],
     type: "grid",
     updatedAt: "2026-06-13T14:05:00+08:00",
   },
   {
-    configLines: ["Strategy type: snowball", "Trigger: trend continuation", "Knock-out guard: enabled", "Protection: staged exits"],
+    content: {
+      "en-US": {
+        configLines: ["Strategy type: snowball", "Trigger: trend continuation", "Knock-out guard: enabled", "Protection: staged exits"],
+        description: "Trend-compounding template that scales only after the first profit target is confirmed.",
+        name: "Snowball Trend Compounder",
+        tags: ["Snowball", "Trend", "Compound"],
+      },
+      "zh-CN": {
+        configLines: ["策略类型：雪球", "触发条件：趋势延续", "熔断保护：开启", "保护机制：分段止盈退出"],
+        description: "趋势确认后才逐步放大仓位，适合强趋势行情下做收益放大。",
+        name: "雪球趋势复利",
+        tags: ["雪球", "趋势", "复利"],
+      },
+    },
     createdAt: "2026-05-31T08:30:00+08:00",
-    description: "A SmartKline trend-compounding template that scales only after the first profit target is confirmed.",
     id: "sk-snowball-trend-compounder",
     metrics: {
       maxDrawdown: 0.011,
@@ -160,17 +243,27 @@ const MOCK_STRATEGIES: readonly StrategySquareItem[] = [
       tradeCount: 74,
       winRate: 0.548,
     },
-    name: "SK Snowball Trend Compounder",
     returnCurve: createMockCurve([0, 0.035, 0.066, 0.052, 0.124, 0.18, 0.151, 0.232, 0.286, 0.264, 0.337, 0.392, 0.421, 0.487, 0.521]),
     riskLevel: "high",
-    tags: ["Snowball", "Trend", "Compound"],
     type: "snowball",
     updatedAt: "2026-06-16T07:45:00+08:00",
   },
   {
-    configLines: ["Strategy type: signal portfolio", "Market side: long-biased", "Sizing: 60% risk budget", "TP / SL: 18% / 7%"],
+    content: {
+      "en-US": {
+        configLines: ["Strategy type: signal portfolio", "Market side: long-biased", "Sizing: 60% risk budget", "TP / SL: 18% / 7%"],
+        description: "Defensive signal portfolio that only activates lower-drawdown long setups.",
+        name: "Defensive Signal Ladder",
+        tags: ["Defensive", "Long-biased", "BTC"],
+      },
+      "zh-CN": {
+        configLines: ["策略类型：信号组合", "方向偏好：低回撤做多", "仓位预算：60% 风险预算", "止盈 / 止损：18% / 7%"],
+        description: "只启用低回撤做多信号，适合需要更稳健曲线的用户做配置参考。",
+        name: "防守信号阶梯",
+        tags: ["防守", "做多", "BTC"],
+      },
+    },
     createdAt: "2026-04-19T10:10:00+08:00",
-    description: "A defensive SmartKline signal portfolio that only activates lower-drawdown long setups.",
     id: "sk-defensive-signal-ladder",
     metrics: {
       maxDrawdown: 0.0142,
@@ -181,10 +274,8 @@ const MOCK_STRATEGIES: readonly StrategySquareItem[] = [
       tradeCount: 91,
       winRate: 0.676,
     },
-    name: "SK Defensive Signal Ladder",
     returnCurve: createMockCurve([0, 0.006, 0.018, 0.014, 0.031, 0.056, 0.072, 0.091, 0.103, 0.118, 0.139, 0.157, 0.181, 0.204, 0.226]),
     riskLevel: "low",
-    tags: ["Defensive", "Long-biased", "BTC"],
     type: "copyTrading",
     updatedAt: "2026-06-15T09:25:00+08:00",
   },
@@ -193,17 +284,20 @@ const MOCK_STRATEGIES: readonly StrategySquareItem[] = [
 export function StrategySquareProductTab({
   copy,
   isDarkTheme,
+  language,
   pnlColorMode,
   onMockCopy,
 }: {
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
+  language: WorkspaceLanguage;
   pnlColorMode: PnlColorMode;
   onMockCopy?: (strategyName: string) => void;
 }) {
   const panelCopy = copy.workspace.strategySquare;
   const [activeStoreTab, setActiveStoreTab] = useState<StrategySquareStoreTab>("recommended");
   const [activeType, setActiveType] = useState<StrategySquareTypeFilter>(ALL_TYPE_FILTER);
+  const [activeWindow, setActiveWindow] = useState<StrategySquareWindow>("30d");
   const [copiedStrategyId, setCopiedStrategyId] = useState("");
   const [detailStrategyId, setDetailStrategyId] = useState("");
   const [sortKey, setSortKey] = useState<StrategySquareSortKey>("profit");
@@ -211,8 +305,8 @@ export function StrategySquareProductTab({
     () => MOCK_STRATEGIES
       .filter((strategy) => activeType === ALL_TYPE_FILTER || strategy.type === activeType)
       .slice()
-      .sort((left, right) => compareStrategies(left, right, sortKey)),
-    [activeType, sortKey],
+      .sort((left, right) => compareStrategies(left, right, sortKey, activeWindow)),
+    [activeType, activeWindow, sortKey],
   );
   const recommendationSections = useMemo(
     () => createRecommendationSections(MOCK_STRATEGIES, panelCopy),
@@ -231,8 +325,9 @@ export function StrategySquareProductTab({
     : "kol-scroll-area min-h-0 flex-1 overflow-y-auto bg-[#FAFBFD] p-3 sm:p-4";
 
   const handleCopy = (strategy: StrategySquareItem) => {
+    const content = getStrategyContent(strategy, language);
     setCopiedStrategyId(strategy.id);
-    onMockCopy?.(strategy.name);
+    onMockCopy?.(content.name);
   };
 
   return (
@@ -241,30 +336,27 @@ export function StrategySquareProductTab({
         <div className={heroClassName}>
           <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[#00A6F4]/20 blur-3xl" />
           <div className="pointer-events-none absolute bottom-0 left-1/3 h-20 w-40 rounded-full bg-[#00A6F4]/10 blur-3xl" />
-          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="min-w-0">
-              <span className={isDarkTheme ? "inline-flex rounded-full bg-sky-400/15 px-3 py-1 text-[11px] font-bold text-sky-200" : "inline-flex rounded-full bg-[#EAF8FE] px-3 py-1 text-[11px] font-bold text-[#008DCC]"}>
-                {panelCopy.heroBadge}
-              </span>
-              <h1 className={isDarkTheme ? "mt-3 text-2xl font-black tracking-tight text-slate-50 sm:text-3xl" : "mt-3 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl"}>
-                {panelCopy.heroTitle}
-              </h1>
-              <p className={isDarkTheme ? "mt-2 max-w-2xl text-sm leading-6 text-slate-400" : "mt-2 max-w-2xl text-sm leading-6 text-slate-500"}>
-                {panelCopy.description}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <StrategyHeroStat isDarkTheme={isDarkTheme} label={panelCopy.metrics.strategies} value={String(MOCK_STRATEGIES.length)} />
-                <StrategyHeroStat isDarkTheme={isDarkTheme} label={panelCopy.rankingTitle} value={String(recommendationSections.length)} />
-                <StrategyHeroStat isDarkTheme={isDarkTheme} label={panelCopy.returnCurve} value={panelCopy.returnWindow} />
-              </div>
-            </div>
-            <div className="w-full lg:w-[340px]">
+          <div className="relative flex flex-col items-start gap-4">
+            <div className="w-full sm:w-[340px]">
               <StrategyStoreTabs
                 activeTab={activeStoreTab}
                 copy={copy}
                 isDarkTheme={isDarkTheme}
                 onTabChange={setActiveStoreTab}
               />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className={isDarkTheme ? "text-2xl font-black tracking-tight text-slate-50 sm:text-3xl" : "text-2xl font-black tracking-tight text-slate-950 sm:text-3xl"}>
+                  {panelCopy.heroTitle}
+                </h1>
+                <span className={getMockBadgeClassName(isDarkTheme)}>{panelCopy.mockBadge}</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <StrategyHeroStat isDarkTheme={isDarkTheme} label={panelCopy.metrics.strategies} value={String(MOCK_STRATEGIES.length)} />
+                <StrategyHeroStat isDarkTheme={isDarkTheme} label={panelCopy.rankingTitle} value={String(recommendationSections.length)} />
+                <StrategyHeroStat isDarkTheme={isDarkTheme} label={panelCopy.returnCurve} value={panelCopy.returnWindow} />
+              </div>
             </div>
           </div>
         </div>
@@ -278,6 +370,7 @@ export function StrategySquareProductTab({
                   copiedStrategyId={copiedStrategyId}
                   copy={copy}
                   isDarkTheme={isDarkTheme}
+                  language={language}
                   pnlColorMode={pnlColorMode}
                   section={section}
                   onCopy={handleCopy}
@@ -296,18 +389,26 @@ export function StrategySquareProductTab({
                   <h1 className={isDarkTheme ? "text-2xl font-black tracking-tight text-slate-50" : "text-2xl font-black tracking-tight text-slate-950"}>{panelCopy.allProjectsTitle}</h1>
                   <p className={isDarkTheme ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-slate-500"}>{panelCopy.visibleCount(visibleStrategies.length, MOCK_STRATEGIES.length)}</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{panelCopy.sortBy}</span>
-                  {SORT_KEYS.map((nextSortKey) => (
-                    <button
-                      key={nextSortKey}
-                      className={getSortButtonClassName(isDarkTheme, sortKey === nextSortKey)}
-                      type="button"
-                      onClick={() => setSortKey(nextSortKey)}
-                    >
-                      {panelCopy.sortOptions[nextSortKey]}
-                    </button>
-                  ))}
+                <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+                  <StrategyWindowTabs
+                    activeWindow={activeWindow}
+                    copy={copy}
+                    isDarkTheme={isDarkTheme}
+                    onWindowChange={setActiveWindow}
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{panelCopy.sortBy}</span>
+                    {SORT_KEYS.map((nextSortKey) => (
+                      <button
+                        key={nextSortKey}
+                        className={getSortButtonClassName(isDarkTheme, sortKey === nextSortKey)}
+                        type="button"
+                        onClick={() => setSortKey(nextSortKey)}
+                      >
+                        {panelCopy.sortOptions[nextSortKey]}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -329,9 +430,11 @@ export function StrategySquareProductTab({
                     copiedStrategyId={copiedStrategyId}
                     copy={copy}
                     isDarkTheme={isDarkTheme}
+                    language={language}
                     pnlColorMode={pnlColorMode}
                     strategy={strategy}
                     variant="grid"
+                    window={activeWindow}
                     onCopy={handleCopy}
                     onDetailsOpen={setDetailStrategyId}
                   />
@@ -347,8 +450,10 @@ export function StrategySquareProductTab({
           copiedStrategyId={copiedStrategyId}
           copy={copy}
           isDarkTheme={isDarkTheme}
+          language={language}
           pnlColorMode={pnlColorMode}
           strategy={detailStrategy}
+          window={activeWindow}
           onClose={() => setDetailStrategyId("")}
           onCopy={handleCopy}
         />
@@ -408,10 +513,46 @@ function StrategyHeroStat({
   );
 }
 
+function StrategyWindowTabs({
+  activeWindow,
+  copy,
+  isDarkTheme,
+  onWindowChange,
+}: {
+  activeWindow: StrategySquareWindow;
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  onWindowChange: (window: StrategySquareWindow) => void;
+}) {
+  const panelCopy = copy.workspace.strategySquare;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{panelCopy.windowFilter}</span>
+      <div className={isDarkTheme ? "flex rounded-full border border-white/[0.075] bg-white/[0.035] p-1" : "flex rounded-full border border-[#E5EAF0] bg-white p-1 shadow-sm"}>
+        {STRATEGY_WINDOWS.map((window) => {
+          const isActive = activeWindow === window;
+          return (
+            <button
+              key={window}
+              className={getWindowButtonClassName(isDarkTheme, isActive)}
+              type="button"
+              onClick={() => onWindowChange(window)}
+            >
+              {panelCopy.windows[window]}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function RecommendedStrategySection({
   copiedStrategyId,
   copy,
   isDarkTheme,
+  language,
   pnlColorMode,
   section,
   onCopy,
@@ -421,6 +562,7 @@ function RecommendedStrategySection({
   copiedStrategyId: string;
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
+  language: WorkspaceLanguage;
   pnlColorMode: PnlColorMode;
   section: StrategyRecommendationSection;
   onCopy: (strategy: StrategySquareItem) => void;
@@ -448,10 +590,12 @@ function RecommendedStrategySection({
             copy={copy}
             featuredMetric={section.featuredMetric}
             isDarkTheme={isDarkTheme}
+            language={language}
             pnlColorMode={pnlColorMode}
             rank={index + 1}
             strategy={strategy}
             variant="rail"
+            window="30d"
             onCopy={onCopy}
             onDetailsOpen={onDetailsOpen}
           />
@@ -466,10 +610,12 @@ function StrategyMarketplaceCard({
   copy,
   featuredMetric = "profit",
   isDarkTheme,
+  language,
   pnlColorMode,
   rank,
   strategy,
   variant,
+  window,
   onCopy,
   onDetailsOpen,
 }: {
@@ -477,16 +623,20 @@ function StrategyMarketplaceCard({
   copy: WorkspaceCopy;
   featuredMetric?: StrategySquareFeaturedMetric;
   isDarkTheme: boolean;
+  language: WorkspaceLanguage;
   pnlColorMode: PnlColorMode;
   rank?: number;
   strategy: StrategySquareItem;
   variant: "grid" | "rail";
+  window: StrategySquareWindow;
   onCopy: (strategy: StrategySquareItem) => void;
   onDetailsOpen: (strategyId: string) => void;
 }) {
   const panelCopy = copy.workspace.strategySquare;
-  const primaryMetric = getStrategyCardPrimaryMetric(strategy, panelCopy, featuredMetric);
-  const secondaryMetric = getStrategyCardSecondaryMetric(strategy, panelCopy, featuredMetric);
+  const content = getStrategyContent(strategy, language);
+  const windowMetrics = getWindowAdjustedMetrics(strategy, window);
+  const primaryMetric = getStrategyCardPrimaryMetric(windowMetrics, panelCopy, featuredMetric, window);
+  const secondaryMetric = getStrategyCardSecondaryMetric(windowMetrics, panelCopy, featuredMetric, window);
   const cardClassName = `${variant === "rail" ? "w-[calc(100vw-3.5rem)] max-w-[360px] shrink-0 snap-start xl:w-[380px] xl:max-w-[380px]" : "min-w-0"} ${isDarkTheme
     ? "group overflow-hidden rounded-[26px] border border-white/[0.075] bg-[#181A20] text-left transition hover:border-sky-400/30 hover:bg-white/[0.055]"
     : "group overflow-hidden rounded-[26px] border border-[#E5EAF0] bg-white text-left shadow-sm transition hover:border-[#BFE7FB] hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]"}`;
@@ -495,14 +645,15 @@ function StrategyMarketplaceCard({
     <article className={cardClassName}>
       <button className="block w-full p-4 text-left" type="button" onClick={() => onDetailsOpen(strategy.id)}>
         <div className="flex min-w-0 items-start gap-3">
-          <StrategyIcon isDarkTheme={isDarkTheme} name={strategy.name} rank={rank} />
+          <StrategyIcon isDarkTheme={isDarkTheme} name={content.name} rank={rank} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
+              <span className={getMockBadgeClassName(isDarkTheme)}>{panelCopy.mockBadge}</span>
               <span className={getTypeBadgeClassName(isDarkTheme, strategy.type)}>{panelCopy.strategyTypes[strategy.type]}</span>
               <span className={getRiskBadgeClassName(isDarkTheme, strategy.riskLevel)}>{panelCopy.riskLevels[strategy.riskLevel]}</span>
             </div>
-            <h3 className={isDarkTheme ? "mt-2 truncate text-base font-black text-slate-50" : "mt-2 truncate text-base font-black text-slate-950"}>{strategy.name}</h3>
-            <p className={isDarkTheme ? "mt-1 line-clamp-2 text-xs leading-5 text-slate-400" : "mt-1 line-clamp-2 text-xs leading-5 text-slate-500"}>{strategy.description}</p>
+            <h3 className={isDarkTheme ? "mt-2 truncate text-base font-black text-slate-50" : "mt-2 truncate text-base font-black text-slate-950"}>{content.name}</h3>
+            <p className={isDarkTheme ? "mt-1 line-clamp-2 text-xs leading-5 text-slate-400" : "mt-1 line-clamp-2 text-xs leading-5 text-slate-500"}>{content.description}</p>
           </div>
         </div>
 
@@ -523,8 +674,8 @@ function StrategyMarketplaceCard({
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
-          <CardMetricRow isDarkTheme={isDarkTheme} label={panelCopy.metrics.maxDrawdown30d} value={formatPercent(strategy.metrics.maxDrawdown)} />
-          <CardMetricRow isDarkTheme={isDarkTheme} label={panelCopy.metrics.winRate} value={formatPercent(strategy.metrics.winRate)} />
+          <CardMetricRow isDarkTheme={isDarkTheme} label={panelCopy.metrics.maxDrawdown} value={formatPercent(windowMetrics.maxDrawdown)} />
+          <CardMetricRow isDarkTheme={isDarkTheme} label={panelCopy.metrics.winRate} value={formatPercent(windowMetrics.winRate)} />
           <CardMetricRow isDarkTheme={isDarkTheme} label={panelCopy.metrics.runningDays} value={String(strategy.metrics.runningDays)} />
         </div>
       </button>
@@ -579,20 +730,26 @@ function StrategyParameterModal({
   copiedStrategyId,
   copy,
   isDarkTheme,
+  language,
   pnlColorMode,
   strategy,
+  window,
   onClose,
   onCopy,
 }: {
   copiedStrategyId: string;
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
+  language: WorkspaceLanguage;
   pnlColorMode: PnlColorMode;
   strategy: StrategySquareItem;
+  window: StrategySquareWindow;
   onClose: () => void;
   onCopy: (strategy: StrategySquareItem) => void;
 }) {
   const panelCopy = copy.workspace.strategySquare;
+  const content = getStrategyContent(strategy, language);
+  const windowMetrics = getWindowAdjustedMetrics(strategy, window);
   const dialogClassName = isDarkTheme
     ? "fixed inset-x-3 bottom-3 top-auto z-[110] flex max-h-[92dvh] flex-col overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#0F141B] text-slate-100 shadow-[0_24px_70px_rgba(0,0,0,0.48)] sm:inset-x-1/2 sm:bottom-auto sm:top-1/2 sm:w-[min(760px,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2"
     : "fixed inset-x-3 bottom-3 top-auto z-[110] flex max-h-[92dvh] flex-col overflow-hidden rounded-[28px] border border-[#E5EAF0] bg-white text-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.22)] sm:inset-x-1/2 sm:bottom-auto sm:top-1/2 sm:w-[min(760px,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2";
@@ -614,14 +771,15 @@ function StrategyParameterModal({
         <div className={isDarkTheme ? "border-b border-white/[0.075] p-4 sm:p-5" : "border-b border-[#E5EAF0] p-4 sm:p-5"}>
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 items-start gap-3">
-              <StrategyIcon isDarkTheme={isDarkTheme} name={strategy.name} />
+              <StrategyIcon isDarkTheme={isDarkTheme} name={content.name} />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
+                  <span className={getMockBadgeClassName(isDarkTheme)}>{panelCopy.mockBadge}</span>
                   <span className={getTypeBadgeClassName(isDarkTheme, strategy.type)}>{panelCopy.strategyTypes[strategy.type]}</span>
                   <span className={getRiskBadgeClassName(isDarkTheme, strategy.riskLevel)}>{panelCopy.riskLevels[strategy.riskLevel]}</span>
                 </div>
                 <h2 id={`strategy-parameter-dialog-title-${strategy.id}`} className={isDarkTheme ? "mt-2 text-xl font-black tracking-tight text-slate-50" : "mt-2 text-xl font-black tracking-tight text-slate-950"}>
-                  {strategy.name}
+                  {content.name}
                 </h2>
                 <p className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
                   {panelCopy.parameterDialogDescription}
@@ -646,9 +804,9 @@ function StrategyParameterModal({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className={isDarkTheme ? "text-sm font-black text-slate-100" : "text-sm font-black text-slate-950"}>{panelCopy.parameterDialogTitle}</h3>
-                    <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-500"}>{strategy.description}</p>
+                    <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-500"}>{content.description}</p>
                   </div>
-                  <span className={getSoftBadgeClassName(isDarkTheme)}>{panelCopy.returnWindow}</span>
+                  <span className={getSoftBadgeClassName(isDarkTheme)}>{panelCopy.windows[window]}</span>
                 </div>
                 <div className="mt-4 h-28">
                   <StrategyReturnCurveChart isDarkTheme={isDarkTheme} pnlColorMode={pnlColorMode} points={strategy.returnCurve} />
@@ -658,7 +816,7 @@ function StrategyParameterModal({
               <section className={isDarkTheme ? "rounded-3xl border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-3xl border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
                 <h3 className={isDarkTheme ? "text-sm font-black text-slate-100" : "text-sm font-black text-slate-950"}>{panelCopy.copyConfigTitle}</h3>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {strategy.configLines.map((line) => (
+                  {content.configLines.map((line) => (
                     <div key={line} className={isDarkTheme ? "rounded-2xl border border-white/[0.06] bg-[#181A20] px-3 py-3 text-xs font-medium text-slate-300" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-xs font-medium text-slate-600"}>
                       {line}
                     </div>
@@ -669,17 +827,17 @@ function StrategyParameterModal({
 
             <div className="grid content-start gap-3">
               <div className="grid grid-cols-2 gap-2">
-                <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.metrics.profit30dUsd} value={formatCurrencyNumber(strategy.metrics.profit30dUsd)} valueClassName={getPnlTextClassName(isDarkTheme, strategy.metrics.profit30dUsd, pnlColorMode, "text-sm")} />
-                <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.metrics.returnRate} value={formatSignedPercent(strategy.metrics.returnRate)} valueClassName={getPnlTextClassName(isDarkTheme, strategy.metrics.returnRate, pnlColorMode, "text-sm")} />
-                <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.metrics.maxDrawdown} value={formatPercent(strategy.metrics.maxDrawdown)} />
-                <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.metrics.winRate} value={formatPercent(strategy.metrics.winRate)} />
-                <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.metrics.tradeCount} value={String(strategy.metrics.tradeCount)} />
+                <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.windowedProfitUsd(panelCopy.windows[window])} value={formatCurrencyNumber(windowMetrics.profit30dUsd)} valueClassName={getPnlTextClassName(isDarkTheme, windowMetrics.profit30dUsd, pnlColorMode, "text-sm")} />
+                <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.metrics.returnRate} value={formatSignedPercent(windowMetrics.returnRate)} valueClassName={getPnlTextClassName(isDarkTheme, windowMetrics.returnRate, pnlColorMode, "text-sm")} />
+                <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.metrics.maxDrawdown} value={formatPercent(windowMetrics.maxDrawdown)} />
+                <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.metrics.winRate} value={formatPercent(windowMetrics.winRate)} />
+                <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.metrics.tradeCount} value={String(windowMetrics.tradeCount)} />
                 <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.metrics.minimumCapital} value={formatCurrencyNumber(strategy.metrics.minimumCapital)} />
               </div>
               <section className={isDarkTheme ? "rounded-3xl border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-3xl border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
                 <h3 className={isDarkTheme ? "text-xs font-black text-slate-100" : "text-xs font-black text-slate-950"}>{panelCopy.parameterTagsTitle}</h3>
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  {strategy.tags.map((tag) => <span key={tag} className={getTagClassName(isDarkTheme)}>{tag}</span>)}
+                  {content.tags.map((tag) => <span key={tag} className={getTagClassName(isDarkTheme)}>{tag}</span>)}
                 </div>
               </section>
               <div className={isDarkTheme ? "rounded-2xl border border-sky-300/20 bg-sky-300/10 p-3 text-xs leading-5 text-sky-100" : "rounded-2xl border border-[#BFE7FB] bg-[#EAF8FE] p-3 text-xs leading-5 text-[#006F9F]"}>
@@ -789,75 +947,98 @@ function createMockCurve(values: readonly number[]): StrategySquareReturnPoint[]
   }));
 }
 
-function compareStrategies(left: StrategySquareItem, right: StrategySquareItem, sortKey: StrategySquareSortKey): number {
+function compareStrategies(left: StrategySquareItem, right: StrategySquareItem, sortKey: StrategySquareSortKey, window: StrategySquareWindow): number {
+  const leftMetrics = getWindowAdjustedMetrics(left, window);
+  const rightMetrics = getWindowAdjustedMetrics(right, window);
   if (sortKey === "profit") {
-    return right.metrics.profit30dUsd - left.metrics.profit30dUsd
-      || compareNullableDesc(left.metrics.returnRate, right.metrics.returnRate)
-      || left.name.localeCompare(right.name);
+    return rightMetrics.profit30dUsd - leftMetrics.profit30dUsd
+      || compareNullableDesc(leftMetrics.returnRate, rightMetrics.returnRate)
+      || left.id.localeCompare(right.id);
   }
 
   if (sortKey === "drawdown") {
-    return compareNullableAsc(left.metrics.maxDrawdown, right.metrics.maxDrawdown)
-      || compareNullableDesc(left.metrics.returnRate, right.metrics.returnRate)
-      || left.name.localeCompare(right.name);
+    return compareNullableAsc(leftMetrics.maxDrawdown, rightMetrics.maxDrawdown)
+      || compareNullableDesc(leftMetrics.returnRate, rightMetrics.returnRate)
+      || left.id.localeCompare(right.id);
   }
 
   if (sortKey === "newest") {
     return Date.parse(right.createdAt) - Date.parse(left.createdAt)
-      || left.name.localeCompare(right.name);
+      || left.id.localeCompare(right.id);
   }
 
-  return compareNullableDesc(left.metrics.returnRate, right.metrics.returnRate)
-    || compareNullableAsc(left.metrics.maxDrawdown, right.metrics.maxDrawdown)
-    || left.name.localeCompare(right.name);
+  return compareNullableDesc(leftMetrics.returnRate, rightMetrics.returnRate)
+    || compareNullableAsc(leftMetrics.maxDrawdown, rightMetrics.maxDrawdown)
+    || left.id.localeCompare(right.id);
 }
 
 function getStrategyCardPrimaryMetric(
-  strategy: StrategySquareItem,
+  metrics: StrategySquareItem["metrics"],
   panelCopy: WorkspaceCopy["workspace"]["strategySquare"],
   featuredMetric: StrategySquareFeaturedMetric,
+  window: StrategySquareWindow,
 ): { label: string; toneValue: number | null; value: string } {
   if (featuredMetric === "returnRate") {
     return {
       label: panelCopy.metrics.returnRate,
-      toneValue: strategy.metrics.returnRate,
-      value: formatSignedPercent(strategy.metrics.returnRate),
+      toneValue: metrics.returnRate,
+      value: formatSignedPercent(metrics.returnRate),
     };
   }
 
   if (featuredMetric === "drawdown") {
     return {
-      label: panelCopy.metrics.maxDrawdown30d,
+      label: panelCopy.metrics.maxDrawdown,
       toneValue: null,
-      value: formatPercent(strategy.metrics.maxDrawdown),
+      value: formatPercent(metrics.maxDrawdown),
     };
   }
 
   return {
-    label: panelCopy.metrics.profit30dUsd,
-    toneValue: strategy.metrics.profit30dUsd,
-    value: formatCurrencyNumber(strategy.metrics.profit30dUsd),
+    label: panelCopy.windowedProfitUsd(panelCopy.windows[window]),
+    toneValue: metrics.profit30dUsd,
+    value: formatCurrencyNumber(metrics.profit30dUsd),
   };
 }
 
 function getStrategyCardSecondaryMetric(
-  strategy: StrategySquareItem,
+  metrics: StrategySquareItem["metrics"],
   panelCopy: WorkspaceCopy["workspace"]["strategySquare"],
   featuredMetric: StrategySquareFeaturedMetric,
+  window: StrategySquareWindow,
 ): { label: string; toneValue: number | null; value: string } {
   if (featuredMetric === "returnRate") {
     return {
-      label: panelCopy.metrics.profit30dUsd,
-      toneValue: strategy.metrics.profit30dUsd,
-      value: formatCurrencyNumber(strategy.metrics.profit30dUsd),
+      label: panelCopy.windowedProfitUsd(panelCopy.windows[window]),
+      toneValue: metrics.profit30dUsd,
+      value: formatCurrencyNumber(metrics.profit30dUsd),
     };
   }
 
   return {
     label: panelCopy.metrics.returnRate,
-    toneValue: strategy.metrics.returnRate,
-    value: formatSignedPercent(strategy.metrics.returnRate),
+    toneValue: metrics.returnRate,
+    value: formatSignedPercent(metrics.returnRate),
   };
+}
+
+function getStrategyContent(strategy: StrategySquareItem, language: WorkspaceLanguage): StrategySquareLocalizedContent {
+  return strategy.content[language] ?? strategy.content["en-US"];
+}
+
+function getWindowAdjustedMetrics(strategy: StrategySquareItem, window: StrategySquareWindow): StrategySquareItem["metrics"] {
+  const multipliers = WINDOW_METRIC_MULTIPLIERS[window];
+  return {
+    ...strategy.metrics,
+    maxDrawdown: multiplyNullable(strategy.metrics.maxDrawdown, multipliers.drawdown),
+    profit30dUsd: strategy.metrics.profit30dUsd * multipliers.profit,
+    returnRate: multiplyNullable(strategy.metrics.returnRate, multipliers.returnRate),
+    tradeCount: Math.max(1, Math.round(strategy.metrics.tradeCount * multipliers.trades)),
+  };
+}
+
+function multiplyNullable(value: number | null, multiplier: number): number | null {
+  return value === null ? null : value * multiplier;
 }
 
 function compareNullableDesc(left: number | null, right: number | null): number {
@@ -993,6 +1174,24 @@ function getSortButtonClassName(isDarkTheme: boolean, isActive: boolean): string
   return isDarkTheme
     ? "rounded-full px-2.5 py-1.5 text-[11px] font-bold text-slate-500 transition hover:bg-white/[0.055] hover:text-slate-200"
     : "rounded-full px-2.5 py-1.5 text-[11px] font-bold text-slate-400 transition hover:bg-slate-100 hover:text-slate-700";
+}
+
+function getWindowButtonClassName(isDarkTheme: boolean, isActive: boolean): string {
+  if (isActive) {
+    return isDarkTheme
+      ? "rounded-full bg-[#00A6F4] px-3 py-1.5 text-[11px] font-black text-white"
+      : "rounded-full bg-[#00A6F4] px-3 py-1.5 text-[11px] font-black text-white shadow-sm shadow-sky-500/20";
+  }
+
+  return isDarkTheme
+    ? "rounded-full px-3 py-1.5 text-[11px] font-bold text-slate-500 transition hover:bg-white/[0.055] hover:text-sky-200"
+    : "rounded-full px-3 py-1.5 text-[11px] font-bold text-slate-500 transition hover:bg-[#EAF8FE] hover:text-[#008DCC]";
+}
+
+function getMockBadgeClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "rounded-md bg-sky-400/15 px-2 py-0.5 text-[10px] font-black text-sky-200"
+    : "rounded-md bg-[#EAF8FE] px-2 py-0.5 text-[10px] font-black text-[#008DCC]";
 }
 
 function getTypeBadgeClassName(isDarkTheme: boolean, strategyType: StrategySquareType): string {

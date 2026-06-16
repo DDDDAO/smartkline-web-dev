@@ -1889,6 +1889,7 @@ export function SignalWorkspace({
           <StrategySquareProductTab
             copy={copy}
             isDarkTheme={isDarkTheme}
+            language={language}
             pnlColorMode={pnlColorMode}
             onMockCopy={handleMockStrategyCopy}
           />
