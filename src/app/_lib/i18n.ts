@@ -476,7 +476,6 @@ const zh = {
     },
     strategySquare: {
       allTypes: "全部类型",
-      allProjectsTitle: "全部项目",
       copiedAction: "已复制",
       copyAction: "复制配置",
       copyConfigTitle: "复制配置预览",
@@ -488,6 +487,13 @@ const zh = {
       mockBadge: "模拟",
       mockNotice: "当前展示的是模拟策略样式，只演示策略配置复制和参数预览，不会提交真实交易。",
       moreAction: "更多",
+      pagination: {
+        ariaLabel: "策略分页",
+        next: "下一页",
+        pageLabel: (page: number) => `第 ${page} 页`,
+        pageSizeLabel: (pageSize: number) => `每页最多 ${pageSize} 个策略`,
+        previous: "上一页",
+      },
       parameterDialogDescription: "查看这个策略会复制的参数、核心指标和收益曲线。",
       parameterDialogTitle: "策略参数",
       parameterTagsTitle: "策略标签",
@@ -546,7 +552,6 @@ const zh = {
         allProjects: "全部项目",
         recommended: "推荐",
       },
-      visibleCount: (visible: number, total: number) => `${visible}/${total} 个策略`,
     },
     topSignals: {
       action: "操作",
@@ -1184,7 +1189,6 @@ const en: WorkspaceCopy = {
     },
     strategySquare: {
       allTypes: "All types",
-      allProjectsTitle: "All Projects",
       copiedAction: "Copied",
       copyAction: "Copy config",
       copyConfigTitle: "Copy config preview",
@@ -1196,6 +1200,13 @@ const en: WorkspaceCopy = {
       mockBadge: "Mock",
       mockNotice: "This is a simulated strategy preview. Copying a config only previews parameters and does not submit a real trade.",
       moreAction: "More",
+      pagination: {
+        ariaLabel: "Strategy pagination",
+        next: "Next",
+        pageLabel: (page) => `Page ${page}`,
+        pageSizeLabel: (pageSize) => `Up to ${pageSize} strategies per page`,
+        previous: "Previous",
+      },
       parameterDialogDescription: "Review the parameters, core metrics, and return curve that would be copied from this strategy.",
       parameterDialogTitle: "Strategy Parameters",
       parameterTagsTitle: "Strategy Tags",
@@ -1254,7 +1265,6 @@ const en: WorkspaceCopy = {
         allProjects: "All Projects",
         recommended: "Recommended",
       },
-      visibleCount: (visible, total) => `${visible}/${total} strategies`,
     },
     topSignals: {
       action: "Action",

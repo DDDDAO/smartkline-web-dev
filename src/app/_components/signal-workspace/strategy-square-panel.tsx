@@ -9,6 +9,7 @@ type StrategySquareSortKey = "drawdown" | "newest" | "profit" | "returnRate";
 type StrategySquareStoreTab = "allProjects" | "recommended";
 type StrategySquareTypeFilter = StrategySquareType | "all";
 type StrategySquareFeaturedMetric = "drawdown" | "profit" | "returnRate";
+type StrategyPaginationItem = number | "ellipsis";
 type StrategySquareWindow = "7d" | "30d" | "90d";
 
 type StrategySquareReturnPoint = {
@@ -62,6 +63,7 @@ const STRATEGY_TYPE_FILTERS: readonly StrategySquareTypeFilter[] = [
 ];
 const SORT_KEYS: readonly StrategySquareSortKey[] = ["profit", "returnRate", "drawdown", "newest"];
 const STRATEGY_WINDOWS: readonly StrategySquareWindow[] = ["7d", "30d", "90d"];
+const ALL_PROJECTS_PAGE_SIZE = 20;
 const WINDOW_METRIC_MULTIPLIERS: Readonly<Record<StrategySquareWindow, {
   drawdown: number;
   profit: number;
@@ -299,6 +301,7 @@ export function StrategySquareProductTab({
   const [activeStoreTab, setActiveStoreTab] = useState<StrategySquareStoreTab>("recommended");
   const [activeType, setActiveType] = useState<StrategySquareTypeFilter>(ALL_TYPE_FILTER);
   const [activeWindow, setActiveWindow] = useState<StrategySquareWindow>("30d");
+  const [allProjectsPage, setAllProjectsPage] = useState(1);
   const [copiedStrategyId, setCopiedStrategyId] = useState("");
   const [detailStrategyId, setDetailStrategyId] = useState("");
   const [sortKey, setSortKey] = useState<StrategySquareSortKey>("profit");
@@ -313,6 +316,12 @@ export function StrategySquareProductTab({
     () => createRecommendationSections(MOCK_STRATEGIES, panelCopy),
     [panelCopy],
   );
+  const allProjectsPageCount = Math.max(1, Math.ceil(visibleStrategies.length / ALL_PROJECTS_PAGE_SIZE));
+  const safeAllProjectsPage = Math.min(allProjectsPage, allProjectsPageCount);
+  const paginatedStrategies = useMemo(() => {
+    const startIndex = (safeAllProjectsPage - 1) * ALL_PROJECTS_PAGE_SIZE;
+    return visibleStrategies.slice(startIndex, startIndex + ALL_PROJECTS_PAGE_SIZE);
+  }, [safeAllProjectsPage, visibleStrategies]);
   const detailStrategy = MOCK_STRATEGIES.find((strategy) => strategy.id === detailStrategyId) ?? null;
   const shellClassName = "h-full min-h-0 p-3 pb-28 lg:p-4 lg:pb-4";
   const panelClassName = isDarkTheme
@@ -329,6 +338,21 @@ export function StrategySquareProductTab({
     const content = getStrategyContent(strategy, language);
     setCopiedStrategyId(strategy.id);
     onMockCopy?.(content.name);
+  };
+  const handleTypeChange = (value: string) => {
+    setActiveType(value as StrategySquareTypeFilter);
+    setAllProjectsPage(1);
+  };
+  const handleWindowChange = (value: string) => {
+    setActiveWindow(value as StrategySquareWindow);
+    setAllProjectsPage(1);
+  };
+  const handleSortChange = (value: string) => {
+    setSortKey(value as StrategySquareSortKey);
+    setAllProjectsPage(1);
+  };
+  const handleAllProjectsPageChange = (page: number) => {
+    setAllProjectsPage(Math.min(Math.max(1, page), allProjectsPageCount));
   };
 
   return (
@@ -373,6 +397,7 @@ export function StrategySquareProductTab({
                   onDetailsOpen={setDetailStrategyId}
                   onMore={() => {
                     setSortKey(section.sortKey);
+                    setAllProjectsPage(1);
                     setActiveStoreTab("allProjects");
                   }}
                 />
@@ -380,46 +405,40 @@ export function StrategySquareProductTab({
             </div>
           ) : (
             <div className="grid gap-4">
-              <div className="grid gap-4">
-                <div>
-                  <h1 className={isDarkTheme ? "text-2xl font-black tracking-tight text-slate-50" : "text-2xl font-black tracking-tight text-slate-950"}>{panelCopy.allProjectsTitle}</h1>
-                  <p className={isDarkTheme ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-slate-500"}>{panelCopy.visibleCount(visibleStrategies.length, MOCK_STRATEGIES.length)}</p>
-                </div>
-                <div className="grid max-w-3xl gap-3 sm:grid-cols-3">
-                  <StrategyFilterSelect
-                    isDarkTheme={isDarkTheme}
-                    label={panelCopy.strategyTypeFilter}
-                    options={STRATEGY_TYPE_FILTERS.map((typeFilter) => ({
-                      label: typeFilter === "all" ? panelCopy.allTypes : panelCopy.strategyTypes[typeFilter],
-                      value: typeFilter,
-                    }))}
-                    value={activeType}
-                    onChange={(value) => setActiveType(value as StrategySquareTypeFilter)}
-                  />
-                  <StrategyFilterSelect
-                    isDarkTheme={isDarkTheme}
-                    label={panelCopy.windowFilter}
-                    options={STRATEGY_WINDOWS.map((window) => ({
-                      label: panelCopy.windows[window],
-                      value: window,
-                    }))}
-                    value={activeWindow}
-                    onChange={(value) => setActiveWindow(value as StrategySquareWindow)}
-                  />
-                  <StrategyFilterSelect
-                    isDarkTheme={isDarkTheme}
-                    label={panelCopy.sortBy}
-                    options={SORT_KEYS.map((nextSortKey) => ({
-                      label: panelCopy.sortOptions[nextSortKey],
-                      value: nextSortKey,
-                    }))}
-                    value={sortKey}
-                    onChange={(value) => setSortKey(value as StrategySquareSortKey)}
-                  />
-                </div>
+              <div className="grid max-w-3xl gap-3 sm:grid-cols-3">
+                <StrategyFilterSelect
+                  isDarkTheme={isDarkTheme}
+                  label={panelCopy.strategyTypeFilter}
+                  options={STRATEGY_TYPE_FILTERS.map((typeFilter) => ({
+                    label: typeFilter === "all" ? panelCopy.allTypes : panelCopy.strategyTypes[typeFilter],
+                    value: typeFilter,
+                  }))}
+                  value={activeType}
+                  onChange={handleTypeChange}
+                />
+                <StrategyFilterSelect
+                  isDarkTheme={isDarkTheme}
+                  label={panelCopy.windowFilter}
+                  options={STRATEGY_WINDOWS.map((window) => ({
+                    label: panelCopy.windows[window],
+                    value: window,
+                  }))}
+                  value={activeWindow}
+                  onChange={handleWindowChange}
+                />
+                <StrategyFilterSelect
+                  isDarkTheme={isDarkTheme}
+                  label={panelCopy.sortBy}
+                  options={SORT_KEYS.map((nextSortKey) => ({
+                    label: panelCopy.sortOptions[nextSortKey],
+                    value: nextSortKey,
+                  }))}
+                  value={sortKey}
+                  onChange={handleSortChange}
+                />
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                {visibleStrategies.map((strategy) => (
+                {paginatedStrategies.map((strategy) => (
                   <StrategyMarketplaceCard
                     key={strategy.id}
                     copiedStrategyId={copiedStrategyId}
@@ -435,6 +454,14 @@ export function StrategySquareProductTab({
                   />
                 ))}
               </div>
+              <StrategyPagination
+                currentPage={safeAllProjectsPage}
+                isDarkTheme={isDarkTheme}
+                pageSize={ALL_PROJECTS_PAGE_SIZE}
+                totalPages={allProjectsPageCount}
+                copy={copy}
+                onPageChange={handleAllProjectsPageChange}
+              />
             </div>
           )}
         </div>
@@ -546,6 +573,91 @@ function StrategyFilterSelect({
         </SelectPrimitive.Portal>
       </SelectPrimitive.Root>
     </div>
+  );
+}
+
+function StrategyPagination({
+  copy,
+  currentPage,
+  isDarkTheme,
+  pageSize,
+  totalPages,
+  onPageChange,
+}: {
+  copy: WorkspaceCopy;
+  currentPage: number;
+  isDarkTheme: boolean;
+  pageSize: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  const panelCopy = copy.workspace.strategySquare;
+  const pageItems = createPaginationItems(currentPage, totalPages);
+  const canGoPrevious = currentPage > 1;
+  const canGoNext = currentPage < totalPages;
+  const shellClassName = isDarkTheme
+    ? "flex flex-col items-start justify-between gap-3 rounded-[24px] border border-white/[0.075] bg-white/[0.025] p-3 sm:flex-row sm:items-center"
+    : "flex flex-col items-start justify-between gap-3 rounded-[24px] border border-[#E5EAF0] bg-white p-3 shadow-sm sm:flex-row sm:items-center";
+  const pageSizeClassName = isDarkTheme
+    ? "text-xs font-bold text-slate-500"
+    : "text-xs font-bold text-slate-400";
+  const listClassName = "flex flex-wrap items-center gap-1";
+  const arrowButtonClassName = isDarkTheme
+    ? "motion-fx-3-raw-button inline-flex h-9 items-center justify-center rounded-xl border border-white/[0.075] bg-white/[0.035] px-3 text-xs font-black text-sky-200 transition hover:border-sky-400/25 hover:bg-sky-400/10 disabled:cursor-not-allowed disabled:opacity-40"
+    : "motion-fx-3-raw-button inline-flex h-9 items-center justify-center rounded-xl border border-[#B7E8FC] bg-white px-3 text-xs font-black text-[#008DCC] transition hover:bg-[#EAF8FE] disabled:cursor-not-allowed disabled:opacity-40";
+  const ellipsisClassName = isDarkTheme
+    ? "grid h-9 w-9 place-items-center text-xs font-black text-slate-500"
+    : "grid h-9 w-9 place-items-center text-xs font-black text-slate-400";
+
+  return (
+    <nav aria-label={panelCopy.pagination.ariaLabel} className={shellClassName}>
+      <span className={pageSizeClassName}>{panelCopy.pagination.pageSizeLabel(pageSize)}</span>
+      <div className={listClassName}>
+        <button
+          aria-label={panelCopy.pagination.previous}
+          className={arrowButtonClassName}
+          disabled={!canGoPrevious}
+          type="button"
+          onClick={() => onPageChange(currentPage - 1)}
+        >
+          ‹
+          <span className="ml-1 hidden sm:inline">{panelCopy.pagination.previous}</span>
+        </button>
+        {pageItems.map((item, index) => {
+          if (item === "ellipsis") {
+            return (
+              <span key={`ellipsis-${index}`} aria-hidden="true" className={ellipsisClassName}>
+                …
+              </span>
+            );
+          }
+
+          const isActive = item === currentPage;
+          return (
+            <button
+              key={item}
+              aria-current={isActive ? "page" : undefined}
+              aria-label={panelCopy.pagination.pageLabel(item)}
+              className={getPaginationPageButtonClassName(isDarkTheme, isActive)}
+              type="button"
+              onClick={() => onPageChange(item)}
+            >
+              {item}
+            </button>
+          );
+        })}
+        <button
+          aria-label={panelCopy.pagination.next}
+          className={arrowButtonClassName}
+          disabled={!canGoNext}
+          type="button"
+          onClick={() => onPageChange(currentPage + 1)}
+        >
+          <span className="mr-1 hidden sm:inline">{panelCopy.pagination.next}</span>
+          ›
+        </button>
+      </div>
+    </nav>
   );
 }
 
@@ -948,6 +1060,33 @@ function createMockCurve(values: readonly number[]): StrategySquareReturnPoint[]
   }));
 }
 
+function createPaginationItems(currentPage: number, totalPages: number): StrategyPaginationItem[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pinnedPages = new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
+  const pageNumbers = [...pinnedPages]
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((left, right) => left - right);
+  const items: StrategyPaginationItem[] = [];
+
+  for (const page of pageNumbers) {
+    const previousItem = items[items.length - 1];
+    if (typeof previousItem === "number") {
+      const gap = page - previousItem;
+      if (gap === 2) {
+        items.push(previousItem + 1);
+      } else if (gap > 2) {
+        items.push("ellipsis");
+      }
+    }
+    items.push(page);
+  }
+
+  return items;
+}
+
 function compareStrategies(left: StrategySquareItem, right: StrategySquareItem, sortKey: StrategySquareSortKey, window: StrategySquareWindow): number {
   const leftMetrics = getWindowAdjustedMetrics(left, window);
   const rightMetrics = getWindowAdjustedMetrics(right, window);
@@ -1153,6 +1292,19 @@ function getStoreTabButtonClassName(isDarkTheme: boolean, isActive: boolean): st
   }
 
   return `${baseClassName} ${isDarkTheme ? "text-slate-500 hover:bg-white/[0.05] hover:text-slate-200" : "text-slate-500 hover:bg-white hover:text-slate-900"}`;
+}
+
+function getPaginationPageButtonClassName(isDarkTheme: boolean, isActive: boolean): string {
+  const baseClassName = "motion-fx-3-raw-button grid h-9 min-w-9 place-items-center rounded-xl px-3 text-xs font-black transition";
+  if (isActive) {
+    return isDarkTheme
+      ? `${baseClassName} bg-[#00A6F4] text-white shadow-[0_10px_24px_rgba(0,166,244,0.2)]`
+      : `${baseClassName} bg-[#00A6F4] text-white shadow-sm shadow-sky-500/20`;
+  }
+
+  return isDarkTheme
+    ? `${baseClassName} border border-white/[0.075] bg-white/[0.035] text-slate-300 hover:border-sky-400/25 hover:bg-sky-400/10 hover:text-sky-100`
+    : `${baseClassName} border border-[#E5EAF0] bg-white text-slate-600 shadow-sm hover:border-[#B7E8FC] hover:bg-[#EAF8FE] hover:text-[#008DCC]`;
 }
 
 function getMockBadgeClassName(isDarkTheme: boolean): string {
