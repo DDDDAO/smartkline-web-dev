@@ -1636,8 +1636,12 @@ function ExchangeApiSetupLayer({
     isDarkTheme
       ? "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3"
       : "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3",
-    isHyperliquidExchange ? "lg:max-h-[420px]" : "",
+    isHyperliquidExchange ? "self-start lg:max-h-[340px]" : "",
   ].filter(Boolean).join(" ");
+  const exchangeSelectorListClassName = [
+    "kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:min-h-0 lg:content-start lg:overflow-x-hidden lg:overflow-y-auto lg:overscroll-contain lg:pb-0 lg:pr-1",
+    isHyperliquidExchange ? "lg:max-h-[280px] lg:flex-none" : "lg:flex-1",
+  ].join(" ");
   const exchangeContentClassName = isHyperliquidExchange
     ? "grid min-w-0 content-start gap-3 self-start"
     : "grid min-w-0 gap-4";
@@ -1683,7 +1687,7 @@ function ExchangeApiSetupLayer({
                 <div className={isDarkTheme ? "px-1 pb-2 text-xs font-black text-slate-300" : "px-1 pb-2 text-xs font-black text-slate-700"}>
                   {accountCopy.apiSetup.selectExchange}
                 </div>
-                <div className="kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:min-h-0 lg:flex-1 lg:content-start lg:overflow-x-hidden lg:overflow-y-auto lg:overscroll-contain lg:pb-0 lg:pr-1">
+                <div className={exchangeSelectorListClassName}>
                   {EXCHANGES.map((exchange) => (
                     <button
                       key={exchange.id}
