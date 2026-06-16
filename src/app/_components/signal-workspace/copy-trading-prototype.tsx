@@ -190,6 +190,17 @@ const NOTIFICATION_CHANNELS: readonly {
   { icon: "🔗", key: "wecomWebhook", requiresWebhookUrl: true },
   { icon: "📨", key: "dingtalkWebhook", requiresWebhookUrl: true },
 ];
+const STRATEGY_NOTIFICATION_EVENTS = [
+  { code: "trader.started", key: "traderStarted" },
+  { code: "trader.stopped", key: "traderStopped" },
+  { code: "trader.failed", key: "traderFailed" },
+  { code: "order.filled", key: "orderFilled" },
+  { code: "order.rejected", key: "orderRejected" },
+  { code: "exchange.error", key: "exchangeError" },
+  { code: "equity.threshold_crossed", key: "equityThresholdCrossed" },
+  { code: "risk.take_profit", key: "riskTakeProfit" },
+  { code: "risk.stop_loss", key: "riskStopLoss" },
+] as const;
 
 export function AccountCenterPrototype({
   apiConnection,
@@ -2348,6 +2359,7 @@ function StrategyDetailView({
   const [isTradeKlineOpen, setIsTradeKlineOpen] = useState(false);
   const [selectedTradeKlineRowId, setSelectedTradeKlineRowId] = useState<string | null>(null);
   const [tradeKlineInterval, setTradeKlineInterval] = useState<KlineInterval>("15m");
+  const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false);
   const strategyCopy = copy.workspace.accountCenter.strategy;
 
   useEffect(() => {
@@ -2483,8 +2495,14 @@ function StrategyDetailView({
   return (
     <section className="space-y-4">
       <div className={getModalSectionClassName(isDarkTheme)}>
-        <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onBack}>← {strategyCopy.back}</button>
-        <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onBack}>← {strategyCopy.back}</button>
+          <button className={getNotificationConfigureButtonClassName(isDarkTheme)} type="button" onClick={() => setIsNotificationSettingsOpen(true)}>
+            <BellGlyph />
+            {strategyCopy.configureNotifications}
+          </button>
+        </div>
+        <div className="mt-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="flex min-w-0 items-start gap-3">
             <SourceAvatar isDarkTheme={isDarkTheme} name={liveStrategy.traderName} url={liveStrategy.avatarUrl} />
             <div className="min-w-0 flex-1">
@@ -2497,13 +2515,32 @@ function StrategyDetailView({
               </p>
             </div>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2 lg:self-end">
-            {liveStrategy.status === "running" ? (
-              <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("paused")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.pause}</button>
-            ) : (
-              <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("running")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.resume}</button>
-            )}
-            <button className={getDangerButtonClassName(isDarkTheme)} disabled={isDeletingStrategy} type="button" onClick={() => void deleteStrategy()}>{isDeletingStrategy ? strategyCopy.deleting : strategyCopy.delete}</button>
+          <div className="flex shrink-0 flex-col gap-2 xl:items-end">
+            <div className="flex flex-wrap gap-2 xl:justify-end">
+              {liveStrategy.status === "running" ? (
+                <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("paused")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.pause}</button>
+              ) : (
+                <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("running")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.resume}</button>
+              )}
+              <button className={getDangerButtonClassName(isDarkTheme)} disabled={isDeletingStrategy} type="button" onClick={() => void deleteStrategy()}>{isDeletingStrategy ? strategyCopy.deleting : strategyCopy.delete}</button>
+            </div>
+            <div className={isDarkTheme ? "flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.075] bg-white/[0.03] p-2" : "flex flex-wrap items-center gap-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-2"}>
+              <span className={isDarkTheme ? "px-1 text-xs font-black text-slate-400" : "px-1 text-xs font-black text-slate-500"}>{strategyCopy.ratioPercent}</span>
+              <div className="relative w-24">
+                <input
+                  className={isDarkTheme ? "h-9 w-full rounded-xl border border-white/[0.075] bg-white/[0.035] px-3 pr-7 text-sm font-black text-slate-100 outline-none transition focus:border-sky-400/45 disabled:cursor-not-allowed disabled:opacity-55" : "h-9 w-full rounded-xl border border-[#D5E4EF] bg-white px-3 pr-7 text-sm font-black text-slate-950 outline-none transition focus:border-[#7DBEFF] disabled:cursor-not-allowed disabled:opacity-55"}
+                  disabled={!detail || Boolean(error)}
+                  inputMode="decimal"
+                  placeholder={strategyCopy.ratioPlaceholder}
+                  value={syncRatioPercent}
+                  onChange={(event) => setSyncRatioPercent(event.target.value)}
+                />
+                <span className={isDarkTheme ? "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500" : "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400"}>%</span>
+              </div>
+              <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canSyncPositions} type="button" onClick={syncPositions}>
+                {isSyncingPositions ? strategyCopy.syncingPositions : strategyCopy.syncPositions}
+              </button>
+            </div>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs lg:grid-cols-4">
@@ -2517,6 +2554,14 @@ function StrategyDetailView({
             {getTradingFoxErrorMessage(detail.trader.statusMessage, copy)}
           </p>
         ) : null}
+        {detail ? (
+          <div className="mt-3">
+            <p className={isDarkTheme ? "text-xs leading-5 text-slate-500" : "text-xs leading-5 text-slate-500"}>{strategyCopy.syncPositionsHint}</p>
+            {syncMessage ? <p className={isDarkTheme ? "mt-2 text-xs text-emerald-200" : "mt-2 text-xs text-emerald-700"}>{syncMessage}</p> : null}
+            {syncError ? <p className={getInlineErrorClassName(isDarkTheme)}>{syncError}</p> : null}
+            {!detail.trader.enabled ? <p className={isDarkTheme ? "mt-2 text-xs text-amber-200" : "mt-2 text-xs text-amber-700"}>{strategyCopy.syncPositionsDisabled}</p> : null}
+          </div>
+        ) : null}
       </div>
 
       {isLoading ? (
@@ -2525,33 +2570,6 @@ function StrategyDetailView({
         <div className={getErrorPanelClassName(isDarkTheme)}>{error}</div>
       ) : detail ? (
         <>
-          <section className={getModalSectionClassName(isDarkTheme)}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h3 className="text-sm font-black">{strategyCopy.syncPositions}</h3>
-                <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-500" : "mt-1 text-xs leading-5 text-slate-500"}>{strategyCopy.syncPositionsHint}</p>
-              </div>
-              <div className="flex gap-2">
-                <div className="relative w-28">
-                  <input
-                    className={isDarkTheme ? "h-10 w-full rounded-xl border border-white/[0.075] bg-white/[0.035] px-3 pr-7 text-sm font-black text-slate-100 outline-none transition focus:border-sky-400/45" : "h-10 w-full rounded-xl border border-[#D5E4EF] bg-white px-3 pr-7 text-sm font-black text-slate-950 outline-none transition focus:border-[#7DBEFF]"}
-                    inputMode="decimal"
-                    placeholder={strategyCopy.ratioPlaceholder}
-                    value={syncRatioPercent}
-                    onChange={(event) => setSyncRatioPercent(event.target.value)}
-                  />
-                  <span className={isDarkTheme ? "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500" : "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400"}>%</span>
-                </div>
-                <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canSyncPositions} type="button" onClick={syncPositions}>
-                  {isSyncingPositions ? strategyCopy.syncingPositions : strategyCopy.syncPositions}
-                </button>
-              </div>
-            </div>
-            {syncMessage ? <p className={isDarkTheme ? "mt-3 text-xs text-emerald-200" : "mt-3 text-xs text-emerald-700"}>{syncMessage}</p> : null}
-            {syncError ? <p className={getInlineErrorClassName(isDarkTheme)}>{syncError}</p> : null}
-            {!detail.trader.enabled ? <p className={isDarkTheme ? "mt-3 text-xs text-amber-200" : "mt-3 text-xs text-amber-700"}>{strategyCopy.syncPositionsDisabled}</p> : null}
-          </section>
-
           <section className={getModalSectionClassName(isDarkTheme)}>
             <h3 className="text-sm font-black">{strategyCopy.copyPositions}</h3>
             {detail.positionsError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.positionsError, copy)}</p> : null}
@@ -2656,7 +2674,159 @@ function StrategyDetailView({
 
         </>
       ) : null}
+      {isNotificationSettingsOpen ? (
+        <StrategyNotificationSettingsDialog
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          onClose={() => setIsNotificationSettingsOpen(false)}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function StrategyNotificationSettingsDialog({
+  copy,
+  isDarkTheme,
+  onClose,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  onClose: () => void;
+}) {
+  const notificationCopy = copy.workspace.accountCenter.notifications;
+  const strategyCopy = copy.workspace.accountCenter.strategy;
+  const emptyPanelClassName = isDarkTheme
+    ? "rounded-2xl border border-dashed border-white/[0.09] bg-white/[0.02] px-4 py-5 text-sm font-bold text-slate-500"
+    : "rounded-2xl border border-dashed border-[#E5EAF0] bg-[#FAFBFD] px-4 py-5 text-sm font-bold text-slate-500";
+  const eventCardClassName = isDarkTheme
+    ? "flex min-h-[72px] items-start gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.025] p-3 opacity-70"
+    : "flex min-h-[72px] items-start gap-3 rounded-2xl border border-[#E5EAF0] bg-[#FAFBFD] p-3 opacity-75";
+  const checkboxClassName = isDarkTheme
+    ? "mt-0.5 h-4 w-4 shrink-0 rounded border border-white/[0.12] bg-white/[0.02]"
+    : "mt-0.5 h-4 w-4 shrink-0 rounded border border-[#D5E4EF] bg-white";
+
+  return (
+    <>
+      <button
+        aria-label={copy.common.close}
+        className={isDarkTheme ? "fixed inset-0 z-[125] bg-black/58 backdrop-blur-[5px]" : "fixed inset-0 z-[125] bg-slate-950/28 backdrop-blur-[5px]"}
+        type="button"
+        onClick={onClose}
+      />
+      <section
+        aria-label={strategyCopy.notificationSettingsTitle}
+        aria-modal="true"
+        className="fixed inset-x-0 bottom-0 z-[130] h-[92dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:h-[min(820px,calc(100dvh-1rem))] sm:max-w-[980px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
+        role="dialog"
+      >
+        <div className={isDarkTheme ? "flex h-full flex-col border border-white/[0.085] bg-[#111820] text-slate-100" : "flex h-full flex-col border border-[#D5E4EF] bg-white text-slate-950"}>
+          <header className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className={getNotificationModalIconClassName(isDarkTheme)}>
+                  <BellGlyph />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-black tracking-tight">{strategyCopy.notificationSettingsTitle}</h2>
+                    <span className={getNotificationUnavailableBadgeClassName(isDarkTheme)}>
+                      {notificationCopy.unavailable}
+                    </span>
+                  </div>
+                  <p className={isDarkTheme ? "mt-2 max-w-3xl text-sm leading-6 text-slate-400" : "mt-2 max-w-3xl text-sm leading-6 text-slate-600"}>
+                    {strategyCopy.notificationSettingsDescription}
+                  </p>
+                </div>
+              </div>
+              <button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} type="button" onClick={onClose}>
+                <span aria-hidden="true" className="text-lg leading-none">×</span>
+              </button>
+            </div>
+          </header>
+
+          <div className="kol-scroll-area min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+            <section className={getModalSectionClassName(isDarkTheme)}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-black">{strategyCopy.notificationEnableTitle}</h3>
+                  <p className={isDarkTheme ? "mt-1 text-sm leading-6 text-slate-400" : "mt-1 text-sm leading-6 text-slate-600"}>
+                    {strategyCopy.notificationEnableDescription}
+                  </p>
+                </div>
+                <span className={isDarkTheme ? "relative h-7 w-12 shrink-0 rounded-full bg-white/[0.08] opacity-60" : "relative h-7 w-12 shrink-0 rounded-full bg-slate-200 opacity-70"} aria-hidden="true">
+                  <span className={isDarkTheme ? "absolute left-1 top-1 h-5 w-5 rounded-full bg-slate-600" : "absolute left-1 top-1 h-5 w-5 rounded-full bg-white"} />
+                </span>
+              </div>
+            </section>
+
+            <section className={getModalSectionClassName(isDarkTheme)}>
+              <h3 className="text-base font-black">{strategyCopy.notificationChannelsTitle}</h3>
+              <p className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
+                {strategyCopy.notificationChannelsDescription}
+              </p>
+              <div className={`${emptyPanelClassName} mt-4`}>
+                {strategyCopy.notificationChannelsEmpty}
+              </div>
+            </section>
+
+            <section className={getModalSectionClassName(isDarkTheme)}>
+              <h3 className="text-base font-black">{strategyCopy.notificationEventsTitle}</h3>
+              <p className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
+                {strategyCopy.notificationEventsDescription}
+              </p>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {STRATEGY_NOTIFICATION_EVENTS.map((event) => {
+                  const eventCopy = strategyCopy.notificationEvents[event.key];
+
+                  return (
+                    <div key={event.key} className={eventCardClassName}>
+                      <span className={checkboxClassName} aria-hidden="true" />
+                      <div className="min-w-0">
+                        <div className={isDarkTheme ? "text-sm font-black text-slate-300" : "text-sm font-black text-slate-700"}>
+                          {eventCopy}
+                        </div>
+                        <div className={isDarkTheme ? "mt-2 break-all text-xs font-semibold text-slate-500" : "mt-2 break-all text-xs font-semibold text-slate-400"}>
+                          {event.code}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className={getModalSectionClassName(isDarkTheme)}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-black">{strategyCopy.notificationThresholdTitle}</h3>
+                  <p className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
+                    {strategyCopy.notificationThresholdDescription}
+                  </p>
+                </div>
+                <button className={getSoftButtonClassName(isDarkTheme)} disabled type="button">
+                  <PlusGlyph />
+                  {strategyCopy.notificationAddThreshold}
+                </button>
+              </div>
+              <div className={`${emptyPanelClassName} mt-4`}>
+                {strategyCopy.notificationThresholdEmpty}
+              </div>
+            </section>
+          </div>
+
+          <footer className={isDarkTheme ? "flex flex-col gap-3 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-5" : "flex flex-col gap-3 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-5"}>
+            <p className={isDarkTheme ? "text-sm leading-6 text-slate-500" : "text-sm leading-6 text-slate-500"}>
+              {strategyCopy.notificationFooterHint}
+            </p>
+            <button className={getNotificationSaveButtonClassName(isDarkTheme)} disabled type="button">
+              <SaveGlyph />
+              {strategyCopy.notificationSaveSettings}
+            </button>
+          </footer>
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -4586,6 +4756,36 @@ function CheckGlyph() {
   );
 }
 
+function BellGlyph() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24">
+      <path d="M6.8 10.2C6.8 6.9 9.1 4.5 12 4.5C14.9 4.5 17.2 6.9 17.2 10.2V13.4L18.8 16H5.2L6.8 13.4V10.2Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
+      <path d="M10 19C10.4 19.8 11.1 20.3 12 20.3C12.9 20.3 13.6 19.8 14 19" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
+      <path d="M4.8 7.6C4.2 8.5 3.9 9.5 3.9 10.7" stroke="currentColor" strokeLinecap="round" strokeWidth="2.2" />
+      <path d="M19.2 7.6C19.8 8.5 20.1 9.5 20.1 10.7" stroke="currentColor" strokeLinecap="round" strokeWidth="2.2" />
+    </svg>
+  );
+}
+
+function PlusGlyph() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24">
+      <path d="M12 5.5V18.5" stroke="currentColor" strokeLinecap="round" strokeWidth="2.4" />
+      <path d="M5.5 12H18.5" stroke="currentColor" strokeLinecap="round" strokeWidth="2.4" />
+    </svg>
+  );
+}
+
+function SaveGlyph() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24">
+      <path d="M5.8 4.8H16.1L19.2 7.9V18.2C19.2 19.3 18.3 20.2 17.2 20.2H6.8C5.7 20.2 4.8 19.3 4.8 18.2V5.8C4.8 5.2 5.2 4.8 5.8 4.8Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="2.1" />
+      <path d="M8 4.8V10H15.2V4.8" stroke="currentColor" strokeLinejoin="round" strokeWidth="2.1" />
+      <path d="M8.3 20.2V14.6H15.7V20.2" stroke="currentColor" strokeLinejoin="round" strokeWidth="2.1" />
+    </svg>
+  );
+}
+
 function getExchangeById(exchangeId: PrototypeExchangeId): PrototypeExchange {
   return EXCHANGES.find((exchange) => exchange.id === exchangeId) ?? EXCHANGES[0];
 }
@@ -4661,10 +4861,28 @@ function getAccountCenterTabButtonClassName(isDarkTheme: boolean, isActive: bool
     : `${baseClassName} border border-transparent text-slate-500 hover:border-[#D5E4EF] hover:bg-white hover:text-slate-900`;
 }
 
+function getNotificationConfigureButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-[#E29A7C]/25 bg-[#D97955] px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-[#E08A67]"
+    : "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-[#C96748]/15 bg-[#DC7958] px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-[#CF6B4B]";
+}
+
+function getNotificationSaveButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-[#D97955] px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-[#E08A67] disabled:cursor-not-allowed disabled:opacity-60"
+    : "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-[#C95F3F] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#B95034] disabled:cursor-not-allowed disabled:opacity-60";
+}
+
 function getNotificationUnavailableBadgeClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "shrink-0 rounded-full bg-amber-400/15 px-2.5 py-1 text-[11px] font-black text-amber-300"
     : "shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700";
+}
+
+function getNotificationModalIconClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/[0.075] bg-white/[0.035] text-slate-100"
+    : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#E5EAF0] bg-[#FAFBFD] text-slate-950";
 }
 
 function getNotificationIconClassName(isDarkTheme: boolean): string {
@@ -4675,8 +4893,8 @@ function getNotificationIconClassName(isDarkTheme: boolean): string {
 
 function getSoftButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "inline-flex min-h-9 items-center justify-center rounded-xl border border-white/[0.075] bg-white/[0.04] px-3 text-xs font-black text-slate-200 transition hover:bg-white/[0.08]"
-    : "inline-flex min-h-9 items-center justify-center rounded-xl border border-[#D5E4EF] bg-white px-3 text-xs font-black text-slate-700 transition hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+    ? "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-white/[0.075] bg-white/[0.04] px-3 text-xs font-black text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+    : "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-[#D5E4EF] bg-white px-3 text-xs font-black text-slate-700 transition hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45";
 }
 
 function getDangerButtonClassName(isDarkTheme: boolean): string {
