@@ -218,6 +218,7 @@ export function AccountCenterPrototype({
   const accountCopy = copy.workspace.accountCenter;
   const isDrawerModal = !isApiSetupOpen && !isCoveredByModal;
   const hasApiConnections = apiConnections.length > 0;
+  const runningStrategyCount = strategies.filter((strategy) => strategy.status === "running").length;
   const [isStrategyCreateOpen, setIsStrategyCreateOpen] = useState(false);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
@@ -340,7 +341,7 @@ export function AccountCenterPrototype({
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <h3 className="text-sm font-black">{accountCopy.strategy.title}</h3>
-                        <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-400"}>{accountCopy.strategyCreate.count(strategies.length)}</div>
+                        <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-400"}>{accountCopy.strategyCreate.runningCount(runningStrategyCount, strategies.length)}</div>
                       </div>
                       <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={() => setIsStrategyCreateOpen(true)}>
                         {accountCopy.strategyCreate.action}
@@ -445,6 +446,7 @@ export function AccountManagementPanel({
 }) {
   const accountCopy = copy.workspace.accountCenter;
   const hasApiConnections = apiConnections.length > 0;
+  const runningStrategyCount = strategies.filter((strategy) => strategy.status === "running").length;
   const [isStrategyCreateOpen, setIsStrategyCreateOpen] = useState(false);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
   const [activeAccountTab, setActiveAccountTab] = useState<AccountManagementTab>("api");
@@ -460,14 +462,14 @@ export function AccountManagementPanel({
       meta: accountCopy.api.connectedCount(apiConnections.length),
     },
     {
+      key: "strategies",
+      label: accountCopy.tabs.strategies,
+      meta: accountCopy.strategyCreate.runningCount(runningStrategyCount, strategies.length),
+    },
+    {
       key: "notifications",
       label: accountCopy.tabs.notifications,
       meta: accountCopy.notifications.unavailable,
-    },
-    {
-      key: "strategies",
-      label: accountCopy.tabs.strategies,
-      meta: accountCopy.strategyCreate.count(strategies.length),
     },
   ];
   const openStrategyDetail = (strategy: PrototypeStrategy) => {
@@ -586,7 +588,7 @@ export function AccountManagementPanel({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h2 className="text-base font-black">{accountCopy.tabs.strategies}</h2>
-                    <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-400"}>{accountCopy.strategyCreate.count(strategies.length)}</div>
+                    <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-400"}>{accountCopy.strategyCreate.runningCount(runningStrategyCount, strategies.length)}</div>
                   </div>
                   <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={() => setIsStrategyCreateOpen(true)}>
                     {accountCopy.strategyCreate.action}
