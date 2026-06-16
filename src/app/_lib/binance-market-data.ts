@@ -81,8 +81,28 @@ const miniTickerPricesBySymbol = new Map<string, number>();
 const miniTickerSubscribers = new Set<BinanceMiniTickerHandlers>();
 let miniTickerWebSocket: WebSocket | null = null;
 let miniTickerReconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
+let cachedUsdtPerpetualMarkets: MarketSymbol[] | null = null;
+let pendingUsdtPerpetualMarketsRequest: Promise<MarketSymbol[]> | null = null;
 
 export async function fetchUsdtPerpetualMarkets(): Promise<MarketSymbol[]> {
+  if (cachedUsdtPerpetualMarkets) {
+    return cachedUsdtPerpetualMarkets.slice();
+  }
+
+  pendingUsdtPerpetualMarketsRequest ??= requestUsdtPerpetualMarkets()
+    .then((marketSymbols) => {
+      cachedUsdtPerpetualMarkets = marketSymbols;
+      return marketSymbols;
+    })
+    .finally(() => {
+      pendingUsdtPerpetualMarketsRequest = null;
+    });
+
+  const marketSymbols = await pendingUsdtPerpetualMarketsRequest;
+  return marketSymbols.slice();
+}
+
+async function requestUsdtPerpetualMarkets(): Promise<MarketSymbol[]> {
   const response = await fetch(new URL("/fapi/v1/exchangeInfo", BINANCE_FUTURES_REST_BASE_URL));
   if (!response.ok) {
     throw new Error(`Binance futures market list failed: ${response.status} ${response.statusText}`);

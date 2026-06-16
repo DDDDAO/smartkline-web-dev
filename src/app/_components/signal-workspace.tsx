@@ -82,7 +82,6 @@ import {
   WorkspaceProductTabs,
   type WorkspaceProductTab,
 } from "./signal-workspace/product-tabs";
-import { StrategySquareProductTab } from "./signal-workspace/strategy-square-panel";
 import { AccountEntryButton } from "./signal-workspace/account-entry-button";
 import type {
   CopyTradingPrototypeTarget,
@@ -92,11 +91,10 @@ import type {
   PrototypeStrategyCreateInput,
   PrototypeStrategyStatus,
 } from "./signal-workspace/copy-trading-prototype";
-import {
-  TopSignalsPanel,
-  type PnlColorMode,
-  type TopSignalPerformanceWindow,
-  type TopSignalSortKey,
+import type {
+  PnlColorMode,
+  TopSignalPerformanceWindow,
+  TopSignalSortKey,
 } from "./signal-workspace/top-signals-panel";
 import type { TelegramAuthMeResponse } from "@/app/_lib/auth/telegram-auth";
 import type { TradingFoxAccountResponse, TradingFoxConnector } from "@/app/_lib/tradingfox-control-plane";
@@ -138,6 +136,14 @@ const AccountManagementPanelWithWallet = dynamic(
 );
 const CopyTradingPrototypeModalWithWallet = dynamic(
   () => import("./signal-workspace/account-wallet-boundary").then((module) => module.CopyTradingPrototypeModalWithWallet),
+  { loading: () => null },
+);
+const TopSignalsPanel = dynamic(
+  () => import("./signal-workspace/top-signals-panel").then((module) => module.TopSignalsPanel),
+  { loading: () => null },
+);
+const StrategySquareProductTab = dynamic(
+  () => import("./signal-workspace/strategy-square-panel").then((module) => module.StrategySquareProductTab),
   { loading: () => null },
 );
 
@@ -226,6 +232,10 @@ export function SignalWorkspace({
   const [isApiSetupOpen, setIsApiSetupOpen] = useState(false);
   const [prototypeApiConnections, setPrototypeApiConnections] = useState<PrototypeApiConnection[]>([]);
   const prototypeApiConnection = prototypeApiConnections[0] ?? createEmptyPrototypeApiConnection();
+  const hasConnectedPrototypeApiConnection = useMemo(
+    () => prototypeApiConnections.some((connection) => connection.status === "connected"),
+    [prototypeApiConnections],
+  );
   const [prototypeStrategies, setPrototypeStrategies] = useState<
     PrototypeStrategy[]
   >([]);
@@ -349,8 +359,12 @@ export function SignalWorkspace({
     () => createTopSignalsSignalBiasSummary(topSignalsSnapshot, symbol),
     [symbol, topSignalsSnapshot],
   );
+  const shouldLoadMarketOptions = isIntelTab || isTopSignalsTab;
   const shouldLoadKolSignals = isProductTabHydrated && (isIntelTab || isKolFollowTab);
-  const shouldLoadTopSignalsSnapshot = isTopSignalsTab || isAccountManagementTab;
+  const shouldLoadAccountSignalSources = isAccountManagementTab
+    && hasConnectedPrototypeApiConnection
+    && topSignalsSnapshot === null;
+  const shouldLoadTopSignalsSnapshot = isTopSignalsTab || shouldLoadAccountSignalSources;
 
   const {
     candlesBySymbol: paperPositionCandlesBySymbol,
@@ -881,6 +895,10 @@ export function SignalWorkspace({
   }, [isIntelTab, isWorkspaceMotionVisible, kolSignalSourceStatus.isLoading, startOnboardingGuide]);
 
   useEffect(() => {
+    if (!shouldLoadMarketOptions) {
+      return;
+    }
+
     let isActive = true;
 
     fetchUsdtPerpetualMarkets()
@@ -905,7 +923,7 @@ export function SignalWorkspace({
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [shouldLoadMarketOptions]);
 
   useEffect(() => {
     if (!shouldLoadKolSignals) {
@@ -1111,10 +1129,12 @@ export function SignalWorkspace({
       }
     };
 
-    void loadSnapshot(true);
-    pollingIntervalId = window.setInterval(() => {
-      void loadSnapshot(false);
-    }, TOP_SIGNALS_POLL_INTERVAL_MS);
+    void loadSnapshot(isTopSignalsTab);
+    if (isTopSignalsTab) {
+      pollingIntervalId = window.setInterval(() => {
+        void loadSnapshot(false);
+      }, TOP_SIGNALS_POLL_INTERVAL_MS);
+    }
 
     return () => {
       isActive = false;
@@ -1122,7 +1142,7 @@ export function SignalWorkspace({
         window.clearInterval(pollingIntervalId);
       }
     };
-  }, [shouldLoadTopSignalsSnapshot]);
+  }, [isTopSignalsTab, shouldLoadTopSignalsSnapshot]);
 
   useEffect(() => {
     const pendingTradeEventId = pendingRouteTopSignalTradeEventIdRef.current;
@@ -1952,7 +1972,7 @@ export function SignalWorkspace({
           />
         )}
       </div>
-      {isIntelTab ? (
+      {isCompactLayout && isIntelTab ? (
         <MobileKolBottomSheet
           activeSignal={activeSignal}
           copy={copy}
@@ -1970,7 +1990,7 @@ export function SignalWorkspace({
           onSignalSelect={handleSignalSelect}
         />
       ) : null}
-      {isTopSignalsTab ? (
+      {isCompactLayout && isTopSignalsTab ? (
         <MobileTopSignalsBottomSheet
           activeSourceId={activeTopSignalSourceId}
           copy={copy}
