@@ -778,19 +778,26 @@ function StrategyMarketplaceCard({
       ? "mt-2 rounded-[14px] border border-white/[0.065] bg-[#101821] p-1.5 sm:rounded-[18px] sm:p-2 xl:mt-4 xl:rounded-[22px] xl:p-3"
       : "mt-2 rounded-[14px] border border-[#E5EAF0] bg-gradient-to-b from-[#F8FCFF] to-white p-1.5 sm:rounded-[18px] sm:p-2 xl:mt-4 xl:rounded-[22px] xl:p-3"
     : isDarkTheme ? "mt-4 rounded-[22px] border border-white/[0.065] bg-[#101821] p-3" : "mt-4 rounded-[22px] border border-[#E5EAF0] bg-gradient-to-b from-[#F8FCFF] to-white p-3";
-  const primaryMetricLabelClassName = isGridCard
-    ? isDarkTheme ? "hidden text-[11px] font-bold text-slate-500 sm:block" : "hidden text-[11px] font-bold text-slate-400 sm:block"
-    : isDarkTheme ? "text-[11px] font-bold text-slate-500" : "text-[11px] font-bold text-slate-400";
+  const metricPreviewGridClassName = isGridCard ? "grid grid-cols-2 gap-1.5 sm:gap-2" : "grid grid-cols-2 gap-2";
+  const metricPreviewClassName = isDarkTheme
+    ? "min-w-0 rounded-xl bg-white/[0.04] px-2 py-2 sm:rounded-2xl sm:px-3"
+    : "min-w-0 rounded-xl bg-white px-2 py-2 shadow-sm sm:rounded-2xl sm:px-3";
+  const metricPreviewLabelClassName = isGridCard
+    ? isDarkTheme ? "truncate text-[10px] font-bold leading-3 text-slate-500 sm:text-[11px] sm:leading-4" : "truncate text-[10px] font-bold leading-3 text-slate-400 sm:text-[11px] sm:leading-4"
+    : isDarkTheme ? "truncate text-[11px] font-bold leading-4 text-slate-500" : "truncate text-[11px] font-bold leading-4 text-slate-400";
   const primaryMetricValueClassName = getPnlTextClassName(
     isDarkTheme,
     primaryMetric.toneValue,
     pnlColorMode,
-    isGridCard ? "mt-0 truncate text-[10px] leading-3 tracking-tight sm:mt-1 sm:text-base xl:text-2xl" : "mt-1 text-2xl tracking-tight",
+    isGridCard ? "mt-1 truncate text-sm leading-5 tracking-tight sm:text-base sm:leading-6 xl:text-xl xl:leading-7" : "mt-1 truncate text-2xl leading-8 tracking-tight",
   );
-  const secondaryMetricClassName = isGridCard
-    ? isDarkTheme ? "hidden rounded-2xl bg-white/[0.055] px-3 py-2 text-right md:block" : "hidden rounded-2xl bg-white px-3 py-2 text-right shadow-sm md:block"
-    : isDarkTheme ? "rounded-2xl bg-white/[0.055] px-3 py-2 text-right" : "rounded-2xl bg-white px-3 py-2 text-right shadow-sm";
-  const curveClassName = isGridCard ? "mt-1.5 h-7 min-w-0 sm:h-10 xl:mt-3 xl:h-24" : "mt-3 h-24 min-w-0";
+  const secondaryMetricValueClassName = getPnlTextClassName(
+    isDarkTheme,
+    secondaryMetric.toneValue,
+    pnlColorMode,
+    isGridCard ? "mt-1 truncate text-sm leading-5 tracking-tight sm:text-base sm:leading-6 xl:text-xl xl:leading-7" : "mt-1 truncate text-2xl leading-8 tracking-tight",
+  );
+  const curveClassName = isGridCard ? "mt-2 h-10 min-w-0 sm:h-14 xl:mt-3 xl:h-20" : "mt-3 h-24 min-w-0";
   const metricsRowClassName = isGridCard ? "mt-4 hidden grid-cols-3 gap-2 text-sm xl:grid" : "mt-4 grid grid-cols-3 gap-2 text-sm";
   const footerClassName = isDarkTheme
     ? isGridCard ? "grid grid-cols-2 gap-1 border-t border-white/[0.065] p-1.5 sm:gap-2 sm:p-2 xl:grid-cols-[minmax(84px,0.35fr)_minmax(0,1fr)] xl:p-3" : "grid grid-cols-[minmax(84px,0.35fr)_minmax(0,1fr)] gap-2 border-t border-white/[0.065] p-3"
@@ -815,14 +822,14 @@ function StrategyMarketplaceCard({
         </div>
 
         <div className={metricPanelClassName}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className={primaryMetricLabelClassName}>{primaryMetric.label}</div>
+          <div className={metricPreviewGridClassName}>
+            <div className={metricPreviewClassName}>
+              <div className={metricPreviewLabelClassName}>{primaryMetric.label}</div>
               <div className={primaryMetricValueClassName}>{primaryMetric.value}</div>
             </div>
-            <div className={secondaryMetricClassName}>
-              <div className={isDarkTheme ? "text-[10px] font-bold text-slate-500" : "text-[10px] font-bold text-slate-400"}>{secondaryMetric.label}</div>
-              <div className={getPnlTextClassName(isDarkTheme, secondaryMetric.toneValue, pnlColorMode, "mt-0.5 text-sm")}>{secondaryMetric.value}</div>
+            <div className={metricPreviewClassName}>
+              <div className={metricPreviewLabelClassName}>{secondaryMetric.label}</div>
+              <div className={secondaryMetricValueClassName}>{secondaryMetric.value}</div>
             </div>
           </div>
           <div className={curveClassName}>
