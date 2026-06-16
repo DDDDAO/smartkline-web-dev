@@ -151,7 +151,8 @@ const KlineChart = dynamic<KlineChartProps>(
 const HYPERLIQUID_DEPOSIT_URL = "https://app.hyperliquid.xyz/portfolio";
 type SignTypedDataAsync = ReturnType<typeof useSignTypedData>["signTypedDataAsync"];
 type WagmiSignTypedDataVariables = Parameters<SignTypedDataAsync>[0];
-type AccountManagementTab = "api" | "strategies";
+type AccountManagementTab = "api" | "notifications" | "strategies";
+type NotificationChannelKey = "dingtalkWebhook" | "feishuWebhook" | "telegramBot" | "wecomWebhook";
 
 export type PrototypeConnectionSaveInput = {
   accountName: string;
@@ -179,6 +180,16 @@ const EXCHANGES = [
 ] as const;
 type PrototypeExchange = typeof EXCHANGES[number];
 type PrototypeExchangeId = PrototypeExchange["id"];
+const NOTIFICATION_CHANNELS: readonly {
+  icon: string;
+  key: NotificationChannelKey;
+  requiresWebhookUrl: boolean;
+}[] = [
+  { icon: "🤖", key: "telegramBot", requiresWebhookUrl: false },
+  { icon: "💬", key: "feishuWebhook", requiresWebhookUrl: true },
+  { icon: "🔗", key: "wecomWebhook", requiresWebhookUrl: true },
+  { icon: "📨", key: "dingtalkWebhook", requiresWebhookUrl: true },
+];
 
 export function AccountCenterPrototype({
   apiConnection,
@@ -452,6 +463,11 @@ export function AccountManagementPanel({
       meta: hasApiConnections ? accountCopy.api.connected : accountCopy.api.empty,
     },
     {
+      key: "notifications",
+      label: accountCopy.tabs.notifications,
+      meta: accountCopy.notifications.unavailable,
+    },
+    {
       key: "strategies",
       label: accountCopy.tabs.strategies,
       meta: accountCopy.strategyCreate.count(strategies.length),
@@ -511,7 +527,7 @@ export function AccountManagementPanel({
           <>
             <nav
               aria-label={accountCopy.drawer.title}
-              className={isDarkTheme ? "grid grid-cols-2 gap-2 rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-2" : "grid grid-cols-2 gap-2 rounded-[24px] border border-[#E5EAF0] bg-[#F8FAFC] p-2"}
+              className={isDarkTheme ? "grid grid-cols-3 gap-2 rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-2" : "grid grid-cols-3 gap-2 rounded-[24px] border border-[#E5EAF0] bg-[#F8FAFC] p-2"}
             >
               {accountTabs.map((tab) => {
                 const isActive = tab.key === activeAccountTab;
@@ -566,6 +582,11 @@ export function AccountManagementPanel({
                   </button>
                 </div>
               </section>
+            ) : activeAccountTab === "notifications" ? (
+              <NotificationSettingsPlaceholder
+                copy={copy}
+                isDarkTheme={isDarkTheme}
+              />
             ) : (
               <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
                 <div className="flex items-center justify-between gap-3">
@@ -627,6 +648,154 @@ export function AccountManagementPanel({
   );
 }
 
+function NotificationSettingsPlaceholder({
+  copy,
+  isDarkTheme,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+}) {
+  const accountCopy = copy.workspace.accountCenter;
+  const notificationCopy = accountCopy.notifications;
+
+  return (
+    <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-base font-black">{notificationCopy.title}</h2>
+          <p className={isDarkTheme ? "mt-1 max-w-3xl text-xs leading-5 text-slate-400" : "mt-1 max-w-3xl text-xs leading-5 text-slate-600"}>
+            {notificationCopy.description}
+          </p>
+        </div>
+        <span className={getNotificationUnavailableBadgeClassName(isDarkTheme)}>
+          {notificationCopy.unavailable}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        {NOTIFICATION_CHANNELS.map((channel) => (
+          <NotificationChannelCard
+            key={channel.key}
+            channel={channel}
+            copy={copy}
+            isDarkTheme={isDarkTheme}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NotificationChannelCard({
+  channel,
+  copy,
+  isDarkTheme,
+}: {
+  channel: typeof NOTIFICATION_CHANNELS[number];
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+}) {
+  const notificationCopy = copy.workspace.accountCenter.notifications;
+  const channelCopy = notificationCopy.channels[channel.key];
+  const cardClassName = isDarkTheme
+    ? "overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#111820]"
+    : "overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-white shadow-sm";
+  const mutedPanelClassName = isDarkTheme
+    ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
+    : "rounded-2xl border border-[#E5EAF0] bg-[#FAFBFD] p-3";
+  const inputClassName = isDarkTheme
+    ? "mt-2 h-11 w-full cursor-not-allowed rounded-xl border border-white/[0.075] bg-white/[0.025] px-3 text-sm font-semibold text-slate-500 outline-none placeholder:text-slate-700"
+    : "mt-2 h-11 w-full cursor-not-allowed rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 text-sm font-semibold text-slate-500 outline-none placeholder:text-slate-400";
+
+  return (
+    <article className={cardClassName}>
+      <div className={isDarkTheme ? "border-b border-white/[0.075] p-4" : "border-b border-[#EEF2F6] p-4"}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className={getNotificationIconClassName(isDarkTheme)} aria-hidden="true">
+              {channel.icon}
+            </span>
+            <div className="min-w-0">
+              <h3 className={isDarkTheme ? "truncate text-sm font-black text-slate-100" : "truncate text-sm font-black text-slate-950"}>
+                {channelCopy.title}
+              </h3>
+              <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-500" : "mt-1 text-xs leading-5 text-slate-600"}>
+                {channelCopy.description}
+              </p>
+            </div>
+          </div>
+          <span className={getNotificationUnavailableBadgeClassName(isDarkTheme)}>
+            {notificationCopy.unavailable}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid gap-4 p-4">
+        <div className={mutedPanelClassName}>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className={isDarkTheme ? "text-sm font-black text-slate-200" : "text-sm font-black text-slate-800"}>
+                {notificationCopy.enableChannel}
+              </div>
+              <div className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-500" : "mt-1 text-xs leading-5 text-slate-500"}>
+                {notificationCopy.enableDescription}
+              </div>
+            </div>
+            <button
+              aria-label={notificationCopy.enableChannel}
+              className={isDarkTheme ? "relative h-6 w-11 cursor-not-allowed rounded-full bg-white/[0.06] opacity-60" : "relative h-6 w-11 cursor-not-allowed rounded-full bg-slate-200 opacity-70"}
+              disabled
+              type="button"
+            >
+              <span className={isDarkTheme ? "absolute left-1 top-1 h-4 w-4 rounded-full bg-slate-600" : "absolute left-1 top-1 h-4 w-4 rounded-full bg-white"} />
+            </button>
+          </div>
+        </div>
+
+        <label className="block">
+          <span className={getLabelClassName(isDarkTheme)}>{notificationCopy.displayName}</span>
+          <input
+            className={inputClassName}
+            disabled
+            readOnly
+            value={channelCopy.defaultName}
+          />
+        </label>
+
+        {channel.requiresWebhookUrl ? (
+          <label className="block">
+            <span className={getLabelClassName(isDarkTheme)}>{notificationCopy.webhookUrl}</span>
+            <input
+              className={inputClassName}
+              disabled
+              placeholder={notificationCopy.webhookPlaceholder}
+              readOnly
+              value=""
+            />
+            <div className={isDarkTheme ? "mt-2 text-xs font-bold text-amber-300" : "mt-2 text-xs font-bold text-amber-600"}>
+              {notificationCopy.unavailableHint}
+            </div>
+          </label>
+        ) : (
+          <div className={mutedPanelClassName}>
+            <div className={isDarkTheme ? "text-xs leading-5 text-slate-400" : "text-xs leading-5 text-slate-600"}>
+              {notificationCopy.telegramHint}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className={isDarkTheme ? "flex items-center justify-between gap-3 border-t border-white/[0.075] px-4 py-3" : "flex items-center justify-between gap-3 border-t border-[#EEF2F6] px-4 py-3"}>
+        <span className={isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-500"}>
+          {notificationCopy.placeholderStatus}
+        </span>
+        <button className={getPrimaryButtonClassName(isDarkTheme)} disabled type="button">
+          {notificationCopy.save}
+        </button>
+      </div>
+    </article>
+  );
+}
 
 export function CopyTradingPrototypeModal({
   apiConnection,
@@ -4506,6 +4675,17 @@ function getAccountCenterTabButtonClassName(isDarkTheme: boolean, isActive: bool
     : `${baseClassName} border border-transparent text-slate-500 hover:border-[#D5E4EF] hover:bg-white hover:text-slate-900`;
 }
 
+function getNotificationUnavailableBadgeClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "shrink-0 rounded-full bg-amber-400/15 px-2.5 py-1 text-[11px] font-black text-amber-300"
+    : "shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700";
+}
+
+function getNotificationIconClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/[0.075] bg-white/[0.035] text-base"
+    : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#E5EAF0] bg-[#FAFBFD] text-base";
+}
 
 function getSoftButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme

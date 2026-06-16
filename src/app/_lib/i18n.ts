@@ -268,7 +268,44 @@ const zh = {
       },
       tabs: {
         api: "API 管理",
+        notifications: "通知设置",
         strategies: "我的策略",
+      },
+      notifications: {
+        title: "通知设置",
+        description: "预留 Telegram Bot、飞书、企业微信和钉钉通知通道。当前仅展示前端占位，后续接入通知服务后开放保存。",
+        unavailable: "暂未开放",
+        enableChannel: "启用通道",
+        enableDescription: "保存后，新触发的 Trader 事件会使用此渠道。",
+        displayName: "显示名称",
+        webhookUrl: "Webhook URL",
+        webhookPlaceholder: "https://...",
+        unavailableHint: "暂未开放，当前不可保存 Webhook URL。",
+        telegramHint: "在 AlphaFox Telegram Bot 内通过 /start 绑定账户后，后续会在这里开启并保存。",
+        placeholderStatus: "暂未开放，填写后暂不保存。",
+        save: "保存",
+        channels: {
+          telegramBot: {
+            defaultName: "AlphaFox Telegram Bot",
+            description: "使用 AlphaFox 官方 Telegram Bot。用户绑定关系由 bot 服务维护。",
+            title: "AlphaFox Telegram Bot",
+          },
+          feishuWebhook: {
+            defaultName: "飞书 Webhook",
+            description: "发送文本消息到飞书机器人 Webhook，适合团队群通知。",
+            title: "飞书 Webhook",
+          },
+          wecomWebhook: {
+            defaultName: "企业微信 Webhook",
+            description: "发送文本消息到企业微信群机器人 Webhook。",
+            title: "企业微信 Webhook",
+          },
+          dingtalkWebhook: {
+            defaultName: "钉钉 Webhook",
+            description: "发送文本消息到钉钉群机器人 Webhook。",
+            title: "钉钉 Webhook",
+          },
+        },
       },
       exchanges: {
         aster: "Aster",
@@ -988,7 +1025,44 @@ const en: WorkspaceCopy = {
       },
       tabs: {
         api: "API Management",
+        notifications: "Notifications",
         strategies: "My Strategies",
+      },
+      notifications: {
+        title: "Notification Settings",
+        description: "Reserved channels for Telegram Bot, Feishu, WeCom, and DingTalk. This is a frontend placeholder until notification delivery is connected.",
+        unavailable: "Coming soon",
+        enableChannel: "Enable channel",
+        enableDescription: "Saved Trader events will use this channel after the notification service is connected.",
+        displayName: "Display name",
+        webhookUrl: "Webhook URL",
+        webhookPlaceholder: "https://...",
+        unavailableHint: "Coming soon. Webhook URLs are not saved yet.",
+        telegramHint: "After binding an account with /start in the AlphaFox Telegram Bot, this channel will be enabled and saved here.",
+        placeholderStatus: "Coming soon. Values entered here are not saved yet.",
+        save: "Save",
+        channels: {
+          telegramBot: {
+            defaultName: "AlphaFox Telegram Bot",
+            description: "Use the official AlphaFox Telegram Bot. User bindings are maintained by the bot service.",
+            title: "AlphaFox Telegram Bot",
+          },
+          feishuWebhook: {
+            defaultName: "Feishu Webhook",
+            description: "Send text messages to a Feishu bot webhook for team notifications.",
+            title: "Feishu Webhook",
+          },
+          wecomWebhook: {
+            defaultName: "WeCom Webhook",
+            description: "Send text messages to a WeCom group bot webhook.",
+            title: "WeCom Webhook",
+          },
+          dingtalkWebhook: {
+            defaultName: "DingTalk Webhook",
+            description: "Send text messages to a DingTalk group bot webhook.",
+            title: "DingTalk Webhook",
+          },
+        },
       },
       exchanges: {
         aster: "Aster",
