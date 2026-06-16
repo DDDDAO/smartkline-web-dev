@@ -4,7 +4,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount, useSignTypedData } from "wagmi";
+import { useAccount, useDisconnect, useSignTypedData } from "wagmi";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import { WORKSPACE_COPY, type WorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
@@ -1450,6 +1450,7 @@ function ExchangeApiSetupLayer({
   const [isAgentBinding, setIsAgentBinding] = useState(false);
   const [isSavingManual, setIsSavingManual] = useState(false);
   const { address: connectedWalletAddress } = useAccount();
+  const { disconnect } = useDisconnect();
   const { signTypedDataAsync } = useSignTypedData();
   const accountCopy = copy.workspace.accountCenter;
   const isDemoExchange = selectedExchange.mode === "demo";
@@ -1468,7 +1469,7 @@ function ExchangeApiSetupLayer({
   const hasWalletAddress = !requiresWalletAddress || walletAddress.trim().length > 0;
   const hasPrivateKey = !requiresPrivateKey || privateKey.trim().length > 0;
   const hasWhitelistIp = whitelistIp.trim().length > 0;
-  const agentWalletDisplayAddress = agentWalletAddress || connectedWalletAddress || "";
+  const agentWalletDisplayAddress = agentWalletAddress;
   const walletAddressLabel = isHyperliquidExchange ? accountCopy.apiSetup.mainWalletAddress : accountCopy.apiSetup.walletAddress;
   const walletAddressPlaceholder = isHyperliquidExchange ? accountCopy.apiSetup.mainWalletAddressPlaceholder : accountCopy.apiSetup.walletAddressPlaceholder;
 
@@ -1558,6 +1559,17 @@ function ExchangeApiSetupLayer({
       return exchange.defaultAccountName;
     });
   };
+  const resetHyperliquidAgentBinding = () => {
+    if (isAgentBinding) {
+      return;
+    }
+
+    setAgentWalletAddress("");
+    setWalletAddress("");
+    setAgentBindingError("");
+    setAgentBindingStep("");
+    disconnect();
+  };
   const handleHyperliquidAgentBind = async () => {
     if (!isHyperliquidExchange || isAgentBinding) {
       return;
@@ -1598,6 +1610,11 @@ function ExchangeApiSetupLayer({
       onHyperliquidAgentBound(account, bindingStart.binding.connectorName || accountName.trim() || selectedExchange.defaultAccountName);
       onClose();
     } catch (error) {
+      // A failed or rejected signature leaves the generated binding payload incomplete,
+      // so the next attempt must start from a fresh wallet confirmation.
+      setAgentWalletAddress("");
+      setWalletAddress("");
+      setAgentBindingStep("");
       setAgentBindingError(getTradingFoxErrorMessage(error, copy));
     } finally {
       setIsAgentBinding(false);
@@ -1786,6 +1803,7 @@ function ExchangeApiSetupLayer({
                         isBinding={isAgentBinding}
                         isDarkTheme={isDarkTheme}
                         onBind={handleHyperliquidAgentBind}
+                        onReset={resetHyperliquidAgentBinding}
                       />
                     ) : (
                       <WhitelistIpCopyPanel
@@ -1867,6 +1885,7 @@ function HyperliquidAgentWalletPanel({
   isBinding,
   isDarkTheme,
   onBind,
+  onReset,
 }: {
   accountCopy: WorkspaceCopy["workspace"]["accountCenter"];
   agentBindingError: string;
@@ -1875,12 +1894,11 @@ function HyperliquidAgentWalletPanel({
   isBinding: boolean;
   isDarkTheme: boolean;
   onBind: () => void;
+  onReset: () => void;
 }) {
-  const actionLabel = isBinding
-    ? agentBindingStep || accountCopy.apiSetup.hyperliquidAgentBinding
-    : agentWalletAddress
-      ? accountCopy.apiSetup.hyperliquidAgentContinueAuthorize
-      : accountCopy.apiSetup.hyperliquidAgentConnectAuthorize;
+  const bindingActionLabel = agentBindingStep || accountCopy.apiSetup.hyperliquidAgentBinding;
+  const connectActionLabel = isBinding ? bindingActionLabel : accountCopy.apiSetup.hyperliquidAgentConnectAuthorize;
+  const authorizeActionLabel = isBinding ? bindingActionLabel : accountCopy.apiSetup.hyperliquidAgentContinueAuthorize;
   const renderConnectButton = (openConnectModal: (() => void) | undefined) => (
     <button
       className={getPrimaryButtonClassName(isDarkTheme)}
@@ -1888,7 +1906,7 @@ function HyperliquidAgentWalletPanel({
       type="button"
       onClick={() => openConnectModal?.()}
     >
-      {actionLabel}
+      {connectActionLabel}
     </button>
   );
 
@@ -1917,14 +1935,24 @@ function HyperliquidAgentWalletPanel({
         <ConnectButton.Custom>
           {({ account, mounted, openConnectModal }) => (
             mounted && account ? (
-              <button
-                className={getPrimaryButtonClassName(isDarkTheme)}
-                disabled={isBinding}
-                type="button"
-                onClick={() => onBind()}
-              >
-                {actionLabel}
-              </button>
+              <div className="flex flex-wrap gap-2 sm:justify-end">
+                <button
+                  className={getPrimaryButtonClassName(isDarkTheme)}
+                  disabled={isBinding}
+                  type="button"
+                  onClick={() => onBind()}
+                >
+                  {authorizeActionLabel}
+                </button>
+                <button
+                  className={getSoftButtonClassName(isDarkTheme)}
+                  disabled={isBinding}
+                  type="button"
+                  onClick={() => onReset()}
+                >
+                  {accountCopy.apiSetup.hyperliquidAgentReconnect}
+                </button>
+              </div>
             ) : renderConnectButton(openConnectModal)
           )}
         </ConnectButton.Custom>
