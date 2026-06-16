@@ -301,18 +301,15 @@ export function AccountCenterPrototype({
                 <>
                   <section className={isDarkTheme ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
                     <div className="flex items-start justify-between gap-3">
-                      <div>
+                      <div className="min-w-0">
                         <h3 className="text-sm font-black">{accountCopy.api.title}</h3>
                         <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>
                           {accountCopy.api.connectedCount(apiConnections.length)}
                         </p>
                       </div>
-                      <span className={hasApiConnections
-                        ? isDarkTheme ? "rounded-full bg-emerald-400/15 px-2.5 py-1 text-[11px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700"
-                        : isDarkTheme ? "rounded-full bg-slate-700 px-2.5 py-1 text-[11px] font-black text-slate-300" : "rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600"}
-                      >
-                        {hasApiConnections ? accountCopy.api.connected : accountCopy.api.empty}
-                      </span>
+                      <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
+                        {accountCopy.api.addAction}
+                      </button>
                     </div>
                     {hasApiConnections ? (
                       <div className="mt-4 grid gap-3">
@@ -326,14 +323,11 @@ export function AccountCenterPrototype({
                             onDelete={onConnectionDelete}
                           />
                         ))}
-                        <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
-                          {accountCopy.api.addAction}
-                        </button>
                       </div>
                     ) : (
-                      <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
-                        {accountCopy.api.addAction}
-                      </button>
+                      <div className={isDarkTheme ? "mt-4 rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "mt-4 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-4 text-sm leading-5 text-slate-600"}>
+                        {accountCopy.api.emptyDescription}
+                      </div>
                     )}
                   </section>
 
@@ -545,18 +539,15 @@ export function AccountManagementPanel({
             {activeAccountTab === "api" ? (
               <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <h2 className="text-base font-black">{accountCopy.tabs.api}</h2>
                     <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>
                       {accountCopy.api.connectedCount(apiConnections.length)}
                     </p>
                   </div>
-                  <span className={hasApiConnections
-                    ? isDarkTheme ? "rounded-full bg-emerald-400/15 px-2.5 py-1 text-[11px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700"
-                    : isDarkTheme ? "rounded-full bg-slate-700 px-2.5 py-1 text-[11px] font-black text-slate-300" : "rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600"}
-                  >
-                    {hasApiConnections ? accountCopy.api.connected : accountCopy.api.empty}
-                  </span>
+                  <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
+                    {accountCopy.api.addAction}
+                  </button>
                 </div>
                 <div className="mt-4 grid gap-3">
                   {hasApiConnections ? apiConnections.map((connection) => (
@@ -573,9 +564,6 @@ export function AccountManagementPanel({
                       {accountCopy.api.emptyDescription}
                     </div>
                   )}
-                  <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
-                    {accountCopy.api.addAction}
-                  </button>
                 </div>
               </section>
             ) : activeAccountTab === "notifications" ? (
