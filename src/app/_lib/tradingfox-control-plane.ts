@@ -6,6 +6,8 @@ const DEFAULT_MOCK_MARGIN_BALANCE = 10_000;
 const DEFAULT_DEMO_EXCHANGE_PLATFORM = "Mock";
 const TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT = 50;
 const TRADINGFOX_ORDER_HISTORY_FETCH_LIMIT = 500;
+const TRADINGFOX_COPY_TRADER_DEFINITION_ID = "COPY_TRADING";
+const TRADINGFOX_ACTION_SYNC_POSITIONS = "sync_positions";
 type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
 type TradingFoxLiveExchangePlatform = "Aster" | "Binance" | "Bitget" | "Bybit" | "Gate" | "HyperLiquid" | "OKX";
 
@@ -49,7 +51,7 @@ export type TradingFoxTrader = {
   id: number;
   userId: number;
   name: string;
-  traderType: string;
+  traderDefinitionId: string;
   exchangeConnectorId: number;
   enabled: boolean;
   configSchemaVersion: number;
@@ -69,7 +71,7 @@ export type TradingFoxRuntimeStatus = {
   exchangeConnectorId: number;
   workerId: string;
   state: string;
-  traderType: string;
+  traderDefinitionId: string;
   traderName: string;
   errorMessage?: string;
   configRevision: number;
@@ -324,7 +326,7 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
   const userId = tradingFoxUserIdFromSession(session);
   const [connectors, traders] = await Promise.all([
     tradingFoxRequest<{ items: TradingFoxConnector[] }>(`/v1/exchange-connectors?userId=${userId}&dead=false`),
-    tradingFoxRequest<{ items: TradingFoxTrader[] }>(`/v1/traders?userId=${userId}&traderType=COPY_TRADING`),
+    tradingFoxRequest<{ items: TradingFoxTrader[] }>(tradingFoxCopyTradersPath(userId)),
   ]);
   const activeConnectors = pickActiveConnectors(connectors.items);
   const connectorById = new Map(activeConnectors.map((connector) => [connector.id, connector]));
@@ -473,7 +475,7 @@ export async function deleteTradingFoxConnector(
     throw new TradingFoxApiError("Exchange connector not found.", 404);
   }
 
-  const traders = await tradingFoxRequest<{ items: TradingFoxTrader[] }>(`/v1/traders?userId=${userId}&traderType=COPY_TRADING`);
+  const traders = await tradingFoxRequest<{ items: TradingFoxTrader[] }>(tradingFoxCopyTradersPath(userId));
   const attachedTrader = traders.items.find((trader) => trader.exchangeConnectorId === parsedConnectorId);
   if (attachedTrader) {
     throw new TradingFoxApiError("Delete strategies that use this exchange account before deleting the account.", 409);
@@ -553,9 +555,10 @@ export async function createTradingFoxCopyStrategy(
         },
       },
       configSchemaVersion: 1,
+      enableSltpMonitoring: true,
       exchangeConnectorId: connector.id,
       name: traderName,
-      traderType: "COPY_TRADING",
+      traderDefinitionId: TRADINGFOX_COPY_TRADER_DEFINITION_ID,
       userId,
     }),
     method: "POST",
@@ -573,14 +576,14 @@ export async function updateTradingFoxCopyStrategyStatus(
   const traderId = parsePositiveInteger(strategyId, "strategyId");
   const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
 
-  if (trader.userId !== userId || trader.traderType !== "COPY_TRADING") {
+  if (trader.userId !== userId || !isCopyTradingTrader(trader)) {
     throw new TradingFoxApiError("Copy strategy not found.", 404);
   }
 
   if (status === "running") {
     await ensureCopyStrategyConnectorPositionMode(await getConnectorForUser(trader.exchangeConnectorId, userId));
     await tradingFoxRequest<{ runtimeStatus?: TradingFoxRuntimeStatus }>(`/v1/traders/${traderId}/start`, {
-      body: JSON.stringify({ startType: "manual_start" }),
+      body: JSON.stringify({ enableSltpMonitoring: true, startType: "manual_start" }),
       method: "POST",
     });
   } else {
@@ -601,7 +604,7 @@ export async function deleteTradingFoxCopyStrategy(
   const traderId = parsePositiveInteger(strategyId, "strategyId");
   const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
 
-  if (trader.userId !== userId || trader.traderType !== "COPY_TRADING") {
+  if (trader.userId !== userId || !isCopyTradingTrader(trader)) {
     throw new TradingFoxApiError("Copy strategy not found.", 404);
   }
 
@@ -628,15 +631,24 @@ export async function getTradingFoxCopyStrategyDetail(
   const account = await getTradingFoxAccount(session);
   const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
 
-  if (trader.userId !== userId || trader.traderType !== "COPY_TRADING") {
+  if (trader.userId !== userId || !isCopyTradingTrader(trader)) {
     throw new TradingFoxApiError("Copy strategy not found.", 404);
   }
 
   const connector = account.connectors.find((item) => item.id === trader.exchangeConnectorId) ?? account.connector;
-  const strategy = mapCopyStrategy(trader, connector);
-  if (!strategy) {
+  const mappedStrategy = mapCopyStrategy(trader, connector);
+  if (!mappedStrategy) {
     throw new TradingFoxApiError("Copy strategy not found.", 404);
   }
+  const accountStrategy = account.strategies.find((item) => item.id === String(trader.id));
+  const strategy = accountStrategy
+    ? {
+      ...mappedStrategy,
+      accountEquity: accountStrategy.accountEquity,
+      status: accountStrategy.status,
+      unrealizedPnl: accountStrategy.unrealizedPnl,
+    }
+    : mappedStrategy;
 
   const [accountStatus, positions, signalSources, orderHistory] = await Promise.all([
     settleTradingFoxRequest<{ account: TradingFoxAccountStatus }>(`/v1/traders/${traderId}/account-status`),
@@ -683,14 +695,14 @@ export async function syncTradingFoxCopyStrategyPositions(
   }
 
   const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
-  if (trader.userId !== userId || trader.traderType !== "COPY_TRADING") {
+  if (trader.userId !== userId || !isCopyTradingTrader(trader)) {
     throw new TradingFoxApiError("Copy strategy not found.", 404);
   }
 
   await ensureCopyStrategyConnectorPositionMode(await getConnectorForUser(trader.exchangeConnectorId, userId));
 
-  await tradingFoxRequest<{ runtimeStatus?: TradingFoxRuntimeStatus }>(`/v1/traders/${traderId}/sync-positions`, {
-    body: JSON.stringify({ ratioPercent }),
+  await tradingFoxRequest<{ result?: Record<string, unknown>; status?: TradingFoxRuntimeStatus }>(`/v1/traders/${traderId}/actions/${TRADINGFOX_ACTION_SYNC_POSITIONS}`, {
+    body: JSON.stringify({ payload: { ratioPercent } }),
     method: "POST",
   });
 
@@ -995,6 +1007,22 @@ function isBinanceDemoConnector(connector: TradingFoxConnector): boolean {
   return connector.isMock && normalizeDemoExchangePlatform(connector.exchangePlatform) === "Binance";
 }
 
+function tradingFoxCopyTradersPath(userId: number): string {
+  const query = new URLSearchParams({
+    traderDefinitionId: TRADINGFOX_COPY_TRADER_DEFINITION_ID,
+    userId: String(userId),
+  });
+  return `/v1/traders?${query.toString()}`;
+}
+
+function isCopyTradingTrader(trader: TradingFoxTrader): boolean {
+  return normalizeTraderDefinitionId(trader.traderDefinitionId) === TRADINGFOX_COPY_TRADER_DEFINITION_ID;
+}
+
+function normalizeTraderDefinitionId(value: unknown): string {
+  return normalizeOptionalText(value).toUpperCase();
+}
+
 function normalizeTradingFoxOrderHistoryPage(input: TradingFoxCopyStrategyDetailInput): {
   fetchLimit: number;
   limit: number;
@@ -1197,7 +1225,7 @@ function readPositiveTradingFoxNumber(value: unknown): number | null {
 }
 
 function mapCopyStrategy(trader: TradingFoxTrader, connector: TradingFoxConnector | null): TradingFoxCopyStrategy | null {
-  if (trader.traderType !== "COPY_TRADING") {
+  if (!isCopyTradingTrader(trader)) {
     return null;
   }
   const signalSourceConfig = firstSignalSourceConfig(trader.config);
