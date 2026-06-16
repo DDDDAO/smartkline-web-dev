@@ -1629,19 +1629,14 @@ function ExchangeApiSetupLayer({
       setIsSavingManual(false);
     }
   };
-  const exchangeSetupGridClassName = isHyperliquidExchange
-    ? "grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)]"
-    : "grid items-stretch gap-4 lg:grid-cols-[280px_minmax(0,1fr)]";
+  const exchangeSetupGridClassName = "grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)]";
   const exchangeSelectorClassName = [
     isDarkTheme
       ? "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3"
       : "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3",
-    isHyperliquidExchange ? "self-start lg:max-h-[340px]" : "",
-  ].filter(Boolean).join(" ");
-  const exchangeSelectorListClassName = [
-    "kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:min-h-0 lg:content-start lg:overflow-x-hidden lg:overflow-y-auto lg:overscroll-contain lg:pb-0 lg:pr-1",
-    isHyperliquidExchange ? "lg:max-h-[280px] lg:flex-none" : "lg:flex-1",
+    "self-start lg:h-[560px]",
   ].join(" ");
+  const exchangeSelectorListClassName = "kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:min-h-0 lg:flex-1 lg:content-start lg:overflow-x-hidden lg:overflow-y-auto lg:overscroll-contain lg:pb-0 lg:pr-1";
   const exchangeContentClassName = isHyperliquidExchange
     ? "grid min-w-0 content-start gap-3 self-start"
     : "grid min-w-0 gap-4";
@@ -1657,7 +1652,7 @@ function ExchangeApiSetupLayer({
       <section
         aria-label={accountCopy.apiSetup.title}
         aria-modal="true"
-        className="fixed inset-x-0 bottom-0 z-[115] h-[94dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:h-[min(760px,calc(100dvh-2rem))] sm:max-w-[920px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
+        className="fixed inset-x-0 bottom-0 z-[115] h-[96dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:h-[min(920px,calc(100dvh-1rem))] sm:max-w-[920px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
         role="dialog"
       >
         <form
@@ -1671,9 +1666,6 @@ function ExchangeApiSetupLayer({
                   {accountCopy.apiSetup.selectExchange}
                 </div>
                 <h2 className="mt-2 text-xl font-black tracking-tight">{accountCopy.apiSetup.title}</h2>
-                <p className={isDarkTheme ? "mt-2 max-w-2xl text-sm leading-6 text-slate-400" : "mt-2 max-w-2xl text-sm leading-6 text-slate-600"}>
-                  {accountCopy.apiSetup.subtitle}
-                </p>
               </div>
               <button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} type="button" onClick={onClose}>
                 <span aria-hidden="true" className="text-lg leading-none">×</span>
