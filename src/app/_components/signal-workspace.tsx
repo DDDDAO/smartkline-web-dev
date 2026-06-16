@@ -84,6 +84,7 @@ import {
   WorkspaceProductTabs,
   type WorkspaceProductTab,
 } from "./signal-workspace/product-tabs";
+import { StrategySquareProductTab } from "./signal-workspace/strategy-square-panel";
 import { AccountEntryButton } from "./signal-workspace/account-entry-button";
 import type {
   CopyTradingPrototypeTarget,
@@ -125,6 +126,7 @@ const WORKSPACE_TAB_ROUTE_SEGMENTS: Readonly<Record<WorkspaceProductTab, string>
   intel: "kol",
   kolFollow: "kol-square",
   topSignals: "signal",
+  strategySquare: "strategy-square",
   accountManagement: "account",
 };
 const AccountManagementPanelWithWallet = dynamic(
@@ -251,8 +253,9 @@ export function SignalWorkspace({
     null;
   const isIntelTab = activeProductTab === "intel";
   const isTopSignalsTab = activeProductTab === "topSignals";
+  const isStrategySquareTab = activeProductTab === "strategySquare";
   const isAccountManagementTab = activeProductTab === "accountManagement";
-  const shouldUsePaperPositions = !isTopSignalsTab && !isAccountManagementTab;
+  const shouldUsePaperPositions = !isTopSignalsTab && !isStrategySquareTab && !isAccountManagementTab;
   const kolSignals = useMemo(() => sortSignalsForKolPanel(signals), [signals]);
   const watchlistedKolSourceKeys = useMemo(
     () => new Set(watchlist.kolSources.map((source) => source.key)),
@@ -1485,6 +1488,16 @@ export function SignalWorkspace({
     setCopyTradingTarget(target);
   }, [authMe.isLoggedIn, handleProductTabChange, prototypeApiConnection.status, startTelegramLogin]);
 
+  const handleMockStrategyCopy = useCallback((strategyName: string) => {
+    setWorkspaceNotification({
+      id: `mock-strategy-copy-${Date.now()}`,
+      kind: "success",
+      message: copyRef.current.workspace.strategySquare.mockNotice,
+      meta: strategyName,
+      title: copyRef.current.workspace.strategySquare.copiedAction,
+    });
+  }, []);
+
   const handleTradingFoxConnectorBound = useCallback((account: TradingFoxAccountResponse, accountName: string) => {
     applyTradingFoxAccount(account);
     setWorkspaceNotification({
@@ -1982,6 +1995,13 @@ export function SignalWorkspace({
             onStrategyDelete={handlePrototypeStrategyDelete}
             onStrategyStatusChange={handlePrototypeStrategyStatusChange}
           />
+        ) : isStrategySquareTab ? (
+          <StrategySquareProductTab
+            copy={copy}
+            isDarkTheme={isDarkTheme}
+            pnlColorMode={pnlColorMode}
+            onMockCopy={handleMockStrategyCopy}
+          />
         ) : (
           <KolFollowProductTab
             copy={copy}
@@ -2417,7 +2437,7 @@ function workspaceTabFromRouteSegment(segment: string): WorkspaceProductTab | nu
 }
 
 function shouldWorkspaceTabUseSymbolRoute(tab: WorkspaceProductTab): boolean {
-  return tab !== "accountManagement";
+  return tab === "intel" || tab === "kolFollow" || tab === "topSignals";
 }
 
 function getWorkspaceRoutePrefix(pathname: string): string {
