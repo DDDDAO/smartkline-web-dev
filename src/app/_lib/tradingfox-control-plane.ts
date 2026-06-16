@@ -1,331 +1,76 @@
 import { createHash } from "node:crypto";
 import type { TelegramAuthSession } from "@/app/_lib/auth/telegram-auth";
+import { TradingFoxApiError, TradingFoxConfigError } from "./tradingfox-control-plane/types";
+import type {
+  CompleteHyperliquidAgentBindingInput,
+  CreateConnectorInput,
+  CreateCopyStrategyInput,
+  CreateHyperliquidAgentBindingInput,
+  CreateMockConnectorInput,
+  SyncCopyStrategyPositionsInput,
+  TradingFoxAccountResponse,
+  TradingFoxAccountStatus,
+  TradingFoxConnector,
+  TradingFoxConnectorWhitelistIP,
+  TradingFoxCopyStrategy,
+  TradingFoxCopyStrategyDetailInput,
+  TradingFoxHyperliquidAgentBindingCompleteResponse,
+  TradingFoxHyperliquidAgentBindingStartResponse,
+  TradingFoxIPAddress,
+  TradingFoxOrderHistory,
+  TradingFoxPosition,
+  TradingFoxRuntimeStatus,
+  TradingFoxRuntimeStatusResponse,
+  TradingFoxSignalSource,
+  TradingFoxStrategyDetail,
+  TradingFoxTrader,
+} from "./tradingfox-control-plane/types";
+import {
+  normalizeNonNegativeInteger,
+  normalizePositiveInteger,
+} from "./tradingfox-control-plane/normalizers";
+export { TradingFoxApiError, TradingFoxConfigError } from "./tradingfox-control-plane/types";
+export type {
+  CompleteHyperliquidAgentBindingInput,
+  CreateConnectorInput,
+  CreateCopyStrategyInput,
+  CreateHyperliquidAgentBindingInput,
+  CreateMockConnectorInput,
+  SyncCopyStrategyPositionsInput,
+  TradingFoxAccountResponse,
+  TradingFoxAccountStatus,
+  TradingFoxConnector,
+  TradingFoxConnectorWhitelistIP,
+  TradingFoxCopyStrategy,
+  TradingFoxCopyStrategyDetailInput,
+  TradingFoxHyperliquidAgentBinding,
+  TradingFoxHyperliquidAgentBindingCompleteResponse,
+  TradingFoxHyperliquidAgentBindingStartResponse,
+  TradingFoxHyperliquidSigningAction,
+  TradingFoxHyperliquidTypedData,
+  TradingFoxIPAddress,
+  TradingFoxOrderHistory,
+  TradingFoxPosition,
+  TradingFoxRuntimeStatus,
+  TradingFoxSignalSource,
+  TradingFoxStrategyDetail,
+  TradingFoxTrader,
+} from "./tradingfox-control-plane/types";
+
+import {
+  applyTradingFoxOrderHistoryPage,
+  enrichTradingFoxOrderHistorySignalSourcePrices,
+  normalizeTradingFoxOrderHistoryPage,
+} from "./tradingfox-control-plane/order-history";
 
 const DEFAULT_TRADINGFOX_CONTROL_PLANE_API_BASE_URL = "https://api.smartkline.com/tradingfox-trader";
 const DEFAULT_MOCK_MARGIN_BALANCE = 10_000;
 const DEFAULT_DEMO_EXCHANGE_PLATFORM = "Mock";
-const TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT = 50;
-const TRADINGFOX_ORDER_HISTORY_FETCH_LIMIT = 500;
 const TRADINGFOX_COPY_TRADER_DEFINITION_ID = "COPY_TRADING";
 const TRADINGFOX_ACTION_SYNC_POSITIONS = "sync_positions";
 type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
 type TradingFoxLiveExchangePlatform = "Aster" | "Binance" | "Bitget" | "Bybit" | "Gate" | "HyperLiquid" | "OKX";
 
-/**
- * Public subset of the TradingFox IP pool record. The backend record can carry
- * proxy auth/internal routing fields; the Next.js API must not expose them.
- */
-export type TradingFoxIPAddress = {
-  address: string;
-  createdAt?: string;
-  expiresAt?: string;
-  location?: string;
-  port?: number;
-  status: string;
-  updatedAt?: string;
-  workerId?: string;
-};
-
-export type TradingFoxConnector = {
-  id: number;
-  userId: number;
-  name: string;
-  accountEquity?: number;
-  bindingLabel?: string;
-  bindingMode?: string;
-  displayName?: string;
-  exchangePlatform: string;
-  credentials: Record<string, unknown>;
-  isMock: boolean;
-  mockMarginBalance?: number;
-  positionSideDual: boolean;
-  ipAddress?: TradingFoxIPAddress | null;
-  whitelistIp?: string;
-  recommended?: boolean;
-  dead: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type TradingFoxTrader = {
-  id: number;
-  userId: number;
-  name: string;
-  traderDefinitionId: string;
-  exchangeConnectorId: number;
-  enabled: boolean;
-  configSchemaVersion: number;
-  configRevision: number;
-  config: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
-  runtime?: TradingFoxRuntimeStatus;
-  desiredState?: string;
-  runtimeState?: string;
-  displayStatus?: string;
-  statusMessage?: string;
-};
-
-export type TradingFoxRuntimeStatus = {
-  traderId: number;
-  exchangeConnectorId: number;
-  workerId: string;
-  state: string;
-  traderDefinitionId: string;
-  traderName: string;
-  errorMessage?: string;
-  configRevision: number;
-  updatedAt: string;
-};
-
-type TradingFoxRuntimeStatusResponse = {
-  status: TradingFoxRuntimeStatus;
-};
-
-export type TradingFoxCopyStrategy = {
-  apiAccountName: string;
-  accountEquity?: number;
-  exchangeConnectorId: number;
-  avatarUrl: string;
-  createdAtLabel: string;
-  eventsCount: number;
-  id: string;
-  platform: string;
-  positionsCount: number;
-  startedAt: string;
-  status: "running" | "paused" | "stopped";
-  stopLossPercent: number;
-  takeProfitPercent: number;
-  traderId: string;
-  traderName: string;
-  unrealizedPnl?: number;
-};
-
-export type TradingFoxAccountResponse = {
-  connector: TradingFoxConnector | null;
-  connectors: TradingFoxConnector[];
-  strategies: TradingFoxCopyStrategy[];
-};
-
-export type TradingFoxHyperliquidTypedData = {
-  domain: Record<string, unknown>;
-  message: Record<string, unknown>;
-  primaryType: string;
-  types: Record<string, unknown>;
-};
-
-export type TradingFoxHyperliquidSigningAction = {
-  action: Record<string, unknown>;
-  kind: "approveAgent" | "approveBuilderFee";
-  typedData: TradingFoxHyperliquidTypedData;
-};
-
-export type TradingFoxHyperliquidAgentBinding = {
-  id: number;
-  userId: number;
-  connectorName: string;
-  walletAddress: string;
-  agentAddress: string;
-  agentName: string;
-  builderAddress?: string;
-  builderFeeInt?: number;
-  builderMaxFeeRate?: string;
-  status: string;
-  expiresAt?: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-export type TradingFoxHyperliquidAgentBindingStartResponse = {
-  actions: TradingFoxHyperliquidSigningAction[];
-  binding: TradingFoxHyperliquidAgentBinding;
-};
-
-export type TradingFoxHyperliquidAgentBindingCompleteResponse = {
-  binding: TradingFoxHyperliquidAgentBinding;
-  connector?: TradingFoxConnector;
-};
-
-export type TradingFoxAccountStatus = {
-  equity: number;
-  positionSideDual: boolean;
-  usdtFree: number;
-  usdtTotal: number;
-  usdtUsed: number;
-};
-
-export type TradingFoxPosition = {
-  symbol: string;
-  side: string;
-  contracts?: number;
-  notional?: number;
-  leverage?: number;
-  unrealizedPnl?: number;
-  entryPrice?: number;
-  markPrice?: number;
-};
-
-export type TradingFoxSignalSource = {
-  signalSourceId: string;
-  signalType?: string;
-  name?: string;
-  marginBalance: number;
-  status?: string;
-  marginPercent: number;
-  followSide?: string;
-  positions: Array<{
-    symbol: string;
-    positionSide: string;
-    positionSize: number;
-    leverage: number;
-    entryPrice: number;
-    markPrice?: number;
-    exchangePlatform?: string;
-    skipTrade: boolean;
-  }>;
-};
-
-export type TradingFoxOrderHistory = {
-  hasMore?: boolean;
-  items: Array<{
-    clientOrderId: string;
-    symbol: string;
-    side: string;
-    status?: string;
-    price: string;
-    contractAmount: string;
-    leverage: number;
-    isMock: boolean;
-    timestamp: string;
-    message?: string;
-  }>;
-  limit?: number;
-  offset?: number;
-  returnedCount?: number;
-  signalSourceOrdersNextCursor?: string;
-  signalSourceOrders: Array<{
-    eventId: string;
-    signalSourceId: string;
-    signalSourceName?: string;
-    signalType?: string;
-    exchange?: string;
-    symbol: string;
-    side: string;
-    action: string;
-    prevQty?: string;
-    currQty?: string;
-    deltaQty?: string;
-    isFullClose?: boolean;
-    positionVersion?: number;
-    tradeSeq?: number;
-    sourceTimestamp?: string;
-    timestamp: string;
-    metadata?: Record<string, unknown>;
-    price?: string | number;
-    priceSource?: string;
-    entryPrice?: string | number;
-    markPrice?: string | number;
-  }>;
-  tradeLogs: Array<{
-    id: number;
-    type: string;
-    errorMessage?: string;
-    ssTradeInfo?: Record<string, unknown>;
-    ssConfig?: Record<string, unknown>;
-    orderData?: Record<string, unknown>;
-    additionalInfo?: Record<string, unknown>;
-    timestamp: string;
-    traderId?: number;
-  }>;
-  tradeLogsNextCursor?: string;
-  traderOrdersNextCursor?: string;
-};
-
-export type TradingFoxStrategyDetail = {
-  account: TradingFoxAccountStatus | null;
-  accountError?: string;
-  accountInitialEquity?: number;
-  orderHistory: TradingFoxOrderHistory | null;
-  orderHistoryError?: string;
-  positions: TradingFoxPosition[];
-  positionsError?: string;
-  signalSources: TradingFoxSignalSource[];
-  signalSourcesError?: string;
-  strategy: TradingFoxCopyStrategy;
-  trader: TradingFoxTrader;
-};
-
-export type TradingFoxCopyStrategyDetailInput = {
-  orderLimit?: unknown;
-  orderOffset?: unknown;
-};
-
-export type CreateMockConnectorInput = {
-  accountName?: string;
-  apiKey?: unknown;
-  exchangePlatform?: unknown;
-  mockMarginBalance?: unknown;
-  password?: unknown;
-  privateKey?: unknown;
-  secret?: unknown;
-  walletAddress?: unknown;
-};
-
-export type CreateConnectorInput = CreateMockConnectorInput & {
-  ipAddress?: unknown;
-  isMock?: unknown;
-};
-
-export type CreateHyperliquidAgentBindingInput = {
-  accountName?: unknown;
-  walletAddress?: unknown;
-};
-
-export type CompleteHyperliquidAgentBindingInput = {
-  approveAgentSignature?: unknown;
-  approveBuilderFeeSignature?: unknown;
-};
-
-export type TradingFoxConnectorWhitelistIP = {
-  assignmentStatus: "assigned" | "unassigned";
-  userId: number;
-  exchangePlatform: string;
-  ipAddress: TradingFoxIPAddress | null;
-  whitelistIp: string;
-};
-
-export type CreateCopyStrategyInput = {
-  exchangeConnectorId?: unknown;
-  signalSourceId: string;
-  traderName: string;
-  platform: string;
-  avatarUrl?: string;
-  positionsCount?: number;
-  eventsCount?: number;
-  takeProfitPercent: number;
-  stopLossPercent: number;
-};
-
-export type SyncCopyStrategyPositionsInput = {
-  ratioPercent?: unknown;
-};
-
-export class TradingFoxConfigError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "TradingFoxConfigError";
-  }
-}
-
-export class TradingFoxApiError extends Error {
-  readonly status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "TradingFoxApiError";
-    this.status = status;
-  }
-}
 
 export async function getTradingFoxAccount(session: TelegramAuthSession): Promise<TradingFoxAccountResponse> {
   const userId = tradingFoxUserIdFromSession(session);
@@ -1047,207 +792,6 @@ function normalizeTraderDefinitionId(value: unknown): string {
   return normalizeOptionalText(value).toUpperCase();
 }
 
-function normalizeTradingFoxOrderHistoryPage(input: TradingFoxCopyStrategyDetailInput): {
-  fetchLimit: number;
-  limit: number;
-  offset: number;
-} {
-  const normalizedLimit = normalizePositiveInteger(input.orderLimit) ?? TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT;
-  const limit = Math.min(TRADINGFOX_ORDER_HISTORY_PAGE_LIMIT, normalizedLimit);
-  const offset = normalizeNonNegativeInteger(input.orderOffset);
-  return {
-    fetchLimit: Math.min(TRADINGFOX_ORDER_HISTORY_FETCH_LIMIT, offset + limit),
-    limit,
-    offset,
-  };
-}
-
-function applyTradingFoxOrderHistoryPage(
-  orderHistory: TradingFoxOrderHistory,
-  page: { fetchLimit: number; limit: number; offset: number },
-  startedAt: string,
-): TradingFoxOrderHistory {
-  const filteredOrderHistory = filterTradingFoxOrderHistorySince(orderHistory, startedAt);
-  const items = filteredOrderHistory.items.slice(0, page.fetchLimit);
-  const signalSourceOrders = filteredOrderHistory.signalSourceOrders.slice(0, page.fetchLimit);
-  const tradeLogs = filteredOrderHistory.tradeLogs.slice(0, page.fetchLimit);
-  const hasCursorMore = Boolean(
-    orderHistory.traderOrdersNextCursor
-    || orderHistory.signalSourceOrdersNextCursor
-    || orderHistory.tradeLogsNextCursor,
-  );
-  const hasFilteredPageFilled = Math.max(items.length, signalSourceOrders.length, tradeLogs.length) >= page.fetchLimit;
-  return {
-    ...orderHistory,
-    hasMore: orderHistory.hasMore ?? (hasCursorMore && hasFilteredPageFilled),
-    items,
-    limit: page.limit,
-    offset: page.offset,
-    returnedCount: Math.min(page.limit, Math.max(0, items.length - page.offset)),
-    signalSourceOrders,
-    tradeLogs,
-  };
-}
-
-function filterTradingFoxOrderHistorySince(orderHistory: TradingFoxOrderHistory, startedAt: string): TradingFoxOrderHistory {
-  const startedAtMs = Date.parse(startedAt);
-  if (!Number.isFinite(startedAtMs)) {
-    return orderHistory;
-  }
-
-  return {
-    ...orderHistory,
-    items: orderHistory.items.filter((item) => isTradingFoxHistoryTimestampAfter(item.timestamp, startedAtMs)),
-    signalSourceOrders: orderHistory.signalSourceOrders.filter((item) =>
-      isTradingFoxHistoryTimestampAfter(item.timestamp || item.sourceTimestamp, startedAtMs),
-    ),
-    tradeLogs: orderHistory.tradeLogs.filter((item) => isTradingFoxHistoryTimestampAfter(item.timestamp, startedAtMs)),
-  };
-}
-
-function isTradingFoxHistoryTimestampAfter(value: string | undefined, startedAtMs: number): boolean {
-  const timestamp = Date.parse(value ?? "");
-  return Number.isFinite(timestamp) && timestamp >= startedAtMs;
-}
-
-/**
- * Some TradingFox order-history deployments expose signal source events without
- * Signal Center event metadata, so the frontend cannot read the original event
- * price. Current signal-source positions still provide a useful reference price
- * for the strategy history table instead of leaving the value columns empty.
- */
-function enrichTradingFoxOrderHistorySignalSourcePrices(
-  orderHistory: TradingFoxOrderHistory,
-  signalSources: readonly TradingFoxSignalSource[],
-): TradingFoxOrderHistory {
-  if (orderHistory.signalSourceOrders.length === 0 || signalSources.length === 0) {
-    return orderHistory;
-  }
-
-  const positionsByKey = createTradingFoxSignalSourcePositionLookup(signalSources);
-  return {
-    ...orderHistory,
-    signalSourceOrders: orderHistory.signalSourceOrders.map((order) =>
-      enrichTradingFoxSignalSourceOrderPrices(order, positionsByKey),
-    ),
-  };
-}
-
-function enrichTradingFoxSignalSourceOrderPrices(
-  order: TradingFoxOrderHistory["signalSourceOrders"][number],
-  positionsByKey: ReadonlyMap<string, TradingFoxSignalSource["positions"][number]>,
-): TradingFoxOrderHistory["signalSourceOrders"][number] {
-  if (readPositiveTradingFoxNumber(order.price) !== null) {
-    return order;
-  }
-
-  const position = lookupTradingFoxSignalSourcePosition(order, positionsByKey);
-  if (!position) {
-    return order;
-  }
-
-  const entryPrice = readPositiveTradingFoxNumber(order.entryPrice)
-    ?? readPositiveTradingFoxNumber(order.metadata?.entryPrice)
-    ?? readPositiveTradingFoxNumber(order.metadata?.entry_price)
-    ?? readPositiveTradingFoxNumber(position.entryPrice);
-  const markPrice = readPositiveTradingFoxNumber(order.markPrice)
-    ?? readPositiveTradingFoxNumber(order.metadata?.markPrice)
-    ?? readPositiveTradingFoxNumber(order.metadata?.mark_price)
-    ?? readPositiveTradingFoxNumber(position.markPrice);
-  const price = markPrice ?? entryPrice;
-
-  if (price === null) {
-    return order;
-  }
-
-  return {
-    ...order,
-    entryPrice: order.entryPrice ?? entryPrice ?? undefined,
-    markPrice: order.markPrice ?? markPrice ?? undefined,
-    price,
-    priceSource: order.priceSource ?? (markPrice !== null ? "signal_source_mark_price" : "signal_source_entry_price"),
-  };
-}
-
-function createTradingFoxSignalSourcePositionLookup(
-  signalSources: readonly TradingFoxSignalSource[],
-): Map<string, TradingFoxSignalSource["positions"][number]> {
-  const positionsByKey = new Map<string, TradingFoxSignalSource["positions"][number]>();
-  const positionsBySymbolKey = new Map<string, TradingFoxSignalSource["positions"][number] | null>();
-
-  for (const source of signalSources) {
-    for (const position of source.positions) {
-      const symbolKey = normalizeTradingFoxPositionSymbolKey(position.symbol);
-      if (!source.signalSourceId || !symbolKey) {
-        continue;
-      }
-
-      const sideKey = normalizeTradingFoxPositionSideKey(position.positionSide);
-      positionsByKey.set(createTradingFoxSignalSourcePositionKey(source.signalSourceId, symbolKey, sideKey), position);
-
-      const symbolOnlyKey = createTradingFoxSignalSourcePositionKey(source.signalSourceId, symbolKey, "");
-      positionsBySymbolKey.set(
-        symbolOnlyKey,
-        positionsBySymbolKey.has(symbolOnlyKey) ? null : position,
-      );
-    }
-  }
-
-  for (const [key, position] of positionsBySymbolKey) {
-    if (position) {
-      positionsByKey.set(key, position);
-    }
-  }
-
-  return positionsByKey;
-}
-
-function lookupTradingFoxSignalSourcePosition(
-  order: TradingFoxOrderHistory["signalSourceOrders"][number],
-  positionsByKey: ReadonlyMap<string, TradingFoxSignalSource["positions"][number]>,
-): TradingFoxSignalSource["positions"][number] | null {
-  const symbolKey = normalizeTradingFoxPositionSymbolKey(order.symbol);
-  if (!order.signalSourceId || !symbolKey) {
-    return null;
-  }
-
-  const sideKey = normalizeTradingFoxPositionSideKey(order.side);
-  return positionsByKey.get(createTradingFoxSignalSourcePositionKey(order.signalSourceId, symbolKey, sideKey))
-    ?? positionsByKey.get(createTradingFoxSignalSourcePositionKey(order.signalSourceId, symbolKey, ""))
-    ?? null;
-}
-
-function createTradingFoxSignalSourcePositionKey(sourceId: string, symbolKey: string, sideKey: string): string {
-  return `${sourceId.trim()}::${symbolKey}::${sideKey}`;
-}
-
-function normalizeTradingFoxPositionSymbolKey(value: string | undefined): string {
-  const normalizedValue = (value ?? "").trim().toUpperCase();
-  if (!normalizedValue) {
-    return "";
-  }
-  return normalizedValue.split(":")[0]?.replace(/[^A-Z0-9]/gu, "") ?? "";
-}
-
-function normalizeTradingFoxPositionSideKey(value: string | undefined): string {
-  const normalizedValue = (value ?? "").trim().toLowerCase();
-  if (normalizedValue.includes("long") || normalizedValue.includes("buy")) {
-    return "long";
-  }
-  if (normalizedValue.includes("short") || normalizedValue.includes("sell")) {
-    return "short";
-  }
-  return normalizedValue;
-}
-
-function readPositiveTradingFoxNumber(value: unknown): number | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  const number = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(number) && number > 0 ? number : null;
-}
-
 function mapCopyStrategy(trader: TradingFoxTrader, connector: TradingFoxConnector | null): TradingFoxCopyStrategy | null {
   if (!isCopyTradingTrader(trader)) {
     return null;
@@ -1333,16 +877,6 @@ function normalizeOptionalText(value: unknown): string {
 function normalizePositiveNumber(value: unknown): number | undefined {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) && number > 0 ? number : undefined;
-}
-
-function normalizePositiveInteger(value: unknown): number | undefined {
-  const number = typeof value === "number" ? value : Number(value);
-  return Number.isInteger(number) && number > 0 ? number : undefined;
-}
-
-function normalizeNonNegativeInteger(value: unknown): number {
-  const number = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(number) && number >= 0 ? Math.floor(number) : 0;
 }
 
 function parsePositiveInteger(value: string, fieldName: string): number {
