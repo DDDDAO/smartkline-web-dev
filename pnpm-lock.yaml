@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   cuer@0.0.3:
-    hash: 5878354ba5a7a757d1019c788ec057561bf636a409a7bd1027f2f068348d03db
+    hash: cad01d705b989d507b2e954ae2966c7f6d9b22e2646ed6140efb7b7b7335744e
     path: patches/cuer@0.0.3.patch
 
 importers:
@@ -5099,7 +5099,7 @@ snapshots:
       '@vanilla-extract/dynamic': 2.1.5
       '@vanilla-extract/sprinkles': 1.6.5(@vanilla-extract/css@1.20.1)
       clsx: 2.1.1
-      cuer: 0.0.3(patch_hash=5878354ba5a7a757d1019c788ec057561bf636a409a7bd1027f2f068348d03db)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+      cuer: 0.0.3(patch_hash=cad01d705b989d507b2e954ae2966c7f6d9b22e2646ed6140efb7b7b7335744e)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
       react-remove-scroll: 2.7.2(@types/react@19.2.16)(react@19.2.4)
@@ -7082,7 +7082,7 @@ snapshots:
 
   csstype@3.2.3: {}
 
-  cuer@0.0.3(patch_hash=5878354ba5a7a757d1019c788ec057561bf636a409a7bd1027f2f068348d03db)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3):
+  cuer@0.0.3(patch_hash=cad01d705b989d507b2e954ae2966c7f6d9b22e2646ed6140efb7b7b7335744e)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3):
     dependencies:
       qr: 0.6.0
       react: 19.2.4
