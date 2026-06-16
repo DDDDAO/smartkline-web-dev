@@ -78,6 +78,10 @@ export type TradingFoxRuntimeStatus = {
   updatedAt: string;
 };
 
+type TradingFoxRuntimeStatusResponse = {
+  status: TradingFoxRuntimeStatus;
+};
+
 export type TradingFoxCopyStrategy = {
   apiAccountName: string;
   accountEquity?: number;
@@ -582,12 +586,12 @@ export async function updateTradingFoxCopyStrategyStatus(
 
   if (status === "running") {
     await ensureCopyStrategyConnectorPositionMode(await getConnectorForUser(trader.exchangeConnectorId, userId));
-    await tradingFoxRequest<{ runtimeStatus?: TradingFoxRuntimeStatus }>(`/v1/traders/${traderId}/start`, {
+    await tradingFoxRequest<TradingFoxRuntimeStatusResponse>(`/v1/traders/${traderId}/start`, {
       body: JSON.stringify({ enableSltpMonitoring: true, startType: "manual_start" }),
       method: "POST",
     });
   } else {
-    await tradingFoxRequest<{ runtimeStatus?: TradingFoxRuntimeStatus }>(`/v1/traders/${traderId}/stop`, {
+    await tradingFoxRequest<TradingFoxRuntimeStatusResponse>(`/v1/traders/${traderId}/stop`, {
       body: JSON.stringify({ closePositions: false, stopType: "manual" }),
       method: "POST",
     });
@@ -609,7 +613,7 @@ export async function deleteTradingFoxCopyStrategy(
   }
 
   if (trader.enabled) {
-    await tradingFoxRequest<{ runtimeStatus?: TradingFoxRuntimeStatus }>(`/v1/traders/${traderId}/stop`, {
+    await tradingFoxRequest<TradingFoxRuntimeStatusResponse>(`/v1/traders/${traderId}/stop`, {
       body: JSON.stringify({ closePositions: false, stopType: "manual" }),
       method: "POST",
     });
@@ -701,10 +705,13 @@ export async function syncTradingFoxCopyStrategyPositions(
 
   await ensureCopyStrategyConnectorPositionMode(await getConnectorForUser(trader.exchangeConnectorId, userId));
 
-  await tradingFoxRequest<{ result?: Record<string, unknown>; status?: TradingFoxRuntimeStatus }>(`/v1/traders/${traderId}/actions/${TRADINGFOX_ACTION_SYNC_POSITIONS}`, {
-    body: JSON.stringify({ payload: { ratioPercent } }),
-    method: "POST",
-  });
+  await tradingFoxRequest<TradingFoxRuntimeStatusResponse & { result?: Record<string, unknown> }>(
+    `/v1/traders/${traderId}/actions/${TRADINGFOX_ACTION_SYNC_POSITIONS}`,
+    {
+      body: JSON.stringify({ payload: { ratioPercent } }),
+      method: "POST",
+    },
+  );
 
   return getTradingFoxCopyStrategyDetail(session, strategyId);
 }
