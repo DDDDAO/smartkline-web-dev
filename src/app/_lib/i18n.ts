@@ -506,6 +506,7 @@ const zh = {
         medium: "中风险",
       },
       sortBy: "排序",
+      strategyTypeFilter: "策略类型",
       sortOptions: {
         drawdown: "回撤",
         newest: "最新",
@@ -1213,6 +1214,7 @@ const en: WorkspaceCopy = {
         medium: "Medium risk",
       },
       sortBy: "Sort by",
+      strategyTypeFilter: "Strategy type",
       sortOptions: {
         drawdown: "Drawdown",
         newest: "Newest",

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import * as SelectPrimitive from "@radix-ui/react-select";
 import type { WorkspaceCopy, WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { PnlColorMode } from "./top-signals-panel";
 
@@ -336,15 +337,7 @@ export function StrategySquareProductTab({
         <div className={heroClassName}>
           <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[#00A6F4]/20 blur-3xl" />
           <div className="pointer-events-none absolute bottom-0 left-1/3 h-20 w-40 rounded-full bg-[#00A6F4]/10 blur-3xl" />
-          <div className="relative flex flex-col items-start gap-4">
-            <div className="w-full sm:w-[340px]">
-              <StrategyStoreTabs
-                activeTab={activeStoreTab}
-                copy={copy}
-                isDarkTheme={isDarkTheme}
-                onTabChange={setActiveStoreTab}
-              />
-            </div>
+          <div className="relative flex flex-col items-start gap-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className={isDarkTheme ? "text-2xl font-black tracking-tight text-slate-50 sm:text-3xl" : "text-2xl font-black tracking-tight text-slate-950 sm:text-3xl"}>
@@ -352,11 +345,14 @@ export function StrategySquareProductTab({
                 </h1>
                 <span className={getMockBadgeClassName(isDarkTheme)}>{panelCopy.mockBadge}</span>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <StrategyHeroStat isDarkTheme={isDarkTheme} label={panelCopy.metrics.strategies} value={String(MOCK_STRATEGIES.length)} />
-                <StrategyHeroStat isDarkTheme={isDarkTheme} label={panelCopy.rankingTitle} value={String(recommendationSections.length)} />
-                <StrategyHeroStat isDarkTheme={isDarkTheme} label={panelCopy.returnCurve} value={panelCopy.returnWindow} />
-              </div>
+            </div>
+            <div className="w-full sm:w-[340px]">
+              <StrategyStoreTabs
+                activeTab={activeStoreTab}
+                copy={copy}
+                isDarkTheme={isDarkTheme}
+                onTabChange={setActiveStoreTab}
+              />
             </div>
           </div>
         </div>
@@ -384,44 +380,43 @@ export function StrategySquareProductTab({
             </div>
           ) : (
             <div className="grid gap-4">
-              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="grid gap-4">
                 <div>
                   <h1 className={isDarkTheme ? "text-2xl font-black tracking-tight text-slate-50" : "text-2xl font-black tracking-tight text-slate-950"}>{panelCopy.allProjectsTitle}</h1>
                   <p className={isDarkTheme ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-slate-500"}>{panelCopy.visibleCount(visibleStrategies.length, MOCK_STRATEGIES.length)}</p>
                 </div>
-                <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
-                  <StrategyWindowTabs
-                    activeWindow={activeWindow}
-                    copy={copy}
+                <div className="grid max-w-3xl gap-3 sm:grid-cols-3">
+                  <StrategyFilterSelect
                     isDarkTheme={isDarkTheme}
-                    onWindowChange={setActiveWindow}
+                    label={panelCopy.strategyTypeFilter}
+                    options={STRATEGY_TYPE_FILTERS.map((typeFilter) => ({
+                      label: typeFilter === "all" ? panelCopy.allTypes : panelCopy.strategyTypes[typeFilter],
+                      value: typeFilter,
+                    }))}
+                    value={activeType}
+                    onChange={(value) => setActiveType(value as StrategySquareTypeFilter)}
                   />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{panelCopy.sortBy}</span>
-                    {SORT_KEYS.map((nextSortKey) => (
-                      <button
-                        key={nextSortKey}
-                        className={getSortButtonClassName(isDarkTheme, sortKey === nextSortKey)}
-                        type="button"
-                        onClick={() => setSortKey(nextSortKey)}
-                      >
-                        {panelCopy.sortOptions[nextSortKey]}
-                      </button>
-                    ))}
-                  </div>
+                  <StrategyFilterSelect
+                    isDarkTheme={isDarkTheme}
+                    label={panelCopy.windowFilter}
+                    options={STRATEGY_WINDOWS.map((window) => ({
+                      label: panelCopy.windows[window],
+                      value: window,
+                    }))}
+                    value={activeWindow}
+                    onChange={(value) => setActiveWindow(value as StrategySquareWindow)}
+                  />
+                  <StrategyFilterSelect
+                    isDarkTheme={isDarkTheme}
+                    label={panelCopy.sortBy}
+                    options={SORT_KEYS.map((nextSortKey) => ({
+                      label: panelCopy.sortOptions[nextSortKey],
+                      value: nextSortKey,
+                    }))}
+                    value={sortKey}
+                    onChange={(value) => setSortKey(value as StrategySquareSortKey)}
+                  />
                 </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {STRATEGY_TYPE_FILTERS.map((typeFilter) => (
-                  <button
-                    key={typeFilter}
-                    className={getFilterButtonClassName(isDarkTheme, activeType === typeFilter)}
-                    type="button"
-                    onClick={() => setActiveType(typeFilter)}
-                  >
-                    {typeFilter === "all" ? panelCopy.allTypes : panelCopy.strategyTypes[typeFilter]}
-                  </button>
-                ))}
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {visibleStrategies.map((strategy) => (
@@ -496,54 +491,60 @@ function StrategyStoreTabs({
   );
 }
 
-function StrategyHeroStat({
+function StrategyFilterSelect({
   isDarkTheme,
   label,
+  options,
   value,
+  onChange,
 }: {
   isDarkTheme: boolean;
   label: string;
+  options: readonly { label: string; value: string }[];
   value: string;
+  onChange: (value: string) => void;
 }) {
-  return (
-    <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.045] px-3 py-2" : "rounded-2xl border border-[#E5EAF0] bg-white/80 px-3 py-2 shadow-sm"}>
-      <div className={isDarkTheme ? "text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500" : "text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400"}>{label}</div>
-      <div className={isDarkTheme ? "mt-0.5 text-sm font-black text-slate-100" : "mt-0.5 text-sm font-black text-slate-950"}>{value}</div>
-    </div>
-  );
-}
-
-function StrategyWindowTabs({
-  activeWindow,
-  copy,
-  isDarkTheme,
-  onWindowChange,
-}: {
-  activeWindow: StrategySquareWindow;
-  copy: WorkspaceCopy;
-  isDarkTheme: boolean;
-  onWindowChange: (window: StrategySquareWindow) => void;
-}) {
-  const panelCopy = copy.workspace.strategySquare;
+  const selectedOption = options.find((option) => option.value === value) ?? options[0];
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{panelCopy.windowFilter}</span>
-      <div className={isDarkTheme ? "flex rounded-full border border-white/[0.075] bg-white/[0.035] p-1" : "flex rounded-full border border-[#E5EAF0] bg-white p-1 shadow-sm"}>
-        {STRATEGY_WINDOWS.map((window) => {
-          const isActive = activeWindow === window;
-          return (
-            <button
-              key={window}
-              className={getWindowButtonClassName(isDarkTheme, isActive)}
-              type="button"
-              onClick={() => onWindowChange(window)}
-            >
-              {panelCopy.windows[window]}
-            </button>
-          );
-        })}
-      </div>
+    <div className="grid gap-1.5">
+      <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{label}</span>
+      <SelectPrimitive.Root value={value} onValueChange={onChange}>
+        <SelectPrimitive.Trigger
+          className={isDarkTheme
+            ? "flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 text-left text-sm font-black text-slate-100 outline-none transition hover:bg-white/[0.055] focus:border-sky-400/45 focus:ring-2 focus:ring-sky-400/10"
+            : "flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-[#D5E4EF] bg-white px-3 text-left text-sm font-black text-slate-950 shadow-sm outline-none transition hover:bg-[#F8FAFC] focus:border-[#7DBEFF] focus:ring-2 focus:ring-[#16AFF5]/10"}
+        >
+          <SelectPrimitive.Value>{selectedOption?.label}</SelectPrimitive.Value>
+          <SelectPrimitive.Icon asChild>
+            <span aria-hidden="true" className={isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-400"}>⌄</span>
+          </SelectPrimitive.Icon>
+        </SelectPrimitive.Trigger>
+        <SelectPrimitive.Portal>
+          <SelectPrimitive.Content
+            className={isDarkTheme
+              ? "z-[130] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
+              : "z-[130] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
+            position="popper"
+            sideOffset={8}
+          >
+            <SelectPrimitive.Viewport className="grid gap-1">
+              {options.map((option) => (
+                <SelectPrimitive.Item
+                  key={option.value}
+                  className={isDarkTheme
+                    ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm font-bold outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-sky-400/10 data-[state=checked]:text-sky-100"
+                    : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm font-bold outline-none transition data-[highlighted]:bg-[#F8FAFC] data-[state=checked]:bg-[#EAF8FE] data-[state=checked]:text-[#007DB8]"}
+                  value={option.value}
+                >
+                  <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+                  <SelectPrimitive.ItemIndicator className="text-xs font-black">✓</SelectPrimitive.ItemIndicator>
+                </SelectPrimitive.Item>
+              ))}
+            </SelectPrimitive.Viewport>
+          </SelectPrimitive.Content>
+        </SelectPrimitive.Portal>
+      </SelectPrimitive.Root>
     </div>
   );
 }
@@ -1152,40 +1153,6 @@ function getStoreTabButtonClassName(isDarkTheme: boolean, isActive: boolean): st
   }
 
   return `${baseClassName} ${isDarkTheme ? "text-slate-500 hover:bg-white/[0.05] hover:text-slate-200" : "text-slate-500 hover:bg-white hover:text-slate-900"}`;
-}
-
-function getFilterButtonClassName(isDarkTheme: boolean, isActive: boolean): string {
-  if (isActive) {
-    return "rounded-full bg-[#00A6F4] px-3 py-2 text-xs font-black text-white shadow-sm shadow-sky-500/20";
-  }
-
-  return isDarkTheme
-    ? "rounded-full border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-xs font-bold text-slate-400 transition hover:border-sky-400/40 hover:text-sky-200"
-    : "rounded-full border border-[#E5EAF0] bg-white px-3 py-2 text-xs font-bold text-slate-500 transition hover:border-[#00A6F4] hover:text-[#008DCC]";
-}
-
-function getSortButtonClassName(isDarkTheme: boolean, isActive: boolean): string {
-  if (isActive) {
-    return isDarkTheme
-      ? "rounded-full bg-sky-400/15 px-2.5 py-1.5 text-[11px] font-black text-sky-200"
-      : "rounded-full bg-[#EAF8FE] px-2.5 py-1.5 text-[11px] font-black text-[#008DCC]";
-  }
-
-  return isDarkTheme
-    ? "rounded-full px-2.5 py-1.5 text-[11px] font-bold text-slate-500 transition hover:bg-white/[0.055] hover:text-slate-200"
-    : "rounded-full px-2.5 py-1.5 text-[11px] font-bold text-slate-400 transition hover:bg-slate-100 hover:text-slate-700";
-}
-
-function getWindowButtonClassName(isDarkTheme: boolean, isActive: boolean): string {
-  if (isActive) {
-    return isDarkTheme
-      ? "rounded-full bg-[#00A6F4] px-3 py-1.5 text-[11px] font-black text-white"
-      : "rounded-full bg-[#00A6F4] px-3 py-1.5 text-[11px] font-black text-white shadow-sm shadow-sky-500/20";
-  }
-
-  return isDarkTheme
-    ? "rounded-full px-3 py-1.5 text-[11px] font-bold text-slate-500 transition hover:bg-white/[0.055] hover:text-sky-200"
-    : "rounded-full px-3 py-1.5 text-[11px] font-bold text-slate-500 transition hover:bg-[#EAF8FE] hover:text-[#008DCC]";
 }
 
 function getMockBadgeClassName(isDarkTheme: boolean): string {
