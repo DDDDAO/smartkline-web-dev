@@ -9,6 +9,15 @@ type RouteContext = {
   params: Promise<{ connectorId: string }>;
 };
 
+export function OPTIONS() {
+  return new NextResponse(null, {
+    headers: {
+      allow: "DELETE, OPTIONS",
+    },
+    status: 204,
+  });
+}
+
 export async function DELETE(request: NextRequest, context: RouteContext) {
   await connection();
 
