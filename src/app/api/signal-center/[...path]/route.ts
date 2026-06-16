@@ -121,11 +121,17 @@ function shouldFilterSkippedTrades(
     return false;
   }
 
-  return isCopyTradingRadarPath(pathSegments) || isSignalSourceTradesPath(pathSegments);
+  return isCopyTradingRadarPath(pathSegments)
+    || isListSignalSourcesPath(pathSegments)
+    || isSignalSourceTradesPath(pathSegments);
 }
 
 function isCopyTradingRadarPath(pathSegments: readonly string[]): boolean {
   return pathSegments.length === 2 && pathSegments[0] === "v1" && pathSegments[1] === "copy-trading-radar";
+}
+
+function isListSignalSourcesPath(pathSegments: readonly string[]): boolean {
+  return pathSegments.length === 2 && pathSegments[0] === "v1" && pathSegments[1] === "list-signals-sources";
 }
 
 function isSignalSourceTradesPath(pathSegments: readonly string[]): boolean {

@@ -1103,7 +1103,11 @@ export function SignalWorkspace({
 
       isPolling = true;
       try {
-        const snapshot = await fetchCopyTradingRadarSnapshot();
+        const snapshot = await fetchCopyTradingRadarSnapshot({
+          includePerformance: true,
+          performanceWindow: topSignalPerformanceWindow,
+          sortKey: topSignalSortKey,
+        });
         applySnapshot(snapshot, null);
       } catch (error: unknown) {
         const message = formatKolSignalSourceError(error);
@@ -1142,7 +1146,7 @@ export function SignalWorkspace({
         window.clearInterval(pollingIntervalId);
       }
     };
-  }, [isTopSignalsTab, shouldLoadTopSignalsSnapshot]);
+  }, [isTopSignalsTab, shouldLoadTopSignalsSnapshot, topSignalPerformanceWindow, topSignalSortKey]);
 
   useEffect(() => {
     const pendingTradeEventId = pendingRouteTopSignalTradeEventIdRef.current;

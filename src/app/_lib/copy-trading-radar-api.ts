@@ -28,6 +28,22 @@ const MOCK_MARKET_ALIGNMENT_HISTORY_LIMIT = 180;
 const COPY_TRADING_RADAR_SOURCE_LIMIT = 200;
 export const COPY_TRADING_RADAR_TRADE_LIMIT = 200;
 
+type CopyTradingSignalSourceSortKey =
+  | "aum"
+  | "copierPnl"
+  | "followers"
+  | "maxDrawdown"
+  | "pnl"
+  | "roi"
+  | "sharpeRatio";
+
+const LIST_SIGNAL_SOURCE_SORT_BY: Partial<Record<CopyTradingSignalSourceSortKey, string>> = {
+  maxDrawdown: "maxdrawdown",
+  pnl: "pnl",
+  roi: "roi",
+  sharpeRatio: "sharpe",
+};
+
 const REQUIRED_EVENT_TYPES: CopyTradingEventType[] = [
   "open",
   "add",
@@ -230,6 +246,45 @@ type SignalCenterRadarSourcePerformance = {
   window?: string | null;
 };
 
+type SignalCenterListSignalSourceMetrics = {
+  aum?: number | string | null;
+  aumAmount?: number | string | null;
+  aum_amount?: number | string | null;
+  copierPnl?: number | string | null;
+  copier_pnl?: number | string | null;
+  copierPnlAsset?: string | null;
+  copier_pnl_asset?: string | null;
+  followerPnl?: number | string | null;
+  follower_pnl?: number | string | null;
+  followers?: number | string | null;
+  marginBalance?: number | string | null;
+  margin_balance?: number | string | null;
+  maxDrawdown?: number | string | null;
+  max_drawdown?: number | string | null;
+  pnl?: number | string | null;
+  pnlPoints?: SignalCenterReturnCurvePoint[] | null;
+  pnl_points?: SignalCenterReturnCurvePoint[] | null;
+  roi?: number | string | null;
+  roiPoints?: SignalCenterReturnCurvePoint[] | null;
+  roi_points?: SignalCenterReturnCurvePoint[] | null;
+  sharpe?: number | string | null;
+  sharpeRatio?: number | string | null;
+  sharpe_ratio?: number | string | null;
+  totalPositions?: number | string | null;
+  total_positions?: number | string | null;
+  updatedAt?: string | null;
+  updated_at?: string | null;
+  winRate?: number | string | null;
+  win_rate?: number | string | null;
+  window?: string | null;
+  winningPositions?: number | string | null;
+  winning_positions?: number | string | null;
+};
+
+type SignalCenterListSignalSourceExchangeData = {
+  raw?: Record<string, unknown> | null;
+};
+
 export type CopyTradingTradeHistoryPage = {
   events: CopyTradingEvent[];
   hasMore: boolean;
@@ -238,6 +293,8 @@ export type CopyTradingTradeHistoryPage = {
 };
 
 type SignalCenterRadarSourceRuntime = {
+  exchangeData?: SignalCenterListSignalSourceExchangeData | null;
+  metrics?: SignalCenterListSignalSourceMetrics | null;
   performance?: SignalCenterRadarSourcePerformance | null;
   positions?: SignalCenterPositionSnapshot[] | null;
   source?: SignalCenterSignalSource | null;
@@ -294,12 +351,43 @@ type MockTradeBlueprint = {
 };
 
 export async function fetchCopyTradingRadarSnapshot({
-  includePerformance = false,
+  includePerformance = true,
   performanceWindow = "30d",
+  sortKey,
 }: {
   includePerformance?: boolean;
   performanceWindow?: CopyTradingReturnCurveWindow | string;
+  sortKey?: CopyTradingSignalSourceSortKey | string;
 } = {}): Promise<CopyTradingRadarSnapshot> {
+  const listParams = new URLSearchParams({
+    includeSkipped: "false",
+    page: "1",
+    pageSize: String(COPY_TRADING_RADAR_SOURCE_LIMIT),
+    tradeLimit: String(COPY_TRADING_RADAR_TRADE_LIMIT),
+    window: performanceWindow,
+  });
+  if (includePerformance) {
+    listParams.set("includePerformance", "true");
+  }
+  const listSortBy = getListSignalSourceSortBy(sortKey);
+  if (listSortBy) {
+    listParams.set("sortBy", listSortBy);
+    listParams.set("sortOrder", sortKey === "maxDrawdown" ? "asc" : "desc");
+  }
+
+  try {
+    const listResponse = await requestSignalCenterJson<SignalCenterRadarSnapshotResponse>(`/v1/list-signals-sources?${listParams.toString()}`);
+    const runtimeData = normalizeRadarRuntimeData(listResponse.sources ?? []);
+    return adaptSignalCenterRuntimeData(runtimeData, listResponse.updatedAt ?? undefined);
+  } catch {
+    /**
+     * The new list endpoint is the preferred path for Top Signals because it
+     * carries source metrics and return curves in one sorted payload. Keep the
+     * older aggregated endpoint as rollout fallback for environments that have
+     * not deployed /v1/list-signals-sources yet.
+     */
+  }
+
   const radarParams = new URLSearchParams({
     includeSkipped: "false",
     sourceLimit: String(COPY_TRADING_RADAR_SOURCE_LIMIT),
@@ -480,6 +568,15 @@ function parsePercentNumber(value: unknown): number | null {
   if (typeof value === "string") {
     const parsed = Number(value.trim().replace(/%$/, ""));
     return Number.isFinite(parsed) ? parsed / 100 : null;
+  }
+
+  const parsed = parseNumber(value);
+  return parsed === null ? null : parsed / 100;
+}
+
+function parsePercentageRatio(value: unknown): number | null {
+  if (typeof value === "string" && value.trim().endsWith("%")) {
+    return parsePercentNumber(value);
   }
 
   const parsed = parseNumber(value);
@@ -853,6 +950,14 @@ export function getCopyTradingRequiredEventTypes(): CopyTradingEventType[] {
   return REQUIRED_EVENT_TYPES;
 }
 
+function getListSignalSourceSortBy(sortKey: CopyTradingSignalSourceSortKey | string | undefined): string | null {
+  if (!sortKey) {
+    return null;
+  }
+
+  return LIST_SIGNAL_SOURCE_SORT_BY[sortKey as CopyTradingSignalSourceSortKey] ?? null;
+}
+
 async function loadSourceRuntimeData(source: SignalCenterSignalSource): Promise<SourceRuntimeData> {
   const [positionsResponse, tradesResponse] = await Promise.all([
     requestSignalCenterJson<PositionsResponse>(`/v1/signal-sources/${encodeURIComponent(source.id)}/positions`),
@@ -878,11 +983,60 @@ function normalizeRadarRuntimeData(runtimeSources: readonly SignalCenterRadarSou
       return [];
     }
     return [{
-      performance: runtimeSource.performance ?? null,
+      performance: runtimeSource.performance
+        ?? adaptListSignalSourceMetrics(runtimeSource.metrics ?? null, runtimeSource.exchangeData ?? null, runtimeSource.source),
       source: runtimeSource.source,
       positions: runtimeSource.positions ?? [],
       trades: filterDisplayableSignalCenterTrades(runtimeSource.trades ?? []),
     }];
+  });
+}
+
+function adaptListSignalSourceMetrics(
+  metrics: SignalCenterListSignalSourceMetrics | null,
+  exchangeData: SignalCenterListSignalSourceExchangeData | null,
+  source: SignalCenterSignalSource,
+): SignalCenterRadarSourcePerformance | null {
+  if (!metrics && !exchangeData?.raw) {
+    return null;
+  }
+
+  const raw = exchangeData?.raw ?? {};
+  return {
+    aum: parseNumber(metrics?.aum ?? metrics?.aumAmount ?? metrics?.aum_amount ?? raw.aumAmount),
+    copierPnl: parseNumber(metrics?.copierPnl ?? metrics?.copier_pnl ?? metrics?.followerPnl ?? metrics?.follower_pnl ?? raw.copierPnl),
+    copierPnlAsset: readNonEmptyString(metrics?.copierPnlAsset ?? metrics?.copier_pnl_asset ?? raw.copierPnlAsset) ?? "USDT",
+    followers: parseNonNegativeInteger(metrics?.followers ?? raw.currentCopyCount ?? raw.totalCopyCount),
+    marginBalance: parseNumber(metrics?.marginBalance ?? metrics?.margin_balance ?? raw.marginBalance ?? source.margin),
+    maxDrawdown: parsePercentageRatio(metrics?.maxDrawdown ?? metrics?.max_drawdown),
+    pnl: parseNumber(metrics?.pnl),
+    returnCurve: adaptListSignalSourceMetricReturnCurve(metrics?.roiPoints ?? metrics?.roi_points ?? []),
+    roi: parsePercentageRatio(metrics?.roi),
+    sharpeRatio: parseNumber(metrics?.sharpe ?? metrics?.sharpeRatio ?? metrics?.sharpe_ratio ?? raw.sharpRatio),
+    updatedAt: metrics?.updatedAt ?? metrics?.updated_at ?? null,
+    winRate: parsePercentageRatio(metrics?.winRate ?? metrics?.win_rate),
+    window: metrics?.window ?? null,
+  };
+}
+
+function adaptListSignalSourceMetricReturnCurve(
+  points: readonly SignalCenterReturnCurvePoint[],
+): SignalCenterReturnCurvePoint[] {
+  return points.flatMap((point) => {
+    const timestamp = readSignalCenterReturnCurveTimestamp(point);
+    const value = parsePercentageRatio(
+      point.value
+        ?? point.roi
+        ?? point.returnPercent
+        ?? point.return_percent
+        ?? point.roiPercent
+        ?? point.roi_percent,
+    );
+    if (timestamp === null || value === null) {
+      return [];
+    }
+
+    return [{ timestamp, value }];
   });
 }
 

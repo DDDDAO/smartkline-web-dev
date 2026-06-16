@@ -162,6 +162,7 @@ The copy-trading radar reads Signal Center through a server-side BFF route so th
 GET /api/signal-center/v1/signal-sources
 GET /api/signal-center/v1/signal-sources/{id}/positions
 GET /api/signal-center/v1/signal-sources/{id}/trades?limit=100
+GET /api/signal-center/v1/list-signals-sources?pageSize=200&tradeLimit=200&window=30d&sortBy=pnl
 GET /api/signal-center/v1/copy-trading-radar?sourceLimit=50&tradeLimit=100
 ```
 
