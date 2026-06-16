@@ -2287,13 +2287,13 @@ function PrototypeStrategyCard({
   const typeLabel = strategyType === "mario" ? accountCopy.strategyCreate.marioTypeChip : accountCopy.strategyCreate.copyTradingTypeChip;
 
   return (
-    <article className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] p-3" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
+    <article className={isDarkTheme ? "relative rounded-2xl border border-white/[0.075] bg-[#181A20] p-3" : "relative rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
       <button
         className="block w-full text-left"
         type="button"
         onClick={() => onOpenDetail(strategy)}
       >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 pr-36">
         <SourceAvatar isDarkTheme={isDarkTheme} name={strategy.traderName} url={strategy.avatarUrl} />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
@@ -2316,7 +2316,7 @@ function PrototypeStrategyCard({
         {strategyType === "mario" ? accountCopy.strategyCreate.marioCardHint : strategyCopy.stopNote}
       </p>
       </button>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="absolute right-3 top-3 flex gap-2">
         {strategy.status === "running" ? (
           <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(strategy.id, "paused")}>{strategyCopy.pause}</button>
         ) : (

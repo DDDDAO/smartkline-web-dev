@@ -281,14 +281,14 @@ const zh = {
         webhookUrl: "Webhook URL",
         webhookPlaceholder: "https://...",
         unavailableHint: "暂未开放，当前不可保存 Webhook URL。",
-        telegramHint: "在 AlphaFox Telegram Bot 内通过 /start 绑定账户后，后续会在这里开启并保存。",
+        telegramHint: "在 Smartkline Telegram Bot 内通过 /start 绑定账户后，后续会在这里开启并保存。",
         placeholderStatus: "暂未开放，填写后暂不保存。",
         save: "保存",
         channels: {
           telegramBot: {
-            defaultName: "AlphaFox Telegram Bot",
-            description: "使用 AlphaFox 官方 Telegram Bot。用户绑定关系由 bot 服务维护。",
-            title: "AlphaFox Telegram Bot",
+            defaultName: "Smartkline Telegram Bot",
+            description: "使用 Smartkline 官方 Telegram Bot。用户绑定关系由 bot 服务维护。",
+            title: "Smartkline Telegram Bot",
           },
           feishuWebhook: {
             defaultName: "飞书 Webhook",
@@ -1039,14 +1039,14 @@ const en: WorkspaceCopy = {
         webhookUrl: "Webhook URL",
         webhookPlaceholder: "https://...",
         unavailableHint: "Coming soon. Webhook URLs are not saved yet.",
-        telegramHint: "After binding an account with /start in the AlphaFox Telegram Bot, this channel will be enabled and saved here.",
+        telegramHint: "After binding an account with /start in the Smartkline Telegram Bot, this channel will be enabled and saved here.",
         placeholderStatus: "Coming soon. Values entered here are not saved yet.",
         save: "Save",
         channels: {
           telegramBot: {
-            defaultName: "AlphaFox Telegram Bot",
-            description: "Use the official AlphaFox Telegram Bot. User bindings are maintained by the bot service.",
-            title: "AlphaFox Telegram Bot",
+            defaultName: "Smartkline Telegram Bot",
+            description: "Use the official Smartkline Telegram Bot. User bindings are maintained by the bot service.",
+            title: "Smartkline Telegram Bot",
           },
           feishuWebhook: {
             defaultName: "Feishu Webhook",
