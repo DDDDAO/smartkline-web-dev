@@ -437,7 +437,7 @@ export function StrategySquareProductTab({
                   onChange={handleSortChange}
                 />
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              <div className="flex flex-wrap justify-start gap-3">
                 {paginatedStrategies.map((strategy) => (
                   <StrategyMarketplaceCard
                     key={strategy.id}
@@ -695,7 +695,7 @@ function RecommendedStrategySection({
           {panelCopy.moreAction} ›
         </button>
       </div>
-      <div className={isDarkTheme ? "-mx-3 kol-scroll-area kol-scroll-area-dark flex snap-x gap-3 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0" : "-mx-3 kol-scroll-area flex snap-x gap-3 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0"}>
+      <div className="flex flex-wrap justify-start gap-3">
         {section.strategies.map((strategy, index) => (
           <StrategyMarketplaceCard
             key={`${section.key}-${strategy.id}`}
@@ -707,7 +707,7 @@ function RecommendedStrategySection({
             pnlColorMode={pnlColorMode}
             rank={index + 1}
             strategy={strategy}
-            variant="rail"
+            variant="grid"
             window="30d"
             onCopy={onCopy}
             onDetailsOpen={onDetailsOpen}
@@ -751,7 +751,10 @@ function StrategyMarketplaceCard({
   const primaryMetric = getStrategyCardPrimaryMetric(windowMetrics, panelCopy, featuredMetric, window);
   const secondaryMetric = getStrategyCardSecondaryMetric(windowMetrics, panelCopy, featuredMetric, window);
   const isGridCard = variant === "grid";
-  const cardClassName = `${variant === "rail" ? "w-[calc(100vw-3.5rem)] max-w-[360px] shrink-0 snap-start xl:w-[380px] xl:max-w-[380px]" : "min-w-0"} ${isDarkTheme
+  const cardLayoutClassName = variant === "rail"
+    ? "w-[calc(100vw-3.5rem)] max-w-[360px] shrink-0 snap-start xl:w-[380px] xl:max-w-[380px]"
+    : "min-w-0 max-w-[360px] flex-[1_1_240px]";
+  const cardClassName = `${cardLayoutClassName} ${isDarkTheme
     ? `${isGridCard ? "rounded-[18px] sm:rounded-[22px] xl:rounded-[26px]" : "rounded-[26px]"} group overflow-hidden border border-white/[0.075] bg-[#181A20] text-left transition hover:border-sky-400/30 hover:bg-white/[0.055]`
     : `${isGridCard ? "rounded-[18px] sm:rounded-[22px] xl:rounded-[26px]" : "rounded-[26px]"} group overflow-hidden border border-[#E5EAF0] bg-white text-left shadow-sm transition hover:border-[#BFE7FB] hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]`}`;
   const cardBodyClassName = isGridCard ? "block w-full p-1.5 text-left sm:p-2.5 xl:p-4" : "block w-full p-4 text-left";
