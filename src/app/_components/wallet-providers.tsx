@@ -213,6 +213,8 @@ const walletGroups = isWalletConnectConfigured
       },
     ];
 
+const createWalletRpcTransport = (chainId: number) => http(`/api/wallet-rpc/${chainId}`);
+
 const walletConfig = getDefaultConfig({
   appName: "SmartKline",
   appUrl: "https://www.smartkline.com",
@@ -220,12 +222,12 @@ const walletConfig = getDefaultConfig({
   projectId: rainbowKitProjectId,
   ssr: true,
   transports: {
-    [mainnet.id]: http(),
-    [arbitrum.id]: http(),
-    [base.id]: http(),
-    [optimism.id]: http(),
-    [polygon.id]: http(),
-    [bsc.id]: http(),
+    [mainnet.id]: createWalletRpcTransport(mainnet.id),
+    [arbitrum.id]: createWalletRpcTransport(arbitrum.id),
+    [base.id]: createWalletRpcTransport(base.id),
+    [optimism.id]: createWalletRpcTransport(optimism.id),
+    [polygon.id]: createWalletRpcTransport(polygon.id),
+    [bsc.id]: createWalletRpcTransport(bsc.id),
   },
   wallets: walletGroups,
 });
