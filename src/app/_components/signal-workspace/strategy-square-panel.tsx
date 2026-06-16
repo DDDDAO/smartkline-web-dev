@@ -750,55 +750,103 @@ function StrategyMarketplaceCard({
   const windowMetrics = getWindowAdjustedMetrics(strategy, window);
   const primaryMetric = getStrategyCardPrimaryMetric(windowMetrics, panelCopy, featuredMetric, window);
   const secondaryMetric = getStrategyCardSecondaryMetric(windowMetrics, panelCopy, featuredMetric, window);
+  const isGridCard = variant === "grid";
   const cardClassName = `${variant === "rail" ? "w-[calc(100vw-3.5rem)] max-w-[360px] shrink-0 snap-start xl:w-[380px] xl:max-w-[380px]" : "min-w-0"} ${isDarkTheme
-    ? "group overflow-hidden rounded-[26px] border border-white/[0.075] bg-[#181A20] text-left transition hover:border-sky-400/30 hover:bg-white/[0.055]"
-    : "group overflow-hidden rounded-[26px] border border-[#E5EAF0] bg-white text-left shadow-sm transition hover:border-[#BFE7FB] hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]"}`;
+    ? `${isGridCard ? "rounded-[18px] sm:rounded-[22px] xl:rounded-[26px]" : "rounded-[26px]"} group overflow-hidden border border-white/[0.075] bg-[#181A20] text-left transition hover:border-sky-400/30 hover:bg-white/[0.055]`
+    : `${isGridCard ? "rounded-[18px] sm:rounded-[22px] xl:rounded-[26px]" : "rounded-[26px]"} group overflow-hidden border border-[#E5EAF0] bg-white text-left shadow-sm transition hover:border-[#BFE7FB] hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]`}`;
+  const cardBodyClassName = isGridCard ? "block w-full p-1.5 text-left sm:p-2.5 xl:p-4" : "block w-full p-4 text-left";
+  const headerClassName = isGridCard ? "flex min-w-0 flex-col items-start gap-1.5 sm:flex-row sm:gap-2 xl:gap-3" : "flex min-w-0 items-start gap-3";
+  const badgeRowClassName = isGridCard ? "hidden flex-wrap items-center gap-1.5 md:flex" : "flex flex-wrap items-center gap-1.5";
+  const titleClassName = isGridCard
+    ? isDarkTheme
+      ? "mt-1 line-clamp-2 text-[10px] font-black leading-3 text-slate-50 sm:mt-0 sm:text-xs sm:leading-4 xl:mt-2 xl:line-clamp-1 xl:text-base"
+      : "mt-1 line-clamp-2 text-[10px] font-black leading-3 text-slate-950 sm:mt-0 sm:text-xs sm:leading-4 xl:mt-2 xl:line-clamp-1 xl:text-base"
+    : isDarkTheme ? "mt-2 truncate text-base font-black text-slate-50" : "mt-2 truncate text-base font-black text-slate-950";
+  const descriptionClassName = isGridCard
+    ? isDarkTheme
+      ? "hidden xl:mt-1 xl:line-clamp-2 xl:text-xs xl:leading-5 xl:text-slate-400"
+      : "hidden xl:mt-1 xl:line-clamp-2 xl:text-xs xl:leading-5 xl:text-slate-500"
+    : isDarkTheme ? "mt-1 line-clamp-2 text-xs leading-5 text-slate-400" : "mt-1 line-clamp-2 text-xs leading-5 text-slate-500";
+  const metricPanelClassName = isGridCard
+    ? isDarkTheme
+      ? "mt-2 rounded-[14px] border border-white/[0.065] bg-[#101821] p-1.5 sm:rounded-[18px] sm:p-2 xl:mt-4 xl:rounded-[22px] xl:p-3"
+      : "mt-2 rounded-[14px] border border-[#E5EAF0] bg-gradient-to-b from-[#F8FCFF] to-white p-1.5 sm:rounded-[18px] sm:p-2 xl:mt-4 xl:rounded-[22px] xl:p-3"
+    : isDarkTheme ? "mt-4 rounded-[22px] border border-white/[0.065] bg-[#101821] p-3" : "mt-4 rounded-[22px] border border-[#E5EAF0] bg-gradient-to-b from-[#F8FCFF] to-white p-3";
+  const primaryMetricLabelClassName = isGridCard
+    ? isDarkTheme ? "hidden text-[11px] font-bold text-slate-500 sm:block" : "hidden text-[11px] font-bold text-slate-400 sm:block"
+    : isDarkTheme ? "text-[11px] font-bold text-slate-500" : "text-[11px] font-bold text-slate-400";
+  const primaryMetricValueClassName = getPnlTextClassName(
+    isDarkTheme,
+    primaryMetric.toneValue,
+    pnlColorMode,
+    isGridCard ? "mt-0 truncate text-[10px] leading-3 tracking-tight sm:mt-1 sm:text-base xl:text-2xl" : "mt-1 text-2xl tracking-tight",
+  );
+  const secondaryMetricClassName = isGridCard
+    ? isDarkTheme ? "hidden rounded-2xl bg-white/[0.055] px-3 py-2 text-right md:block" : "hidden rounded-2xl bg-white px-3 py-2 text-right shadow-sm md:block"
+    : isDarkTheme ? "rounded-2xl bg-white/[0.055] px-3 py-2 text-right" : "rounded-2xl bg-white px-3 py-2 text-right shadow-sm";
+  const curveClassName = isGridCard ? "mt-1.5 h-7 min-w-0 sm:h-10 xl:mt-3 xl:h-24" : "mt-3 h-24 min-w-0";
+  const metricsRowClassName = isGridCard ? "mt-4 hidden grid-cols-3 gap-2 text-sm xl:grid" : "mt-4 grid grid-cols-3 gap-2 text-sm";
+  const footerClassName = isDarkTheme
+    ? isGridCard ? "grid grid-cols-2 gap-1 border-t border-white/[0.065] p-1.5 sm:gap-2 sm:p-2 xl:grid-cols-[minmax(84px,0.35fr)_minmax(0,1fr)] xl:p-3" : "grid grid-cols-[minmax(84px,0.35fr)_minmax(0,1fr)] gap-2 border-t border-white/[0.065] p-3"
+    : isGridCard ? "grid grid-cols-2 gap-1 border-t border-[#EEF2F6] p-1.5 sm:gap-2 sm:p-2 xl:grid-cols-[minmax(84px,0.35fr)_minmax(0,1fr)] xl:p-3" : "grid grid-cols-[minmax(84px,0.35fr)_minmax(0,1fr)] gap-2 border-t border-[#EEF2F6] p-3";
+  const copiedLabel = copiedStrategyId === strategy.id ? panelCopy.copiedAction : panelCopy.copyAction;
+  const compactCopiedLabel = copiedStrategyId === strategy.id ? panelCopy.compactCopiedAction : panelCopy.compactCopyAction;
 
   return (
     <article className={cardClassName}>
-      <button className="block w-full p-4 text-left" type="button" onClick={() => onDetailsOpen(strategy.id)}>
-        <div className="flex min-w-0 items-start gap-3">
-          <StrategyIcon isDarkTheme={isDarkTheme} name={content.name} rank={rank} />
+      <button className={cardBodyClassName} type="button" onClick={() => onDetailsOpen(strategy.id)}>
+        <div className={headerClassName}>
+          <StrategyIcon isDarkTheme={isDarkTheme} name={content.name} rank={rank} variant={variant} />
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className={badgeRowClassName}>
               <span className={getMockBadgeClassName(isDarkTheme)}>{panelCopy.mockBadge}</span>
               <span className={getTypeBadgeClassName(isDarkTheme, strategy.type)}>{panelCopy.strategyTypes[strategy.type]}</span>
               <span className={getRiskBadgeClassName(isDarkTheme, strategy.riskLevel)}>{panelCopy.riskLevels[strategy.riskLevel]}</span>
             </div>
-            <h3 className={isDarkTheme ? "mt-2 truncate text-base font-black text-slate-50" : "mt-2 truncate text-base font-black text-slate-950"}>{content.name}</h3>
-            <p className={isDarkTheme ? "mt-1 line-clamp-2 text-xs leading-5 text-slate-400" : "mt-1 line-clamp-2 text-xs leading-5 text-slate-500"}>{content.description}</p>
+            <h3 className={titleClassName}>{content.name}</h3>
+            <p className={descriptionClassName}>{content.description}</p>
           </div>
         </div>
 
-        <div className={isDarkTheme ? "mt-4 rounded-[22px] border border-white/[0.065] bg-[#101821] p-3" : "mt-4 rounded-[22px] border border-[#E5EAF0] bg-gradient-to-b from-[#F8FCFF] to-white p-3"}>
+        <div className={metricPanelClassName}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className={isDarkTheme ? "text-[11px] font-bold text-slate-500" : "text-[11px] font-bold text-slate-400"}>{primaryMetric.label}</div>
-              <div className={getPnlTextClassName(isDarkTheme, primaryMetric.toneValue, pnlColorMode, "mt-1 text-2xl tracking-tight")}>{primaryMetric.value}</div>
+              <div className={primaryMetricLabelClassName}>{primaryMetric.label}</div>
+              <div className={primaryMetricValueClassName}>{primaryMetric.value}</div>
             </div>
-            <div className={isDarkTheme ? "rounded-2xl bg-white/[0.055] px-3 py-2 text-right" : "rounded-2xl bg-white px-3 py-2 text-right shadow-sm"}>
+            <div className={secondaryMetricClassName}>
               <div className={isDarkTheme ? "text-[10px] font-bold text-slate-500" : "text-[10px] font-bold text-slate-400"}>{secondaryMetric.label}</div>
               <div className={getPnlTextClassName(isDarkTheme, secondaryMetric.toneValue, pnlColorMode, "mt-0.5 text-sm")}>{secondaryMetric.value}</div>
             </div>
           </div>
-          <div className="mt-3 h-24 min-w-0">
+          <div className={curveClassName}>
             <StrategyReturnCurveChart isDarkTheme={isDarkTheme} pnlColorMode={pnlColorMode} points={strategy.returnCurve} />
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
+        <div className={metricsRowClassName}>
           <CardMetricRow isDarkTheme={isDarkTheme} label={panelCopy.metrics.maxDrawdown} value={formatPercent(windowMetrics.maxDrawdown)} />
           <CardMetricRow isDarkTheme={isDarkTheme} label={panelCopy.metrics.winRate} value={formatPercent(windowMetrics.winRate)} />
           <CardMetricRow isDarkTheme={isDarkTheme} label={panelCopy.metrics.runningDays} value={String(strategy.metrics.runningDays)} />
         </div>
       </button>
 
-      <div className={isDarkTheme ? "grid grid-cols-[minmax(84px,0.35fr)_minmax(0,1fr)] gap-2 border-t border-white/[0.065] p-3" : "grid grid-cols-[minmax(84px,0.35fr)_minmax(0,1fr)] gap-2 border-t border-[#EEF2F6] p-3"}>
-        <button className={getMockActionClassName(isDarkTheme)} type="button" onClick={() => onDetailsOpen(strategy.id)}>
-          {panelCopy.viewDetailsAction}
+      <div className={footerClassName}>
+        <button className={getMockActionClassName(isDarkTheme, isGridCard ? "compact" : "default")} type="button" onClick={() => onDetailsOpen(strategy.id)}>
+          {isGridCard ? (
+            <>
+              <span className="hidden xl:inline">{panelCopy.viewDetailsAction}</span>
+              <span className="xl:hidden">{panelCopy.compactDetailsAction}</span>
+            </>
+          ) : panelCopy.viewDetailsAction}
         </button>
-        <button className={getFollowActionClassName(isDarkTheme)} type="button" onClick={() => onCopy(strategy)}>
-          {copiedStrategyId === strategy.id ? panelCopy.copiedAction : panelCopy.copyAction}
+        <button className={getFollowActionClassName(isDarkTheme, isGridCard ? "compact" : "default")} type="button" onClick={() => onCopy(strategy)}>
+          {isGridCard ? (
+            <>
+              <span className="hidden xl:inline">{copiedLabel}</span>
+              <span className="xl:hidden">{compactCopiedLabel}</span>
+            </>
+          ) : copiedLabel}
         </button>
       </div>
     </article>
@@ -818,10 +866,12 @@ function StrategyIcon({
   isDarkTheme,
   name,
   rank,
+  variant = "rail",
 }: {
   isDarkTheme: boolean;
   name: string;
   rank?: number;
+  variant?: "grid" | "rail";
 }) {
   const initials = name
     .split(/\s+/)
@@ -830,9 +880,12 @@ function StrategyIcon({
     .map((part) => part[0])
     .join("")
     .toUpperCase();
+  const iconClassName = variant === "grid"
+    ? "relative grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-[#00A6F4] text-[10px] font-black text-white shadow-[0_8px_20px_rgba(0,166,244,0.24)] sm:h-9 sm:w-9 sm:rounded-2xl sm:text-xs xl:h-11 xl:w-11 xl:text-sm"
+    : "relative grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#00A6F4] text-sm font-black text-white shadow-[0_8px_20px_rgba(0,166,244,0.24)]";
 
   return (
-    <div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#00A6F4] text-sm font-black text-white shadow-[0_8px_20px_rgba(0,166,244,0.24)]">
+    <div className={iconClassName}>
       {initials || "SK"}
       {rank ? <span className={getRankBadgeClassName(isDarkTheme)}>#{rank}</span> : null}
     </div>
@@ -1339,8 +1392,8 @@ function getRiskBadgeClassName(isDarkTheme: boolean, riskLevel: StrategySquareRi
 
 function getRankBadgeClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "absolute -bottom-1 -right-1 rounded-full border border-[#181A20] bg-[#00A6F4] px-1.5 py-0.5 text-[10px] font-black text-white"
-    : "absolute -bottom-1 -right-1 rounded-full border border-white bg-[#00A6F4] px-1.5 py-0.5 text-[10px] font-black text-white";
+    ? "absolute -bottom-1 -right-1 rounded-full border border-[#181A20] bg-[#00A6F4] px-1 py-0.5 text-[8px] font-black text-white sm:px-1.5 sm:text-[10px]"
+    : "absolute -bottom-1 -right-1 rounded-full border border-white bg-[#00A6F4] px-1 py-0.5 text-[8px] font-black text-white sm:px-1.5 sm:text-[10px]";
 }
 
 function getSoftBadgeClassName(isDarkTheme: boolean): string {
@@ -1355,13 +1408,25 @@ function getTagClassName(isDarkTheme: boolean): string {
     : "rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500";
 }
 
-function getMockActionClassName(isDarkTheme: boolean): string {
+function getMockActionClassName(isDarkTheme: boolean, density: "compact" | "default" = "default"): string {
+  if (density === "compact") {
+    return isDarkTheme
+      ? "motion-fx-3-raw-button inline-flex h-8 w-full items-center justify-center rounded-lg bg-sky-400/15 px-1 text-[10px] font-black text-sky-100 transition hover:bg-sky-400/20 sm:h-9 sm:rounded-xl sm:text-xs xl:h-10 xl:px-3 xl:text-sm"
+      : "motion-fx-3-raw-button inline-flex h-8 w-full items-center justify-center rounded-lg bg-[#EAF8FE] px-1 text-[10px] font-black text-[#008DCC] transition hover:bg-[#D8F1FD] sm:h-9 sm:rounded-xl sm:text-xs xl:h-10 xl:px-3 xl:text-sm";
+  }
+
   return isDarkTheme
     ? "motion-fx-3-raw-button inline-flex h-10 items-center justify-center rounded-xl bg-sky-400/15 px-3 text-sm font-black text-sky-100 transition hover:bg-sky-400/20"
     : "motion-fx-3-raw-button inline-flex h-10 items-center justify-center rounded-xl bg-[#EAF8FE] px-3 text-sm font-black text-[#008DCC] transition hover:bg-[#D8F1FD]";
 }
 
-function getFollowActionClassName(isDarkTheme: boolean): string {
+function getFollowActionClassName(isDarkTheme: boolean, density: "compact" | "default" = "default"): string {
+  if (density === "compact") {
+    return isDarkTheme
+      ? "motion-fx-3-raw-button inline-flex h-8 w-full items-center justify-center rounded-lg bg-[#00A6F4] px-1 text-[10px] font-black text-white transition hover:bg-[#008DCC] sm:h-9 sm:rounded-xl sm:text-xs xl:h-10 xl:px-4 xl:text-sm"
+      : "motion-fx-3-raw-button inline-flex h-8 w-full items-center justify-center rounded-lg bg-[#00A6F4] px-1 text-[10px] font-black text-white shadow-sm shadow-sky-500/20 transition hover:bg-[#008DCC] sm:h-9 sm:rounded-xl sm:text-xs xl:h-10 xl:px-4 xl:text-sm";
+  }
+
   return isDarkTheme
     ? "motion-fx-3-raw-button inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#00A6F4] px-4 text-sm font-black text-white transition hover:bg-[#008DCC]"
     : "motion-fx-3-raw-button inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#00A6F4] px-4 text-sm font-black text-white shadow-sm shadow-sky-500/20 transition hover:bg-[#008DCC]";

@@ -476,6 +476,9 @@ const zh = {
     },
     strategySquare: {
       allTypes: "全部类型",
+      compactCopiedAction: "已复制",
+      compactCopyAction: "复制",
+      compactDetailsAction: "详情",
       copiedAction: "已复制",
       copyAction: "复制配置",
       copyConfigTitle: "复制配置预览",
@@ -1189,6 +1192,9 @@ const en: WorkspaceCopy = {
     },
     strategySquare: {
       allTypes: "All types",
+      compactCopiedAction: "Done",
+      compactCopyAction: "Copy",
+      compactDetailsAction: "Info",
       copiedAction: "Copied",
       copyAction: "Copy config",
       copyConfigTitle: "Copy config preview",
