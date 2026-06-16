@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import type { WorkspaceCopy, WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { PnlColorMode } from "./top-signals-panel";
@@ -94,6 +94,9 @@ const CURVE_HEIGHT = 96;
 const CURVE_PADDING = 8;
 const MOCK_CURVE_START_MS = Date.UTC(2026, 2, 18);
 const MOCK_CURVE_STEP_MS = 6 * 24 * 60 * 60 * 1_000;
+const STRATEGY_CARD_GRID_STYLE: CSSProperties = {
+  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 360px))",
+};
 
 const MOCK_STRATEGIES: readonly StrategySquareItem[] = [
   {
@@ -437,7 +440,7 @@ export function StrategySquareProductTab({
                   onChange={handleSortChange}
                 />
               </div>
-              <div className="flex flex-wrap justify-start gap-3">
+              <div className="grid justify-start gap-3" style={STRATEGY_CARD_GRID_STYLE}>
                 {paginatedStrategies.map((strategy) => (
                   <StrategyMarketplaceCard
                     key={strategy.id}
@@ -695,7 +698,7 @@ function RecommendedStrategySection({
           {panelCopy.moreAction} ›
         </button>
       </div>
-      <div className="flex flex-wrap justify-start gap-3">
+      <div className="grid justify-start gap-3" style={STRATEGY_CARD_GRID_STYLE}>
         {section.strategies.map((strategy, index) => (
           <StrategyMarketplaceCard
             key={`${section.key}-${strategy.id}`}
@@ -753,7 +756,7 @@ function StrategyMarketplaceCard({
   const isGridCard = variant === "grid";
   const cardLayoutClassName = variant === "rail"
     ? "w-[calc(100vw-3.5rem)] max-w-[360px] shrink-0 snap-start xl:w-[380px] xl:max-w-[380px]"
-    : "min-w-0 max-w-[360px] flex-[1_1_240px]";
+    : "min-w-0 w-full max-w-[360px]";
   const cardClassName = `${cardLayoutClassName} ${isDarkTheme
     ? `${isGridCard ? "rounded-[18px] sm:rounded-[22px] xl:rounded-[26px]" : "rounded-[26px]"} group overflow-hidden border border-white/[0.075] bg-[#181A20] text-left transition hover:border-sky-400/30 hover:bg-white/[0.055]`
     : `${isGridCard ? "rounded-[18px] sm:rounded-[22px] xl:rounded-[26px]" : "rounded-[26px]"} group overflow-hidden border border-[#E5EAF0] bg-white text-left shadow-sm transition hover:border-[#BFE7FB] hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]`}`;
