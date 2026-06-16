@@ -243,6 +243,7 @@ const zh = {
         whitelistIp: "白名单 IP",
         whitelistIpDescription: "请把这个 IP 添加到所选交易所 API Key 的白名单后再保存。保存后该 IP 会跟账户一起展示。",
         whitelistIpLoading: "正在获取分配的 IP…",
+        whitelistIpUnassignedFallback: "当前后端 IP 池为空，本次会先保存为未绑定固定 IP；IP 池恢复后新建连接会自动分配。",
         whitelistIpUnavailable: "暂未获取到分配的 IP",
       },
       copyTrading: {
@@ -1028,6 +1029,7 @@ const en: WorkspaceCopy = {
         whitelistIp: "Whitelist IP",
         whitelistIpDescription: "Add this IP to the selected exchange API key whitelist before saving. The saved account will keep showing the assigned IP.",
         whitelistIpLoading: "Loading assigned IP…",
+        whitelistIpUnassignedFallback: "The backend IP pool is empty, so this account will be saved without a fixed IP for now. New accounts will auto-assign an IP after the pool is restored.",
         whitelistIpUnavailable: "Assigned IP is not available yet",
       },
       copyTrading: {

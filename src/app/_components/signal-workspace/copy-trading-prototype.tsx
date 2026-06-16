@@ -1651,6 +1651,7 @@ function ExchangeApiSetupLayer({
   const [hasCopiedIp, setHasCopiedIp] = useState(false);
   const [whitelistIp, setWhitelistIp] = useState("");
   const [whitelistIpError, setWhitelistIpError] = useState("");
+  const [isWhitelistIpOptional, setIsWhitelistIpOptional] = useState(false);
   const [isWhitelistIpLoading, setIsWhitelistIpLoading] = useState(false);
   const [agentWalletAddress, setAgentWalletAddress] = useState("");
   const [agentBindingError, setAgentBindingError] = useState("");
@@ -1677,6 +1678,7 @@ function ExchangeApiSetupLayer({
   const hasWalletAddress = !requiresWalletAddress || walletAddress.trim().length > 0;
   const hasPrivateKey = !requiresPrivateKey || privateKey.trim().length > 0;
   const hasWhitelistIp = whitelistIp.trim().length > 0;
+  const hasWhitelistRequirement = !isLiveExchange || hasWhitelistIp || isWhitelistIpOptional;
   const agentWalletDisplayAddress = agentWalletAddress;
   const walletAddressLabel = isHyperliquidExchange ? accountCopy.apiSetup.mainWalletAddress : accountCopy.apiSetup.walletAddress;
   const walletAddressPlaceholder = isHyperliquidExchange ? accountCopy.apiSetup.mainWalletAddressPlaceholder : accountCopy.apiSetup.walletAddressPlaceholder;
@@ -1685,7 +1687,7 @@ function ExchangeApiSetupLayer({
     ? accountName.trim().length > 0 && hasValidMockMarginBalance
     : isBinanceDemoExchange
       ? accountName.trim().length > 0 && hasApiCredentials
-      : accountName.trim().length > 0 && hasApiCredentials && hasApiPassword && hasWalletAddress && hasPrivateKey && hasWhitelistIp && !isWhitelistIpLoading && !isSavingManual && !isAgentBinding;
+      : accountName.trim().length > 0 && hasApiCredentials && hasApiPassword && hasWalletAddress && hasPrivateKey && hasWhitelistRequirement && !isWhitelistIpLoading && !isSavingManual && !isAgentBinding;
 
   useEffect(() => {
     let isMounted = true;
@@ -1697,26 +1699,32 @@ function ExchangeApiSetupLayer({
         }
         setWhitelistIp("");
         setWhitelistIpError("");
+        setIsWhitelistIpOptional(false);
         setIsWhitelistIpLoading(false);
         return;
       }
 
       setWhitelistIp("");
       setWhitelistIpError("");
+      setIsWhitelistIpOptional(false);
       setHasCopiedIp(false);
       setIsWhitelistIpLoading(true);
       try {
-        const nextWhitelistIp = await requestTradingFoxConnectorWhitelistIP(selectedExchange.connectorExchangePlatform);
+        const whitelistAssignment = await requestTradingFoxConnectorWhitelistIP(selectedExchange.connectorExchangePlatform);
         if (!isMounted) {
           return;
         }
+        const nextWhitelistIp = whitelistAssignment.whitelistIp;
+        const isUnassigned = whitelistAssignment.assignmentStatus === "unassigned";
         setWhitelistIp(nextWhitelistIp);
-        setWhitelistIpError(nextWhitelistIp ? "" : accountCopy.apiSetup.whitelistIpUnavailable);
+        setIsWhitelistIpOptional(isUnassigned);
+        setWhitelistIpError(nextWhitelistIp ? "" : isUnassigned ? accountCopy.apiSetup.whitelistIpUnassignedFallback : accountCopy.apiSetup.whitelistIpUnavailable);
       } catch (error) {
         if (!isMounted) {
           return;
         }
         setWhitelistIp("");
+        setIsWhitelistIpOptional(false);
         setWhitelistIpError(error instanceof Error ? error.message : accountCopy.apiSetup.whitelistIpUnavailable);
       } finally {
         if (isMounted) {
@@ -1730,7 +1738,7 @@ function ExchangeApiSetupLayer({
     return () => {
       isMounted = false;
     };
-  }, [accountCopy.apiSetup.whitelistIpUnavailable, isLiveExchange, selectedExchange.connectorExchangePlatform]);
+  }, [accountCopy.apiSetup.whitelistIpUnavailable, accountCopy.apiSetup.whitelistIpUnassignedFallback, isLiveExchange, selectedExchange.connectorExchangePlatform]);
 
   const updateMockMarginBalance = (value: string) => {
     const normalizedValue = value.replace(/[^\d.]/gu, "");
@@ -1839,7 +1847,7 @@ function ExchangeApiSetupLayer({
         accountName: accountName.trim() || selectedExchange.defaultAccountName,
         apiKey: requiresApiCredentials ? apiKey.trim() : undefined,
         exchangePlatform: selectedExchange.connectorExchangePlatform,
-        ipAddress: isLiveExchange ? whitelistIp.trim() : undefined,
+        ipAddress: isLiveExchange && hasWhitelistIp ? whitelistIp.trim() : undefined,
         isMock: isDemoExchange,
         mockMarginBalance: isBuiltInMockExchange && hasValidMockMarginBalance ? parsedMockMarginBalance : undefined,
         password: requiresApiPassword ? apiPassword.trim() : undefined,
@@ -1859,9 +1867,9 @@ function ExchangeApiSetupLayer({
     isDarkTheme
       ? "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3"
       : "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3",
-    "self-start lg:h-[560px]",
+    "self-start",
   ].join(" ");
-  const exchangeSelectorListClassName = "kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:min-h-0 lg:flex-1 lg:content-start lg:overflow-x-hidden lg:overflow-y-auto lg:overscroll-contain lg:pb-0 lg:pr-1";
+  const exchangeSelectorListClassName = "kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:content-start lg:overflow-visible lg:pb-0";
   const exchangeContentClassName = isHyperliquidExchange
     ? "grid min-w-0 content-start gap-3 self-start"
     : "grid min-w-0 gap-4";
@@ -2830,22 +2838,31 @@ function StrategyNotificationSettingsDialog({
   );
 }
 
-async function requestTradingFoxConnectorWhitelistIP(exchangePlatform: string): Promise<string> {
+type TradingFoxWhitelistIPAssignment = {
+  assignmentStatus?: "assigned" | "unassigned";
+  whitelistIp: string;
+};
+
+async function requestTradingFoxConnectorWhitelistIP(exchangePlatform: string): Promise<TradingFoxWhitelistIPAssignment> {
   const query = new URLSearchParams({ exchangePlatform });
   const response = await fetch(`/api/tradingfox/connectors/whitelist-ip?${query.toString()}`, {
     cache: "no-store",
     credentials: "same-origin",
   });
   const payload = await response.json() as {
+    assignmentStatus?: "assigned" | "unassigned";
     error?: string;
-    ipAddress?: { address?: string };
+    ipAddress?: { address?: string } | null;
     whitelistIp?: string;
   };
   if (!response.ok) {
     throw new Error(payload.error || `Whitelist IP request failed with status ${response.status}.`);
   }
   const ipAddress = typeof payload.ipAddress?.address === "string" ? payload.ipAddress.address.trim() : "";
-  return ipAddress || (typeof payload.whitelistIp === "string" ? payload.whitelistIp.trim() : "");
+  return {
+    assignmentStatus: payload.assignmentStatus,
+    whitelistIp: ipAddress || (typeof payload.whitelistIp === "string" ? payload.whitelistIp.trim() : ""),
+  };
 }
 
 async function requestHyperliquidAgentBindingStart(input: {

@@ -287,9 +287,10 @@ export type CompleteHyperliquidAgentBindingInput = {
 };
 
 export type TradingFoxConnectorWhitelistIP = {
+  assignmentStatus: "assigned" | "unassigned";
   userId: number;
   exchangePlatform: string;
-  ipAddress: TradingFoxIPAddress;
+  ipAddress: TradingFoxIPAddress | null;
   whitelistIp: string;
 };
 
@@ -414,13 +415,16 @@ export async function createTradingFoxConnector(
 
   const accountName = normalizeOptionalText(input.accountName) || defaultLiveAccountName(exchangePlatform);
   const credentials = createLiveExchangeCredentials(exchangePlatform, input);
-  const ipAddress = await resolveTradingFoxConnectorIPAddress(userId, input.ipAddress);
+  const requestedIPAddress = normalizeOptionalText(input.ipAddress);
+  const ipAddress = requestedIPAddress
+    ? await resolveTradingFoxConnectorIPAddress(userId, requestedIPAddress)
+    : await resolveTradingFoxConnectorIPAddress(userId, undefined, { allowUnassigned: true });
 
   await tradingFoxRequest<TradingFoxConnector>("/v1/exchange-connectors", {
     body: JSON.stringify({
       credentials,
       exchangePlatform,
-      ipAddress: ipAddress.address,
+      ...(ipAddress ? { ipAddress: ipAddress.address } : {}),
       isMock: false,
       name: accountName,
       positionSideDual: false,
@@ -496,13 +500,14 @@ export async function getTradingFoxConnectorWhitelistIP(
 ): Promise<TradingFoxConnectorWhitelistIP> {
   const userId = tradingFoxUserIdFromSession(session);
   const exchangePlatform = normalizeLiveExchangePlatform(input.exchangePlatform) ?? "Binance";
-  const ipAddress = await resolveTradingFoxConnectorIPAddress(userId);
+  const ipAddress = await resolveTradingFoxConnectorIPAddress(userId, undefined, { allowUnassigned: true });
 
   return {
+    assignmentStatus: ipAddress ? "assigned" : "unassigned",
     exchangePlatform,
     ipAddress,
     userId,
-    whitelistIp: ipAddress.address,
+    whitelistIp: ipAddress?.address ?? "",
   };
 }
 
@@ -799,7 +804,11 @@ function redactTradingFoxConnectorCredentials(connector: TradingFoxConnector): T
   };
 }
 
-async function resolveTradingFoxConnectorIPAddress(userId: number, requestedIPAddress?: unknown): Promise<TradingFoxIPAddress> {
+async function resolveTradingFoxConnectorIPAddress(
+  userId: number,
+  requestedIPAddress?: unknown,
+  options: { allowUnassigned?: boolean } = {},
+): Promise<TradingFoxIPAddress | null> {
   const ipAddresses = await getActiveTradingFoxIPAddresses();
   const normalizedRequestedIPAddress = normalizeOptionalText(requestedIPAddress);
 
@@ -812,6 +821,14 @@ async function resolveTradingFoxConnectorIPAddress(userId: number, requestedIPAd
   }
 
   if (ipAddresses.length === 0) {
+    /**
+     * The IP pool is operational data, so a database reset can temporarily leave
+     * it empty. In that state account setup should remain available and create
+     * the connector without a fixed proxy IP instead of failing the UI request.
+     */
+    if (options.allowUnassigned) {
+      return null;
+    }
     throw new TradingFoxApiError("No active TradingFox IP address is available.", 409);
   }
 
