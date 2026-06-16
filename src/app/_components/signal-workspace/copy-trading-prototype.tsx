@@ -4,7 +4,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount, useSignTypedData } from "wagmi";
+import { useAccount, useDisconnect, useSignTypedData } from "wagmi";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import { WORKSPACE_COPY, type WorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
@@ -1450,6 +1450,7 @@ function ExchangeApiSetupLayer({
   const [isAgentBinding, setIsAgentBinding] = useState(false);
   const [isSavingManual, setIsSavingManual] = useState(false);
   const { address: connectedWalletAddress } = useAccount();
+  const { disconnect } = useDisconnect();
   const { signTypedDataAsync } = useSignTypedData();
   const accountCopy = copy.workspace.accountCenter;
   const isDemoExchange = selectedExchange.mode === "demo";
@@ -1603,6 +1604,13 @@ function ExchangeApiSetupLayer({
       setIsAgentBinding(false);
     }
   };
+  const handleHyperliquidWalletBack = () => {
+    disconnect();
+    setAgentWalletAddress("");
+    setWalletAddress("");
+    setAgentBindingError("");
+    setAgentBindingStep("");
+  };
   const handleManualSave = async () => {
     if (!canSave || isSavingManual) {
       return;
@@ -1629,19 +1637,14 @@ function ExchangeApiSetupLayer({
       setIsSavingManual(false);
     }
   };
-  const exchangeSetupGridClassName = isHyperliquidExchange
-    ? "grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)]"
-    : "grid items-stretch gap-4 lg:grid-cols-[280px_minmax(0,1fr)]";
+  const exchangeSetupGridClassName = "grid items-start gap-4 lg:min-h-full lg:grid-cols-[280px_minmax(0,1fr)] lg:items-stretch";
   const exchangeSelectorClassName = [
     isDarkTheme
       ? "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-3"
       : "flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-[#FAFBFD] p-3",
-    isHyperliquidExchange ? "self-start lg:max-h-[340px]" : "",
-  ].filter(Boolean).join(" ");
-  const exchangeSelectorListClassName = [
-    "kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:min-h-0 lg:content-start lg:overflow-x-hidden lg:overflow-y-auto lg:overscroll-contain lg:pb-0 lg:pr-1",
-    isHyperliquidExchange ? "lg:max-h-[280px] lg:flex-none" : "lg:flex-1",
+    "lg:h-full",
   ].join(" ");
+  const exchangeSelectorListClassName = "kol-scroll-area flex gap-2 overflow-x-auto pb-1 lg:grid lg:min-h-0 lg:flex-1 lg:content-start lg:overflow-x-hidden lg:overflow-y-auto lg:overscroll-contain lg:pb-0 lg:pr-1";
   const exchangeContentClassName = isHyperliquidExchange
     ? "grid min-w-0 content-start gap-3 self-start"
     : "grid min-w-0 gap-4";
@@ -1657,7 +1660,7 @@ function ExchangeApiSetupLayer({
       <section
         aria-label={accountCopy.apiSetup.title}
         aria-modal="true"
-        className="fixed inset-x-0 bottom-0 z-[115] h-[94dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:h-[min(760px,calc(100dvh-2rem))] sm:max-w-[920px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
+        className="fixed inset-x-0 bottom-0 z-[115] h-[96dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:h-[min(920px,calc(100dvh-1rem))] sm:max-w-[920px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
         role="dialog"
       >
         <form
@@ -1671,9 +1674,6 @@ function ExchangeApiSetupLayer({
                   {accountCopy.apiSetup.selectExchange}
                 </div>
                 <h2 className="mt-2 text-xl font-black tracking-tight">{accountCopy.apiSetup.title}</h2>
-                <p className={isDarkTheme ? "mt-2 max-w-2xl text-sm leading-6 text-slate-400" : "mt-2 max-w-2xl text-sm leading-6 text-slate-600"}>
-                  {accountCopy.apiSetup.subtitle}
-                </p>
               </div>
               <button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} type="button" onClick={onClose}>
                 <span aria-hidden="true" className="text-lg leading-none">×</span>
@@ -1793,6 +1793,8 @@ function ExchangeApiSetupLayer({
                         agentWalletAddress={agentWalletDisplayAddress}
                         isBinding={isAgentBinding}
                         isDarkTheme={isDarkTheme}
+                        isWalletConnected={Boolean(connectedWalletAddress)}
+                        onBack={handleHyperliquidWalletBack}
                         onBind={handleHyperliquidAgentBind}
                       />
                     ) : (
@@ -1874,6 +1876,8 @@ function HyperliquidAgentWalletPanel({
   agentWalletAddress,
   isBinding,
   isDarkTheme,
+  isWalletConnected,
+  onBack,
   onBind,
 }: {
   accountCopy: WorkspaceCopy["workspace"]["accountCenter"];
@@ -1882,12 +1886,14 @@ function HyperliquidAgentWalletPanel({
   agentWalletAddress: string;
   isBinding: boolean;
   isDarkTheme: boolean;
+  isWalletConnected: boolean;
+  onBack: () => void;
   onBind: () => void;
 }) {
   const actionLabel = isBinding
     ? agentBindingStep || accountCopy.apiSetup.hyperliquidAgentBinding
-    : agentWalletAddress
-      ? accountCopy.apiSetup.hyperliquidAgentContinueAuthorize
+    : isWalletConnected
+      ? accountCopy.apiSetup.hyperliquidAgentCreateVerify
       : accountCopy.apiSetup.hyperliquidAgentConnectAuthorize;
   const renderConnectButton = (openConnectModal: (() => void) | undefined) => (
     <button
@@ -1925,14 +1931,24 @@ function HyperliquidAgentWalletPanel({
         <ConnectButton.Custom>
           {({ account, mounted, openConnectModal }) => (
             mounted && account ? (
-              <button
-                className={getPrimaryButtonClassName(isDarkTheme)}
-                disabled={isBinding}
-                type="button"
-                onClick={() => onBind()}
-              >
-                {actionLabel}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className={getSoftButtonClassName(isDarkTheme)}
+                  disabled={isBinding}
+                  type="button"
+                  onClick={onBack}
+                >
+                  {accountCopy.apiSetup.hyperliquidAgentBack}
+                </button>
+                <button
+                  className={getPrimaryButtonClassName(isDarkTheme)}
+                  disabled={isBinding}
+                  type="button"
+                  onClick={() => onBind()}
+                >
+                  {actionLabel}
+                </button>
+              </div>
             ) : renderConnectButton(openConnectModal)
           )}
         </ConnectButton.Custom>
@@ -1954,26 +1970,34 @@ function HyperliquidAgentWalletPanel({
         ))}
       </div>
 
-      <div className={isDarkTheme ? "mt-3 rounded-2xl border border-amber-300/15 bg-amber-300/[0.08] px-3 py-2.5" : "mt-3 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2.5"}>
-        <div className={isDarkTheme ? "text-xs font-black text-amber-100" : "text-xs font-black text-amber-800"}>
-          {accountCopy.apiSetup.hyperliquidDepositRequired}
-        </div>
-        <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-amber-100/80" : "mt-1 text-xs leading-5 text-amber-800/85"}>
-          {accountCopy.apiSetup.hyperliquidDepositDescription}
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-black">
-          <span className={isDarkTheme ? "text-amber-100/80" : "text-amber-800/80"}>{accountCopy.apiSetup.hyperliquidCurrentBalance}</span>
-          <span className={isDarkTheme ? "rounded-full bg-[#0F141B]/70 px-2.5 py-1 text-amber-100" : "rounded-full bg-white px-2.5 py-1 text-amber-800"}>5 USDC</span>
-          <a
-            className={isDarkTheme ? "text-sky-200 underline decoration-sky-200/40 underline-offset-4 hover:text-sky-100" : "text-[#007DB8] underline decoration-[#007DB8]/35 underline-offset-4 hover:text-[#005F8C]"}
-            href={HYPERLIQUID_DEPOSIT_URL}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {accountCopy.apiSetup.hyperliquidDepositAction}
-          </a>
-        </div>
-      </div>
+      {isWalletConnected ? (
+        <>
+          <div className={isDarkTheme ? "mt-3 rounded-2xl border border-amber-300/15 bg-amber-300/[0.08] px-3 py-2.5" : "mt-3 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2.5"}>
+            <div className={isDarkTheme ? "text-xs font-black text-amber-100" : "text-xs font-black text-amber-800"}>
+              {accountCopy.apiSetup.hyperliquidDepositRequired}
+            </div>
+            <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-amber-100/80" : "mt-1 text-xs leading-5 text-amber-800/85"}>
+              {accountCopy.apiSetup.hyperliquidDepositDescription}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-black">
+              <span className={isDarkTheme ? "text-amber-100/80" : "text-amber-800/80"}>{accountCopy.apiSetup.hyperliquidCurrentBalance}</span>
+              <span className={isDarkTheme ? "rounded-full bg-[#0F141B]/70 px-2.5 py-1 text-amber-100" : "rounded-full bg-white px-2.5 py-1 text-amber-800"}>5 USDC</span>
+              <a
+                className={isDarkTheme ? "text-sky-200 underline decoration-sky-200/40 underline-offset-4 hover:text-sky-100" : "text-[#007DB8] underline decoration-[#007DB8]/35 underline-offset-4 hover:text-[#005F8C]"}
+                href={HYPERLIQUID_DEPOSIT_URL}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {accountCopy.apiSetup.hyperliquidDepositAction}
+              </a>
+            </div>
+          </div>
+
+          <div className={isDarkTheme ? "mt-3 rounded-2xl border border-sky-200/10 bg-[#0F141B]/70 px-3 py-2.5 text-xs leading-5 text-slate-300" : "mt-3 rounded-2xl border border-[#BFE7FB] bg-white/80 px-3 py-2.5 text-xs leading-5 text-slate-700"}>
+            {accountCopy.apiSetup.hyperliquidSignatureNotice}
+          </div>
+        </>
+      ) : null}
 
       {agentWalletAddress ? (
         <div className={isDarkTheme ? "mt-3 break-all rounded-2xl border border-sky-200/10 bg-[#0F141B]/70 px-3 py-2 font-mono text-xs font-black text-sky-100" : "mt-3 break-all rounded-2xl border border-[#BFE7FB] bg-white/80 px-3 py-2 font-mono text-xs font-black text-[#007DB8]"}>
