@@ -1264,23 +1264,35 @@ function ApiConnectionCard({
           isDarkTheme={isDarkTheme}
         />
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <div className="truncate text-sm font-black">{apiConnection.accountName}</div>
-            {apiConnection.isMock ? (
-              <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
-                {accountCopy.api.mockBadge}
-              </span>
-            ) : null}
-            {apiConnection.recommended ? (
-              <span className={isDarkTheme ? "rounded-full bg-sky-300/15 px-2 py-0.5 text-[10px] font-black text-sky-100" : "rounded-full bg-[#DDF5FF] px-2 py-0.5 text-[10px] font-black text-[#007DB8]"}>
-                {accountCopy.apiSetup.recommendedBadge}
-              </span>
-            ) : null}
-            {apiConnection.bindingLabel && !apiConnection.isMock ? (
-              <span className={isDarkTheme ? "rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-slate-300" : "rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-600"}>
-                {apiConnection.bindingLabel}
-              </span>
-            ) : null}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <div className="truncate text-sm font-black">{apiConnection.accountName}</div>
+                {apiConnection.isMock ? (
+                  <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
+                    {accountCopy.api.mockBadge}
+                  </span>
+                ) : null}
+                {apiConnection.recommended ? (
+                  <span className={isDarkTheme ? "rounded-full bg-sky-300/15 px-2 py-0.5 text-[10px] font-black text-sky-100" : "rounded-full bg-[#DDF5FF] px-2 py-0.5 text-[10px] font-black text-[#007DB8]"}>
+                    {accountCopy.apiSetup.recommendedBadge}
+                  </span>
+                ) : null}
+                {apiConnection.bindingLabel && !apiConnection.isMock ? (
+                  <span className={isDarkTheme ? "rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-slate-300" : "rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-600"}>
+                    {apiConnection.bindingLabel}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <button
+              className={getDangerButtonClassName(isDarkTheme)}
+              disabled={isDisabled}
+              type="button"
+              onClick={() => void onDelete(apiConnection.id)}
+            >
+              {accountCopy.api.deleteAction}
+            </button>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <MiniMetric isDarkTheme={isDarkTheme} label={accountCopy.api.accountType} value={exchangeLabel} />
@@ -1302,16 +1314,6 @@ function ApiConnectionCard({
           ) : null}
           <div className={isDarkTheme ? "mt-3 text-xs text-emerald-200/70" : "mt-3 text-xs text-emerald-700/75"}>
             #{apiConnection.id} · {accountCopy.api.updatedAt}: {apiConnection.connectedAtLabel || "--"}
-          </div>
-          <div className="mt-3 flex justify-end">
-            <button
-              className={getDangerButtonClassName(isDarkTheme)}
-              disabled={isDisabled}
-              type="button"
-              onClick={() => void onDelete(apiConnection.id)}
-            >
-              {accountCopy.api.deleteAction}
-            </button>
           </div>
         </div>
       </div>
