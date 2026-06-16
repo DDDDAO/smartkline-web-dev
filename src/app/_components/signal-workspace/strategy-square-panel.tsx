@@ -1101,6 +1101,22 @@ function createRecommendationSections(
       strategies: strategies.slice().sort((left, right) => right.metrics.profit30dUsd - left.metrics.profit30dUsd).slice(0, RECOMMENDED_STRATEGY_LIMIT),
       title: panelCopy.rankings.highPnl,
     },
+    {
+      description: panelCopy.metrics.returnRate,
+      featuredMetric: "returnRate",
+      key: "highReturn",
+      sortKey: "returnRate",
+      strategies: strategies.slice().sort((left, right) => compareNullableDesc(left.metrics.returnRate, right.metrics.returnRate)).slice(0, RECOMMENDED_STRATEGY_LIMIT),
+      title: panelCopy.rankings.topReturn,
+    },
+    {
+      description: panelCopy.metrics.maxDrawdown30d,
+      featuredMetric: "drawdown",
+      key: "lowDrawdown",
+      sortKey: "drawdown",
+      strategies: strategies.slice().sort((left, right) => compareNullableAsc(left.metrics.maxDrawdown, right.metrics.maxDrawdown)).slice(0, RECOMMENDED_STRATEGY_LIMIT),
+      title: panelCopy.rankings.lowDrawdown,
+    },
   ];
 }
 
