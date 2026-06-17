@@ -19,6 +19,7 @@ import {
   PositionSummaryPanel,
   RowsPaginationControls,
   SignalSourcePositionTable,
+  StrategyPerformanceCurvePanel,
   TradeHistoryKlinePanel,
   TradeHistoryTable,
   createCopyPositionMarkPricesBySymbol,
@@ -289,6 +290,13 @@ export function StrategyDetailView({
         <div className={getErrorPanelClassName(isDarkTheme)}>{error}</div>
       ) : detail ? (
         <>
+          <StrategyPerformanceCurvePanel
+            curve={detail.strategyCurve}
+            curveError={detail.strategyCurveError}
+            isDarkTheme={isDarkTheme}
+            strategyCopy={strategyCopy}
+          />
+
           <section className={getModalSectionClassName(isDarkTheme)}>
             <h3 className="text-sm font-black">{strategyCopy.copyPositions}</h3>
             {detail.positionsError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.positionsError, copy)}</p> : null}

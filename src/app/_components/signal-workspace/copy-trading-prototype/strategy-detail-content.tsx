@@ -12,7 +12,7 @@ import {
 } from "@/app/_lib/binance-market-data";
 import { toCopyTradingMarketSymbol } from "@/app/_lib/copy-trading-radar-api";
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
-import type { TradingFoxPosition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxPosition, TradingFoxStrategyCurve, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
 import type { KlineChartProps } from "@/app/_components/kline-chart";
 import type { ChartTimeFocusRequest } from "@/app/_components/kline-chart/types";
 import type { CopyTradingTradeMarker } from "@/app/_types/copy-trading";
@@ -49,7 +49,14 @@ const KlineChart = dynamic<KlineChartProps>(
   { loading: () => null },
 );
 
+const STRATEGY_CURVE_HEIGHT = 120;
+const STRATEGY_CURVE_MAX_RENDER_POINTS = 160;
+const STRATEGY_CURVE_PADDING = 10;
+const STRATEGY_CURVE_WIDTH = 360;
+const STRATEGY_CURVE_METRICS: readonly StrategyCurveMetric[] = ["roi", "pnl"];
+
 type StrategyCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
+type StrategyCurveMetric = "roi" | "pnl";
 type SignalSourcePosition = TradingFoxStrategyDetail["signalSources"][number]["positions"][number];
 type TradingFoxOrderItem = NonNullable<TradingFoxStrategyDetail["orderHistory"]>["items"][number];
 type TradingFoxSignalSourceOrderItem = NonNullable<TradingFoxStrategyDetail["orderHistory"]>["signalSourceOrders"][number];
@@ -58,6 +65,11 @@ type CopyPositionMarkPricesBySymbol = ReadonlyMap<string, number>;
 type SignalSourceIdentityById = ReadonlyMap<string, TradeHistorySourceIdentity>;
 
 export const EMPTY_TRADING_FOX_POSITIONS: readonly TradingFoxPosition[] = [];
+
+type StrategyCurveRenderPoint = {
+  timestampMs: number;
+  value: number;
+};
 
 type TradeHistorySourceIdentity = {
   avatarUrl: string | null;
@@ -196,6 +208,287 @@ function PositionSummaryMetric({
       <div className={`${defaultValueClassName} ${valueClassName ?? neutralValueClassName}`}>{children}</div>
     </div>
   );
+}
+
+export function StrategyPerformanceCurvePanel({
+  curve,
+  curveError,
+  isDarkTheme,
+  strategyCopy,
+}: {
+  curve: TradingFoxStrategyCurve | null;
+  curveError?: string;
+  isDarkTheme: boolean;
+  strategyCopy: StrategyCopy;
+}) {
+  const [activeMetric, setActiveMetric] = useState<StrategyCurveMetric>("roi");
+  const renderPoints = useMemo(
+    () => createStrategyCurveRenderPoints(curve, activeMetric),
+    [activeMetric, curve],
+  );
+  const latestPoint = renderPoints[renderPoints.length - 1] ?? null;
+  const latestClassName = getPnlClassName(isDarkTheme, latestPoint?.value ?? 0);
+  const title = activeMetric === "roi" ? strategyCopy.roiCurve : strategyCopy.pnlCurve;
+  const latestLabel = activeMetric === "roi" ? strategyCopy.latestRoi : strategyCopy.latestPnl;
+  const latestText = activeMetric === "roi"
+    ? formatSignedPercent(latestPoint?.value ?? null)
+    : formatSignedDetailCurrency(latestPoint?.value ?? null);
+  const shellClassName = isDarkTheme
+    ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4"
+    : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm";
+  const toggleShellClassName = isDarkTheme
+    ? "inline-flex rounded-full border border-white/[0.075] bg-[#0F141B] p-0.5"
+    : "inline-flex rounded-full border border-[#D5E4EF] bg-[#F8FAFC] p-0.5";
+  const hintText = curve?.updatedAt ? strategyCopy.curveUpdatedAt(formatDetailDate(curve.updatedAt)) : strategyCopy.curveHint;
+
+  return (
+    <section className={shellClassName}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-black">{title}</div>
+          <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
+            {hintText}
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className={`text-sm font-black ${latestClassName}`}>{latestText}</div>
+          <div className={isDarkTheme ? "mt-1 text-[10px] font-bold text-slate-500" : "mt-1 text-[10px] font-bold text-slate-400"}>
+            {latestLabel}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <div className={isDarkTheme ? "text-[10px] font-black uppercase tracking-[0.12em] text-slate-500" : "text-[10px] font-black uppercase tracking-[0.12em] text-slate-400"}>
+          {strategyCopy.curveMetric}
+        </div>
+        <div aria-label={strategyCopy.curveMetric} className={toggleShellClassName} role="group">
+          {STRATEGY_CURVE_METRICS.map((metric) => {
+            const isActive = metric === activeMetric;
+            const buttonClassName = isActive
+              ? "rounded-full bg-[#00A6F4] px-3 py-1.5 text-xs font-black text-white shadow-[0_6px_14px_rgba(0,166,244,0.18)]"
+              : isDarkTheme
+                ? "rounded-full px-3 py-1.5 text-xs font-black text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-100"
+                : "rounded-full px-3 py-1.5 text-xs font-black text-slate-500 transition hover:bg-white hover:text-slate-900";
+            return (
+              <button
+                key={metric}
+                aria-pressed={isActive}
+                className={buttonClassName}
+                type="button"
+                onClick={() => setActiveMetric(metric)}
+              >
+                {metric === "roi" ? strategyCopy.roi : strategyCopy.pnl}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className={isDarkTheme ? "mt-3 h-[140px] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#111820]" : "mt-3 h-[140px] overflow-hidden rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC]"}>
+        {renderPoints.length > 0 ? (
+          <StrategyPerformanceCurveChart
+            ariaLabel={title}
+            isDarkTheme={isDarkTheme}
+            points={renderPoints}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center px-4 text-center text-xs font-bold text-slate-500">
+            {strategyCopy.curveEmpty}
+          </div>
+        )}
+      </div>
+      {renderPoints.length > 0 ? (
+        <div className={isDarkTheme ? "mt-2 flex items-center justify-between gap-3 text-[10px] font-bold text-slate-500" : "mt-2 flex items-center justify-between gap-3 text-[10px] font-bold text-slate-400"}>
+          <span>{formatStrategyCurveDate(renderPoints[0]?.timestampMs ?? null)}</span>
+          <span>{title}</span>
+          <span>{formatStrategyCurveDate(latestPoint?.timestampMs ?? null)}</span>
+        </div>
+      ) : null}
+      {curveError ? (
+        <p className={isDarkTheme ? "mt-3 text-xs leading-5 text-amber-200" : "mt-3 text-xs leading-5 text-amber-700"}>
+          {strategyCopy.curveError}: {curveError}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function StrategyPerformanceCurveChart({
+  ariaLabel,
+  isDarkTheme,
+  points,
+}: {
+  ariaLabel: string;
+  isDarkTheme: boolean;
+  points: readonly StrategyCurveRenderPoint[];
+}) {
+  const sampledPoints = sampleStrategyCurvePoints(points, STRATEGY_CURVE_MAX_RENDER_POINTS);
+  const renderPoints = createStrategyCurveSvgPoints(sampledPoints);
+  if (renderPoints.length === 0) {
+    return null;
+  }
+
+  const latestValue = sampledPoints[sampledPoints.length - 1]?.value ?? 0;
+  const pathData = createStrategyCurvePath(renderPoints);
+  const zeroLineY = calculateStrategyCurveZeroLineY(sampledPoints);
+  const strokeColor = getStrategyCurveStrokeColor(isDarkTheme, latestValue);
+  const gridColor = isDarkTheme ? "rgba(148,163,184,0.22)" : "rgba(148,163,184,0.30)";
+  const endPoint = renderPoints[renderPoints.length - 1];
+
+  return (
+    <svg
+      aria-label={ariaLabel}
+      className="h-full w-full overflow-visible"
+      role="img"
+      viewBox={`0 0 ${STRATEGY_CURVE_WIDTH} ${STRATEGY_CURVE_HEIGHT}`}
+    >
+      {zeroLineY !== null ? (
+        <line
+          stroke={gridColor}
+          strokeDasharray="4 4"
+          strokeWidth="1"
+          x1={STRATEGY_CURVE_PADDING}
+          x2={STRATEGY_CURVE_WIDTH - STRATEGY_CURVE_PADDING}
+          y1={zeroLineY}
+          y2={zeroLineY}
+        />
+      ) : null}
+      <path
+        d={pathData}
+        fill="none"
+        stroke={strokeColor}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.6"
+      />
+      {endPoint ? <circle cx={endPoint.x} cy={endPoint.y} fill={strokeColor} r="3.5" /> : null}
+    </svg>
+  );
+}
+
+function createStrategyCurveRenderPoints(
+  curve: TradingFoxStrategyCurve | null,
+  metric: StrategyCurveMetric,
+): StrategyCurveRenderPoint[] {
+  return (curve?.points ?? [])
+    .flatMap((point) => {
+      const value = metric === "roi" ? point.roi : point.pnl;
+      const timestampMs = Date.parse(point.timestamp);
+      if (value === null || !Number.isFinite(value) || !Number.isFinite(timestampMs)) {
+        return [];
+      }
+
+      return [{ timestampMs, value }];
+    })
+    .sort((left, right) => left.timestampMs - right.timestampMs);
+}
+
+function sampleStrategyCurvePoints(
+  points: readonly StrategyCurveRenderPoint[],
+  maxPoints: number,
+): StrategyCurveRenderPoint[] {
+  if (points.length <= maxPoints) {
+    return [...points];
+  }
+
+  const sampledPoints: StrategyCurveRenderPoint[] = [];
+  const lastIndex = points.length - 1;
+  const sampleCount = Math.max(2, maxPoints);
+  const usedIndexes = new Set<number>();
+  for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+    const pointIndex = Math.round((sampleIndex / (sampleCount - 1)) * lastIndex);
+    if (!usedIndexes.has(pointIndex)) {
+      sampledPoints.push(points[pointIndex]);
+      usedIndexes.add(pointIndex);
+    }
+  }
+
+  return sampledPoints;
+}
+
+function createStrategyCurveSvgPoints(points: readonly StrategyCurveRenderPoint[]): { x: number; y: number }[] {
+  if (points.length === 0) {
+    return [];
+  }
+
+  const { max, min } = getStrategyCurveValueRange(points);
+  const valueRange = max - min;
+  const xRange = STRATEGY_CURVE_WIDTH - STRATEGY_CURVE_PADDING * 2;
+  const yRange = STRATEGY_CURVE_HEIGHT - STRATEGY_CURVE_PADDING * 2;
+
+  return points.map((point, index) => {
+    const xRatio = points.length === 1 ? 1 : index / (points.length - 1);
+    const yRatio = valueRange === 0 ? 0.5 : (max - point.value) / valueRange;
+    return {
+      x: STRATEGY_CURVE_PADDING + xRatio * xRange,
+      y: STRATEGY_CURVE_PADDING + yRatio * yRange,
+    };
+  });
+}
+
+function createStrategyCurvePath(points: readonly { x: number; y: number }[]): string {
+  return points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${formatStrategyCurveSvgNumber(point.x)} ${formatStrategyCurveSvgNumber(point.y)}`)
+    .join(" ");
+}
+
+function calculateStrategyCurveZeroLineY(points: readonly StrategyCurveRenderPoint[]): number | null {
+  if (points.length === 0) {
+    return null;
+  }
+
+  const { max, min } = getStrategyCurveValueRange(points);
+  if (min > 0 || max < 0) {
+    return null;
+  }
+
+  const valueRange = max - min;
+  const yRange = STRATEGY_CURVE_HEIGHT - STRATEGY_CURVE_PADDING * 2;
+  const yRatio = valueRange === 0 ? 0.5 : max / valueRange;
+  return STRATEGY_CURVE_PADDING + yRatio * yRange;
+}
+
+function getStrategyCurveValueRange(points: readonly StrategyCurveRenderPoint[]): { max: number; min: number } {
+  const values = points.map((point) => point.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  if (minValue !== maxValue) {
+    return { max: maxValue, min: minValue };
+  }
+
+  const padding = Math.max(0.01, Math.abs(minValue) * 0.08);
+  return {
+    max: maxValue + padding,
+    min: minValue - padding,
+  };
+}
+
+function getStrategyCurveStrokeColor(isDarkTheme: boolean, value: number): string {
+  if (Math.abs(value) < 0.00005) {
+    return isDarkTheme ? "#94A3B8" : "#64748B";
+  }
+
+  return value > 0
+    ? isDarkTheme ? "#34D399" : "#059669"
+    : isDarkTheme ? "#FB7185" : "#E11D48";
+}
+
+function formatStrategyCurveDate(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "--";
+  }
+
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${month}-${day}`;
+}
+
+function formatStrategyCurveSvgNumber(value: number): string {
+  return value.toFixed(2);
 }
 
 export function createCopyPositionSummary(detail: TradingFoxStrategyDetail): PositionSummaryModel {
