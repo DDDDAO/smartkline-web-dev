@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary } from "@/app/_lib/tradingfox-control-plane";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import { TradingAccountSelect } from "./account-connection-ui";
 import { CopyTradingCreateBody, StrategyTypeOptionButton } from "./strategy-create-fields";
 import { PrototypeInput } from "./prototype-form-fields";
-import { createStrategyConfigSkeleton, StrategySchemaRenderer } from "./strategy-schema-renderer";
+import { createStrategyConfigSkeleton, StrategySchemaRenderer, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import type { CopyTradingPrototypeTarget, PrototypeApiConnection, PrototypeStrategy, PrototypeStrategyCreateInput, PrototypeStrategyType } from "./types";
 import { getIconButtonClassName, getInlineErrorClassName, getLabelClassName, getPrimaryButtonClassName, getSoftButtonClassName } from "./styles";
 import { formatDefaultCopyStrategyName } from "./target-utils";
@@ -18,6 +18,7 @@ const COPY_TRADING_DEFINITION_ID = "COPY_TRADING";
 const MARIO_DEFINITION_ID = "MARIO_STRATEGY";
 
 type StrategyDefinitionDetailsById = Record<string, TradingFoxStrategyDefinition | undefined>;
+type JsonRecord = Record<string, unknown>;
 
 export function StrategyCreateLayer({
   apiConnections,
@@ -48,6 +49,7 @@ export function StrategyCreateLayer({
   const [takeProfitPercent, setTakeProfitPercent] = useState("20");
   const [stopLossPercent, setStopLossPercent] = useState("10");
   const [genericConfig, setGenericConfig] = useState<Record<string, unknown>>({});
+  const [rendererErrors, setRendererErrors] = useState<string[]>([]);
   const [definitionError, setDefinitionError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isDefinitionsLoading, setIsDefinitionsLoading] = useState(true);
@@ -96,8 +98,11 @@ export function StrategyCreateLayer({
     };
   }, [copy]);
 
+  const selectedSummary = definitions.find((definition) => definition.id === selectedDefinitionId) ?? null;
+  const selectedDefinitionCacheKey = selectedSummary ? strategyDefinitionCacheKey(selectedSummary) : "";
+
   useEffect(() => {
-    if (!selectedDefinitionId || definitionDetailsById[selectedDefinitionId]) {
+    if (!selectedSummary || !selectedDefinitionCacheKey || definitionDetailsById[selectedDefinitionCacheKey]) {
       return;
     }
 
@@ -108,7 +113,7 @@ export function StrategyCreateLayer({
         setDefinitionError("");
       }
     });
-    fetch(`/api/tradingfox/strategy-definitions/${encodeURIComponent(selectedDefinitionId)}`, {
+    fetch(`/api/tradingfox/strategy-definitions/${encodeURIComponent(selectedSummary.id)}`, {
       cache: "no-store",
       credentials: "same-origin",
     })
@@ -122,9 +127,10 @@ export function StrategyCreateLayer({
         if (isMounted) {
           setDefinitionDetailsById((currentDetails) => ({
             ...currentDetails,
-            [definition.id]: definition,
+            [strategyDefinitionCacheKey(definition)]: definition,
           }));
           setGenericConfig(createStrategyConfigSkeleton(definition.configSchema));
+          setRendererErrors([]);
         }
       })
       .catch((error) => {
@@ -141,7 +147,7 @@ export function StrategyCreateLayer({
     return () => {
       isMounted = false;
     };
-  }, [copy, definitionDetailsById, selectedDefinitionId]);
+  }, [copy, definitionDetailsById, selectedDefinitionCacheKey, selectedSummary]);
 
   const occupiedConnectorIds = useMemo(() => new Set(strategies
     .filter((strategy) => strategy.status !== "stopped")
@@ -151,8 +157,7 @@ export function StrategyCreateLayer({
   ), [apiConnections, occupiedConnectorIds]);
   const selectedApiConnection = availableApiConnections.find((connection) => String(connection.id) === selectedConnectorId) ?? availableApiConnections[0] ?? null;
   const selectedTradingAccountId = selectedApiConnection ? String(selectedApiConnection.id) : "";
-  const selectedDefinition = selectedDefinitionId ? definitionDetailsById[selectedDefinitionId] : undefined;
-  const selectedSummary = definitions.find((definition) => definition.id === selectedDefinitionId) ?? null;
+  const selectedDefinition = selectedDefinitionCacheKey ? definitionDetailsById[selectedDefinitionCacheKey] : undefined;
   const strategyType = getStrategyTypeFromDefinitionId(selectedDefinitionId);
   const selectedSignalSource = availableSignalSources.find((target) => target.trader.trader_id === selectedSignalSourceId) ?? availableSignalSources[0] ?? null;
   const defaultStrategyName = defaultNameForStrategy({
@@ -177,7 +182,8 @@ export function StrategyCreateLayer({
     && !isSubmitting
     && !isDefinitionDetailLoading
     && normalizedStrategyName.length > 0
-    && hasValidCopyTradingInputs;
+    && hasValidCopyTradingInputs
+    && (strategyType !== "generic" || rendererErrors.length === 0);
 
   const submitStrategy = async () => {
     if (!canCreate || !selectedApiConnection || !selectedDefinition) {
@@ -194,6 +200,11 @@ export function StrategyCreateLayer({
       const config = strategyType === "copyTrading" && selectedSignalSource
         ? createCopyTradingConfig(selectedSignalSource, parsedTakeProfit, parsedStopLoss)
         : genericConfig;
+      await validateStrategyConfig({
+        config,
+        configSchemaVersion: selectedDefinition.configSchemaVersion,
+        strategyDefinitionId: selectedDefinition.id,
+      });
       await onCreate({
         autoStart: true,
         config,
@@ -220,6 +231,21 @@ export function StrategyCreateLayer({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const updateRendererState = (state: StrategySchemaRendererState) => {
+    setRendererErrors((currentErrors) => {
+      const currentKey = currentErrors.join("\n");
+      const nextKey = state.errors.join("\n");
+      return currentKey === nextKey ? currentErrors : state.errors;
+    });
+  };
+
+  const updateConfigBranch = (branch: "common" | "strategy", nextBranchConfig: JsonRecord) => {
+    setGenericConfig((currentConfig) => ({
+      ...currentConfig,
+      [branch]: nextBranchConfig,
+    }));
   };
 
   return (
@@ -265,13 +291,14 @@ export function StrategyCreateLayer({
                       isSelected={selectedDefinitionId === definition.id}
                       title={definition.name || definition.id}
                       onSelect={() => {
-                        const definitionDetail = definitionDetailsById[definition.id];
+                        const definitionDetail = definitionDetailsById[strategyDefinitionCacheKey(definition)];
                         setSelectedDefinitionId(definition.id);
                         setHasEditedStrategyName(false);
                         setStrategyName("");
                         setGenericConfig(definitionDetail
                           ? createStrategyConfigSkeleton(definitionDetail.configSchema)
                           : {});
+                        setRendererErrors([]);
                         setSubmitError("");
                       }}
                     />
@@ -331,20 +358,14 @@ export function StrategyCreateLayer({
                 {strategyCreateCopy.marioDashboardHint}
               </div>
             ) : selectedDefinition ? (
-              <section className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
-                <h3 className="text-sm font-black">{strategyCreateCopy.genericConfigTitle}</h3>
-                <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>{strategyCreateCopy.genericConfigDescription}</p>
-                <div className="mt-3">
-                  <StrategySchemaRenderer
-                    formData={genericConfig}
-                    isDarkTheme={isDarkTheme}
-                    mode="create"
-                    schema={selectedDefinition.configSchema}
-                    uiSchema={selectedDefinition.uiSchema}
-                    onChange={setGenericConfig}
-                  />
-                </div>
-              </section>
+              <DefinitionDrivenConfigForm
+                config={genericConfig}
+                copy={copy}
+                definition={selectedDefinition}
+                isDarkTheme={isDarkTheme}
+                onBranchChange={updateConfigBranch}
+                onRendererStateChange={updateRendererState}
+              />
             ) : selectedSummary ? (
               <div className={getInfoPanelClassName(isDarkTheme)}>{strategyCreateCopy.definitionLoading}</div>
             ) : null}
@@ -363,6 +384,111 @@ export function StrategyCreateLayer({
       </section>
     </>
   );
+}
+
+function DefinitionDrivenConfigForm({
+  config,
+  copy,
+  definition,
+  isDarkTheme,
+  onBranchChange,
+  onRendererStateChange,
+}: {
+  config: JsonRecord;
+  copy: WorkspaceCopy;
+  definition: TradingFoxStrategyDefinition;
+  isDarkTheme: boolean;
+  onBranchChange: (branch: "common" | "strategy", nextBranchConfig: JsonRecord) => void;
+  onRendererStateChange: (state: StrategySchemaRendererState) => void;
+}) {
+  const strategyCreateCopy = copy.workspace.accountCenter.strategyCreate;
+  const [commonErrors, setCommonErrors] = useState<string[]>([]);
+  const [strategyErrors, setStrategyErrors] = useState<string[]>([]);
+  const commonSchema = schemaBranch(definition.configSchema, "common");
+  const strategySchema = definition.strategyConfigSchema ?? schemaBranch(definition.configSchema, "strategy");
+  const commonUiSchema = uiSchemaBranch(definition.uiSchema, "common");
+  const strategyUiSchema = definition.strategyUiSchema ?? uiSchemaBranch(definition.uiSchema, "strategy");
+  const commonConfig = recordBranch(config, "common");
+  const strategyConfig = recordBranch(config, "strategy");
+
+  useEffect(() => {
+    const errors = [...commonErrors, ...strategyErrors];
+    onRendererStateChange({ canSubmit: errors.length === 0, errors });
+  }, [commonErrors, onRendererStateChange, strategyErrors]);
+
+  return (
+    <div className="space-y-4">
+      <ConfigSection
+        description={strategyCreateCopy.commonConfigDescription}
+        isDarkTheme={isDarkTheme}
+        title={strategyCreateCopy.commonConfigTitle}
+      >
+        <StrategySchemaRenderer
+          formData={commonConfig}
+          isDarkTheme={isDarkTheme}
+          mode="create"
+          schema={commonSchema}
+          uiSchema={commonUiSchema}
+          onChange={(nextConfig) => onBranchChange("common", nextConfig)}
+          onValidationStateChange={(state) => setCommonErrors(state.errors)}
+        />
+      </ConfigSection>
+
+      <ConfigSection
+        description={strategyCreateCopy.genericConfigDescription}
+        isDarkTheme={isDarkTheme}
+        title={strategyCreateCopy.genericConfigTitle}
+      >
+        <StrategySchemaRenderer
+          formData={strategyConfig}
+          isDarkTheme={isDarkTheme}
+          mode="create"
+          schema={strategySchema}
+          uiSchema={strategyUiSchema}
+          onChange={(nextConfig) => onBranchChange("strategy", nextConfig)}
+          onValidationStateChange={(state) => setStrategyErrors(state.errors)}
+        />
+      </ConfigSection>
+    </div>
+  );
+}
+
+function ConfigSection({
+  children,
+  description,
+  isDarkTheme,
+  title,
+}: {
+  children: ReactNode;
+  description: string;
+  isDarkTheme: boolean;
+  title: string;
+}) {
+  return (
+    <section className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
+      <h3 className="text-sm font-black">{title}</h3>
+      <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>{description}</p>
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+function schemaBranch(schema: JsonRecord | undefined, branch: "common" | "strategy"): JsonRecord | undefined {
+  const properties = isRecord(schema?.properties) ? schema.properties : null;
+  const branchSchema = properties && isRecord(properties[branch]) ? properties[branch] : undefined;
+  return branchSchema;
+}
+
+function uiSchemaBranch(uiSchema: JsonRecord | undefined, branch: "common" | "strategy"): JsonRecord | undefined {
+  return isRecord(uiSchema?.[branch]) ? uiSchema[branch] : undefined;
+}
+
+function recordBranch(config: JsonRecord, branch: "common" | "strategy"): JsonRecord {
+  return isRecord(config[branch]) ? config[branch] : {};
+}
+
+function strategyDefinitionCacheKey(definition: Pick<TradingFoxStrategyDefinitionSummary, "configSchemaVersion" | "id" | "version">): string {
+  return `${definition.id}:${definition.version}:${definition.configSchemaVersion}`;
 }
 
 function preferredDefinitionId(definitions: readonly TradingFoxStrategyDefinitionSummary[]): string {
@@ -432,7 +558,32 @@ function getInfoPanelClassName(isDarkTheme: boolean): string {
     : "mt-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold text-slate-700";
 }
 
+async function validateStrategyConfig({
+  config,
+  configSchemaVersion,
+  strategyDefinitionId,
+}: {
+  config: JsonRecord;
+  configSchemaVersion: number;
+  strategyDefinitionId: string;
+}) {
+  const response = await fetch(`/api/tradingfox/strategy-definitions/${encodeURIComponent(strategyDefinitionId)}/validate-config`, {
+    body: JSON.stringify({ config, configSchemaVersion }),
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(await readTradingFoxClientError(response));
+  }
+}
+
 async function readTradingFoxClientError(response: Response): Promise<string> {
   const payload = await response.json().catch(() => null) as { error?: string } | null;
   return payload?.error || `TradingFox request failed with status ${response.status}.`;
+}
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
