@@ -158,6 +158,7 @@ type WorkspaceNotification = {
 };
 
 type WorkspaceRouteState = {
+  accountStrategyId: string;
   signalId: string;
   symbol: MarketSymbol | null;
   tab: WorkspaceProductTab | null;
@@ -242,6 +243,7 @@ export function SignalWorkspace({
   const [prototypeMarioStrategies, setPrototypeMarioStrategies] = useState<
     PrototypeStrategy[]
   >([]);
+  const [activeAccountStrategyId, setActiveAccountStrategyId] = useState("");
   const [isMarioStrategiesHydrated, setIsMarioStrategiesHydrated] = useState(false);
   const [copyTradingTarget, setCopyTradingTarget] =
     useState<CopyTradingPrototypeTarget | null>(null);
@@ -557,6 +559,8 @@ export function SignalWorkspace({
     } else {
       pendingRouteTopSignalTradeEventIdRef.current = "";
     }
+
+    setActiveAccountStrategyId(routeState.tab === "accountManagement" ? routeState.accountStrategyId : "");
   }, []);
 
   useEffect(() => {
@@ -794,6 +798,7 @@ export function SignalWorkspace({
   const updateWorkspaceRouteUrl = useCallback((
     mode: "push" | "replace",
     overrides?: {
+      accountStrategyId?: string;
       tab?: WorkspaceProductTab;
       symbol?: MarketSymbol;
       signalId?: string;
@@ -813,7 +818,11 @@ export function SignalWorkspace({
       ? (overrides?.topSignalSourceId ?? "")
       : explicitTopSignalSourceId
         || (topSignalsSourceFilterId !== "all" ? topSignalsSourceFilterId : "");
+    const nextAccountStrategyId = Object.prototype.hasOwnProperty.call(overrides ?? {}, "accountStrategyId")
+      ? (overrides?.accountStrategyId ?? "")
+      : activeAccountStrategyId;
     const nextUrl = createWorkspaceRouteUrl({
+      accountStrategyId: nextAccountStrategyId,
       activeSignalId: overrides?.signalId ?? activeSignalId,
       currentPathname: window.location.pathname,
       symbol: overrides?.symbol ?? symbol,
@@ -827,6 +836,7 @@ export function SignalWorkspace({
 
     window.history[mode === "push" ? "pushState" : "replaceState"](null, "", nextUrl);
   }, [
+    activeAccountStrategyId,
     activeProductTab,
     activeSignalId,
     explicitTopSignalSourceId,
@@ -1241,11 +1251,17 @@ export function SignalWorkspace({
 
   const handleProductTabChange = useCallback((nextTab: WorkspaceProductTab) => {
     setActiveProductTab(nextTab);
+    if (nextTab !== "accountManagement") {
+      setActiveAccountStrategyId("");
+    }
     if (nextTab !== "topSignals") {
       pendingRouteTopSignalTradeEventIdRef.current = "";
     }
-    updateWorkspaceRouteUrl("push", { tab: nextTab });
-  }, [updateWorkspaceRouteUrl]);
+    updateWorkspaceRouteUrl("push", {
+      accountStrategyId: nextTab === "accountManagement" ? activeAccountStrategyId : "",
+      tab: nextTab,
+    });
+  }, [activeAccountStrategyId, updateWorkspaceRouteUrl]);
 
   const handleAccountEntry = useCallback(() => {
     if (authMe.isLoggedIn) {
@@ -1255,6 +1271,19 @@ export function SignalWorkspace({
 
     startTelegramLogin();
   }, [authMe.isLoggedIn, handleProductTabChange, startTelegramLogin]);
+
+  const handleAccountStrategyRouteChange = useCallback((
+    strategyId: string | null,
+    mode: "push" | "replace" = "push",
+  ) => {
+    const nextStrategyId = strategyId ?? "";
+    setActiveProductTab("accountManagement");
+    setActiveAccountStrategyId(nextStrategyId);
+    updateWorkspaceRouteUrl(mode, {
+      accountStrategyId: nextStrategyId,
+      tab: "accountManagement",
+    });
+  }, [updateWorkspaceRouteUrl]);
 
   const handleTopSignalSourceSelect = useCallback((sourceId: string) => {
     setActiveTopSignalSourceId(sourceId);
@@ -1938,6 +1967,7 @@ export function SignalWorkspace({
           </section>
         ) : isAccountManagementTab ? (
           <AccountManagementPanelWithWallet
+            activeStrategyId={activeAccountStrategyId}
             apiConnection={prototypeApiConnection}
             apiConnections={prototypeApiConnections}
             availableSignalSources={copyTradingSignalSourceTargets}
@@ -1956,6 +1986,7 @@ export function SignalWorkspace({
             onLogout={handleLogout}
             onStrategyCreate={handlePrototypeStrategyCreate}
             onStrategyDelete={handlePrototypeStrategyDelete}
+            onStrategyRouteChange={handleAccountStrategyRouteChange}
             onStrategyStatusChange={handlePrototypeStrategyStatusChange}
           />
         ) : isStrategySquareTab ? (
@@ -2060,6 +2091,7 @@ export function SignalWorkspace({
 }
 
 function createWorkspaceRouteUrl(input: {
+  accountStrategyId: string;
   activeSignalId: string;
   currentPathname: string;
   symbol: MarketSymbol;
@@ -2081,7 +2113,9 @@ function createWorkspaceRouteUrl(input: {
     }
   }
 
-  const path = shouldWorkspaceTabUseSymbolRoute(input.tab)
+  const path = input.tab === "accountManagement" && input.accountStrategyId
+    ? `${routePrefix}/strategies/${encodeURIComponent(input.accountStrategyId)}`
+    : shouldWorkspaceTabUseSymbolRoute(input.tab)
     ? `${routePrefix}/${tabSegment}/${encodeURIComponent(symbolSegment)}`
     : `${routePrefix}/${tabSegment}`;
   const query = queryParams.toString();
@@ -2370,6 +2404,7 @@ function readWorkspaceRouteState(
   const queryParams = new URLSearchParams(search);
 
   return {
+    accountStrategyId: tab === "accountManagement" ? readAccountStrategyIdFromRouteSegments(segments, routeStartIndex) : "",
     signalId: tab === "intel" ? (queryParams.get("signal")?.trim() ?? "") : "",
     symbol,
     tab,
@@ -2380,6 +2415,7 @@ function readWorkspaceRouteState(
 
 function createEmptyWorkspaceRouteState(): WorkspaceRouteState {
   return {
+    accountStrategyId: "",
     signalId: "",
     symbol: null,
     tab: null,
@@ -2390,6 +2426,10 @@ function createEmptyWorkspaceRouteState(): WorkspaceRouteState {
 
 function workspaceTabFromRouteSegment(segment: string): WorkspaceProductTab | null {
   const normalizedSegment = segment.trim().toLowerCase();
+  if (normalizedSegment === "strategies") {
+    return "accountManagement";
+  }
+
   for (const [tab, routeSegment] of Object.entries(WORKSPACE_TAB_ROUTE_SEGMENTS)) {
     if (routeSegment === normalizedSegment) {
       return tab as WorkspaceProductTab;
@@ -2397,6 +2437,16 @@ function workspaceTabFromRouteSegment(segment: string): WorkspaceProductTab | nu
   }
 
   return null;
+}
+
+function readAccountStrategyIdFromRouteSegments(segments: readonly string[], routeStartIndex: number): string {
+  const routeSegment = segments[routeStartIndex]?.trim().toLowerCase() ?? "";
+  const rawStrategyId = routeSegment === "strategies"
+    ? segments[routeStartIndex + 1]
+    : routeSegment === "account" && segments[routeStartIndex + 1]?.trim().toLowerCase() === "strategies"
+      ? segments[routeStartIndex + 2]
+      : "";
+  return safeDecodeRouteSegment(rawStrategyId ?? "").trim();
 }
 
 function shouldWorkspaceTabUseSymbolRoute(tab: WorkspaceProductTab): boolean {

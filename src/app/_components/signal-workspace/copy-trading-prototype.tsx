@@ -292,6 +292,7 @@ export function AccountCenterPrototype({
 }
 
 export function AccountManagementPanel({
+  activeStrategyId,
   apiConnection,
   apiConnections,
   availableSignalSources,
@@ -310,8 +311,10 @@ export function AccountManagementPanel({
   onLogout,
   onStrategyCreate,
   onStrategyDelete,
+  onStrategyRouteChange,
   onStrategyStatusChange,
 }: {
+  activeStrategyId: string;
   apiConnection: PrototypeApiConnection;
   apiConnections: readonly PrototypeApiConnection[];
   availableSignalSources: readonly CopyTradingPrototypeTarget[];
@@ -330,15 +333,18 @@ export function AccountManagementPanel({
   onLogout: () => void;
   onStrategyCreate: (input: PrototypeStrategyCreateInput) => Promise<void> | void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
+  onStrategyRouteChange: (strategyId: string | null, mode?: "push" | "replace") => void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
   const accountCopy = copy.workspace.accountCenter;
   const hasApiConnections = apiConnections.length > 0;
   const runningStrategyCount = strategies.filter((strategy) => strategy.status === "running").length;
   const [isStrategyCreateOpen, setIsStrategyCreateOpen] = useState(false);
-  const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
+  const [localSelectedStrategyId, setLocalSelectedStrategyId] = useState<string | null>(null);
   const [activeAccountTab, setActiveAccountTab] = useState<AccountManagementTab>("api");
+  const selectedStrategyId = activeStrategyId || localSelectedStrategyId;
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
+  const effectiveActiveAccountTab = activeStrategyId || localSelectedStrategyId ? "strategies" : activeAccountTab;
   const accountTabs: readonly {
     key: AccountManagementTab;
     label: string;
@@ -365,7 +371,18 @@ export function AccountManagementPanel({
       window.location.assign("/mario-dashboard");
       return;
     }
-    setSelectedStrategyId(strategy.id);
+    setLocalSelectedStrategyId(strategy.id);
+    onStrategyRouteChange(strategy.id, "push");
+  };
+  const closeStrategyDetail = () => {
+    setLocalSelectedStrategyId(null);
+    onStrategyRouteChange(null, "replace");
+  };
+  const selectAccountTab = (tab: AccountManagementTab) => {
+    setActiveAccountTab(tab);
+    if (tab !== "strategies") {
+      closeStrategyDetail();
+    }
   };
 
   return (
@@ -403,7 +420,7 @@ export function AccountManagementPanel({
             isDarkTheme={isDarkTheme}
             strategy={selectedStrategy}
             telegramUser={telegramUser}
-            onBack={() => setSelectedStrategyId(null)}
+            onBack={closeStrategyDetail}
             onStrategyDelete={onStrategyDelete}
             onStrategyStatusChange={onStrategyStatusChange}
           />
@@ -414,14 +431,14 @@ export function AccountManagementPanel({
               className={isDarkTheme ? "grid grid-cols-3 gap-2 rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-2" : "grid grid-cols-3 gap-2 rounded-[24px] border border-[#E5EAF0] bg-[#F8FAFC] p-2"}
             >
               {accountTabs.map((tab) => {
-                const isActive = tab.key === activeAccountTab;
+                const isActive = tab.key === effectiveActiveAccountTab;
                 return (
                   <button
                     key={tab.key}
                     aria-pressed={isActive}
                     className={getAccountCenterTabButtonClassName(isDarkTheme, isActive)}
                     type="button"
-                    onClick={() => setActiveAccountTab(tab.key)}
+                    onClick={() => selectAccountTab(tab.key)}
                   >
                     <span className="truncate text-sm font-black">{tab.label}</span>
                     <span className={isActive ? "mt-0.5 truncate text-[11px] font-bold opacity-80" : "mt-0.5 truncate text-[11px] font-bold opacity-70"}>{tab.meta}</span>
@@ -430,7 +447,7 @@ export function AccountManagementPanel({
               })}
             </nav>
 
-            {activeAccountTab === "api" ? (
+            {effectiveActiveAccountTab === "api" ? (
               <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -460,7 +477,7 @@ export function AccountManagementPanel({
                   )}
                 </div>
               </section>
-            ) : activeAccountTab === "notifications" ? (
+            ) : effectiveActiveAccountTab === "notifications" ? (
               <NotificationSettingsPlaceholder
                 copy={copy}
                 isDarkTheme={isDarkTheme}
