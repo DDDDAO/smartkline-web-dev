@@ -6,12 +6,14 @@ import { StrategySchemaRenderer } from "./strategy-schema-renderer";
 import { getInlineErrorClassName, getModalSectionClassName } from "./styles";
 
 export function StrategyDetailConfigSection({
+  copy,
   detail,
   isDarkTheme,
   strategyCopy,
   strategyDefinition,
   strategyDefinitionError,
 }: {
+  copy: WorkspaceCopy;
   detail: TradingFoxStrategyDetail;
   isDarkTheme: boolean;
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
@@ -29,6 +31,7 @@ export function StrategyDetailConfigSection({
           <p className={getInlineErrorClassName(isDarkTheme)}>{strategyCopy.strategyConfigVersionMismatch(detail.trader.configSchemaVersion, strategyDefinition.configSchemaVersion)}</p>
         ) : strategyDefinition ? (
           <StrategySchemaRenderer
+            copy={copy}
             formData={detail.trader.config}
             isDarkTheme={isDarkTheme}
             mode="readonly"

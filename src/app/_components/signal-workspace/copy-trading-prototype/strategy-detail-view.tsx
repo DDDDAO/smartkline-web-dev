@@ -434,6 +434,7 @@ export function StrategyDetailView({
           />
 
           <StrategyDetailConfigSection
+            copy={copy}
             detail={detail}
             isDarkTheme={isDarkTheme}
             strategyCopy={strategyCopy}

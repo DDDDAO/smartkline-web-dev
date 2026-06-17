@@ -45,6 +45,7 @@ export function DefinitionDrivenConfigForm({
         title={strategyCreateCopy.commonConfigTitle}
       >
         <StrategySchemaRenderer
+          copy={copy}
           formData={commonConfig}
           isDarkTheme={isDarkTheme}
           mode="create"
@@ -61,6 +62,7 @@ export function DefinitionDrivenConfigForm({
         title={strategyCreateCopy.genericConfigTitle}
       >
         <StrategySchemaRenderer
+          copy={copy}
           formData={strategyConfig}
           isDarkTheme={isDarkTheme}
           mode="create"

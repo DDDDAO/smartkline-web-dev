@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary } from "@/app/_lib/tradingfox-control-plane";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import { TradingAccountSelect } from "./account-connection-ui";
-import { CopyTradingCreateBody, StrategyTypeOptionButton } from "./strategy-create-fields";
+import { CopyTradingCreateBody } from "./strategy-create-fields";
 import { PrototypeInput } from "./prototype-form-fields";
 import { DefinitionDrivenConfigForm, type JsonRecord } from "./strategy-definition-config-form";
+import { StrategyDefinitionSelect } from "./strategy-definition-select";
 import { createStrategyConfigSkeleton, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import type { CopyTradingPrototypeTarget, PrototypeApiConnection, PrototypeStrategy, PrototypeStrategyCreateInput, PrototypeStrategyType } from "./types";
 import { getIconButtonClassName, getInlineErrorClassName, getLabelClassName, getPrimaryButtonClassName, getSoftButtonClassName } from "./styles";
@@ -38,6 +39,8 @@ export function StrategyCreateLayer({
 }) {
   const accountCopy = copy.workspace.accountCenter;
   const strategyCreateCopy = accountCopy.strategyCreate;
+  const dialogTitleId = useId();
+  const dialogDescriptionId = useId();
   const [definitions, setDefinitions] = useState<TradingFoxStrategyDefinitionSummary[]>([]);
   const [definitionDetailsById, setDefinitionDetailsById] = useState<StrategyDefinitionDetailsById>({});
   const [selectedDefinitionId, setSelectedDefinitionId] = useState("");
@@ -69,7 +72,7 @@ export function StrategyCreateLayer({
     })
       .then(async (response) => {
         if (!response.ok) {
-          throw new Error(await readTradingFoxClientError(response));
+          throw new Error(await readTradingFoxClientError(response, strategyCreateCopy.requestFailed));
         }
         return response.json() as Promise<{ items: TradingFoxStrategyDefinitionSummary[] }>;
       })
@@ -95,7 +98,7 @@ export function StrategyCreateLayer({
     return () => {
       isMounted = false;
     };
-  }, [copy]);
+  }, [copy, strategyCreateCopy.requestFailed]);
 
   const selectedSummary = definitions.find((definition) => definition.id === selectedDefinitionId) ?? null;
   const selectedDefinitionCacheKey = selectedSummary ? strategyDefinitionCacheKey(selectedSummary) : "";
@@ -118,7 +121,7 @@ export function StrategyCreateLayer({
     })
       .then(async (response) => {
         if (!response.ok) {
-          throw new Error(await readTradingFoxClientError(response));
+          throw new Error(await readTradingFoxClientError(response, strategyCreateCopy.requestFailed));
         }
         return response.json() as Promise<TradingFoxStrategyDefinition>;
       })
@@ -146,7 +149,7 @@ export function StrategyCreateLayer({
     return () => {
       isMounted = false;
     };
-  }, [copy, definitionDetailsById, selectedDefinitionCacheKey, selectedSummary]);
+  }, [copy, definitionDetailsById, selectedDefinitionCacheKey, selectedSummary, strategyCreateCopy.requestFailed]);
 
   const occupiedConnectorIds = useMemo(() => new Set(strategies
     .filter((strategy) => strategy.status !== "stopped")
@@ -202,6 +205,7 @@ export function StrategyCreateLayer({
       await validateStrategyConfig({
         config,
         configSchemaVersion: selectedDefinition.configSchemaVersion,
+        requestFailed: strategyCreateCopy.requestFailed,
         strategyDefinitionId: selectedDefinition.id,
       });
       await onCreate({
@@ -256,18 +260,24 @@ export function StrategyCreateLayer({
         onClick={onClose}
       />
       <section
-        aria-label={strategyCreateCopy.modalTitle}
+        aria-describedby={dialogDescriptionId}
+        aria-labelledby={dialogTitleId}
         aria-modal="true"
-        className="fixed inset-x-0 bottom-0 z-[100] max-h-[92dvh] overflow-hidden rounded-t-[28px] shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(820px,calc(100dvh-2rem))] sm:max-w-[680px] sm:-translate-y-1/2 sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"
+        className="fixed inset-x-0 bottom-0 z-[100] max-h-[92dvh] overflow-hidden rounded-t-[28px] shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-4 sm:bottom-auto sm:top-6 sm:mx-auto sm:max-h-[calc(100dvh-3rem)] sm:max-w-[760px] sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"
         role="dialog"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            onClose();
+          }
+        }}
       >
-        <div className={isDarkTheme ? "flex max-h-[92dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[min(820px,calc(100dvh-2rem))]" : "flex max-h-[92dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[min(820px,calc(100dvh-2rem))]"}>
+        <div className={isDarkTheme ? "flex max-h-[92dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[calc(100dvh-3rem)]" : "flex max-h-[92dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[calc(100dvh-3rem)]"}>
           <div className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>{strategyCreateCopy.modalEyebrow}</div>
-                <h2 className="mt-2 text-xl font-black tracking-tight">{strategyCreateCopy.modalTitle}</h2>
-                <p className={isDarkTheme ? "mt-2 text-sm leading-5 text-slate-400" : "mt-2 text-sm leading-5 text-slate-600"}>{strategyCreateCopy.modalDescription}</p>
+                <h2 id={dialogTitleId} className="mt-2 text-xl font-black tracking-tight">{strategyCreateCopy.modalTitle}</h2>
+                <p id={dialogDescriptionId} className={isDarkTheme ? "mt-2 text-sm leading-5 text-slate-400" : "mt-2 text-sm leading-5 text-slate-600"}>{strategyCreateCopy.modalDescription}</p>
               </div>
               <button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} type="button" onClick={onClose}>
                 <span aria-hidden="true" className="text-lg leading-none">×</span>
@@ -275,34 +285,30 @@ export function StrategyCreateLayer({
             </div>
           </div>
 
-          <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+          <div className="kol-scroll-area min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 sm:py-5">
             <section>
               <div className={getLabelClassName(isDarkTheme)}>{strategyCreateCopy.definitionSelect}</div>
               {isDefinitionsLoading ? (
                 <div className={getInfoPanelClassName(isDarkTheme)}>{strategyCreateCopy.definitionsLoading}</div>
               ) : definitions.length > 0 ? (
-                <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                  {definitions.map((definition) => (
-                    <StrategyTypeOptionButton
-                      key={definition.id}
-                      description={definition.description || definition.id}
-                      isDarkTheme={isDarkTheme}
-                      isSelected={selectedDefinitionId === definition.id}
-                      title={definition.name || definition.id}
-                      onSelect={() => {
-                        const definitionDetail = definitionDetailsById[strategyDefinitionCacheKey(definition)];
-                        setSelectedDefinitionId(definition.id);
-                        setHasEditedStrategyName(false);
-                        setStrategyName("");
-                        setGenericConfig(definitionDetail
-                          ? createStrategyConfigSkeleton(definitionDetail.configSchema)
-                          : {});
-                        setRendererErrors([]);
-                        setSubmitError("");
-                      }}
-                    />
-                  ))}
-                </div>
+                <StrategyDefinitionSelect
+                  copy={copy}
+                  definitions={definitions}
+                  isDarkTheme={isDarkTheme}
+                  value={selectedDefinitionId}
+                  onChange={(definitionId) => {
+                    const nextDefinition = definitions.find((definition) => definition.id === definitionId);
+                    const definitionDetail = nextDefinition ? definitionDetailsById[strategyDefinitionCacheKey(nextDefinition)] : undefined;
+                    setSelectedDefinitionId(definitionId);
+                    setHasEditedStrategyName(false);
+                    setStrategyName("");
+                    setGenericConfig(definitionDetail
+                      ? createStrategyConfigSkeleton(definitionDetail.configSchema)
+                      : {});
+                    setRendererErrors([]);
+                    setSubmitError("");
+                  }}
+                />
               ) : (
                 <div className={getInfoPanelClassName(isDarkTheme)}>{strategyCreateCopy.definitionsEmpty}</div>
               )}
@@ -420,7 +426,9 @@ function defaultNameForStrategy({
   if (strategyType === "mario") {
     return strategyCreateCopy.marioStrategyName;
   }
-  return selectedDefinition?.name ? `${selectedDefinition.name} Strategy` : "Trading Strategy";
+  return selectedDefinition?.name
+    ? strategyCreateCopy.genericStrategyName(selectedDefinition.name)
+    : strategyCreateCopy.genericStrategyFallbackName;
 }
 
 function createCopyTradingConfig(
@@ -459,10 +467,12 @@ function getInfoPanelClassName(isDarkTheme: boolean): string {
 async function validateStrategyConfig({
   config,
   configSchemaVersion,
+  requestFailed,
   strategyDefinitionId,
 }: {
   config: JsonRecord;
   configSchemaVersion: number;
+  requestFailed: (status: number) => string;
   strategyDefinitionId: string;
 }) {
   const response = await fetch(`/api/tradingfox/strategy-definitions/${encodeURIComponent(strategyDefinitionId)}/validate-config`, {
@@ -473,11 +483,11 @@ async function validateStrategyConfig({
     method: "POST",
   });
   if (!response.ok) {
-    throw new Error(await readTradingFoxClientError(response));
+    throw new Error(await readTradingFoxClientError(response, requestFailed));
   }
 }
 
-async function readTradingFoxClientError(response: Response): Promise<string> {
+async function readTradingFoxClientError(response: Response, requestFailed: (status: number) => string): Promise<string> {
   const payload = await response.json().catch(() => null) as { error?: string } | null;
-  return payload?.error || `TradingFox request failed with status ${response.status}.`;
+  return payload?.error || requestFailed(response.status);
 }

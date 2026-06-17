@@ -4,12 +4,15 @@ import { useEffect, useMemo } from "react";
 import Form from "@rjsf/core";
 import type { FieldTemplateProps, FormContextType, RJSFSchema, RegistryWidgetsType, UiSchema, WidgetProps } from "@rjsf/utils";
 import validator from "@rjsf/validator-ajv8";
+import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import { StrategySchemaReadonlyView } from "./strategy-schema-readonly-view";
 
 export type StrategySchemaRendererMode = "action" | "create" | "edit" | "readonly";
 export type StrategySchemaRendererState = { canSubmit: boolean; errors: string[] };
 
 type JsonRecord = Record<string, unknown>;
-type RendererContext = FormContextType & { isDarkTheme?: boolean };
+type StrategySchemaCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategySchema"];
+type RendererContext = FormContextType & { isDarkTheme?: boolean; strategySchemaCopy?: StrategySchemaCopy };
 type UiCondition = { path?: string; eq?: unknown; ne?: unknown; in?: unknown[]; exists?: boolean };
 type UiField = JsonRecord & { path: string; label?: string; help?: string; widget?: string; order?: number; visibleWhen?: UiCondition; enabledWhen?: UiCondition };
 
@@ -18,6 +21,7 @@ const WIDGET_ALIASES: Record<string, string> = { integer: "updown", switch: "che
 const DEFAULT_UI_SCHEMA: UiSchema = { "ui:submitButtonOptions": { norender: true } };
 
 export function StrategySchemaRenderer({
+  copy,
   formData,
   isDarkTheme,
   mode,
@@ -26,6 +30,7 @@ export function StrategySchemaRenderer({
   onChange,
   onValidationStateChange,
 }: {
+  copy: WorkspaceCopy;
   formData: JsonRecord;
   isDarkTheme: boolean;
   mode: StrategySchemaRendererMode;
@@ -35,6 +40,7 @@ export function StrategySchemaRenderer({
   onValidationStateChange?: (state: StrategySchemaRendererState) => void;
 }) {
   const readonly = mode === "readonly";
+  const rendererCopy = copy.workspace.accountCenter.strategySchema;
   const errors = useMemo(() => collectRendererErrors(schema, uiSchema), [schema, uiSchema]);
   const errorKey = errors.join("\n");
 
@@ -45,7 +51,7 @@ export function StrategySchemaRenderer({
   if (!schema || Object.keys(schema).length === 0 || isEmptyObjectSchema(schema)) {
     return (
       <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold text-slate-600"}>
-        This strategy does not require additional configuration.
+        {rendererCopy.noAdditionalConfig}
       </div>
     );
   }
@@ -53,7 +59,7 @@ export function StrategySchemaRenderer({
   if (errors.length > 0) {
     return (
       <div className={isDarkTheme ? "rounded-2xl border border-rose-300/20 bg-rose-300/[0.07] px-3 py-3 text-sm text-rose-100" : "rounded-2xl border border-rose-100 bg-rose-50 px-3 py-3 text-sm text-rose-700"}>
-        <div className="font-black">Strategy definition UI cannot be rendered.</div>
+        <div className="font-black">{rendererCopy.definitionRenderErrorTitle}</div>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5">
           {errors.map((error) => <li key={error}>{error}</li>)}
         </ul>
@@ -61,11 +67,23 @@ export function StrategySchemaRenderer({
     );
   }
 
+  if (readonly) {
+    return (
+      <StrategySchemaReadonlyView
+        copy={copy}
+        formData={formData}
+        isDarkTheme={isDarkTheme}
+        schema={schema}
+        uiSchema={uiSchema}
+      />
+    );
+  }
+
   return (
     <Form
-      className={isDarkTheme ? "strategy-schema-form space-y-4 text-slate-100" : "strategy-schema-form space-y-4 text-slate-950"}
+      className={isDarkTheme ? "strategy-schema-form strategy-schema-form-dark space-y-4 text-slate-100" : "strategy-schema-form space-y-4 text-slate-950"}
       disabled={readonly}
-      formContext={{ isDarkTheme } satisfies RendererContext}
+      formContext={{ isDarkTheme, strategySchemaCopy: rendererCopy } satisfies RendererContext}
       formData={formData}
       liveOmit
       noHtml5Validate
@@ -84,14 +102,30 @@ export function StrategySchemaRenderer({
   );
 }
 
-function StrategyFieldTemplate({ children, description, displayLabel, errors, help, label, rawErrors, required }: FieldTemplateProps) {
-  return (
-    <div className="space-y-1.5">
+function StrategyFieldTemplate({ children, description, displayLabel, errors, help, hidden, id, label, rawErrors, registry, required }: FieldTemplateProps) {
+  if (hidden) {
+    return <div className="hidden">{children}</div>;
+  }
+
+  const isDarkTheme = Boolean((registry.formContext as RendererContext | undefined)?.isDarkTheme);
+  const shouldFrameField = Boolean(displayLabel && id !== "root");
+  const content = (
+    <>
       {displayLabel ? <label className="block text-xs font-black uppercase tracking-[0.12em] text-slate-500">{label}{required ? " *" : ""}</label> : null}
       {description}
       {children}
       {help}
       {rawErrors?.length ? <div className="text-xs font-bold text-rose-500">{errors}</div> : null}
+    </>
+  );
+
+  if (!shouldFrameField) {
+    return <div className="space-y-1.5">{content}</div>;
+  }
+
+  return (
+    <div className={isDarkTheme ? "space-y-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "space-y-2 rounded-2xl border border-[#E5EAF0] bg-white p-3"}>
+      {content}
     </div>
   );
 }
@@ -113,12 +147,13 @@ const JsonWidget = (props: WidgetProps) => {
 
 const StringListWidget = (props: WidgetProps) => {
   const isDarkTheme = Boolean((props.formContext as RendererContext | undefined)?.isDarkTheme);
+  const rendererCopy = getStrategySchemaCopy(props);
   const value = Array.isArray(props.value) ? props.value.map(String).join("\n") : "";
   return (
     <textarea
       className={textareaClassName(isDarkTheme, "min-h-24 text-sm font-bold")}
       disabled={props.disabled || props.readonly}
-      placeholder="BTC/USDT:USDT\nETH/USDT:USDT"
+      placeholder={rendererCopy.stringListPlaceholder}
       value={value}
       onChange={(event) => props.onChange(event.target.value.split("\n").map((item) => item.trim()).filter(Boolean))}
     />
@@ -127,11 +162,12 @@ const StringListWidget = (props: WidgetProps) => {
 
 const SymbolPickerWidget = (props: WidgetProps) => {
   const isDarkTheme = Boolean((props.formContext as RendererContext | undefined)?.isDarkTheme);
+  const rendererCopy = getStrategySchemaCopy(props);
   return (
     <input
       className={inputClassName(isDarkTheme)}
       disabled={props.disabled || props.readonly}
-      placeholder="BTC/USDT:USDT"
+      placeholder={rendererCopy.symbolPlaceholder}
       value={props.value ?? ""}
       onChange={(event) => props.onChange(event.target.value)}
     />
@@ -140,6 +176,7 @@ const SymbolPickerWidget = (props: WidgetProps) => {
 
 const PricePercentLadderWidget = (props: WidgetProps) => {
   const isDarkTheme = Boolean((props.formContext as RendererContext | undefined)?.isDarkTheme);
+  const rendererCopy = getStrategySchemaCopy(props);
   const rows = Array.isArray(props.value) ? props.value.map(normalizePricePercentRow) : [];
   const disabled = Boolean(props.disabled || props.readonly);
   const emitRows = (nextRows: PricePercentRow[]) => props.onChange(nextRows.map((row) => ({ price: parseOptionalNumber(row.price), percent: parseOptionalNumber(row.percent) })));
@@ -151,12 +188,12 @@ const PricePercentLadderWidget = (props: WidgetProps) => {
     <div className="space-y-2">
       {rows.map((row, index) => (
         <div key={`${index}-${row.price}-${row.percent}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
-          <input className={inputClassName(isDarkTheme)} disabled={disabled} inputMode="decimal" placeholder="Price" value={row.price} onChange={(event) => emitRows(rows.map((item, itemIndex) => itemIndex === index ? { ...item, price: event.target.value } : item))} />
-          <input className={inputClassName(isDarkTheme)} disabled={disabled} inputMode="decimal" placeholder="Percent" value={row.percent} onChange={(event) => emitRows(rows.map((item, itemIndex) => itemIndex === index ? { ...item, percent: event.target.value } : item))} />
-          <button className={buttonClassName} disabled={disabled} type="button" onClick={() => emitRows(rows.filter((_, itemIndex) => itemIndex !== index))}>Remove</button>
+          <input className={inputClassName(isDarkTheme)} disabled={disabled} inputMode="decimal" placeholder={rendererCopy.pricePlaceholder} value={row.price} onChange={(event) => emitRows(rows.map((item, itemIndex) => itemIndex === index ? { ...item, price: event.target.value } : item))} />
+          <input className={inputClassName(isDarkTheme)} disabled={disabled} inputMode="decimal" placeholder={rendererCopy.percentPlaceholder} value={row.percent} onChange={(event) => emitRows(rows.map((item, itemIndex) => itemIndex === index ? { ...item, percent: event.target.value } : item))} />
+          <button className={buttonClassName} disabled={disabled} type="button" onClick={() => emitRows(rows.filter((_, itemIndex) => itemIndex !== index))}>{rendererCopy.removeRow}</button>
         </div>
       ))}
-      <button className={buttonClassName} disabled={disabled} type="button" onClick={() => emitRows([...rows, { percent: "", price: "" }])}>Add ladder row</button>
+      <button className={buttonClassName} disabled={disabled} type="button" onClick={() => emitRows([...rows, { percent: "", price: "" }])}>{rendererCopy.addLadderRow}</button>
     </div>
   );
 };
@@ -200,6 +237,10 @@ function textareaClassName(isDarkTheme: boolean, extra: string): string {
   return isDarkTheme
     ? `${extra} w-full rounded-2xl border border-white/[0.085] bg-[#0F131A] px-3 py-2 text-slate-100 outline-none placeholder:text-slate-600 focus:border-sky-400/45`
     : `${extra} w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none placeholder:text-slate-400 focus:border-sky-400`;
+}
+
+function getStrategySchemaCopy(props: WidgetProps): StrategySchemaCopy {
+  return (props.formContext as RendererContext | undefined)?.strategySchemaCopy as StrategySchemaCopy;
 }
 
 export function createStrategyConfigSkeleton(schema?: JsonRecord): JsonRecord {
