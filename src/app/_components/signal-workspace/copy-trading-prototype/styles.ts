@@ -67,8 +67,8 @@ export function getAccountCenterTabButtonClassName(isDarkTheme: boolean, isActiv
 
 export function getNotificationConfigureButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-[#E29A7C]/25 bg-[#D97955] px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-[#E08A67]"
-    : "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-[#C96748]/15 bg-[#DC7958] px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-[#CF6B4B]";
+    ? "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-white/[0.075] bg-white/[0.04] px-4 text-sm font-black text-slate-200 shadow-sm transition hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-slate-50"
+    : "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-[#D5E4EF] bg-white px-4 text-sm font-black text-slate-700 shadow-sm transition hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
 }
 
 export function getNotificationSaveButtonClassName(isDarkTheme: boolean): string {
