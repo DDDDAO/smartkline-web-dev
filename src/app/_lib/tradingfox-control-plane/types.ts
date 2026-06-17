@@ -141,6 +141,21 @@ export type TradingFoxAccountStatus = {
   usdtUsed: number;
 };
 
+export type TradingFoxStrategyCurvePoint = {
+  currency?: string;
+  equity?: number | null;
+  pnl: number | null;
+  roi: number | null;
+  timestamp: string;
+};
+
+export type TradingFoxStrategyCurve = {
+  baseEquity?: number | null;
+  currency?: string;
+  points: TradingFoxStrategyCurvePoint[];
+  updatedAt?: string;
+};
+
 export type TradingFoxPosition = {
   symbol: string;
   side: string;
@@ -238,6 +253,8 @@ export type TradingFoxStrategyDetail = {
   positionsError?: string;
   signalSources: TradingFoxSignalSource[];
   signalSourcesError?: string;
+  strategyCurve: TradingFoxStrategyCurve | null;
+  strategyCurveError?: string;
   strategy: TradingFoxCopyStrategy;
   trader: TradingFoxTrader;
 };

@@ -22,6 +22,7 @@ import type {
   TradingFoxRuntimeStatus,
   TradingFoxRuntimeStatusResponse,
   TradingFoxSignalSource,
+  TradingFoxStrategyCurve,
   TradingFoxStrategyDetail,
   TradingFoxTrader,
 } from "./tradingfox-control-plane/types";
@@ -53,6 +54,8 @@ export type {
   TradingFoxPosition,
   TradingFoxRuntimeStatus,
   TradingFoxSignalSource,
+  TradingFoxStrategyCurve,
+  TradingFoxStrategyCurvePoint,
   TradingFoxStrategyDetail,
   TradingFoxTrader,
 } from "./tradingfox-control-plane/types";
@@ -71,6 +74,23 @@ const TRADINGFOX_ACTION_SYNC_POSITIONS = "sync_positions";
 type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
 type TradingFoxLiveExchangePlatform = "Aster" | "Binance" | "Bitget" | "Bybit" | "Gate" | "HyperLiquid" | "OKX";
 
+type TradingFoxAccountStatusResponse = {
+  account?: TradingFoxAccountStatus | null;
+  accountSnapshots?: unknown;
+  account_snapshots?: unknown;
+  curve?: unknown;
+  data?: unknown;
+  items?: unknown;
+  performanceCurve?: unknown;
+  performance_curve?: unknown;
+  points?: unknown;
+  snapshots?: unknown;
+  strategyCurve?: unknown;
+  strategy_curve?: unknown;
+  updatedAt?: unknown;
+  updated_at?: unknown;
+};
+
 
 export async function getTradingFoxAccount(session: TelegramAuthSession): Promise<TradingFoxAccountResponse> {
   const userId = tradingFoxUserIdFromSession(session);
@@ -80,7 +100,7 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
   ]);
   const activeConnectors = pickActiveConnectors(connectors.items);
   const connectorById = new Map(activeConnectors.map((connector) => [connector.id, connector]));
-  const accountEquityByConnectorId = new Map<number, number>();
+  const accountEquityByConnectorId = await getTradingFoxConnectorAccountEquityById(activeConnectors);
   const strategies = await Promise.all(traders.items.map(async (trader) => {
     const connector = connectorById.get(trader.exchangeConnectorId) ?? null;
     const strategy = mapCopyStrategy(trader, connector);
@@ -89,17 +109,17 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
     }
 
     const [accountStatus, positions] = await Promise.all([
-      settleTradingFoxRequest<{ account: TradingFoxAccountStatus }>(`/v1/traders/${trader.id}/account-status`),
+      settleTradingFoxRequest<TradingFoxAccountStatusResponse>(`/v1/traders/${trader.id}/account-status`),
       settleTradingFoxRequest<{ items: TradingFoxPosition[] }>(`/v1/traders/${trader.id}/positions`),
     ]);
-    const accountEquity = accountStatus.value?.account.equity;
+    const accountEquity = accountStatus.value?.account?.equity;
     if (typeof accountEquity === "number" && Number.isFinite(accountEquity)) {
       accountEquityByConnectorId.set(trader.exchangeConnectorId, accountEquity);
     }
 
     return {
       ...strategy,
-      accountEquity: accountStatus.value?.account.equity,
+      accountEquity: accountStatus.value?.account?.equity,
       unrealizedPnl: positions.value?.items.reduce((sum, position) => sum + numberValue(position.unrealizedPnl), 0),
     };
   }));
@@ -114,6 +134,22 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
     connectors: publicConnectors,
     strategies: strategies.filter((strategy) => strategy !== null),
   };
+}
+
+async function getTradingFoxConnectorAccountEquityById(
+  connectors: readonly TradingFoxConnector[],
+): Promise<Map<number, number>> {
+  const entries = await Promise.all(connectors.map(async (connector) => {
+    const accountStatus = await settleTradingFoxRequest<TradingFoxAccountStatusResponse>(
+      `/v1/exchange-connectors/${connector.id}/account-status`,
+    );
+    const accountEquity = accountStatus.value?.account?.equity;
+    return typeof accountEquity === "number" && Number.isFinite(accountEquity)
+      ? ([connector.id, accountEquity] as const)
+      : null;
+  }));
+
+  return new Map(entries.filter((entry): entry is readonly [number, number] => entry !== null));
 }
 
 export async function createTradingFoxMockConnector(
@@ -404,24 +440,32 @@ export async function getTradingFoxCopyStrategyDetail(
     }
     : mappedStrategy;
 
-  const [accountStatus, positions, signalSources, orderHistory] = await Promise.all([
-    settleTradingFoxRequest<{ account: TradingFoxAccountStatus }>(`/v1/traders/${traderId}/account-status`),
+  const [accountStatus, positions, signalSources, orderHistory, strategyCurveResponse] = await Promise.all([
+    settleTradingFoxRequest<TradingFoxAccountStatusResponse>(`/v1/traders/${traderId}/account-status`),
     settleTradingFoxRequest<{ items: TradingFoxPosition[] }>(`/v1/traders/${traderId}/positions`),
     settleTradingFoxRequest<{ items: TradingFoxSignalSource[] }>(`/v1/traders/${traderId}/signal-source-positions`),
     settleTradingFoxRequest<TradingFoxOrderHistory>(
       `/v1/traders/${traderId}/orders?limit=${orderHistoryPage.fetchLimit}`,
     ),
+    settleTradingFoxStrategyCurveRequest(traderId),
   ]);
 
   const signalSourceItems = signalSources.value?.items ?? [];
   const normalizedOrderHistory = orderHistory.value
     ? applyTradingFoxOrderHistoryPage(orderHistory.value, orderHistoryPage, strategy.startedAt)
     : null;
+  const accountInitialEquity = connector && !isBinanceDemoConnector(connector) ? connector.mockMarginBalance : undefined;
+  const strategyCurve = adaptTradingFoxStrategyCurve(
+    readTradingFoxStrategyCurvePayload(strategyCurveResponse.value, accountStatus.value, trader),
+    {
+      baseEquity: accountInitialEquity,
+    },
+  );
 
   return {
     account: accountStatus.value?.account ?? null,
     accountError: accountStatus.error,
-    accountInitialEquity: connector && !isBinanceDemoConnector(connector) ? connector.mockMarginBalance : undefined,
+    accountInitialEquity,
     orderHistory: normalizedOrderHistory
       ? enrichTradingFoxOrderHistorySignalSourcePrices(normalizedOrderHistory, signalSourceItems)
       : null,
@@ -430,9 +474,383 @@ export async function getTradingFoxCopyStrategyDetail(
     positionsError: positions.error,
     signalSources: signalSourceItems,
     signalSourcesError: signalSources.error,
+    strategyCurve,
+    strategyCurveError: strategyCurve ? undefined : normalizeTradingFoxStrategyCurveError(strategyCurveResponse.error),
     strategy,
     trader,
   };
+}
+
+async function settleTradingFoxStrategyCurveRequest(
+  traderId: number,
+): Promise<{ error?: string; value?: unknown }> {
+  const primaryResponse = await settleTradingFoxRequest<unknown>(`/v1/traders/${traderId}/strategy-curve?limit=240`);
+  if (primaryResponse.value !== undefined) {
+    return primaryResponse;
+  }
+
+  const performanceResponse = await settleTradingFoxRequest<unknown>(`/v1/traders/${traderId}/performance-curve?limit=240`);
+  if (performanceResponse.value !== undefined) {
+    return performanceResponse;
+  }
+
+  const snapshotResponse = await settleTradingFoxRequest<unknown>(`/v1/traders/${traderId}/account-snapshots?limit=240`);
+  return snapshotResponse.value !== undefined ? snapshotResponse : primaryResponse;
+}
+
+function normalizeTradingFoxStrategyCurveError(error: string | undefined): string | undefined {
+  if (!error) {
+    return undefined;
+  }
+
+  return /(?:not found|route not found)/iu.test(error) ? undefined : error;
+}
+
+function readTradingFoxStrategyCurvePayload(...sources: readonly unknown[]): unknown {
+  for (const source of sources) {
+    const payload = readTradingFoxStrategyCurvePayloadFromSource(source);
+    if (payload !== undefined) {
+      return payload;
+    }
+  }
+
+  return undefined;
+}
+
+function readTradingFoxStrategyCurvePayloadFromSource(source: unknown): unknown {
+  if (!isRecord(source)) {
+    return Array.isArray(source) ? source : undefined;
+  }
+
+  const candidates = [
+    source.strategyCurve,
+    source.strategy_curve,
+    source.performanceCurve,
+    source.performance_curve,
+    source.accountSnapshots,
+    source.account_snapshots,
+    source.snapshots,
+    source.curve,
+    source.points,
+    source.items,
+    source.data,
+  ];
+  return candidates.find((candidate) => candidate !== undefined && candidate !== null);
+}
+
+function adaptTradingFoxStrategyCurve(
+  payload: unknown,
+  options: {
+    baseEquity?: number;
+  },
+): TradingFoxStrategyCurve | null {
+  const pointSources = readTradingFoxStrategyCurvePointSources(payload);
+  const rawPoints = [...pointSources.combined, ...pointSources.roi, ...pointSources.pnl];
+  const explicitBaseEquity = readTradingFoxCurveBaseEquity(payload);
+  const baseEquity = positiveNumberOrNull(explicitBaseEquity)
+    ?? positiveNumberOrNull(options.baseEquity)
+    ?? firstPositiveEquity(rawPoints);
+
+  const pointsByTimestamp = new Map<string, TradingFoxStrategyCurve["points"][number]>();
+  for (const point of pointSources.combined) {
+    mergeTradingFoxStrategyCurvePoint(pointsByTimestamp, normalizeTradingFoxStrategyCurvePoint(point, "combined", baseEquity));
+  }
+  for (const point of pointSources.roi) {
+    mergeTradingFoxStrategyCurvePoint(pointsByTimestamp, normalizeTradingFoxStrategyCurvePoint(point, "roi", baseEquity));
+  }
+  for (const point of pointSources.pnl) {
+    mergeTradingFoxStrategyCurvePoint(pointsByTimestamp, normalizeTradingFoxStrategyCurvePoint(point, "pnl", baseEquity));
+  }
+
+  const points = Array.from(pointsByTimestamp.values())
+    .filter((point) => point.roi !== null || point.pnl !== null)
+    .sort((left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp));
+  if (points.length === 0) {
+    return null;
+  }
+
+  return {
+    ...(baseEquity !== null ? { baseEquity } : {}),
+    currency: readTradingFoxCurveCurrency(payload) ?? points.find((point) => point.currency)?.currency,
+    points,
+    updatedAt: readTradingFoxCurveUpdatedAt(payload)
+      ?? points[points.length - 1]?.timestamp
+      ?? new Date().toISOString(),
+  };
+}
+
+function readTradingFoxStrategyCurvePointSources(payload: unknown): {
+  combined: Record<string, unknown>[];
+  pnl: Record<string, unknown>[];
+  roi: Record<string, unknown>[];
+} {
+  if (Array.isArray(payload)) {
+    return {
+      combined: payload.filter(isRecord),
+      pnl: [],
+      roi: [],
+    };
+  }
+
+  if (!isRecord(payload)) {
+    return {
+      combined: [],
+      pnl: [],
+      roi: [],
+    };
+  }
+
+  return {
+    combined: firstRecordList(payload.points, payload.items, payload.curve, payload.snapshots, payload.accountSnapshots, payload.account_snapshots, payload.data),
+    pnl: firstRecordList(payload.pnlCurve, payload.pnl_curve, payload.pnlPoints, payload.pnl_points),
+    roi: firstRecordList(payload.roiCurve, payload.roi_curve, payload.roiPoints, payload.roi_points, payload.returnCurve, payload.return_curve),
+  };
+}
+
+function normalizeTradingFoxStrategyCurvePoint(
+  point: Record<string, unknown>,
+  metric: "combined" | "pnl" | "roi",
+  baseEquity: number | null,
+): TradingFoxStrategyCurve["points"][number] | null {
+  const timestamp = normalizeTradingFoxCurveTimestamp(
+    point.timestamp
+      ?? point.time
+      ?? point.statTime
+      ?? point.stat_time
+      ?? point.createdAt
+      ?? point.created_at
+      ?? point.snapshotTime
+      ?? point.snapshot_time
+      ?? point.date,
+  );
+  if (!timestamp) {
+    return null;
+  }
+
+  const pointMetric = readTradingFoxCurvePointMetric(point) ?? metric;
+  const equity = numberOrNull(point.equity ?? point.accountEquity ?? point.account_equity ?? point.marginBalance ?? point.margin_balance);
+  const explicitPnl = readTradingFoxCurvePnl(point, pointMetric);
+  const pnl = pointMetric === "roi" ? null : explicitPnl ?? calculateTradingFoxCurvePnlFromEquity(equity, baseEquity);
+  const explicitRoi = readTradingFoxCurveRoi(point, pointMetric);
+  const roi = pointMetric === "pnl" ? null : explicitRoi ?? calculateTradingFoxCurveRoi(pnl, baseEquity);
+  const currency = normalizeOptionalText(point.currency ?? point.asset ?? point.quoteAsset ?? point.quote_asset);
+
+  return {
+    ...(currency ? { currency } : {}),
+    equity,
+    pnl,
+    roi,
+    timestamp,
+  };
+}
+
+function readTradingFoxCurvePointMetric(point: Record<string, unknown>): "pnl" | "roi" | null {
+  const metric = normalizeOptionalText(point.metric ?? point.dataType ?? point.data_type ?? point.type).toLowerCase();
+  if (metric.includes("roi") || metric.includes("return")) {
+    return "roi";
+  }
+  if (metric.includes("pnl") || metric.includes("profit")) {
+    return "pnl";
+  }
+  return null;
+}
+
+function mergeTradingFoxStrategyCurvePoint(
+  pointsByTimestamp: Map<string, TradingFoxStrategyCurve["points"][number]>,
+  point: TradingFoxStrategyCurve["points"][number] | null,
+): void {
+  if (!point) {
+    return;
+  }
+
+  const currentPoint = pointsByTimestamp.get(point.timestamp);
+  if (!currentPoint) {
+    pointsByTimestamp.set(point.timestamp, point);
+    return;
+  }
+
+  pointsByTimestamp.set(point.timestamp, {
+    currency: currentPoint.currency ?? point.currency,
+    equity: currentPoint.equity ?? point.equity,
+    pnl: currentPoint.pnl ?? point.pnl,
+    roi: currentPoint.roi ?? point.roi,
+    timestamp: point.timestamp,
+  });
+}
+
+function firstRecordList(...values: readonly unknown[]): Record<string, unknown>[] {
+  for (const value of values) {
+    if (Array.isArray(value)) {
+      return value.filter(isRecord);
+    }
+
+    const nestedPayload = readTradingFoxStrategyCurvePayloadFromSource(value);
+    if (Array.isArray(nestedPayload)) {
+      return nestedPayload.filter(isRecord);
+    }
+  }
+
+  return [];
+}
+
+function readTradingFoxCurvePnl(point: Record<string, unknown>, metric: "combined" | "pnl" | "roi"): number | null {
+  const realizedPnl = numberOrNull(point.realizedPnl ?? point.realized_pnl);
+  const unrealizedPnl = numberOrNull(point.unrealizedPnl ?? point.unrealized_pnl ?? point.unPnl ?? point.un_pnl);
+  const combinedPnl = realizedPnl !== null || unrealizedPnl !== null
+    ? (realizedPnl ?? 0) + (unrealizedPnl ?? 0)
+    : null;
+
+  const pnl = numberOrNull(
+    point.pnl
+      ?? point.pnlAmount
+      ?? point.pnl_amount
+      ?? point.totalPnl
+      ?? point.total_pnl
+      ?? point.profit
+      ?? point.profitAmount
+      ?? point.profit_amount,
+  ) ?? combinedPnl;
+
+  return pnl ?? (metric === "pnl" ? numberOrNull(point.value) : null);
+}
+
+function readTradingFoxCurveRoi(point: Record<string, unknown>, metric: "combined" | "pnl" | "roi"): number | null {
+  const percentValue = firstNumberOrNull(
+    point.roiPercent,
+    point.roi_percent,
+    point.returnPercent,
+    point.return_percent,
+    point.pnlPercent,
+    point.pnl_percent,
+  );
+  if (percentValue !== null) {
+    return percentValue;
+  }
+
+  const rateValue = firstTradingFoxCurveRateAsPercent(
+    point.roi,
+    point.returnRate,
+    point.return_rate,
+    point.pnlRate,
+    point.pnl_rate,
+    point.profitRate,
+    point.profit_rate,
+  );
+  if (rateValue !== null) {
+    return rateValue;
+  }
+
+  return metric === "roi" ? normalizeTradingFoxCurveRateAsPercent(point.value) : null;
+}
+
+function calculateTradingFoxCurvePnlFromEquity(equity: number | null, baseEquity: number | null): number | null {
+  if (equity === null || baseEquity === null) {
+    return null;
+  }
+  return equity - baseEquity;
+}
+
+function calculateTradingFoxCurveRoi(pnl: number | null, baseEquity: number | null): number | null {
+  if (pnl === null || baseEquity === null || baseEquity <= 0) {
+    return null;
+  }
+  return (pnl / baseEquity) * 100;
+}
+
+function readTradingFoxCurveBaseEquity(payload: unknown): number | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  return numberOrNull(payload.baseEquity ?? payload.base_equity ?? payload.initialEquity ?? payload.initial_equity);
+}
+
+function readTradingFoxCurveCurrency(payload: unknown): string | undefined {
+  if (!isRecord(payload)) {
+    return undefined;
+  }
+
+  return normalizeOptionalText(payload.currency ?? payload.asset ?? payload.quoteAsset ?? payload.quote_asset) || undefined;
+}
+
+function readTradingFoxCurveUpdatedAt(payload: unknown): string | undefined {
+  if (!isRecord(payload)) {
+    return undefined;
+  }
+
+  return normalizeTradingFoxCurveTimestamp(payload.updatedAt ?? payload.updated_at) ?? undefined;
+}
+
+function firstNumberOrNull(...values: readonly unknown[]): number | null {
+  for (const value of values) {
+    const number = numberOrNull(value);
+    if (number !== null) {
+      return number;
+    }
+  }
+
+  return null;
+}
+
+function firstTradingFoxCurveRateAsPercent(...values: readonly unknown[]): number | null {
+  for (const value of values) {
+    const normalizedValue = normalizeTradingFoxCurveRateAsPercent(value);
+    if (normalizedValue !== null) {
+      return normalizedValue;
+    }
+  }
+
+  return null;
+}
+
+function normalizeTradingFoxCurveRateAsPercent(value: unknown): number | null {
+  const number = numberOrNull(value);
+  if (number === null) {
+    return null;
+  }
+
+  /**
+   * Trading backends often expose ROI/rate fields as ratios while percent-suffixed
+   * fields are already percentages. The strategy detail UI formats percent units,
+   * so ratio-looking values are normalized before rendering.
+   */
+  return typeof value === "string" && value.trim().endsWith("%")
+    ? number
+    : Math.abs(number) <= 1
+      ? number * 100
+      : number;
+}
+
+function firstPositiveEquity(points: readonly Record<string, unknown>[]): number | null {
+  for (const point of points) {
+    const equity = positiveNumberOrNull(point.equity ?? point.accountEquity ?? point.account_equity ?? point.marginBalance ?? point.margin_balance);
+    if (equity !== null) {
+      return equity;
+    }
+  }
+
+  return null;
+}
+
+function normalizeTradingFoxCurveTimestamp(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const milliseconds = Math.abs(value) < 1_000_000_000_000 ? value * 1_000 : value;
+    const date = new Date(milliseconds);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  const numericValue = Number(trimmedValue);
+  if (Number.isFinite(numericValue)) {
+    return normalizeTradingFoxCurveTimestamp(numericValue);
+  }
+
+  const date = new Date(trimmedValue);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 export async function syncTradingFoxCopyStrategyPositions(
@@ -778,17 +1196,17 @@ function isBinanceDemoConnector(connector: TradingFoxConnector): boolean {
 
 function tradingFoxCopyTradersPath(userId: number): string {
   const query = new URLSearchParams({
-    traderDefinitionId: TRADINGFOX_COPY_TRADER_DEFINITION_ID,
+    strategyDefinitionId: TRADINGFOX_COPY_STRATEGY_DEFINITION_ID,
     userId: String(userId),
   });
   return `/v1/traders?${query.toString()}`;
 }
 
 function isCopyTradingTrader(trader: TradingFoxTrader): boolean {
-  return normalizeTraderDefinitionId(trader.traderDefinitionId) === TRADINGFOX_COPY_TRADER_DEFINITION_ID;
+  return normalizeStrategyDefinitionId(trader.strategyDefinitionId) === TRADINGFOX_COPY_STRATEGY_DEFINITION_ID;
 }
 
-function normalizeTraderDefinitionId(value: unknown): string {
+function normalizeStrategyDefinitionId(value: unknown): string {
   return normalizeOptionalText(value).toUpperCase();
 }
 
@@ -877,6 +1295,24 @@ function normalizeOptionalText(value: unknown): string {
 function normalizePositiveNumber(value: unknown): number | undefined {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) && number > 0 ? number : undefined;
+}
+
+function numberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  if (typeof value === "string" && value.trim().endsWith("%")) {
+    const number = Number(value.trim().replace(/%$/u, ""));
+    return Number.isFinite(number) ? number : null;
+  }
+
+  const number = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function positiveNumberOrNull(value: unknown): number | null {
+  const number = numberOrNull(value);
+  return number !== null && number > 0 ? number : null;
 }
 
 function parsePositiveInteger(value: string, fieldName: string): number {
