@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary } from "@/app/_lib/tradingfox-control-plane";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import { TradingAccountSelect } from "./account-connection-ui";
 import { CopyTradingCreateBody, StrategyTypeOptionButton } from "./strategy-create-fields";
 import { PrototypeInput } from "./prototype-form-fields";
-import { createStrategyConfigSkeleton, StrategySchemaRenderer, type StrategySchemaRendererState } from "./strategy-schema-renderer";
+import { DefinitionDrivenConfigForm, type JsonRecord } from "./strategy-definition-config-form";
+import { createStrategyConfigSkeleton, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import type { CopyTradingPrototypeTarget, PrototypeApiConnection, PrototypeStrategy, PrototypeStrategyCreateInput, PrototypeStrategyType } from "./types";
 import { getIconButtonClassName, getInlineErrorClassName, getLabelClassName, getPrimaryButtonClassName, getSoftButtonClassName } from "./styles";
 import { formatDefaultCopyStrategyName } from "./target-utils";
@@ -18,8 +19,6 @@ const COPY_TRADING_DEFINITION_ID = "COPY_TRADING";
 const MARIO_DEFINITION_ID = "MARIO_STRATEGY";
 
 type StrategyDefinitionDetailsById = Record<string, TradingFoxStrategyDefinition | undefined>;
-type JsonRecord = Record<string, unknown>;
-
 export function StrategyCreateLayer({
   apiConnections,
   availableSignalSources,
@@ -386,107 +385,6 @@ export function StrategyCreateLayer({
   );
 }
 
-function DefinitionDrivenConfigForm({
-  config,
-  copy,
-  definition,
-  isDarkTheme,
-  onBranchChange,
-  onRendererStateChange,
-}: {
-  config: JsonRecord;
-  copy: WorkspaceCopy;
-  definition: TradingFoxStrategyDefinition;
-  isDarkTheme: boolean;
-  onBranchChange: (branch: "common" | "strategy", nextBranchConfig: JsonRecord) => void;
-  onRendererStateChange: (state: StrategySchemaRendererState) => void;
-}) {
-  const strategyCreateCopy = copy.workspace.accountCenter.strategyCreate;
-  const [commonErrors, setCommonErrors] = useState<string[]>([]);
-  const [strategyErrors, setStrategyErrors] = useState<string[]>([]);
-  const commonSchema = schemaBranch(definition.configSchema, "common");
-  const strategySchema = definition.strategyConfigSchema ?? schemaBranch(definition.configSchema, "strategy");
-  const commonUiSchema = uiSchemaBranch(definition.uiSchema, "common");
-  const strategyUiSchema = definition.strategyUiSchema ?? uiSchemaBranch(definition.uiSchema, "strategy");
-  const commonConfig = recordBranch(config, "common");
-  const strategyConfig = recordBranch(config, "strategy");
-
-  useEffect(() => {
-    const errors = [...commonErrors, ...strategyErrors];
-    onRendererStateChange({ canSubmit: errors.length === 0, errors });
-  }, [commonErrors, onRendererStateChange, strategyErrors]);
-
-  return (
-    <div className="space-y-4">
-      <ConfigSection
-        description={strategyCreateCopy.commonConfigDescription}
-        isDarkTheme={isDarkTheme}
-        title={strategyCreateCopy.commonConfigTitle}
-      >
-        <StrategySchemaRenderer
-          formData={commonConfig}
-          isDarkTheme={isDarkTheme}
-          mode="create"
-          schema={commonSchema}
-          uiSchema={commonUiSchema}
-          onChange={(nextConfig) => onBranchChange("common", nextConfig)}
-          onValidationStateChange={(state) => setCommonErrors(state.errors)}
-        />
-      </ConfigSection>
-
-      <ConfigSection
-        description={strategyCreateCopy.genericConfigDescription}
-        isDarkTheme={isDarkTheme}
-        title={strategyCreateCopy.genericConfigTitle}
-      >
-        <StrategySchemaRenderer
-          formData={strategyConfig}
-          isDarkTheme={isDarkTheme}
-          mode="create"
-          schema={strategySchema}
-          uiSchema={strategyUiSchema}
-          onChange={(nextConfig) => onBranchChange("strategy", nextConfig)}
-          onValidationStateChange={(state) => setStrategyErrors(state.errors)}
-        />
-      </ConfigSection>
-    </div>
-  );
-}
-
-function ConfigSection({
-  children,
-  description,
-  isDarkTheme,
-  title,
-}: {
-  children: ReactNode;
-  description: string;
-  isDarkTheme: boolean;
-  title: string;
-}) {
-  return (
-    <section className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
-      <h3 className="text-sm font-black">{title}</h3>
-      <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>{description}</p>
-      <div className="mt-3">{children}</div>
-    </section>
-  );
-}
-
-function schemaBranch(schema: JsonRecord | undefined, branch: "common" | "strategy"): JsonRecord | undefined {
-  const properties = isRecord(schema?.properties) ? schema.properties : null;
-  const branchSchema = properties && isRecord(properties[branch]) ? properties[branch] : undefined;
-  return branchSchema;
-}
-
-function uiSchemaBranch(uiSchema: JsonRecord | undefined, branch: "common" | "strategy"): JsonRecord | undefined {
-  return isRecord(uiSchema?.[branch]) ? uiSchema[branch] : undefined;
-}
-
-function recordBranch(config: JsonRecord, branch: "common" | "strategy"): JsonRecord {
-  return isRecord(config[branch]) ? config[branch] : {};
-}
-
 function strategyDefinitionCacheKey(definition: Pick<TradingFoxStrategyDefinitionSummary, "configSchemaVersion" | "id" | "version">): string {
   return `${definition.id}:${definition.version}:${definition.configSchemaVersion}`;
 }
@@ -582,8 +480,4 @@ async function validateStrategyConfig({
 async function readTradingFoxClientError(response: Response): Promise<string> {
   const payload = await response.json().catch(() => null) as { error?: string } | null;
   return payload?.error || `TradingFox request failed with status ${response.status}.`;
-}
-
-function isRecord(value: unknown): value is JsonRecord {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
