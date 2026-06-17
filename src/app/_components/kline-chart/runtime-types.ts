@@ -1,0 +1,53 @@
+import type { IChartApi, IPriceLine, ISeriesApi } from "lightweight-charts";
+import type { WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { PaperPositionRecord } from "@/app/_lib/paper-position";
+import type { MarketCandle } from "@/app/_types/market";
+import type { StructuredSignal } from "@/app/_types/signal";
+import type { KlineChartMetrics } from "./chart-metrics";
+import type { ChartTheme, PriceColorMode } from "./types";
+import type { SignalPriceRayPrimitive } from "./signal-price-ray-primitive";
+import type { KlineTradePointMarker, TradePointPrimitive } from "./trade-point-primitive";
+
+export type RuntimeRef<T> = {
+  current: T;
+};
+
+export type KlineChartRuntimeRefs = {
+  activePaperPositionRef: RuntimeRef<PaperPositionRecord | null>;
+  activeSignalDrawingReadyRef: RuntimeRef<boolean>;
+  activeSignalRef: RuntimeRef<StructuredSignal | null>;
+  candleSeriesRef: RuntimeRef<ISeriesApi<"Candlestick"> | null>;
+  candlesRef: RuntimeRef<readonly MarketCandle[]>;
+  canLoadOlderHistoryRef: RuntimeRef<boolean>;
+  chartMetricsRef: RuntimeRef<KlineChartMetrics>;
+  chartRef: RuntimeRef<IChartApi | null>;
+  containerRef: RuntimeRef<HTMLDivElement | null>;
+  currentCandleCountdownTextRef: RuntimeRef<string>;
+  currentPriceTagRef: RuntimeRef<HTMLDivElement | null>;
+  eventSignalsRef: RuntimeRef<readonly StructuredSignal[]>;
+  handledFocusSignalRequestKeyRef: RuntimeRef<string | null>;
+  handledFocusTimeRequestKeyRef: RuntimeRef<string | null>;
+  hasFittedContentRef: RuntimeRef<boolean>;
+  hiddenSignalHintRef: RuntimeRef<HTMLDivElement | null>;
+  hoveredCandleInfoRef: RuntimeRef<HTMLDivElement | null>;
+  isLoadingOlderHistoryRef: RuntimeRef<boolean>;
+  labelOverlayRef: RuntimeRef<HTMLDivElement | null>;
+  languageRef: RuntimeRef<WorkspaceLanguage>;
+  lifecycleOverlayRef: RuntimeRef<HTMLDivElement | null>;
+  onEventSignalSelectRef: RuntimeRef<(signal: StructuredSignal) => void>;
+  onLoadOlderHistoryRef: RuntimeRef<() => void>;
+  onTradeMarkerSelectRef: RuntimeRef<((markerId: string) => void) | undefined>;
+  priceColorModeRef: RuntimeRef<PriceColorMode>;
+  priceLineRefs: RuntimeRef<IPriceLine[]>;
+  renderedCandlesRef: RuntimeRef<readonly MarketCandle[]>;
+  renderedPriceColorModeRef: RuntimeRef<PriceColorMode>;
+  renderedThemeRef: RuntimeRef<ChartTheme>;
+  signalDataGuideTargetRef: RuntimeRef<HTMLDivElement | null>;
+  signalRayPrimitiveRef: RuntimeRef<SignalPriceRayPrimitive | null>;
+  themeRef: RuntimeRef<ChartTheme>;
+  tradeMarkerTooltipRef: RuntimeRef<import("./trade-marker-tooltip").TradeMarkerTooltipState | null>;
+  tradeMarkersByIdRef: RuntimeRef<ReadonlyMap<string, KlineTradePointMarker>>;
+  tradeMarkersRef: RuntimeRef<readonly KlineTradePointMarker[]>;
+  tradePointPrimitiveRef: RuntimeRef<TradePointPrimitive | null>;
+  volumeSeriesRef: RuntimeRef<ISeriesApi<"Histogram"> | null>;
+};

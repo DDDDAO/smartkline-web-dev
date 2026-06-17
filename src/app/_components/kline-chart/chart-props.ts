@@ -1,0 +1,32 @@
+import type { WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { PaperPositionRecord } from "@/app/_lib/paper-position";
+import type { SignalAiSummary } from "@/app/_lib/signal-ai-summary";
+import type { KlineInterval, MarketCandle } from "@/app/_types/market";
+import type { StructuredSignal } from "@/app/_types/signal";
+import type { ChartTheme, ChartTimeFocusRequest, KlineSignalBiasSummary, PriceColorMode } from "./types";
+import type { KlineTradePointMarker } from "./trade-point-primitive";
+
+export type KlineChartProps = {
+  activePaperPosition: PaperPositionRecord | null;
+  activeSignal: StructuredSignal | null;
+  activeSignalDrawingReady: boolean;
+  aiSummary: SignalAiSummary | null;
+  candles: readonly MarketCandle[];
+  canLoadOlderHistory: boolean;
+  eventSignals: readonly StructuredSignal[];
+  focusSignalRequestKey: string | null;
+  focusTimeRequest?: ChartTimeFocusRequest | null;
+  interval: KlineInterval;
+  isCompactLayout?: boolean;
+  isLoadingOlderHistory: boolean;
+  language: WorkspaceLanguage;
+  priceColorMode: PriceColorMode;
+  signalBiasSummary?: KlineSignalBiasSummary | null;
+  theme: ChartTheme;
+  tradeMarkers: readonly KlineTradePointMarker[];
+  onEventSignalSelect: (signal: StructuredSignal) => void;
+  onFocusSignalRequestHandled: () => void;
+  onFocusTimeRequestHandled?: () => void;
+  onLoadOlderHistory: () => void;
+  onTradeMarkerSelect?: (markerId: string) => void;
+};
