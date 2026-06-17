@@ -189,8 +189,12 @@ type TradesResponse = {
 
 type SignalCenterReturnCurvePoint = {
   date?: string | null;
+  amount?: number | string | null;
   pnlRate?: number | string | null;
   pnl_rate?: number | string | null;
+  pnl?: number | string | null;
+  pnlAmount?: number | string | null;
+  pnl_amount?: number | string | null;
   ratio?: number | string | null;
   returnPercent?: number | string | null;
   returnRate?: number | string | null;
@@ -203,6 +207,8 @@ type SignalCenterReturnCurvePoint = {
   stat_time?: number | string | null;
   time?: number | string | null;
   timestamp?: number | string | null;
+  totalPnl?: number | string | null;
+  total_pnl?: number | string | null;
   value?: number | string | null;
 };
 
@@ -234,6 +240,8 @@ type SignalCenterRadarSourcePerformance = {
   maxDrawdown?: number | string | null;
   max_drawdown?: number | string | null;
   pnl?: number | string | null;
+  pnlCurve?: SignalCenterReturnCurvePoint[] | null;
+  pnl_curve?: SignalCenterReturnCurvePoint[] | null;
   returnCurve?: SignalCenterReturnCurvePoint[] | null;
   return_curve?: SignalCenterReturnCurvePoint[] | null;
   roi?: number | string | null;
@@ -552,6 +560,16 @@ function readSignalCenterReturnCurveValue(point: SignalCenterReturnCurvePoint): 
     ?? parsePercentNumber(point.return_percent);
 }
 
+function readSignalCenterPnlCurveValue(point: SignalCenterReturnCurvePoint): number | null {
+  return parseNumber(point.value)
+    ?? parseNumber(point.pnl)
+    ?? parseNumber(point.pnlAmount)
+    ?? parseNumber(point.pnl_amount)
+    ?? parseNumber(point.totalPnl)
+    ?? parseNumber(point.total_pnl)
+    ?? parseNumber(point.amount);
+}
+
 function parseRatioNumber(value: unknown): number | null {
   if (typeof value === "string" && value.trim().endsWith("%")) {
     return parsePercentNumber(value);
@@ -712,6 +730,7 @@ function createMockSignalCenterPerformance(
     marginBalance,
     maxDrawdown,
     pnl: basePnl,
+    pnlCurve: createMockPnlCurvePoints({ now, sourceId, targetPnl: basePnl }),
     returnCurve: createMockReturnCurvePoints({ now, sourceId, targetRoi: baseRoi }),
     roi: baseRoi,
     sharpeRatio: sharpRatio,
@@ -739,6 +758,29 @@ function createMockReturnCurvePoints({
     return {
       timestamp: now.getTime() - (pointCount - 1 - index) * 24 * 60 * 60 * 1_000,
       value: targetRoi * progress + wave + drawdown,
+    };
+  });
+}
+
+function createMockPnlCurvePoints({
+  now,
+  sourceId,
+  targetPnl,
+}: {
+  now: Date;
+  sourceId: string;
+  targetPnl: number;
+}): SignalCenterReturnCurvePoint[] {
+  const seed = stableSeed(`${sourceId}:pnl`);
+  const pointCount = 30;
+  const volatilityBase = Math.max(1_000, Math.abs(targetPnl) * 0.08);
+  return Array.from({ length: pointCount }, (_, index) => {
+    const progress = index / (pointCount - 1);
+    const wave = Math.sin((seed % 11) + progress * Math.PI * 3.4) * volatilityBase;
+    const pullback = index > pointCount * 0.42 && index < pointCount * 0.58 ? -Math.abs(targetPnl) * 0.12 : 0;
+    return {
+      timestamp: now.getTime() - (pointCount - 1 - index) * 24 * 60 * 60 * 1_000,
+      value: targetPnl * progress + wave + pullback,
     };
   });
 }
@@ -1010,6 +1052,7 @@ function adaptListSignalSourceMetrics(
     marginBalance: parseNumber(metrics?.marginBalance ?? metrics?.margin_balance ?? raw.marginBalance ?? source.margin),
     maxDrawdown: parsePercentageRatio(metrics?.maxDrawdown ?? metrics?.max_drawdown),
     pnl: parseNumber(metrics?.pnl),
+    pnlCurve: adaptListSignalSourceMetricPnlCurve(metrics?.pnlPoints ?? metrics?.pnl_points ?? []),
     returnCurve: adaptListSignalSourceMetricReturnCurve(metrics?.roiPoints ?? metrics?.roi_points ?? []),
     roi: parsePercentageRatio(metrics?.roi),
     sharpeRatio: parseNumber(metrics?.sharpe ?? metrics?.sharpeRatio ?? metrics?.sharpe_ratio ?? raw.sharpRatio),
@@ -1017,6 +1060,20 @@ function adaptListSignalSourceMetrics(
     winRate: parsePercentageRatio(metrics?.winRate ?? metrics?.win_rate),
     window: metrics?.window ?? null,
   };
+}
+
+function adaptListSignalSourceMetricPnlCurve(
+  points: readonly SignalCenterReturnCurvePoint[],
+): SignalCenterReturnCurvePoint[] {
+  return points.flatMap((point) => {
+    const timestamp = readSignalCenterReturnCurveTimestamp(point);
+    const value = readSignalCenterPnlCurveValue(point);
+    if (timestamp === null || value === null) {
+      return [];
+    }
+
+    return [{ timestamp, value }];
+  });
 }
 
 function adaptListSignalSourceMetricReturnCurve(
@@ -1113,6 +1170,7 @@ function adaptSignalCenterSourcePerformance(
     margin_balance: parseNumber(performance.marginBalance ?? performance.margin_balance),
     max_drawdown: parseNumber(performance.maxDrawdown ?? performance.max_drawdown),
     pnl: parseNumber(performance.pnl),
+    pnl_curve: adaptSignalCenterPnlCurvePointList(performance.pnlCurve ?? performance.pnl_curve ?? []),
     return_curve: adaptSignalCenterReturnCurvePointList(performance.returnCurve ?? performance.return_curve ?? []),
     roi: parseNumber(performance.roi),
     sharpe_ratio: parseNumber(performance.sharpeRatio ?? performance.sharpe_ratio),
@@ -1120,6 +1178,22 @@ function adaptSignalCenterSourcePerformance(
     win_rate: parseNumber(performance.winRate ?? performance.win_rate),
     window: readNonEmptyString(performance.window) ?? "30d",
   };
+}
+
+function adaptSignalCenterPnlCurvePointList(
+  points: readonly SignalCenterReturnCurvePoint[],
+): CopyTradingReturnCurvePoint[] {
+  return trimLeadingFlatReturnCurvePoints(points
+    .flatMap((point) => {
+      const timestamp = readSignalCenterReturnCurveTimestamp(point);
+      const value = readSignalCenterPnlCurveValue(point);
+      if (timestamp === null || value === null) {
+        return [];
+      }
+
+      return [{ timestamp, value }];
+    })
+    .sort((left, right) => left.timestamp - right.timestamp));
 }
 
 function adaptSignalCenterReturnCurvePointList(

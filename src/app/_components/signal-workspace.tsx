@@ -1096,12 +1096,15 @@ export function SignalWorkspace({
       );
     };
 
-    const loadSnapshot = async (allowMockFallback: boolean) => {
+    const loadSnapshot = async (allowMockFallback: boolean, showLoading: boolean) => {
       if (!isActive || isPolling) {
         return;
       }
 
       isPolling = true;
+      if (showLoading) {
+        setTopSignalsSourceStatus({ error: null, isLoading: true });
+      }
       try {
         const snapshot = await fetchCopyTradingRadarSnapshot({
           includePerformance: true,
@@ -1133,10 +1136,10 @@ export function SignalWorkspace({
       }
     };
 
-    void loadSnapshot(isTopSignalsTab);
+    void loadSnapshot(isTopSignalsTab, true);
     if (isTopSignalsTab) {
       pollingIntervalId = window.setInterval(() => {
-        void loadSnapshot(false);
+        void loadSnapshot(false, false);
       }, TOP_SIGNALS_POLL_INTERVAL_MS);
     }
 

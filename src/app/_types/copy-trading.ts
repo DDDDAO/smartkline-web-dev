@@ -9,8 +9,8 @@ export type CopyTradingReturnCurveWindow = "7d" | "30d" | "90d" | "180d" | "all"
 export type CopyTradingReturnCurvePoint = {
   timestamp: number;
   /**
-   * Signal Center normalizes return-curve values as ratios so the card can
-   * share the workspace percent formatter. For example, 0.1234 is +12.34%.
+   * Metric-specific curve value. ROI curves use normalized ratios, so 0.1234
+   * is +12.34%; PnL curves use the source performance asset amount.
    */
   value: number;
 };
@@ -23,6 +23,7 @@ export type CopyTradingTraderPerformance = {
   margin_balance: number | null;
   max_drawdown: number | null;
   pnl: number | null;
+  pnl_curve: CopyTradingReturnCurvePoint[];
   return_curve: CopyTradingReturnCurvePoint[];
   roi: number | null;
   sharpe_ratio: number | null;

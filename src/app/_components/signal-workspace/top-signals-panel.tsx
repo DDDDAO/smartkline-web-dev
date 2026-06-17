@@ -71,6 +71,8 @@ type TopSignalsPanelProps = {
   onSortKeyChange: (sortKey: TopSignalSortKey) => void;
 };
 
+type TopSignalPerformanceCurveMetric = "roi" | "pnl";
+
 const COMPACT_POSITION_ROWS_PER_SOURCE_CARD = 10;
 const EXPANDED_POSITION_ROWS_PER_PAGE = 100;
 const TOP_SIGNAL_ACTIVE_CARD_SCROLL_GAP_PX = 8;
@@ -87,6 +89,7 @@ const SMARTKLINE_SOURCE_AVATAR_STYLE: CSSProperties = {
 };
 
 const TOP_SIGNAL_PERFORMANCE_WINDOWS: readonly TopSignalPerformanceWindow[] = ["7d", "30d", "90d", "180d"];
+const TOP_SIGNAL_PERFORMANCE_CURVE_METRICS: readonly TopSignalPerformanceCurveMetric[] = ["roi", "pnl"];
 const TOP_SIGNAL_SORT_OPTIONS: readonly TopSignalSortKey[] = [
   "pnl",
   "roi",
@@ -313,6 +316,7 @@ export function TopSignalsPanel({
               isActive={isActive}
               isDarkTheme={isDarkTheme}
               isFlipped={isFlipped}
+              isPerformanceLoading={sourceStatus.isLoading}
               isWatchlisted={watchlistedSourceIds?.has(model.trader.trader_id) ?? false}
               model={model}
               performanceWindow={performanceWindow}
@@ -713,6 +717,7 @@ function TopSignalSourceCard({
   isActive,
   isDarkTheme,
   isFlipped,
+  isPerformanceLoading,
   isWatchlisted,
   model,
   performanceWindow,
@@ -732,6 +737,7 @@ function TopSignalSourceCard({
   isActive: boolean;
   isDarkTheme: boolean;
   isFlipped: boolean;
+  isPerformanceLoading: boolean;
   isWatchlisted: boolean;
   model: TopSignalSourceModel;
   performanceWindow: TopSignalPerformanceWindow;
@@ -895,6 +901,7 @@ function TopSignalSourceCard({
             <TopSignalPerformanceCurveCard
               copy={copy}
               isDarkTheme={isDarkTheme}
+              isPerformanceLoading={isPerformanceLoading}
               performance={performance}
               performanceWindow={performanceWindow}
               pnlColorMode={pnlColorMode}
@@ -1003,18 +1010,22 @@ function TopSignalSourceCard({
 function TopSignalPerformanceCurveCard({
   copy,
   isDarkTheme,
+  isPerformanceLoading,
   performance,
   performanceWindow,
   pnlColorMode,
 }: {
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
+  isPerformanceLoading: boolean;
   performance: CopyTradingTrader["performance"];
   performanceWindow: TopSignalPerformanceWindow;
   pnlColorMode: PnlColorMode;
 }) {
+  const [activeMetric, setActiveMetric] = useState<TopSignalPerformanceCurveMetric>("roi");
   const panelCopy = copy.workspace.topSignals;
-  const points = performance?.return_curve ?? [];
+  const isPnlMetric = activeMetric === "pnl";
+  const points = isPnlMetric ? (performance?.pnl_curve ?? []) : (performance?.return_curve ?? []);
   const latestPoint = points.length > 0 ? points[points.length - 1] : null;
   const metaText = performance?.updated_at
     ? panelCopy.updatedAt(formatDisplayTime(performance.updated_at))
@@ -1022,49 +1033,138 @@ function TopSignalPerformanceCurveCard({
   const cardClassName = isDarkTheme
     ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
     : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3";
-  const latestValue = latestPoint?.value ?? performance?.roi ?? null;
+  const performanceAsset = performance?.copier_pnl_asset || "USDT";
+  const latestValue = latestPoint?.value ?? (isPnlMetric ? performance?.pnl : performance?.roi) ?? null;
   const latestClassName = getPnlClassName(isDarkTheme, latestValue, pnlColorMode);
+  const titleText = isPnlMetric ? panelCopy.pnlCurve : panelCopy.returnCurve;
+  const latestLabel = isPnlMetric ? panelCopy.pnlCurveLatest : panelCopy.returnCurveLatest;
+  const latestValueText = isPnlMetric
+    ? formatSignedAssetAmount(latestValue, performanceAsset)
+    : formatSignedPercent(latestValue);
+  const emptyText = isPnlMetric ? panelCopy.pnlCurveEmpty : panelCopy.returnCurveEmpty;
+  const loadingText = isPnlMetric ? panelCopy.pnlCurveLoading : panelCopy.returnCurveLoading;
   const windowLabel = panelCopy.performanceWindows[performanceWindow] ?? performance?.window ?? performanceWindow;
+  const metricToggleShellClassName = isDarkTheme
+    ? "inline-flex rounded-full border border-white/[0.075] bg-[#0F131A] p-0.5"
+    : "inline-flex rounded-full border border-[#D5E4EF] bg-[#F8FAFC] p-0.5";
 
   return (
     <div className={cardClassName}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className={isDarkTheme ? "text-xs font-bold text-slate-100" : "text-xs font-bold text-slate-900"}>
-            {panelCopy.returnCurve}
+            {titleText}
           </div>
           <div className={isDarkTheme ? "mt-1 truncate text-[10px] font-medium text-slate-500" : "mt-1 truncate text-[10px] font-medium text-slate-400"}>
             {metaText}
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <div className={latestClassName}>{formatSignedPercent(latestValue)}</div>
+          <div className={latestClassName}>{latestValueText}</div>
           <div className={isDarkTheme ? "mt-1 text-[10px] text-slate-500" : "mt-1 text-[10px] text-slate-400"}>
-            {panelCopy.returnCurveLatest}
+            {latestLabel}
           </div>
         </div>
       </div>
-      <div className="mt-3 h-[92px]">
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <div className={isDarkTheme ? "text-[10px] font-medium text-slate-500" : "text-[10px] font-medium text-slate-400"}>
+          {windowLabel}
+        </div>
+        <div aria-label={panelCopy.curveMetricSwitch} className={metricToggleShellClassName} role="group">
+          {TOP_SIGNAL_PERFORMANCE_CURVE_METRICS.map((metric) => {
+            const isActive = metric === activeMetric;
+            const buttonClassName = isActive
+              ? "rounded-full bg-[#00A6F4] px-2.5 py-1 text-[10px] font-black text-white shadow-[0_6px_14px_rgba(0,166,244,0.18)]"
+              : isDarkTheme
+                ? "rounded-full px-2.5 py-1 text-[10px] font-bold text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-100"
+                : "rounded-full px-2.5 py-1 text-[10px] font-bold text-slate-500 transition hover:bg-white hover:text-slate-900";
+            return (
+              <button
+                key={metric}
+                aria-pressed={isActive}
+                className={buttonClassName}
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveMetric(metric);
+                }}
+              >
+                {metric === "pnl" ? panelCopy.pnl : panelCopy.roi}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="relative mt-3 h-[92px] overflow-hidden rounded-xl">
         {points.length > 0 ? (
-          <TopSignalReturnCurveChart
-            ariaLabel={panelCopy.returnCurve}
+          <>
+            <TopSignalReturnCurveChart
+              ariaLabel={titleText}
+              isDarkTheme={isDarkTheme}
+              pnlColorMode={pnlColorMode}
+              points={points}
+            />
+            {isPerformanceLoading ? (
+              <TopSignalCurveLoadingState
+                isDarkTheme={isDarkTheme}
+                label={loadingText}
+                variant="overlay"
+              />
+            ) : null}
+          </>
+        ) : isPerformanceLoading ? (
+          <TopSignalCurveLoadingState
             isDarkTheme={isDarkTheme}
-            pnlColorMode={pnlColorMode}
-            points={points}
+            label={loadingText}
+            variant="empty"
           />
         ) : (
           <div className={isDarkTheme ? "flex h-full items-center justify-center rounded-xl border border-white/[0.06] bg-[#181A20] px-3 text-center text-xs text-slate-500" : "flex h-full items-center justify-center rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 text-center text-xs text-slate-500"}>
-            {panelCopy.returnCurveEmpty}
+            {emptyText}
           </div>
         )}
       </div>
       {points.length > 0 ? (
         <div className={isDarkTheme ? "mt-2 flex items-center justify-between gap-3 text-[10px] text-slate-500" : "mt-2 flex items-center justify-between gap-3 text-[10px] text-slate-400"}>
           <span>{formatReturnCurveDate(points[0]?.timestamp ?? null)}</span>
-          <span className="truncate">{windowLabel}</span>
+          <span className="truncate">{titleText}</span>
           <span>{formatReturnCurveDate(latestPoint?.timestamp ?? null)}</span>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function TopSignalCurveLoadingState({
+  isDarkTheme,
+  label,
+  variant,
+}: {
+  isDarkTheme: boolean;
+  label: string;
+  variant: "empty" | "overlay";
+}) {
+  const shellClassName = variant === "overlay"
+    ? isDarkTheme
+      ? "pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl border border-sky-400/10 bg-[#181A20]/78 backdrop-blur-[2px]"
+      : "pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl border border-sky-100 bg-white/78 backdrop-blur-[2px]"
+    : isDarkTheme
+      ? "flex h-full items-center justify-center rounded-xl border border-white/[0.06] bg-[#181A20] px-3"
+      : "flex h-full items-center justify-center rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] px-3";
+  const barClassName = "kline-loading-bar rounded-[1px] bg-[#00A6F4]";
+  const labelClassName = isDarkTheme ? "mt-2 text-[10px] font-bold text-slate-400" : "mt-2 text-[10px] font-bold text-slate-500";
+
+  return (
+    <div className={shellClassName}>
+      <div className="grid justify-items-center">
+        <div aria-hidden="true" className="flex items-end justify-center gap-[4px]">
+          <div className={`${barClassName} h-[6px] w-[3px]`} style={{ animationDelay: "-0.32s" }} />
+          <div className={`${barClassName} h-[10px] w-[3px]`} style={{ animationDelay: "-0.24s" }} />
+          <div className={`${barClassName} h-[16px] w-[3px]`} style={{ animationDelay: "-0.16s" }} />
+          <div className={`${barClassName} h-[12px] w-[3px]`} style={{ animationDelay: "-0.08s" }} />
+        </div>
+        <div className={labelClassName}>{label}</div>
+      </div>
     </div>
   );
 }
