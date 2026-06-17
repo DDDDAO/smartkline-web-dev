@@ -286,7 +286,7 @@ function createTradePointDrawingState(input: {
   const paneSize = context.chart.paneSize(0);
   const stackIndexes = new Map<string, number>();
   const anchorCandlesByMarkerTime = new Map<number, MarketCandle | null>();
-  const coordinatesByMarkerTime = new Map<number, TradePointCandleCoordinates | null>();
+  const coordinatesByCandleTime = new Map<number, TradePointCandleCoordinates | null>();
   const visibleSourceTimeRange = resolveVisibleSourceTimeRange(context.chart, candles);
   const visibleMarkers = selectVisibleTradeMarkers(markers, visibleSourceTimeRange);
   const items: DrawnTradePoint[] = [];
@@ -310,7 +310,7 @@ function createTradePointDrawingState(input: {
       continue;
     }
 
-    const coordinates = getCachedTradePointCandleCoordinates(coordinatesByMarkerTime, context, candles, anchorCandle, marker.sourceTimeMs);
+    const coordinates = getCachedTradePointCandleCoordinates(coordinatesByCandleTime, context, anchorCandle);
     if (!coordinates) {
       continue;
     }
@@ -389,15 +389,21 @@ function getCachedPrecedingCandle(
 function getCachedTradePointCandleCoordinates(
   cache: Map<number, TradePointCandleCoordinates | null>,
   context: AttachedContext,
-  candles: readonly MarketCandle[],
   candle: MarketCandle,
-  markerTimeMs: number,
 ): TradePointCandleCoordinates | null {
-  if (cache.has(markerTimeMs)) {
-    return cache.get(markerTimeMs) ?? null;
+  const cacheKey = candle.sourceTimeMs;
+  if (cache.has(cacheKey)) {
+    return cache.get(cacheKey) ?? null;
   }
 
-  const x = resolveTradePointTimeCoordinate(context.chart, candles, markerTimeMs);
+  /**
+   * Trade markers are bucketed into the containing candle. On a 5m chart, a
+   * 23-minute trade belongs to the 20-minute candle, so the marker must use the
+   * candle open coordinate instead of interpolating toward the next 25-minute
+   * bar. Interpolation pushes latest in-progress 5m/15m trades past the right
+   * edge and makes them disappear.
+   */
+  const x = toNumberCoordinate(context.chart.timeScale().timeToCoordinate(candle.time));
   const buyBoundaryY = context.series.priceToCoordinate(candle.low);
   const sellBoundaryY = context.series.priceToCoordinate(candle.high);
   const coordinates = x === null || buyBoundaryY === null || sellBoundaryY === null
@@ -407,7 +413,7 @@ function getCachedTradePointCandleCoordinates(
       sellBoundaryY: Number(sellBoundaryY),
       x,
     };
-  cache.set(markerTimeMs, coordinates);
+  cache.set(cacheKey, coordinates);
   return coordinates;
 }
 
@@ -685,80 +691,6 @@ function findPrecedingCandle(candles: readonly MarketCandle[], sourceTimeMs: num
   }
 
   return candles[Math.max(0, high)] ?? candles[0] ?? null;
-}
-
-function resolveTradePointTimeCoordinate(chart: IChartApi, candles: readonly MarketCandle[], sourceTimeMs: number): number | null {
-  if (!Number.isFinite(sourceTimeMs) || candles.length === 0) {
-    return null;
-  }
-
-  const firstCandle = candles[0];
-  const lastCandle = candles.at(-1);
-  if (!firstCandle || !lastCandle) {
-    return null;
-  }
-
-  if (sourceTimeMs <= firstCandle.sourceTimeMs) {
-    return toNumberCoordinate(chart.timeScale().timeToCoordinate(firstCandle.time));
-  }
-
-  const rightIndex = findFirstCandleIndexAtOrAfter(candles, sourceTimeMs);
-  const rightCandle = candles[rightIndex];
-  const leftCandle = rightCandle && rightCandle.sourceTimeMs >= sourceTimeMs
-    ? candles[rightIndex - 1]
-    : lastCandle;
-
-  if (!leftCandle) {
-    return toNumberCoordinate(chart.timeScale().timeToCoordinate(rightCandle?.time ?? firstCandle.time));
-  }
-
-  const leftCoordinate = toNumberCoordinate(chart.timeScale().timeToCoordinate(leftCandle.time));
-  if (leftCoordinate === null) {
-    return null;
-  }
-
-  if (!rightCandle || rightCandle.sourceTimeMs < sourceTimeMs) {
-    const previousCandle = candles[candles.length - 2];
-    const previousCoordinate = previousCandle ? toNumberCoordinate(chart.timeScale().timeToCoordinate(previousCandle.time)) : null;
-    if (!previousCandle || previousCoordinate === null) {
-      return leftCoordinate;
-    }
-
-    const timeSpanMs = leftCandle.sourceTimeMs - previousCandle.sourceTimeMs;
-    if (timeSpanMs <= 0) {
-      return leftCoordinate;
-    }
-
-    return leftCoordinate + (leftCoordinate - previousCoordinate) * ((sourceTimeMs - leftCandle.sourceTimeMs) / timeSpanMs);
-  }
-
-  const rightCoordinate = toNumberCoordinate(chart.timeScale().timeToCoordinate(rightCandle.time));
-  if (rightCoordinate === null) {
-    return null;
-  }
-
-  const timeSpanMs = rightCandle.sourceTimeMs - leftCandle.sourceTimeMs;
-  if (timeSpanMs <= 0) {
-    return leftCoordinate;
-  }
-
-  return leftCoordinate + (rightCoordinate - leftCoordinate) * ((sourceTimeMs - leftCandle.sourceTimeMs) / timeSpanMs);
-}
-
-function findFirstCandleIndexAtOrAfter(candles: readonly MarketCandle[], sourceTimeMs: number): number {
-  let low = 0;
-  let high = candles.length - 1;
-
-  while (low < high) {
-    const middle = Math.floor((low + high) / 2);
-    if (candles[middle].sourceTimeMs < sourceTimeMs) {
-      low = middle + 1;
-    } else {
-      high = middle;
-    }
-  }
-
-  return low;
 }
 
 function inferCandleIntervalMs(candles: readonly MarketCandle[], index: number): number {
