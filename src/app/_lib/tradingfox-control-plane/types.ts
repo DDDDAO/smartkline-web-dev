@@ -40,7 +40,7 @@ export type TradingFoxTrader = {
   name: string;
   strategyDefinitionId: string;
   exchangeConnectorId: number;
-  enabled: boolean;
+  enabled?: boolean;
   configSchemaVersion: number;
   configRevision: number;
   config: Record<string, unknown>;
@@ -69,6 +69,8 @@ export type TradingFoxRuntimeStatusResponse = {
   status: TradingFoxRuntimeStatus;
 };
 
+export type TradingFoxCopyStrategyStatus = "failed" | "paused" | "pending" | "running" | "stopped";
+
 export type TradingFoxCopyStrategy = {
   apiAccountName: string;
   accountEquity?: number;
@@ -80,7 +82,7 @@ export type TradingFoxCopyStrategy = {
   platform: string;
   positionsCount: number;
   startedAt: string;
-  status: "running" | "paused" | "stopped";
+  status: TradingFoxCopyStrategyStatus;
   stopLossPercent: number;
   takeProfitPercent: number;
   traderId: string;

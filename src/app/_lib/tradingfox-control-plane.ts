@@ -13,6 +13,7 @@ import type {
   TradingFoxConnector,
   TradingFoxConnectorWhitelistIP,
   TradingFoxCopyStrategy,
+  TradingFoxCopyStrategyStatus,
   TradingFoxCopyStrategyDetailInput,
   TradingFoxHyperliquidAgentBindingCompleteResponse,
   TradingFoxHyperliquidAgentBindingStartResponse,
@@ -43,6 +44,7 @@ export type {
   TradingFoxConnector,
   TradingFoxConnectorWhitelistIP,
   TradingFoxCopyStrategy,
+  TradingFoxCopyStrategyStatus,
   TradingFoxCopyStrategyDetailInput,
   TradingFoxHyperliquidAgentBinding,
   TradingFoxHyperliquidAgentBindingCompleteResponse,
@@ -489,11 +491,6 @@ async function settleTradingFoxStrategyCurveRequest(
     return primaryResponse;
   }
 
-  const performanceResponse = await settleTradingFoxRequest<unknown>(`/v1/traders/${traderId}/performance-curve?limit=240`);
-  if (performanceResponse.value !== undefined) {
-    return performanceResponse;
-  }
-
   const snapshotResponse = await settleTradingFoxRequest<unknown>(`/v1/traders/${traderId}/account-snapshots?limit=240`);
   return snapshotResponse.value !== undefined ? snapshotResponse : primaryResponse;
 }
@@ -503,7 +500,15 @@ function normalizeTradingFoxStrategyCurveError(error: string | undefined): strin
     return undefined;
   }
 
-  return /(?:not found|route not found)/iu.test(error) ? undefined : error;
+  return /(?:not found|route not found)/iu.test(error) || isTradingFoxSignalSourcePositionsCacheError(error)
+    ? undefined
+    : error;
+}
+
+function isTradingFoxSignalSourcePositionsCacheError(error: string): boolean {
+  const normalizedError = error.toLowerCase();
+  return normalizedError.includes("signal source positions cache error")
+    || normalizedError.includes("信号源仓位缓存已过期");
 }
 
 function readTradingFoxStrategyCurvePayload(...sources: readonly unknown[]): unknown {
@@ -522,6 +527,15 @@ function readTradingFoxStrategyCurvePayloadFromSource(source: unknown): unknown 
     return Array.isArray(source) ? source : undefined;
   }
 
+  /**
+   * The current strategy-curve endpoint returns the curve envelope directly.
+   * Keeping the envelope preserves baseEquity/currency/updatedAt instead of
+   * adapting only the nested points array.
+   */
+  if (hasTradingFoxStrategyCurvePointList(source)) {
+    return source;
+  }
+
   const candidates = [
     source.strategyCurve,
     source.strategy_curve,
@@ -536,6 +550,28 @@ function readTradingFoxStrategyCurvePayloadFromSource(source: unknown): unknown 
     source.data,
   ];
   return candidates.find((candidate) => candidate !== undefined && candidate !== null);
+}
+
+function hasTradingFoxStrategyCurvePointList(source: Record<string, unknown>): boolean {
+  return [
+    source.points,
+    source.items,
+    source.curve,
+    source.snapshots,
+    source.accountSnapshots,
+    source.account_snapshots,
+    source.data,
+    source.pnlCurve,
+    source.pnl_curve,
+    source.pnlPoints,
+    source.pnl_points,
+    source.roiCurve,
+    source.roi_curve,
+    source.roiPoints,
+    source.roi_points,
+    source.returnCurve,
+    source.return_curve,
+  ].some(Array.isArray);
 }
 
 function adaptTradingFoxStrategyCurve(
@@ -715,7 +751,13 @@ function readTradingFoxCurvePnl(point: Record<string, unknown>, metric: "combine
 }
 
 function readTradingFoxCurveRoi(point: Record<string, unknown>, metric: "combined" | "pnl" | "roi"): number | null {
+  /**
+   * The control-plane strategy-curve contract exposes roi as a percentage.
+   * Rate-suffixed legacy fields are the ratio-style values that still need
+   * percent normalization.
+   */
   const percentValue = firstNumberOrNull(
+    point.roi,
     point.roiPercent,
     point.roi_percent,
     point.returnPercent,
@@ -728,7 +770,6 @@ function readTradingFoxCurveRoi(point: Record<string, unknown>, metric: "combine
   }
 
   const rateValue = firstTradingFoxCurveRateAsPercent(
-    point.roi,
     point.returnRate,
     point.return_rate,
     point.pnlRate,
@@ -1244,14 +1285,43 @@ function firstSignalSourceConfig(config: Record<string, unknown>): Record<string
   return recordValue(raw[0]);
 }
 
-function mapBackendStrategyStatus(trader: TradingFoxTrader): "running" | "paused" | "stopped" {
-  if (!trader.enabled || trader.displayStatus === "disabled") {
-    return "paused";
+function mapBackendStrategyStatus(trader: TradingFoxTrader): TradingFoxCopyStrategyStatus {
+  const displayStatus = normalizeBackendStatus(trader.displayStatus);
+  const runtimeState = normalizeBackendStatus(trader.runtimeState);
+  const desiredState = normalizeBackendStatus(trader.desiredState);
+
+  /**
+   * Runtime-running wins over the desired-state flags. Some control-plane
+   * records can still carry enabled=false/disabled while the worker runtime is
+   * alive; rendering that as paused makes a refresh look like it stopped the
+   * strategy even though no stop request was sent.
+   */
+  if (displayStatus === "failed" || runtimeState === "error") {
+    return "failed";
   }
-  if (trader.displayStatus === "running" || trader.runtimeState === "running") {
+  if (displayStatus === "running" || runtimeState === "running") {
     return "running";
   }
+  if (displayStatus === "disabled") {
+    return "paused";
+  }
+  if (displayStatus === "pending") {
+    return "pending";
+  }
+  if (runtimeState === "no_runtime" || runtimeState === "stopped" || runtimeState === "unassigned") {
+    return trader.enabled === false || desiredState === "disabled" ? "paused" : "pending";
+  }
+  if (trader.enabled === false || desiredState === "disabled") {
+    return "paused";
+  }
+  if (trader.enabled === true || desiredState === "enabled") {
+    return "pending";
+  }
   return "running";
+}
+
+function normalizeBackendStatus(value: unknown): string {
+  return normalizeOptionalText(value).toLowerCase();
 }
 
 function formatBackendDateLabel(value: string): string {

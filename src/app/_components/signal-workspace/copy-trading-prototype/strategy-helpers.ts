@@ -12,6 +12,12 @@ export function getStrategyStatusLabel(
   if (status === "paused") {
     return strategyCopy.paused;
   }
+  if (status === "pending") {
+    return strategyCopy.pending;
+  }
+  if (status === "failed") {
+    return strategyCopy.failed;
+  }
   if (status === "stopped") {
     return strategyCopy.stopped;
   }

@@ -25,7 +25,7 @@ export type PrototypeApiConnection = {
   whitelistIp?: string;
 };
 
-export type PrototypeStrategyStatus = "running" | "paused" | "stopped";
+export type PrototypeStrategyStatus = "failed" | "paused" | "pending" | "running" | "stopped";
 export type PrototypeStrategyType = "copyTrading" | "mario";
 
 export type PrototypeStrategy = {

@@ -1,3 +1,5 @@
+import type { PrototypeStrategyStatus } from "./types";
+
 export function getPrimaryButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "inline-flex min-h-10 items-center justify-center rounded-2xl bg-sky-400 px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-45"
@@ -129,12 +131,18 @@ export function getStrategyTypeOptionClassName(isDarkTheme: boolean, isSelected:
     : "rounded-2xl border border-[#E5EAF0] bg-white px-3 py-3 text-left text-slate-900 transition hover:border-[#BFE7FB] hover:bg-[#F4FBFF]";
 }
 
-export function getStrategyStatusClassName(isDarkTheme: boolean, status: "paused" | "running" | "stopped"): string {
+export function getStrategyStatusClassName(isDarkTheme: boolean, status: PrototypeStrategyStatus): string {
   if (status === "running") {
     return isDarkTheme ? "shrink-0 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-black text-emerald-300" : "shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700";
   }
   if (status === "paused") {
     return isDarkTheme ? "shrink-0 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-black text-amber-300" : "shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700";
+  }
+  if (status === "pending") {
+    return isDarkTheme ? "shrink-0 rounded-full bg-sky-400/15 px-2 py-0.5 text-[10px] font-black text-sky-300" : "shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-black text-sky-700";
+  }
+  if (status === "failed") {
+    return isDarkTheme ? "shrink-0 rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] font-black text-rose-300" : "shrink-0 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-black text-rose-700";
   }
   return isDarkTheme ? "shrink-0 rounded-full bg-slate-700 px-2 py-0.5 text-[10px] font-black text-slate-300" : "shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-600";
 }
