@@ -121,6 +121,10 @@ function isSignalSourceStateCacheStaleMessage(message: string): boolean {
   const normalizedMessage = message.toLowerCase();
   return normalizedMessage.includes("signal source state cache is stale")
     || (
+      normalizedMessage.includes("signal source state cache error")
+      && normalizedMessage.includes("stale signalsourceids=")
+    )
+    || (
       normalizedMessage.includes("signal source state cache")
       && normalizedMessage.includes("cached runtime state")
     );
