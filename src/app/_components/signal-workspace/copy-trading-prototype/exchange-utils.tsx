@@ -57,4 +57,3 @@ export function getExchangeById(exchangeId: PrototypeExchangeId): PrototypeExcha
 export function getExchangeName(accountCopy: WorkspaceCopy["workspace"]["accountCenter"], id: PrototypeExchangeId): string {
   return accountCopy.exchanges[id];
 }
-

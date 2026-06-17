@@ -13,10 +13,7 @@ import type { SignalWorkspacePrimaryActions } from "./signal-workspace-primary-a
 import type { SignalWorkspaceSecondaryActions } from "./signal-workspace-secondary-actions";
 import type { SignalWorkspaceState } from "./signal-workspace-state";
 import type { SignalWorkspaceTradingCopyActions } from "./signal-workspace-trading-copy-actions";
-import {
-  createMarioPrototypeStrategy,
-  requestTradingFoxAccount,
-} from "./signal-workspace/signal-workspace-helpers";
+import { requestTradingFoxAccount } from "./signal-workspace/signal-workspace-helpers";
 
 export function useSignalWorkspaceTradingStrategyActions(
   context: SignalWorkspaceState &
@@ -31,8 +28,6 @@ export function useSignalWorkspaceTradingStrategyActions(
     handleProductTabChange,
     handleSignalSelect,
     handleTradingFoxConnectorBound: _handleTradingFoxConnectorBound,
-    language,
-    prototypeApiConnections,
     prototypeMarioStrategies,
     prototypeStrategies,
     setCopyTradingTarget,
@@ -118,6 +113,26 @@ export function useSignalWorkspaceTradingStrategyActions(
     ],
   );
 
+  const requestPrototypeStrategyCreate = useCallback(
+    async (input: PrototypeStrategyCreateInput) => {
+      const account = await requestTradingFoxAccount("/api/tradingfox/traders", {
+        body: JSON.stringify({
+          autoStart: input.autoStart,
+          config: input.config,
+          configSchemaVersion: input.configSchemaVersion,
+          copyTrading: input.copyTrading,
+          exchangeConnectorId: input.exchangeConnectorId,
+          strategyDefinitionId: input.strategyDefinitionId,
+          strategyName: input.strategyName,
+        }),
+        method: "POST",
+      });
+      applyTradingFoxAccount(account);
+      handleProductTabChange("accountManagement");
+    },
+    [applyTradingFoxAccount, handleProductTabChange],
+  );
+
   const handlePrototypeStrategyCreate = useCallback(
     async (input: PrototypeStrategyCreateInput) => {
       if (!authMe.isLoggedIn) {
@@ -129,58 +144,15 @@ export function useSignalWorkspaceTradingStrategyActions(
 
       setIsTradingFoxLoading(true);
       try {
-        if (input.strategyType === "copyTrading") {
-          await requestPrototypeCopyStrategyStart({
-            exchangeConnectorId: input.exchangeConnectorId,
-            strategyName: input.strategyName,
-            stopLossPercent: input.stopLossPercent,
-            takeProfitPercent: input.takeProfitPercent,
-            target: input.target,
-          });
-          setWorkspaceNotification({
-            id: `copy-strategy-created-${Date.now()}`,
-            kind: "success",
-            message:
-              copyRef.current.workspace.accountCenter.strategyCreate
-                .copyTradingCreatedToast,
-            meta: input.strategyName,
-            title:
-              copyRef.current.workspace.accountCenter.strategyCreate.modalTitle,
-          });
-          return;
-        }
-
-        const connector =
-          prototypeApiConnections.find(
-            (connection) =>
-              connection.id === input.exchangeConnectorId &&
-              connection.status === "connected",
-          ) ?? null;
-        if (!connector) {
-          throw new Error(
-            copyRef.current.workspace.accountCenter.copyTrading.apiRequired,
-          );
-        }
-
-        const marioStrategy = createMarioPrototypeStrategy(
-          connector,
-          copyRef.current,
-          language,
-          input.strategyName,
-        );
-        setPrototypeMarioStrategies((currentStrategies) => [
-          marioStrategy,
-          ...currentStrategies,
-        ]);
-        handleProductTabChange("accountManagement");
+        await requestPrototypeStrategyCreate(input);
+        const strategyCreateCopy =
+          copyRef.current.workspace.accountCenter.strategyCreate;
         setWorkspaceNotification({
-          id: `mario-strategy-created-${Date.now()}`,
+          id: `strategy-created-${Date.now()}`,
           kind: "success",
-          message:
-            copyRef.current.workspace.accountCenter.strategyCreate
-              .marioCreatedToast,
+          message: getStrategyCreateSuccessMessage(input, strategyCreateCopy),
           meta: input.strategyName,
-          title: copyRef.current.workspace.accountCenter.strategyCreate.marioTitle,
+          title: strategyCreateCopy.modalTitle,
         });
       } catch (error) {
         setWorkspaceNotification({
@@ -198,12 +170,8 @@ export function useSignalWorkspaceTradingStrategyActions(
     [
       authMe.isLoggedIn,
       copyRef,
-      handleProductTabChange,
-      language,
-      prototypeApiConnections,
-      requestPrototypeCopyStrategyStart,
+      requestPrototypeStrategyCreate,
       setIsTradingFoxLoading,
-      setPrototypeMarioStrategies,
       setWorkspaceNotification,
       startTelegramLogin,
     ],
@@ -452,6 +420,23 @@ export function useSignalWorkspaceTradingStrategyActions(
     openCommunityConversion,
     requestPrototypeCopyStrategyStart,
   };
+}
+
+function getStrategyCreateSuccessMessage(
+  input: PrototypeStrategyCreateInput,
+  strategyCreateCopy: {
+    copyTradingCreatedToast: string;
+    marioCreatedToast: string;
+    strategyCreatedToast: string;
+  },
+): string {
+  if (input.strategyType === "copyTrading") {
+    return strategyCreateCopy.copyTradingCreatedToast;
+  }
+  if (input.strategyType === "mario") {
+    return strategyCreateCopy.marioCreatedToast;
+  }
+  return strategyCreateCopy.strategyCreatedToast;
 }
 
 export type SignalWorkspaceTradingStrategyActions = ReturnType<
