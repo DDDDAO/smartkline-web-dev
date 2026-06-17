@@ -1,6 +1,6 @@
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
-import type { TradingFoxAccountResponse } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxAccountResponse, TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary } from "@/app/_lib/tradingfox-control-plane";
 import type { CopyTradingTrader } from "@/app/_types/copy-trading";
 
 export type CopyTradingPrototypeTarget = {
@@ -26,7 +26,7 @@ export type PrototypeApiConnection = {
 };
 
 export type PrototypeStrategyStatus = "failed" | "paused" | "pending" | "running" | "stopped";
-export type PrototypeStrategyType = "copyTrading" | "mario";
+export type PrototypeStrategyType = "copyTrading" | "generic" | "mario";
 
 export type PrototypeStrategy = {
   apiAccountName: string;
@@ -45,6 +45,7 @@ export type PrototypeStrategy = {
   startedAt?: string;
   status: PrototypeStrategyStatus;
   stopLossPercent: number;
+  strategyDefinitionId?: string;
   strategyType?: PrototypeStrategyType;
   takeProfitPercent: number;
   traderId: string;
@@ -53,18 +54,27 @@ export type PrototypeStrategy = {
 };
 
 export type PrototypeStrategyCreateInput = {
+  autoStart?: boolean;
+  copyTrading?: {
+    avatarUrl?: string;
+    eventsCount: number;
+    platform: string;
+    positionsCount: number;
+    signalSourceId: string;
+    stopLossPercent: number;
+    takeProfitPercent: number;
+    traderName: string;
+  };
+  config: Record<string, unknown>;
+  configSchemaVersion: number;
+  definition: TradingFoxStrategyDefinition;
   exchangeConnectorId: number;
+  strategyDefinitionId: string;
   strategyName: string;
-  strategyType: "mario";
-} | {
-  exchangeConnectorId: number;
-  followRatioPercent: 100;
-  stopLossPercent: number;
-  strategyName: string;
-  strategyType: "copyTrading";
-  takeProfitPercent: number;
-  target: CopyTradingPrototypeTarget;
+  strategyType: PrototypeStrategyType;
 };
+
+export type PrototypeStrategyDefinitionSummary = TradingFoxStrategyDefinitionSummary;
 
 export type PrototypeStrategySettingsUpdateInput = {
   stopLossPercent: number;
