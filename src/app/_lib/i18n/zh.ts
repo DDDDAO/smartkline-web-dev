@@ -319,6 +319,7 @@ export const zh = {
         binanceDemoCredentials: (detail: string) => `Binance API 校验失败。请确认 API Key、Secret、合约交易权限和白名单 IP 是否匹配当前账户类型。原始错误：${detail}`,
         binancePositionModeMismatch: (detail: string) => `Binance Demo 持仓模式与下单参数不一致。新建连接已默认使用单向持仓，旧连接会在启动或同步仓位前自动修复；如果仍失败，请先暂停旧策略或重新新增该 Demo 账号后重试。原始错误：${detail}`,
         noUserPosition: "当前没有可跟随的用户持仓，本次信号未下单。",
+        signalSourcePositionsCacheStale: "信号源仓位缓存已过期，最新仓位暂不可同步；等待信号源刷新后再重试。",
         signalSourceStateCacheStale: "信号源状态缓存已过期，已使用缓存运行状态继续跟单。",
       },
       strategyCreate: {

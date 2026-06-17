@@ -17,6 +17,10 @@ export function getTradingFoxErrorMessage(error: unknown, copy: WorkspaceCopy): 
     return copy.workspace.accountCenter.errors.signalSourceStateCacheStale;
   }
 
+  if (isSignalSourcePositionsCacheStaleMessage(rawMessage)) {
+    return copy.workspace.accountCenter.errors.signalSourcePositionsCacheStale;
+  }
+
   if (isNoUserPositionMessage(rawMessage)) {
     return copy.workspace.accountCenter.errors.noUserPosition;
   }
@@ -120,6 +124,12 @@ function isSignalSourceStateCacheStaleMessage(message: string): boolean {
       normalizedMessage.includes("signal source state cache")
       && normalizedMessage.includes("cached runtime state")
     );
+}
+
+function isSignalSourcePositionsCacheStaleMessage(message: string): boolean {
+  const normalizedMessage = message.toLowerCase();
+  return normalizedMessage.includes("signal source positions cache error")
+    && normalizedMessage.includes("stale signalsourceids=");
 }
 
 function isNoUserPositionMessage(message: string): boolean {
