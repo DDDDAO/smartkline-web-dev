@@ -115,8 +115,9 @@ export function StrategyDetailView({
   }, [copy, strategy.id, tradeHistoryPageOffset]);
 
   const liveStrategy = detail?.strategy ?? strategy;
+  const isStrategyRunning = liveStrategy.status === "running";
   const parsedSyncRatioPercent = Number(syncRatioPercent);
-  const canSyncPositions = Boolean(detail?.trader.enabled) && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
+  const canSyncPositions = Boolean(detail) && isStrategyRunning && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
   const orderItems = detail?.orderHistory?.items ?? [];
   const signalSourceOrderItems = detail?.orderHistory?.signalSourceOrders ?? [];
   const tradeLogItems = detail?.orderHistory?.tradeLogs ?? [];
@@ -140,6 +141,7 @@ export function StrategyDetailView({
     () => createCopyPositionMarkPricesBySymbol(detailPositions),
     [detailPositions],
   );
+  const shouldShowActionMessage = Boolean(detail && (syncMessage || syncError || liveStrategy.status === "paused" || liveStrategy.status === "stopped"));
 
   const openTradeKline = (row: TradeHistoryRow) => {
     setSelectedTradeKlineRowId(row.id);
@@ -222,45 +224,16 @@ export function StrategyDetailView({
             {strategyCopy.configureNotifications}
           </button>
         </div>
-        <div className="mt-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <SourceAvatar isDarkTheme={isDarkTheme} name={liveStrategy.traderName} url={liveStrategy.avatarUrl} />
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <h3 className="truncate text-lg font-black">{liveStrategy.traderName}</h3>
-                <span className={getStrategyStatusClassName(isDarkTheme, liveStrategy.status)}>{getStrategyStatusLabel(strategyCopy, liveStrategy.status)}</span>
-              </div>
-              <p className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
-                #{liveStrategy.id} · {liveStrategy.platform} · {liveStrategy.apiAccountName}
-              </p>
+        <div className="mt-4 flex min-w-0 items-start gap-3">
+          <SourceAvatar isDarkTheme={isDarkTheme} name={liveStrategy.traderName} url={liveStrategy.avatarUrl} />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h3 className="truncate text-lg font-black">{liveStrategy.traderName}</h3>
+              <span className={getStrategyStatusClassName(isDarkTheme, liveStrategy.status)}>{getStrategyStatusLabel(strategyCopy, liveStrategy.status)}</span>
             </div>
-          </div>
-          <div className="flex shrink-0 flex-col gap-2 xl:items-end">
-            <div className="flex flex-wrap gap-2 xl:justify-end">
-              {liveStrategy.status === "running" ? (
-                <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("paused")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.pause}</button>
-              ) : (
-                <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("running")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.resume}</button>
-              )}
-              <button className={getDangerButtonClassName(isDarkTheme)} disabled={isDeletingStrategy} type="button" onClick={() => void deleteStrategy()}>{isDeletingStrategy ? strategyCopy.deleting : strategyCopy.delete}</button>
-            </div>
-            <div className={isDarkTheme ? "flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.075] bg-white/[0.03] p-2" : "flex flex-wrap items-center gap-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-2"}>
-              <span className={isDarkTheme ? "px-1 text-xs font-black text-slate-400" : "px-1 text-xs font-black text-slate-500"}>{strategyCopy.ratioPercent}</span>
-              <div className="relative w-24">
-                <input
-                  className={isDarkTheme ? "h-9 w-full rounded-xl border border-white/[0.075] bg-white/[0.035] px-3 pr-7 text-sm font-black text-slate-100 outline-none transition focus:border-sky-400/45 disabled:cursor-not-allowed disabled:opacity-55" : "h-9 w-full rounded-xl border border-[#D5E4EF] bg-white px-3 pr-7 text-sm font-black text-slate-950 outline-none transition focus:border-[#7DBEFF] disabled:cursor-not-allowed disabled:opacity-55"}
-                  disabled={!detail || Boolean(error)}
-                  inputMode="decimal"
-                  placeholder={strategyCopy.ratioPlaceholder}
-                  value={syncRatioPercent}
-                  onChange={(event) => setSyncRatioPercent(event.target.value)}
-                />
-                <span className={isDarkTheme ? "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500" : "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400"}>%</span>
-              </div>
-              <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canSyncPositions} type="button" onClick={syncPositions}>
-                {isSyncingPositions ? strategyCopy.syncingPositions : strategyCopy.syncPositions}
-              </button>
-            </div>
+            <p className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
+              #{liveStrategy.id} · {liveStrategy.platform} · {liveStrategy.apiAccountName}
+            </p>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs lg:grid-cols-4">
@@ -274,14 +247,38 @@ export function StrategyDetailView({
             {getTradingFoxErrorMessage(detail.trader.statusMessage, copy)}
           </p>
         ) : null}
-        {detail ? (
+        {shouldShowActionMessage ? (
           <div className="mt-3">
-            <p className={isDarkTheme ? "text-xs leading-5 text-slate-500" : "text-xs leading-5 text-slate-500"}>{strategyCopy.syncPositionsHint}</p>
-            {syncMessage ? <p className={isDarkTheme ? "mt-2 text-xs text-emerald-200" : "mt-2 text-xs text-emerald-700"}>{syncMessage}</p> : null}
+            {syncMessage ? <p className={isDarkTheme ? "text-xs text-emerald-200" : "text-xs text-emerald-700"}>{syncMessage}</p> : null}
             {syncError ? <p className={getInlineErrorClassName(isDarkTheme)}>{syncError}</p> : null}
-            {!detail.trader.enabled ? <p className={isDarkTheme ? "mt-2 text-xs text-amber-200" : "mt-2 text-xs text-amber-700"}>{strategyCopy.syncPositionsDisabled}</p> : null}
+            {detail && (liveStrategy.status === "paused" || liveStrategy.status === "stopped") ? <p className={isDarkTheme ? "text-xs text-amber-200" : "text-xs text-amber-700"}>{strategyCopy.syncPositionsDisabled}</p> : null}
           </div>
         ) : null}
+        <div className={isDarkTheme ? "mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/[0.075] pt-4 lg:flex-nowrap" : "mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-[#E5EAF0] pt-4 lg:flex-nowrap"}>
+          {liveStrategy.status === "running" ? (
+            <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("paused")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.pause}</button>
+          ) : (
+            <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("running")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.resume}</button>
+          )}
+          <button className={getDangerButtonClassName(isDarkTheme)} disabled={isDeletingStrategy} type="button" onClick={() => void deleteStrategy()}>{isDeletingStrategy ? strategyCopy.deleting : strategyCopy.delete}</button>
+          <div className={isDarkTheme ? "flex shrink-0 items-center gap-2 rounded-2xl border border-white/[0.075] bg-white/[0.03] p-2" : "flex shrink-0 items-center gap-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-2"}>
+            <span className={isDarkTheme ? "px-1 text-xs font-black text-slate-400" : "px-1 text-xs font-black text-slate-500"}>{strategyCopy.ratioPercent}</span>
+            <div className="relative w-24">
+              <input
+                className={isDarkTheme ? "h-9 w-full rounded-xl border border-white/[0.075] bg-white/[0.035] px-3 pr-7 text-sm font-black text-slate-100 outline-none transition focus:border-sky-400/45 disabled:cursor-not-allowed disabled:opacity-55" : "h-9 w-full rounded-xl border border-[#D5E4EF] bg-white px-3 pr-7 text-sm font-black text-slate-950 outline-none transition focus:border-[#7DBEFF] disabled:cursor-not-allowed disabled:opacity-55"}
+                disabled={!detail || Boolean(error)}
+                inputMode="decimal"
+                placeholder={strategyCopy.ratioPlaceholder}
+                value={syncRatioPercent}
+                onChange={(event) => setSyncRatioPercent(event.target.value)}
+              />
+              <span className={isDarkTheme ? "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500" : "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400"}>%</span>
+            </div>
+          </div>
+          <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canSyncPositions} type="button" onClick={syncPositions}>
+            {isSyncingPositions ? strategyCopy.syncingPositions : strategyCopy.syncPositions}
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
