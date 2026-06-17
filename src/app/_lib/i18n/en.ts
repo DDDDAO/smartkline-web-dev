@@ -321,6 +321,7 @@ export const en: WorkspaceCopy = {
         binanceDemoCredentials: (detail) => `Binance API validation failed. Check the API key, secret, futures permission, and whitelist IP for the selected account type. Original error: ${detail}`,
         binancePositionModeMismatch: (detail) => `Binance Demo position mode does not match the order parameters. New connections now default to one-way mode, and older connections are repaired before starting or syncing positions. If it still fails, pause old strategy assignments or add that demo account again, then retry. Original error: ${detail}`,
         noUserPosition: "No user position was available for this signal event, so no copy order was placed.",
+        signalSourcePositionsCacheStale: "Signal source positions are stale. Fresh positions cannot be synced yet; wait for the source refresh and retry.",
         signalSourceStateCacheStale: "Signal source state cache is stale. Continuing copy trading with the cached runtime state.",
       },
       strategyCreate: {
