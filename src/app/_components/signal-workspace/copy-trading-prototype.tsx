@@ -53,7 +53,11 @@ import {
   ExternalLinkGlyph,
 } from "./copy-trading-prototype/icons";
 import { MiniMetric } from "./copy-trading-prototype/mini-metric";
-import { getPrototypeStrategyType, getStrategyStatusLabel } from "./copy-trading-prototype/strategy-helpers";
+import {
+  getPrototypeStrategyType,
+  getStrategyStatusLabel,
+  resolveFollowedSignalSourceDisplay,
+} from "./copy-trading-prototype/strategy-helpers";
 import {
   getAccountCenterTabButtonClassName,
   getDangerButtonClassName,
@@ -2270,38 +2274,6 @@ function WhitelistIpCopyPanel({
       </p>
     </section>
   );
-}
-
-type FollowedSignalSourceDisplay = {
-  avatarUrl: string | null;
-  id: string;
-  name: string;
-  platform: string;
-};
-
-function resolveFollowedSignalSourceDisplay(
-  strategy: PrototypeStrategy,
-  followedSignalSource: CopyTradingPrototypeTarget | null | undefined,
-  unknownLabel: string,
-): FollowedSignalSourceDisplay {
-  if (followedSignalSource) {
-    return {
-      avatarUrl: followedSignalSource.trader.avatar || null,
-      id: followedSignalSource.trader.trader_id,
-      name: followedSignalSource.trader.name || followedSignalSource.trader.trader_id || unknownLabel,
-      platform: followedSignalSource.trader.platform,
-    };
-  }
-
-  const id = strategy.traderId.trim();
-  const fallbackPlatform = strategy.platform === "Copy Trading" ? "" : strategy.platform;
-
-  return {
-    avatarUrl: strategy.signalSourceAvatarUrl || strategy.avatarUrl || null,
-    id,
-    name: strategy.signalSourceName?.trim() || id || unknownLabel,
-    platform: strategy.signalSourcePlatform?.trim() || fallbackPlatform,
-  };
 }
 
 function PrototypeStrategyCard({
