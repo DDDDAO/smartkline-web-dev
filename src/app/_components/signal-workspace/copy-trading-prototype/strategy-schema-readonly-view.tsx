@@ -7,6 +7,7 @@ type UiCondition = { path?: string; eq?: unknown; ne?: unknown; in?: unknown[]; 
 type UiField = JsonRecord & { path: string; label?: string; help?: string; order?: number; visibleWhen?: UiCondition };
 type UiSection = { title: string; description?: string; fields: ReadonlyField[] };
 type ReadonlyField = { description?: string; label: string; path: string; schema?: JsonRecord; value: unknown };
+type StrategySchemaCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategySchema"];
 
 export function StrategySchemaReadonlyView({
   copy,
@@ -146,7 +147,7 @@ function ReadonlyObject({ copy, isDarkTheme, value }: { copy: WorkspaceCopy; isD
     <dl className="grid gap-1.5 text-left">
       {entries.map(([key, itemValue]) => (
         <div key={key} className={isDarkTheme ? "rounded-lg bg-white/[0.035] px-2 py-1.5" : "rounded-lg bg-slate-50 px-2 py-1.5"}>
-          <dt className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{formatLabel(key)}</dt>
+          <dt className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{labelForKey(copy.workspace.accountCenter.strategySchema, key)}</dt>
           <dd className="mt-1"><ReadonlyValue copy={copy} isDarkTheme={isDarkTheme} value={itemValue} /></dd>
         </div>
       ))}
@@ -158,25 +159,23 @@ function createReadonlySections(
   schema: JsonRecord,
   uiSchema: JsonRecord | undefined,
   formData: JsonRecord,
-  rendererCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategySchema"],
+  rendererCopy: StrategySchemaCopy,
 ): UiSection[] {
   const uiSections = Array.isArray(uiSchema?.sections) ? uiSchema.sections : null;
   if (uiSections) {
-    return uiSections
-      .filter(isUiSection)
-      .sort(compareUiSections)
-      .map((section, index) => ({
-        description: typeof section.description === "string" ? section.description : undefined,
-        fields: section.fields.filter(isUiField).sort(compareUiFields).map((field) => createReadonlyField(schema, field, formData)).filter(isReadonlyField),
-        title: typeof section.title === "string" && section.title.trim() ? section.title : rendererCopy.sectionFallbackTitle(index + 1),
-      }));
+    return createSectionsFromUiSections(schema, uiSections, formData, rendererCopy);
+  }
+
+  const branchSections = createBranchReadonlySections(schema, uiSchema, formData, rendererCopy);
+  if (branchSections.length > 0) {
+    return branchSections;
   }
 
   const properties = isRecord(schema.properties) ? schema.properties : {};
   return [{
     fields: Object.entries(properties).map(([key, childSchema]) => ({
       description: isRecord(childSchema) && typeof childSchema.description === "string" ? childSchema.description : undefined,
-      label: isRecord(childSchema) && typeof childSchema.title === "string" ? childSchema.title : formatLabel(key),
+      label: isRecord(childSchema) && typeof childSchema.title === "string" ? childSchema.title : labelForKey(rendererCopy, key),
       path: key,
       schema: isRecord(childSchema) ? childSchema : undefined,
       value: formData[key],
@@ -185,14 +184,127 @@ function createReadonlySections(
   }];
 }
 
-function createReadonlyField(schema: JsonRecord, field: UiField, formData: JsonRecord): ReadonlyField | null {
+function createSectionsFromUiSections(
+  schema: JsonRecord,
+  uiSections: unknown[],
+  formData: JsonRecord,
+  rendererCopy: StrategySchemaCopy,
+  titlePrefix = "",
+): UiSection[] {
+  return uiSections
+    .filter(isUiSection)
+    .sort(compareUiSections)
+    .map((section, index) => {
+      const sectionTitle = typeof section.title === "string" && section.title.trim()
+        ? section.title
+        : rendererCopy.sectionFallbackTitle(index + 1);
+      return {
+        description: typeof section.description === "string" ? section.description : undefined,
+        fields: section.fields
+          .filter(isUiField)
+          .sort(compareUiFields)
+          .map((field) => createReadonlyField(schema, field, formData, rendererCopy))
+          .filter(isReadonlyField),
+        title: titlePrefix ? `${titlePrefix} · ${sectionTitle}` : sectionTitle,
+      };
+    });
+}
+
+function createBranchReadonlySections(
+  schema: JsonRecord,
+  uiSchema: JsonRecord | undefined,
+  formData: JsonRecord,
+  rendererCopy: StrategySchemaCopy,
+): UiSection[] {
+  const properties = isRecord(schema.properties) ? schema.properties : {};
+  const branchSections: UiSection[] = [];
+  for (const [branchKey, branchSchema] of Object.entries(properties)) {
+    if (!isRecord(branchSchema) || !isRecord(branchSchema.properties)) {
+      continue;
+    }
+    const branchData = isRecord(formData[branchKey]) ? formData[branchKey] : {};
+    const branchUiSchema = isRecord(uiSchema?.[branchKey]) ? uiSchema[branchKey] : undefined;
+    const branchTitle = typeof branchSchema.title === "string" ? branchSchema.title : labelForKey(rendererCopy, branchKey);
+    const branchUiSections = Array.isArray(branchUiSchema?.sections) ? branchUiSchema.sections : null;
+    if (branchUiSections) {
+      branchSections.push(...createSectionsFromUiSections(branchSchema, branchUiSections, branchData, rendererCopy, branchTitle));
+      continue;
+    }
+    branchSections.push(...createSectionsFromObjectSchema(branchSchema, branchData, rendererCopy, branchTitle));
+  }
+  return branchSections;
+}
+
+function createSectionsFromObjectSchema(
+  schema: JsonRecord,
+  formData: JsonRecord,
+  rendererCopy: StrategySchemaCopy,
+  titlePrefix = "",
+): UiSection[] {
+  const properties = isRecord(schema.properties) ? schema.properties : {};
+  const scalarFields: ReadonlyField[] = [];
+  const sections: UiSection[] = [];
+
+  for (const [key, childSchema] of Object.entries(properties)) {
+    const childRecord = isRecord(childSchema) ? childSchema : undefined;
+    const value = formData[key];
+    if (childRecord && isRecord(childRecord.properties)) {
+      const childFields = Object.entries(childRecord.properties).map(([fieldKey, fieldSchema]) => createSchemaField({
+        key: fieldKey,
+        rendererCopy,
+        schema: fieldSchema,
+        value: isRecord(value) ? value[fieldKey] : undefined,
+      }));
+      sections.push({
+        description: typeof childRecord.description === "string" ? childRecord.description : undefined,
+        fields: childFields,
+        title: joinSectionTitle(titlePrefix, childRecord.title ?? labelForKey(rendererCopy, key)),
+      });
+      continue;
+    }
+    scalarFields.push(createSchemaField({ key, rendererCopy, schema: childSchema, value }));
+  }
+
+  if (scalarFields.length > 0) {
+    sections.unshift({
+      fields: scalarFields,
+      title: titlePrefix || (typeof schema.title === "string" ? schema.title : rendererCopy.configurationFallbackTitle),
+    });
+  }
+
+  return sections;
+}
+
+function createSchemaField({
+  key,
+  rendererCopy,
+  schema,
+  value,
+}: {
+  key: string;
+  rendererCopy: StrategySchemaCopy;
+  schema: unknown;
+  value: unknown;
+}): ReadonlyField {
+  const schemaRecord = isRecord(schema) ? schema : undefined;
+  return {
+    description: typeof schemaRecord?.description === "string" ? schemaRecord.description : undefined,
+    label: typeof schemaRecord?.title === "string" ? schemaRecord.title : labelForKey(rendererCopy, key),
+    path: key,
+    schema: schemaRecord,
+    value,
+  };
+}
+
+function createReadonlyField(schema: JsonRecord, field: UiField, formData: JsonRecord, rendererCopy: StrategySchemaCopy): ReadonlyField | null {
   if (field.visibleWhen && !evaluateCondition(field.visibleWhen, formData)) {
     return null;
   }
   const fieldSchema = schemaAtPath(schema, field.path);
+  const fallbackKey = field.path.split(".").pop() ?? field.path;
   return {
     description: typeof field.help === "string" ? field.help : fieldSchema && typeof fieldSchema.description === "string" ? fieldSchema.description : undefined,
-    label: typeof field.label === "string" ? field.label : fieldSchema && typeof fieldSchema.title === "string" ? fieldSchema.title : formatLabel(field.path.split(".").pop() ?? field.path),
+    label: typeof field.label === "string" ? field.label : fieldSchema && typeof fieldSchema.title === "string" ? fieldSchema.title : labelForKey(rendererCopy, fallbackKey),
     path: field.path,
     schema: fieldSchema ?? undefined,
     value: getValueAtPath(formData, field.path),
@@ -236,6 +348,19 @@ function formatLabel(key: string): string {
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/[_.-]+/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function labelForKey(rendererCopy: StrategySchemaCopy, key: string): string {
+  const fieldLabels: Readonly<Record<string, string>> = rendererCopy.fieldLabels;
+  return fieldLabels[key] ?? formatLabel(key);
+}
+
+function joinSectionTitle(prefix: string, title: unknown): string {
+  const normalizedTitle = typeof title === "string" && title.trim() ? title : "";
+  if (!prefix) {
+    return normalizedTitle;
+  }
+  return normalizedTitle ? `${prefix} · ${normalizedTitle}` : prefix;
 }
 
 function booleanPillClassName(isDarkTheme: boolean, value: boolean): string {
