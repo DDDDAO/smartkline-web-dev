@@ -1,19 +1,10 @@
 import { en } from "./i18n/en";
 import { zh } from "./i18n/zh";
+import type { Widen } from "./i18n/widen";
 
 export type WorkspaceLanguage = "zh-CN" | "en-US";
 
 export const WORKSPACE_LANGUAGE_STORAGE_KEY = "smartkline:workspace-language";
-
-type Widen<T> = T extends (...args: infer Args) => infer Return
-  ? (...args: Args) => Widen<Return>
-  : T extends readonly (infer Item)[]
-    ? readonly Widen<Item>[]
-    : T extends string
-      ? string
-      : T extends object
-        ? { [Key in keyof T]: Widen<T[Key]> }
-        : T;
 
 export type WorkspaceCopy = Widen<typeof zh>;
 

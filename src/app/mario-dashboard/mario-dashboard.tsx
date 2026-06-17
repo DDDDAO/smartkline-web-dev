@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CalculatorCard } from "./calculator-card";
+import { DashboardModals } from "./dashboard-modals";
+import { DashboardHeader } from "./dashboard-header";
 import { PendingOrdersCard } from "./pending-orders-card";
 import { HistoryCard, PositionsCard } from "./position-history-cards";
-import { MarketSymbolSearchInput } from "@/app/_components/market-symbol-search-input";
 import {
   getAccountManagementTarget,
   getApiKeySyncStatus,
@@ -17,49 +19,30 @@ import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
 import type { MarketSymbol } from "@/app/_types/market";
 import {
   ACCOUNT_BALANCE,
-  BUDGET_OPTIONS,
-  COUNTDOWN_URGENT_MS,
   FALLBACK_MARKET_SYMBOLS,
   INITIAL_DASHBOARD_STATE,
   INITIAL_FORM,
   MAX_COUNTDOWNS,
   MOCK_HISTORY,
   MOCK_POSITIONS,
-  PERCENT_A_OPTIONS,
   QUOTE_ROTATE_MS,
   QUOTES,
-  RATIO_OPTIONS,
   STORAGE_KEY,
 } from "./constants";
-import { AccountIcon, ClockIcon, LayersIcon, MoonIcon, SunIcon } from "./icons";
+import { AccountIcon } from "./icons";
 import { getThemeClasses } from "./theme";
 import type { BulkAction, BudgetPercent, CalculatorForm, DashboardState, PendingOrder, RewardRiskRatio, TakeProfitTargetId, TradeDirection } from "./types";
-import { ActionButton, CalculatedValue, Card, FormRow, IconButton, InfoRow, Modal, ModalActions, OverviewItem, SegmentedButtons } from "./ui";
+import { Card, OverviewItem } from "./ui";
 import {
   calculatePosition,
   createTakeProfitTemplate,
   createPrioritizedMarketSymbols,
-  formatAmount,
-  formatCountdown,
   formatNumber,
-  formatPrice,
   formatSignedNumber,
-  formatTakeProfitTargetSummary,
   getActiveCountdowns,
-  getBudgetTone,
-  getBulkOrderLabel,
-  getBulkPositionLabel,
-  getHeaderTimerClassName,
-  getMarketBaseSymbol,
-  getRatioTone,
   parsePositiveInteger,
   parseStoredDashboardState,
-  sanitizeDecimalInput,
-  sanitizeIntegerInput,
   toEntryAPercent,
-  toRewardRiskRatio,
-  toTakeProfitClosePercent,
-  toUsdtPerpetualMarketSymbol,
 } from "./utils";
 
 export function MarioDashboard({ className = "" }: { className?: string }) {
@@ -411,10 +394,6 @@ export function MarioDashboard({ className = "" }: { className?: string }) {
 
   const theme = getThemeClasses();
   const currentNow = now ?? 0;
-  const headerCountdownText = activeCountdowns
-    .map((countdown) => formatCountdown(countdown.targetTime - currentNow))
-    .join(" | ");
-  const firstCountdownRemaining = activeCountdowns[0] ? activeCountdowns[0].targetTime - currentNow : null;
   const apiKeyStatus = getApiKeySyncStatus({
     connector: apiConnector,
     error: apiSyncError,
@@ -429,29 +408,17 @@ export function MarioDashboard({ className = "" }: { className?: string }) {
   return (
     <main className={`${theme.page}${dashboardState.darkMode ? " dark-mode" : ""}${className ? ` ${className}` : ""}`}>
       <div className="container">
-        <header className="header">
-          <h1>
-            马里奥的狙击台
-            {activeCountdowns.length > 0 ? <span className={getHeaderTimerClassName(firstCountdownRemaining)}>{headerCountdownText}</span> : null}
-            <span className="header-subtitle">{QUOTES[quoteIndex]}</span>
-          </h1>
-          <div className="header-actions">
-            <IconButton label="倒计时" theme={theme} onClick={openCountdownModal}>
-              <ClockIcon />
-            </IconButton>
-            <IconButton
-              label="切换主题"
-              theme={theme}
-              onClick={() => setDashboardState((currentState) => ({ ...currentState, darkMode: !currentState.darkMode }))}
-            >
-              {dashboardState.darkMode ? <MoonIcon /> : <SunIcon />}
-            </IconButton>
-            <button className="api-switch-btn" title={apiKeyStatus.title} type="button" onClick={switchApiKey}>
-              <span>切换 API Key</span>
-              <span className={`api-switch-status ${apiKeyStatus.tone}`}>{apiKeyStatus.label}</span>
-            </button>
-          </div>
-        </header>
+        <DashboardHeader
+          activeCountdowns={activeCountdowns}
+          apiKeyStatus={apiKeyStatus}
+          currentNow={currentNow}
+          isDarkMode={dashboardState.darkMode}
+          quote={QUOTES[quoteIndex]}
+          theme={theme}
+          onOpenCountdownModal={openCountdownModal}
+          onSwitchApiKey={switchApiKey}
+          onToggleTheme={() => setDashboardState((currentState) => ({ ...currentState, darkMode: !currentState.darkMode }))}
+        />
 
         <Card title="账号概况" icon={<AccountIcon />} theme={theme}>
           <div className="overview-grid">
@@ -467,142 +434,20 @@ export function MarioDashboard({ className = "" }: { className?: string }) {
         </Card>
 
         <div className="two-cols">
-          <Card title="坐标定位/持仓计算" icon={<LayersIcon />} theme={theme}>
-            <div className="form-grid">
-              <FormRow label="币种" theme={theme}>
-                <MarketSymbolSearchInput
-                  formatSymbolLabel={getMarketBaseSymbol}
-                  id="mario-dashboard-symbol-search"
-                  isDarkTheme={dashboardState.darkMode}
-                  marketOptions={marketOptions}
-                  noMatchesLabel="没有匹配币种"
-                  placeholder="搜索币种"
-                  symbol={toUsdtPerpetualMarketSymbol(form.symbol)}
-                  variant="mario"
-                  onSymbolChange={(symbol) => updateFormField("symbol", getMarketBaseSymbol(symbol))}
-                />
-              </FormRow>
-
-              <FormRow label="预算" theme={theme}>
-                <SegmentedButtons
-                  options={BUDGET_OPTIONS}
-                  value={dashboardState.budget}
-                  getLabel={(value) => `${value}%`}
-                  getTone={getBudgetTone}
-                  onChange={selectBudget}
-                />
-              </FormRow>
-
-              <FormRow label="止损位" theme={theme}>
-                <input
-                  id="stopLoss"
-                  inputMode="decimal"
-                  placeholder="价格"
-                  value={form.stopLoss}
-                  onChange={(event) => updateFormField("stopLoss", sanitizeDecimalInput(event.target.value))}
-                />
-              </FormRow>
-
-              <FormRow label="开仓点A" theme={theme}>
-                <input
-                  id="entryA"
-                  inputMode="decimal"
-                  placeholder="价格"
-                  value={form.entryA}
-                  onChange={(event) => updateFormField("entryA", sanitizeDecimalInput(event.target.value))}
-                />
-                {calculation.entryAWarning ? <span className="warning">{calculation.entryAWarning}</span> : null}
-                <select
-                  id="percentA"
-                  value={form.percentA}
-                  onChange={(event) => updateEntryAPercent(event.target.value)}
-                >
-                  {PERCENT_A_OPTIONS.map((percent) => <option key={percent} value={percent}>{percent}%</option>)}
-                </select>
-              </FormRow>
-
-              <FormRow label="可开数量" theme={theme}>
-                <CalculatedValue theme={theme} value={calculation.amountA > 0 ? calculation.amountA.toFixed(2) : "-"} />
-              </FormRow>
-
-              <FormRow label="开仓点B" theme={theme}>
-                <input
-                  id="entryB"
-                  disabled={calculation.entryBDisabled}
-                  inputMode="decimal"
-                  placeholder="价格"
-                  style={{ flex: "0 0 80px" }}
-                  value={form.entryB}
-                  onChange={(event) => updateFormField("entryB", sanitizeDecimalInput(event.target.value))}
-                />
-                {calculation.entryBWarning ? <span className="warning">{calculation.entryBWarning}</span> : null}
-              </FormRow>
-
-              <FormRow label="可开数量" theme={theme}>
-                <CalculatedValue theme={theme} value={calculation.amountB > 0 ? calculation.amountB.toFixed(2) : "-"} />
-              </FormRow>
-
-              <FormRow label="剩余仓位" theme={theme}>
-                <CalculatedValue theme={theme} value={`${calculation.remainPercent}%`} />
-              </FormRow>
-
-              <FormRow label="盈亏比" theme={theme}>
-                <SegmentedButtons
-                  options={RATIO_OPTIONS}
-                  value={dashboardState.ratio}
-                  getLabel={(value) => `1:${value}`}
-                  getTone={getRatioTone}
-                  onChange={selectRatio}
-                />
-              </FormRow>
-
-              <FormRow label="分批止盈" theme={theme}>
-                <div className="take-profit-plan" aria-label="分批止盈设置">
-                  <div className="take-profit-plan-header">
-                    <span>目标 / 盈亏比 / 仓位 / 价格</span>
-                    <span className={calculation.takeProfitPlanWarning ? "loss" : "profit"}>合计 {calculation.takeProfitClosePercentTotal}%</span>
-                  </div>
-                  {dashboardState.takeProfitTargets.map((target, index) => {
-                    const calculatedTarget = calculation.takeProfitTargets.find((calculated) => calculated.id === target.id);
-                    return (
-                      <div key={target.id} className="take-profit-target-row">
-                        <span className="take-profit-target-name">TP{index + 1}</span>
-                        <select
-                          aria-label={`TP${index + 1} 盈亏比`}
-                          value={target.ratio}
-                          onChange={(event) => updateTakeProfitTarget(target.id, { ratio: toRewardRiskRatio(event.target.value) })}
-                        >
-                          {RATIO_OPTIONS.map((ratio) => <option key={ratio} value={ratio}>1:{ratio}</option>)}
-                        </select>
-                        <input
-                          aria-label={`TP${index + 1} 平仓比例`}
-                          inputMode="numeric"
-                          maxLength={3}
-                          value={target.closePercent}
-                          onChange={(event) => updateTakeProfitTarget(target.id, { closePercent: toTakeProfitClosePercent(event.target.value) })}
-                        />
-                        <span className="take-profit-target-price">{calculatedTarget && calculatedTarget.price > 0 ? calculatedTarget.price.toFixed(2) : "-"}</span>
-                      </div>
-                    );
-                  })}
-                  {calculation.takeProfitPlanWarning ? <span className="warning">{calculation.takeProfitPlanWarning}</span> : null}
-                </div>
-              </FormRow>
-
-              <FormRow label="参考止盈位" theme={theme}>
-                <CalculatedValue theme={theme} value={calculation.takeProfit > 0 ? calculation.takeProfit.toFixed(2) : "-"} />
-              </FormRow>
-
-              <FormRow label="止盈利润" theme={theme}>
-                <CalculatedValue theme={theme} value={calculation.profit > 0 ? `+${calculation.profit.toFixed(2)}` : "-"} />
-              </FormRow>
-            </div>
-
-            <div className="action-btns">
-              <ActionButton disabled={!calculation.canPlaceLong} tone="long" onClick={() => openConfirmModal("long")}>开多</ActionButton>
-              <ActionButton disabled={!calculation.canPlaceShort} tone="short" onClick={() => openConfirmModal("short")}>开空</ActionButton>
-            </div>
-          </Card>
+          <CalculatorCard
+            calculation={calculation}
+            dashboardState={dashboardState}
+            form={form}
+            isDarkTheme={dashboardState.darkMode}
+            marketOptions={marketOptions}
+            theme={theme}
+            onConfirmDirection={openConfirmModal}
+            onSelectBudget={selectBudget}
+            onSelectRatio={selectRatio}
+            onUpdateEntryAPercent={updateEntryAPercent}
+            onUpdateFormField={updateFormField}
+            onUpdateTakeProfitTarget={updateTakeProfitTarget}
+          />
 
           <PendingOrdersCard
             longOrders={pendingLongOrders}
@@ -624,72 +469,25 @@ export function MarioDashboard({ className = "" }: { className?: string }) {
         </div>
       </div>
 
-      {confirmDirection ? (
-        <Modal title="确认开仓" theme={theme} onClose={() => setConfirmDirection(null)}>
-          <div className="modal-info">
-            <InfoRow label="方向" theme={theme} value={confirmDirection === "long" ? "开多" : "开空"} />
-            <InfoRow label="币种" theme={theme} value={form.symbol} />
-            <InfoRow label="开仓点A" theme={theme} value={formatPrice(calculation.entryA)} />
-            <InfoRow label="仓位A" theme={theme} value={formatAmount(calculation.amountA)} />
-            {calculation.entryB > 0 ? <InfoRow label="开仓点B" theme={theme} value={formatPrice(calculation.entryB)} /> : null}
-            {calculation.amountB > 0 ? <InfoRow label="仓位B" theme={theme} value={formatAmount(calculation.amountB)} /> : null}
-            <InfoRow label="止损位" theme={theme} value={formatPrice(calculation.stopLoss)} />
-            <InfoRow label="分批止盈" theme={theme} value={formatTakeProfitTargetSummary(calculation.takeProfitTargets)} />
-            <InfoRow label="预计盈亏" theme={theme} value={calculation.profit > 0 ? `+${calculation.profit.toFixed(2)}` : "-"} />
-          </div>
-          <ModalActions
-            cancelLabel="取消"
-            confirmLabel="确认"
-            theme={theme}
-            onCancel={() => setConfirmDirection(null)}
-            onConfirm={confirmOrder}
-          />
-        </Modal>
-      ) : null}
-
-      {bulkAction ? (
-        <Modal title={bulkAction.source === "order" ? getBulkOrderLabel(bulkAction.type) : getBulkPositionLabel(bulkAction.type)} theme={theme} onClose={() => setBulkAction(null)}>
-          <p className="secondary-text" style={{ marginBottom: 16 }}>确定要执行此操作吗？</p>
-          <ModalActions
-            cancelLabel="取消"
-            confirmLabel="确认"
-            theme={theme}
-            onCancel={() => setBulkAction(null)}
-            onConfirm={confirmBulkAction}
-          />
-        </Modal>
-      ) : null}
-
-      {isCountdownModalOpen ? (
-        <Modal title="倒计时" theme={theme} onClose={() => setIsCountdownModalOpen(false)}>
-          <div className="countdown-modal-list">
-            {activeCountdowns.length > 0 ? activeCountdowns.map((countdown) => {
-              const remaining = countdown.targetTime - currentNow;
-              const isUrgent = remaining < COUNTDOWN_URGENT_MS;
-              return (
-                <div key={countdown.id} className={`countdown-modal-item${isUrgent ? " urgent" : ""}`}>
-                  <span className="countdown-modal-time">{formatCountdown(remaining)}</span>
-                  <button className="countdown-modal-delete" type="button" onClick={() => deleteCountdown(countdown.id)}>删除</button>
-                </div>
-              );
-            }) : <div className="countdown-modal-empty">暂无倒计时</div>}
-          </div>
-          <div className="countdown-modal-add">
-            <div className="input-row">
-              <input inputMode="numeric" maxLength={2} placeholder="天" value={countdownInput.days} onChange={(event) => setCountdownInput((current) => ({ ...current, days: sanitizeIntegerInput(event.target.value) }))} />
-              <input inputMode="numeric" maxLength={2} placeholder="时" value={countdownInput.hours} onChange={(event) => setCountdownInput((current) => ({ ...current, hours: sanitizeIntegerInput(event.target.value) }))} />
-              <input inputMode="numeric" maxLength={2} placeholder="分" value={countdownInput.minutes} onChange={(event) => setCountdownInput((current) => ({ ...current, minutes: sanitizeIntegerInput(event.target.value) }))} />
-            </div>
-          </div>
-          <ModalActions
-            cancelLabel="关闭"
-            confirmLabel="添加"
-            theme={theme}
-            onCancel={() => setIsCountdownModalOpen(false)}
-            onConfirm={addCountdown}
-          />
-        </Modal>
-      ) : null}
+      <DashboardModals
+        activeCountdowns={activeCountdowns}
+        bulkAction={bulkAction}
+        calculation={calculation}
+        confirmDirection={confirmDirection}
+        countdownInput={countdownInput}
+        currentNow={currentNow}
+        form={form}
+        isCountdownModalOpen={isCountdownModalOpen}
+        setCountdownInput={setCountdownInput}
+        theme={theme}
+        onAddCountdown={addCountdown}
+        onCloseBulkAction={() => setBulkAction(null)}
+        onCloseConfirm={() => setConfirmDirection(null)}
+        onCloseCountdown={() => setIsCountdownModalOpen(false)}
+        onConfirmBulkAction={confirmBulkAction}
+        onConfirmOrder={confirmOrder}
+        onDeleteCountdown={deleteCountdown}
+      />
 
     </main>
   );
