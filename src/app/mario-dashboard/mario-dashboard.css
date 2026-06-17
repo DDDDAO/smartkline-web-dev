@@ -474,6 +474,58 @@
   cursor: not-allowed;
 }
 
+.mario-dashboard .take-profit-plan {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mario-dashboard .take-profit-plan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.mario-dashboard .take-profit-target-row {
+  display: grid;
+  grid-template-columns: 38px minmax(58px, 0.8fr) minmax(52px, 0.8fr) minmax(74px, 1fr);
+  gap: 4px;
+  align-items: center;
+}
+
+.mario-dashboard .take-profit-target-name {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mario-dashboard .take-profit-target-row input,
+.mario-dashboard .take-profit-target-row select {
+  height: 30px;
+  font-size: 11px;
+}
+
+.mario-dashboard .take-profit-target-price {
+  min-width: 0;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 8px;
+}
+
 .mario-dashboard .calculated-value {
   height: var(--input-height);
   background: var(--input-bg);
