@@ -8,6 +8,7 @@ import type {
   CreateHyperliquidAgentBindingInput,
   CreateMockConnectorInput,
   SyncCopyStrategyPositionsInput,
+  UpdateCopyStrategySettingsInput,
   TradingFoxAccountResponse,
   TradingFoxAccountStatus,
   TradingFoxConnector,
@@ -39,6 +40,7 @@ export type {
   CreateHyperliquidAgentBindingInput,
   CreateMockConnectorInput,
   SyncCopyStrategyPositionsInput,
+  UpdateCopyStrategySettingsInput,
   TradingFoxAccountResponse,
   TradingFoxAccountStatus,
   TradingFoxConnector,
@@ -79,6 +81,7 @@ type TradingFoxCopyStrategyConfigInput = {
   signalSourceConfigs?: readonly Record<string, unknown>[];
   signalSourceId: string;
   startTime?: string;
+  takeProfitMargin?: number;
   stopLossPercent: number;
   takeProfitPercent: number;
 };
@@ -340,9 +343,11 @@ export async function createTradingFoxCopyStrategy(
   const strategyName = normalizeOptionalText(input.strategyName) || signalSourceName;
   const takeProfitPercent = normalizePositiveNumber(input.takeProfitPercent) ?? 20;
   const stopLossPercent = normalizePositiveNumber(input.stopLossPercent) ?? 10;
+  const takeProfitMargin = await resolveCopyStrategyTakeProfitMargin(connector, takeProfitPercent);
   const config = createTradingFoxCopyStrategyConfig({
     signalSourceId,
     stopLossPercent,
+    takeProfitMargin,
     takeProfitPercent,
   });
 
@@ -377,8 +382,9 @@ export async function updateTradingFoxCopyStrategyStatus(
   }
 
   if (status === "running") {
-    await ensureTradingFoxCopyStrategyConfigEnvelope(trader);
-    await ensureCopyStrategyConnectorPositionMode(await getConnectorForUser(trader.exchangeConnectorId, userId));
+    const connector = await getConnectorForUser(trader.exchangeConnectorId, userId);
+    await ensureTradingFoxCopyStrategyConfigEnvelope(trader, connector);
+    await ensureCopyStrategyConnectorPositionMode(connector);
     await tradingFoxRequest<TradingFoxRuntimeStatusResponse>(`/v1/traders/${traderId}/start`, {
       body: JSON.stringify({ enableSltpMonitoring: true, startType: "manual_start" }),
       method: "POST",
@@ -389,6 +395,60 @@ export async function updateTradingFoxCopyStrategyStatus(
       method: "POST",
     });
   }
+
+  return getTradingFoxAccount(session);
+}
+
+export async function updateTradingFoxCopyStrategySettings(
+  session: TelegramAuthSession,
+  strategyId: string,
+  input: UpdateCopyStrategySettingsInput,
+): Promise<TradingFoxAccountResponse> {
+  const userId = tradingFoxUserIdFromSession(session);
+  const traderId = parsePositiveInteger(strategyId, "strategyId");
+  const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
+
+  if (trader.userId !== userId || !isCopyTradingTrader(trader)) {
+    throw new TradingFoxApiError("Copy strategy not found.", 404);
+  }
+
+  const connector = await getConnectorForUser(trader.exchangeConnectorId, userId);
+  const strategyName = requireText(input.strategyName, "strategyName");
+  const takeProfitPercent = normalizePositiveNumber(input.takeProfitPercent);
+  const stopLossPercent = normalizePositiveNumber(input.stopLossPercent);
+  if (takeProfitPercent === undefined) {
+    throw new TradingFoxApiError("takeProfitPercent must be greater than 0.", 400);
+  }
+  if (stopLossPercent === undefined) {
+    throw new TradingFoxApiError("stopLossPercent must be greater than 0.", 400);
+  }
+
+  const signalSourceConfig = firstSignalSourceConfig(trader.config);
+  const metadata = recordValue(trader.config.smartkline);
+  const signalSourceId = stringValue(metadata.signalSourceId) || signalSourceIdFromConfig(signalSourceConfig);
+  if (!signalSourceId) {
+    throw new TradingFoxApiError("Copy strategy signal source is missing; recreate the strategy.", 409);
+  }
+
+  const takeProfitMargin = await resolveCopyStrategyTakeProfitMargin(connector, takeProfitPercent);
+  await tradingFoxRequest<{ trader?: TradingFoxTrader; runtimeStatus?: TradingFoxRuntimeStatus }>(
+    `/v1/traders/${traderId}`,
+    {
+      body: JSON.stringify({
+        config: createTradingFoxCopyStrategyConfig({
+          signalSourceConfigs: signalSourceConfigsFromCopyStrategyConfig(trader.config),
+          signalSourceId,
+          startTime: stringValue(signalSourceConfig?.startTime) || trader.createdAt,
+          stopLossPercent,
+          takeProfitMargin,
+          takeProfitPercent,
+        }),
+        configSchemaVersion: 1,
+        name: strategyName,
+      }),
+      method: "PATCH",
+    },
+  );
 
   return getTradingFoxAccount(session);
 }
@@ -1266,14 +1326,29 @@ function createTradingFoxCopyStrategyConfig(input: TradingFoxCopyStrategyConfigI
       fallbackId: index + 1,
       fallbackSignalSourceId: input.signalSourceId,
       fallbackStartTime: startTime,
+      fallbackTakeProfitPercent: input.takeProfitPercent,
     }))
     : [
       normalizeTradingFoxSignalSourceConfig({}, {
         fallbackId: 1,
         fallbackSignalSourceId: input.signalSourceId,
         fallbackStartTime: startTime,
+        fallbackTakeProfitPercent: input.takeProfitPercent,
       }),
     ];
+
+  const risk: Record<string, unknown> = {
+    /**
+     * TradingFox treats stopLossMargin/takeProfitMargin as absolute
+     * account-equity cutoffs. SmartKline's copy setup collects percentage
+     * inputs, so stop-loss stays percentage-based and take-profit is converted
+     * to an absolute account-equity threshold before the config is persisted.
+     */
+    stopLossPercent: input.stopLossPercent,
+  };
+  if (input.takeProfitMargin !== undefined) {
+    risk.takeProfitMargin = input.takeProfitMargin;
+  }
 
   return {
     common: {
@@ -1282,15 +1357,7 @@ function createTradingFoxCopyStrategyConfig(input: TradingFoxCopyStrategyConfigI
       },
       market: {},
       orders: {},
-      risk: {
-        /**
-         * TradingFox treats stopLossMargin/takeProfitMargin as absolute
-         * account-equity cutoffs. SmartKline's copy setup collects percentage
-         * inputs, so only send the percent field consumed by the backend
-         * trailing-equity stop-loss monitor.
-         */
-        stopLossPercent: input.stopLossPercent,
-      },
+      risk,
       sltp: {},
     },
     strategy: {
@@ -1301,7 +1368,12 @@ function createTradingFoxCopyStrategyConfig(input: TradingFoxCopyStrategyConfigI
 
 function normalizeTradingFoxSignalSourceConfig(
   config: Record<string, unknown>,
-  fallback: { fallbackId: number; fallbackSignalSourceId: string; fallbackStartTime: string },
+  fallback: {
+    fallbackId: number;
+    fallbackSignalSourceId: string;
+    fallbackStartTime: string;
+    fallbackTakeProfitPercent?: number;
+  },
 ): Record<string, unknown> {
   const signalSourceId = stringValue(config.signalSourceID) || stringValue(config.signalSourceId) || stringValue(config.SignalSourceID) || fallback.fallbackSignalSourceId;
   const startTime = stringValue(config.startTime) || stringValue(config.StartTime) || fallback.fallbackStartTime;
@@ -1317,6 +1389,9 @@ function normalizeTradingFoxSignalSourceConfig(
     traderID: traderId,
   };
   const stopLossPercent = normalizePositiveNumber(config.stopLossPercent ?? config.StopLossPercent);
+  const smartklineTakeProfitPercent = normalizePositiveNumber(
+    config.smartklineTakeProfitPercent ?? config.takeProfitPercent ?? fallback.fallbackTakeProfitPercent,
+  );
   const centsFeePerHour = normalizeNonNegativeInteger(config.centsFeePerHour ?? config.CentsFeePerHour);
   const blacklist = stringArrayValue(config.blacklist ?? config.Blacklist);
   const whitelist = stringArrayValue(config.whitelist ?? config.Whitelist);
@@ -1324,6 +1399,9 @@ function normalizeTradingFoxSignalSourceConfig(
 
   if (stopLossPercent !== undefined) {
     normalized.stopLossPercent = stopLossPercent;
+  }
+  if (smartklineTakeProfitPercent !== undefined) {
+    normalized.smartklineTakeProfitPercent = smartklineTakeProfitPercent;
   }
   if (centsFeePerHour > 0) {
     normalized.centsFeePerHour = centsFeePerHour;
@@ -1352,8 +1430,14 @@ function normalizeTradingFoxFollowSide(value: unknown): "BOTH" | "LONG" | "SHORT
   return "BOTH";
 }
 
-async function ensureTradingFoxCopyStrategyConfigEnvelope(trader: TradingFoxTrader): Promise<void> {
-  if (isTradingFoxConfigEnvelope(trader.config) && !hasCopyStrategyAbsoluteMarginRisk(trader.config)) {
+async function ensureTradingFoxCopyStrategyConfigEnvelope(
+  trader: TradingFoxTrader,
+  connector: TradingFoxConnector,
+): Promise<void> {
+  const takeProfitPercent = copyStrategyTakeProfitPercentForConfig(trader.config, 20);
+  const takeProfitMargin = await resolveCopyStrategyTakeProfitMargin(connector, takeProfitPercent);
+
+  if (isTradingFoxConfigEnvelope(trader.config) && !shouldRewriteCopyStrategyRisk(trader.config, takeProfitMargin)) {
     return;
   }
   const signalSourceConfig = firstSignalSourceConfig(trader.config);
@@ -1373,7 +1457,8 @@ async function ensureTradingFoxCopyStrategyConfigEnvelope(trader: TradingFoxTrad
           signalSourceId,
           startTime: stringValue(signalSourceConfig?.startTime) || trader.createdAt,
           stopLossPercent: copyStrategyConfigNumber(trader.config, "stopLossPercent", 10),
-          takeProfitPercent: copyStrategyConfigNumber(trader.config, "takeProfitPercent", 20),
+          takeProfitMargin,
+          takeProfitPercent,
         }),
         configSchemaVersion: 1,
       }),
@@ -1386,11 +1471,14 @@ function isTradingFoxConfigEnvelope(config: Record<string, unknown>): boolean {
   return isRecord(config.common) && isRecord(config.strategy);
 }
 
-function hasCopyStrategyAbsoluteMarginRisk(config: Record<string, unknown>): boolean {
+function shouldRewriteCopyStrategyRisk(config: Record<string, unknown>, takeProfitMargin: number): boolean {
   const common = recordValue(config.common);
   const risk = recordValue(common.risk);
   const settings = recordValue(config.settings);
-  return numberOrNull(risk.takeProfitMargin) !== null
+  const existingTakeProfitMargin = numberOrNull(risk.takeProfitMargin ?? settings.takeProfitMargin);
+
+  return existingTakeProfitMargin === null
+    || existingTakeProfitMargin <= takeProfitMargin / 2
     || numberOrNull(risk.stopLossMargin) !== null
     || numberOrNull(settings.takeProfitMargin) !== null
     || numberOrNull(settings.stopLossMargin) !== null;
@@ -1463,13 +1551,32 @@ function copyStrategyConfigNumber(
   metric: "stopLossPercent" | "takeProfitPercent",
   fallback: number,
 ): number {
+  if (metric === "takeProfitPercent") {
+    return copyStrategyTakeProfitPercentForConfig(config, fallback);
+  }
+
+  return copyStrategyConfigPercent(config, metric, fallback);
+}
+
+function copyStrategyConfigPercent(
+  config: Record<string, unknown>,
+  metric: "stopLossPercent" | "takeProfitPercent",
+  fallback: number,
+): number {
   const metadata = recordValue(config.smartkline);
   const settings = recordValue(config.settings);
   const common = recordValue(config.common);
   const risk = recordValue(common.risk);
+  const signalSourceConfig = firstSignalSourceConfig(config);
   const values = metric === "stopLossPercent"
     ? [metadata.stopLossPercent, risk.stopLossMargin, risk.stopLossPercent, settings.stopLossMargin]
-    : [metadata.takeProfitPercent, risk.takeProfitMargin, settings.takeProfitMargin];
+    : [
+      metadata.takeProfitPercent,
+      signalSourceConfig?.smartklineTakeProfitPercent,
+      signalSourceConfig?.takeProfitPercent,
+      risk.takeProfitPercent,
+      settings.takeProfitPercent,
+    ];
 
   for (const value of values) {
     const number = numberOrNull(value);
@@ -1479,6 +1586,59 @@ function copyStrategyConfigNumber(
   }
 
   return fallback;
+}
+
+function copyStrategyTakeProfitPercentForConfig(config: Record<string, unknown>, fallback: number): number {
+  const explicitPercent = copyStrategyConfigPercent(config, "takeProfitPercent", Number.NaN);
+  if (Number.isFinite(explicitPercent)) {
+    return explicitPercent;
+  }
+
+  const settings = recordValue(config.settings);
+  const common = recordValue(config.common);
+  const risk = recordValue(common.risk);
+  const legacyMargin = numberOrNull(risk.takeProfitMargin ?? settings.takeProfitMargin);
+  if (legacyMargin !== null && legacyMargin > 0 && legacyMargin <= 100) {
+    return legacyMargin;
+  }
+
+  return fallback;
+}
+
+async function resolveCopyStrategyTakeProfitMargin(
+  connector: TradingFoxConnector,
+  takeProfitPercent: number,
+): Promise<number> {
+  const accountEquity = await getTradingFoxConnectorAccountEquity(connector);
+  if (accountEquity === undefined) {
+    throw new TradingFoxApiError("Trading account equity is unavailable; cannot convert take-profit percent to an account-equity threshold.", 409);
+  }
+  return roundTradingFoxMargin(accountEquity * (1 + takeProfitPercent / 100));
+}
+
+async function getTradingFoxConnectorAccountEquity(connector: TradingFoxConnector): Promise<number | undefined> {
+  const localAccountEquity = positiveNumberOrNull(connector.accountEquity);
+  if (localAccountEquity !== null) {
+    return localAccountEquity;
+  }
+
+  const accountStatus = await settleTradingFoxRequest<TradingFoxAccountStatusResponse>(
+    `/v1/exchange-connectors/${connector.id}/account-status`,
+  );
+  const remoteAccountEquity = positiveNumberOrNull(accountStatus.value?.account?.equity);
+  if (remoteAccountEquity !== null) {
+    return remoteAccountEquity;
+  }
+
+  const mockMarginBalance = positiveNumberOrNull(connector.mockMarginBalance);
+  if (mockMarginBalance !== null) {
+    return mockMarginBalance;
+  }
+  return connector.isMock ? DEFAULT_MOCK_MARGIN_BALANCE : undefined;
+}
+
+function roundTradingFoxMargin(value: number): number {
+  return Number(value.toFixed(8));
 }
 
 function mapBackendStrategyStatus(trader: TradingFoxTrader): TradingFoxCopyStrategyStatus {

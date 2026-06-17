@@ -320,6 +320,12 @@ export type SyncCopyStrategyPositionsInput = {
   ratioPercent?: unknown;
 };
 
+export type UpdateCopyStrategySettingsInput = {
+  stopLossPercent?: unknown;
+  strategyName?: unknown;
+  takeProfitPercent?: unknown;
+};
+
 export class TradingFoxConfigError extends Error {
   constructor(message: string) {
     super(message);
