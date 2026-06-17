@@ -36,7 +36,7 @@ import {
 } from "./strategy-detail-content";
 import { MiniMetric } from "./mini-metric";
 import { StrategySettingsDialog } from "./strategy-settings-dialog";
-import { getStrategyStatusLabel } from "./strategy-helpers";
+import { getStrategyStatusLabel, resolveFollowedSignalSourceDisplay } from "./strategy-helpers";
 import {
   getDangerButtonClassName,
   getErrorPanelClassName,
@@ -240,6 +240,8 @@ export function StrategyDetailView({
   const loadedSections = detail?.loadedSections ?? [];
   const hasLoadedSection = (section: TradingFoxStrategyDetailSection) => loadedSections.includes(section);
   const liveStrategy = detail?.strategy ?? strategy;
+  const followedSource = resolveFollowedSignalSourceDisplay(liveStrategy, null, strategyCopy.followingSignalSourceUnknown);
+  const followedSourceMeta = [followedSource.platform, followedSource.id].filter(Boolean).join(" · ");
   const isStrategyRunning = liveStrategy.status === "running";
   const parsedSyncRatioPercent = Number(syncRatioPercent);
   const canSyncPositions = Boolean(detail) && isStrategyRunning && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
@@ -374,7 +376,7 @@ export function StrategyDetailView({
           </button>
         </div>
         <div className="mt-4 flex min-w-0 items-start gap-3">
-          <SourceAvatar isDarkTheme={isDarkTheme} name={liveStrategy.traderName} url={liveStrategy.avatarUrl} />
+          <SourceAvatar isDarkTheme={isDarkTheme} name={followedSource.name} url={followedSource.avatarUrl} />
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <h3 className="truncate text-lg font-black">{liveStrategy.traderName}</h3>
@@ -383,6 +385,17 @@ export function StrategyDetailView({
             <p className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
               #{liveStrategy.id} · {liveStrategy.platform} · {liveStrategy.apiAccountName}
             </p>
+            <div className={isDarkTheme ? "mt-2 flex min-w-0 flex-wrap items-center gap-1 text-xs font-bold text-slate-400" : "mt-2 flex min-w-0 flex-wrap items-center gap-1 text-xs font-bold text-slate-600"}>
+              <span className={isDarkTheme ? "text-slate-500" : "text-slate-400"}>{strategyCopy.followingSignalSource}</span>
+              <span aria-hidden="true">·</span>
+              <span className="truncate font-black">{followedSource.name}</span>
+              {followedSourceMeta ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="truncate text-slate-500">{followedSourceMeta}</span>
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs lg:grid-cols-4">
@@ -471,27 +484,37 @@ export function StrategyDetailView({
               <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.loadingDetail}</div>
             ) : detail.signalSourcesError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.signalSourcesError, copy)}</p> : null}
             <div className="mt-3 grid gap-2">
-              {signalSourcesSectionLoaded && detail.signalSources.length > 0 ? detail.signalSources.map((source) => (
-                <div key={source.signalSourceId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#F8FAFC] p-3"}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-sm font-black">{source.name || source.signalSourceId}</div>
-                    <div className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-500"}>{strategyCopy.followSide}: {source.followSide || "both"}</div>
-                  </div>
-                  <PositionSummaryPanel
-                    isDarkTheme={isDarkTheme}
-                    strategyCopy={strategyCopy}
-                    summary={createSignalSourcePositionSummary(source, copyPositionMarkPricesBySymbol)}
-                  />
-                  {source.positions.length > 0 ? (
-                    <SignalSourcePositionTable
-                      copyPositionMarkPricesBySymbol={copyPositionMarkPricesBySymbol}
+              {signalSourcesSectionLoaded && detail.signalSources.length > 0 ? detail.signalSources.map((source) => {
+                const sourceIdentity = signalSourceIdentityById.get(source.signalSourceId);
+                const sourceDisplayName = sourceIdentity?.name || source.name || source.signalSourceId;
+                return (
+                  <div key={source.signalSourceId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#F8FAFC] p-3"}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <SourceAvatar isDarkTheme={isDarkTheme} name={sourceDisplayName} url={sourceIdentity?.avatarUrl ?? null} />
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-black">{sourceDisplayName}</div>
+                          <div className={isDarkTheme ? "mt-0.5 truncate text-[10px] font-semibold text-slate-500" : "mt-0.5 truncate text-[10px] font-semibold text-slate-500"}>{source.signalSourceId}</div>
+                        </div>
+                      </div>
+                      <div className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-500"}>{strategyCopy.followSide}: {source.followSide || "both"}</div>
+                    </div>
+                    <PositionSummaryPanel
                       isDarkTheme={isDarkTheme}
-                      positions={source.positions}
                       strategyCopy={strategyCopy}
+                      summary={createSignalSourcePositionSummary(source, copyPositionMarkPricesBySymbol)}
                     />
-                  ) : <div className={isDarkTheme ? "mt-3 text-xs text-slate-500" : "mt-3 text-xs text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
-                </div>
-              )) : signalSourcesSectionLoaded ? <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div> : null}
+                    {source.positions.length > 0 ? (
+                      <SignalSourcePositionTable
+                        copyPositionMarkPricesBySymbol={copyPositionMarkPricesBySymbol}
+                        isDarkTheme={isDarkTheme}
+                        positions={source.positions}
+                        strategyCopy={strategyCopy}
+                      />
+                    ) : <div className={isDarkTheme ? "mt-3 text-xs text-slate-500" : "mt-3 text-xs text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
+                  </div>
+                );
+              }) : signalSourcesSectionLoaded ? <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div> : null}
             </div>
           </section>
 
