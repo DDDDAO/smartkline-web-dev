@@ -447,7 +447,6 @@ function TopSignalsSourceFilterBar({
           </div>
           <div className="max-h-64 overflow-y-auto px-2 pb-2">
             <SourceFilterOption
-              count={models.length}
               isActive={activeSourceId === "all" || !activeModel}
               isDarkTheme={isDarkTheme}
               label={allLabel}
@@ -456,7 +455,6 @@ function TopSignalsSourceFilterBar({
             {filteredModels.map((model) => (
               <SourceFilterOption
                 key={model.trader.trader_id}
-                count={model.events.length}
                 isActive={model.trader.trader_id === activeSourceId}
                 isDarkTheme={isDarkTheme}
                 label={model.trader.name}
@@ -474,7 +472,6 @@ function TopSignalsSourceFilterBar({
 }
 
 function SourceFilterOption({
-  count,
   isActive,
   isDarkTheme,
   label,
@@ -483,7 +480,6 @@ function SourceFilterOption({
   url,
   onClick,
 }: {
-  count: number;
   isActive: boolean;
   isDarkTheme: boolean;
   label: string;
@@ -509,7 +505,6 @@ function SourceFilterOption({
         <span className="block truncate">{label}</span>
         {meta ? <span className={isActive ? "block truncate text-[10px] text-white/70" : isDarkTheme ? "block truncate text-[10px] text-slate-500" : "block truncate text-[10px] text-slate-400"}>{meta}</span> : null}
       </span>
-      <span className={isActive ? "rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] text-white" : isDarkTheme ? "rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-500" : "rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400"}>{count}</span>
     </button>
   );
 }
