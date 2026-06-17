@@ -16,6 +16,7 @@ import type {
 } from "@/app/_lib/tradingfox-control-plane";
 import { SourceAvatar } from "./card-ui";
 import { StrategyDetailView } from "./copy-trading-prototype/strategy-detail-view";
+import { StrategySettingsDialog } from "./copy-trading-prototype/strategy-settings-dialog";
 import { TelegramUserAvatar, getTelegramUserDisplayName } from "./copy-trading-prototype/telegram-user-avatar";
 import {
   EXCHANGES,
@@ -35,6 +36,7 @@ import type {
   PrototypeConnectionSaveInput,
   PrototypeStrategy,
   PrototypeStrategyCreateInput,
+  PrototypeStrategySettingsUpdateInput,
   PrototypeStrategyStatus,
   PrototypeStrategyType,
 } from "./copy-trading-prototype/types";
@@ -77,6 +79,7 @@ export type {
   PrototypeConnectionSaveInput,
   PrototypeStrategy,
   PrototypeStrategyCreateInput,
+  PrototypeStrategySettingsUpdateInput,
   PrototypeStrategyStatus,
   PrototypeStrategyType,
 } from "./copy-trading-prototype/types";
@@ -107,6 +110,7 @@ export function AccountCenterPrototype({
   onLogout,
   onStrategyCreate,
   onStrategyDelete,
+  onStrategySettingsUpdate,
   onStrategyStatusChange,
 }: AccountCenterPrototypeProps) {
   const accountCopy = copy.workspace.accountCenter;
@@ -193,6 +197,7 @@ export function AccountCenterPrototype({
                   telegramUser={telegramUser}
                   onBack={() => setSelectedStrategyId(null)}
                   onStrategyDelete={onStrategyDelete}
+                  onStrategySettingsUpdate={onStrategySettingsUpdate}
                   onStrategyStatusChange={onStrategyStatusChange}
                 />
               ) : (
@@ -249,6 +254,7 @@ export function AccountCenterPrototype({
                           strategy={strategy}
                           onOpenDetail={openStrategyDetail}
                           onStrategyDelete={onStrategyDelete}
+                          onStrategySettingsUpdate={onStrategySettingsUpdate}
                           onStrategyStatusChange={onStrategyStatusChange}
                         />
                       )) : (
@@ -317,6 +323,7 @@ export function AccountManagementPanel({
   onStrategyCreate,
   onStrategyDelete,
   onStrategyRouteChange,
+  onStrategySettingsUpdate,
   onStrategyStatusChange,
 }: {
   activeStrategyId: string;
@@ -339,6 +346,7 @@ export function AccountManagementPanel({
   onStrategyCreate: (input: PrototypeStrategyCreateInput) => Promise<void> | void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategyRouteChange: (strategyId: string | null, mode?: "push" | "replace") => void;
+  onStrategySettingsUpdate: (input: PrototypeStrategySettingsUpdateInput) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
   const accountCopy = copy.workspace.accountCenter;
@@ -431,6 +439,7 @@ export function AccountManagementPanel({
             telegramUser={telegramUser}
             onBack={closeStrategyDetail}
             onStrategyDelete={onStrategyDelete}
+            onStrategySettingsUpdate={onStrategySettingsUpdate}
             onStrategyStatusChange={onStrategyStatusChange}
           />
         ) : (
@@ -512,6 +521,7 @@ export function AccountManagementPanel({
                       strategy={strategy}
                       onOpenDetail={openStrategyDetail}
                       onStrategyDelete={onStrategyDelete}
+                      onStrategySettingsUpdate={onStrategySettingsUpdate}
                       onStrategyStatusChange={onStrategyStatusChange}
                     />
                   )) : (
@@ -2297,6 +2307,7 @@ function PrototypeStrategyCard({
   strategy,
   onOpenDetail,
   onStrategyDelete,
+  onStrategySettingsUpdate,
   onStrategyStatusChange,
 }: {
   copy: WorkspaceCopy;
@@ -2305,8 +2316,10 @@ function PrototypeStrategyCard({
   strategy: PrototypeStrategy;
   onOpenDetail: (strategy: PrototypeStrategy) => void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
+  onStrategySettingsUpdate: (input: PrototypeStrategySettingsUpdateInput) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const accountCopy = copy.workspace.accountCenter;
   const strategyCopy = accountCopy.strategy;
   const strategyType = getPrototypeStrategyType(strategy);
@@ -2316,62 +2329,74 @@ function PrototypeStrategyCard({
   const followedSourceMeta = [followedSource.platform, followedSource.id].filter(Boolean).join(" · ");
 
   return (
-    <article className={isDarkTheme ? "relative rounded-2xl border border-white/[0.075] bg-[#181A20] p-3" : "relative rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
-      <button
-        className="block w-full text-left"
-        type="button"
-        onClick={() => onOpenDetail(strategy)}
-      >
-      <div className="flex items-start gap-3 pr-36">
-        <SourceAvatar isDarkTheme={isDarkTheme} name={strategy.traderName} url={strategy.avatarUrl} />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <h4 className="truncate text-sm font-black">{strategy.traderName}</h4>
-            <span className={getStrategyStatusClassName(isDarkTheme, strategy.status)}>{statusLabel}</span>
-            <span className={isDarkTheme ? "shrink-0 rounded-full bg-white/[0.055] px-2 py-0.5 text-[10px] font-black text-slate-300" : "shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-500"}>{typeLabel}</span>
-          </div>
-          <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
-            {strategy.platform} · {strategy.apiAccountName}
-          </div>
-        </div>
-      </div>
-      {strategyType === "copyTrading" ? (
-        <div className={isDarkTheme ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3"}>
-          <div className={isDarkTheme ? "text-[10px] font-black uppercase tracking-[0.14em] text-slate-500" : "text-[10px] font-black uppercase tracking-[0.14em] text-slate-400"}>
-            {strategyCopy.followingSignalSource}
-          </div>
-          <div className="mt-2 flex min-w-0 items-center gap-2">
-            <SourceAvatar isDarkTheme={isDarkTheme} name={followedSource.name} url={followedSource.avatarUrl} />
-            <div className="min-w-0">
-              <div className={isDarkTheme ? "truncate text-sm font-black text-slate-100" : "truncate text-sm font-black text-slate-950"}>{followedSource.name}</div>
-              {followedSourceMeta ? (
-                <div className={isDarkTheme ? "mt-0.5 truncate text-xs font-bold text-slate-500" : "mt-0.5 truncate text-xs font-bold text-slate-500"}>
-                  {followedSourceMeta}
-                </div>
-              ) : null}
+    <>
+      <article className={isDarkTheme ? "relative rounded-2xl border border-white/[0.075] bg-[#181A20] p-3" : "relative rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
+        <button
+          className="block w-full text-left"
+          type="button"
+          onClick={() => onOpenDetail(strategy)}
+        >
+        <div className="flex items-start gap-3 pr-0 sm:pr-56">
+          <SourceAvatar isDarkTheme={isDarkTheme} name={strategy.traderName} url={strategy.avatarUrl} />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <h4 className="truncate text-sm font-black">{strategy.traderName}</h4>
+              <span className={getStrategyStatusClassName(isDarkTheme, strategy.status)}>{statusLabel}</span>
+              <span className={isDarkTheme ? "shrink-0 rounded-full bg-white/[0.055] px-2 py-0.5 text-[10px] font-black text-slate-300" : "shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-500"}>{typeLabel}</span>
+            </div>
+            <div className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
+              {strategy.platform} · {strategy.apiAccountName}
             </div>
           </div>
         </div>
+        {strategyType === "copyTrading" ? (
+          <div className={isDarkTheme ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3"}>
+            <div className={isDarkTheme ? "text-[10px] font-black uppercase tracking-[0.14em] text-slate-500" : "text-[10px] font-black uppercase tracking-[0.14em] text-slate-400"}>
+              {strategyCopy.followingSignalSource}
+            </div>
+            <div className="mt-2 flex min-w-0 items-center gap-2">
+              <SourceAvatar isDarkTheme={isDarkTheme} name={followedSource.name} url={followedSource.avatarUrl} />
+              <div className="min-w-0">
+                <div className={isDarkTheme ? "truncate text-sm font-black text-slate-100" : "truncate text-sm font-black text-slate-950"}>{followedSource.name}</div>
+                {followedSourceMeta ? (
+                  <div className={isDarkTheme ? "mt-0.5 truncate text-xs font-bold text-slate-500" : "mt-0.5 truncate text-xs font-bold text-slate-500"}>
+                    {followedSourceMeta}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={String(strategy.positionsCount)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.tradeHistoryCount} value={String(strategy.eventsCount)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.accountEquity} value={formatDetailCurrency(strategy.accountEquity)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.unrealizedPnl} value={formatSignedDetailCurrency(strategy.unrealizedPnl)} valueClassName={getPnlClassName(isDarkTheme, numberOrZero(strategy.unrealizedPnl))} />
+        </div>
+        <p className={isDarkTheme ? "mt-3 text-[11px] leading-5 text-slate-500" : "mt-3 text-[11px] leading-5 text-slate-500"}>
+          {strategyType === "mario" ? accountCopy.strategyCreate.marioCardHint : strategyCopy.stopNote}
+        </p>
+        </button>
+        <div className="mt-3 flex flex-wrap justify-end gap-2 sm:absolute sm:right-3 sm:top-3 sm:mt-0">
+          <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => setIsSettingsOpen(true)}>{strategyCopy.edit}</button>
+          {strategy.status === "running" ? (
+            <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(strategy.id, "paused")}>{strategyCopy.pause}</button>
+          ) : (
+            <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(strategy.id, "running")}>{strategyCopy.resume}</button>
+          )}
+          <button className={getDangerButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyDelete(strategy.id)}>{strategyCopy.delete}</button>
+        </div>
+      </article>
+      {isSettingsOpen ? (
+        <StrategySettingsDialog
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          strategy={strategy}
+          onClose={() => setIsSettingsOpen(false)}
+          onSave={onStrategySettingsUpdate}
+        />
       ) : null}
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={String(strategy.positionsCount)} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.tradeHistoryCount} value={String(strategy.eventsCount)} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.accountEquity} value={formatDetailCurrency(strategy.accountEquity)} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.unrealizedPnl} value={formatSignedDetailCurrency(strategy.unrealizedPnl)} valueClassName={getPnlClassName(isDarkTheme, numberOrZero(strategy.unrealizedPnl))} />
-      </div>
-      <p className={isDarkTheme ? "mt-3 text-[11px] leading-5 text-slate-500" : "mt-3 text-[11px] leading-5 text-slate-500"}>
-        {strategyType === "mario" ? accountCopy.strategyCreate.marioCardHint : strategyCopy.stopNote}
-      </p>
-      </button>
-      <div className="absolute right-3 top-3 flex gap-2">
-        {strategy.status === "running" ? (
-          <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(strategy.id, "paused")}>{strategyCopy.pause}</button>
-        ) : (
-          <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyStatusChange(strategy.id, "running")}>{strategyCopy.resume}</button>
-        )}
-        <button className={getDangerButtonClassName(isDarkTheme)} type="button" onClick={() => onStrategyDelete(strategy.id)}>{strategyCopy.delete}</button>
-      </div>
-    </article>
+    </>
   );
 }
 

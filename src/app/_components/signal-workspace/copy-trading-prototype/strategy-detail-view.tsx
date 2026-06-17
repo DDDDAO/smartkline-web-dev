@@ -32,6 +32,7 @@ import {
   type TradeHistoryRow,
 } from "./strategy-detail-content";
 import { MiniMetric } from "./mini-metric";
+import { StrategySettingsDialog } from "./strategy-settings-dialog";
 import { getStrategyStatusLabel } from "./strategy-helpers";
 import {
   getDangerButtonClassName,
@@ -47,7 +48,7 @@ import {
   getSoftButtonClassName,
   getStrategyStatusClassName,
 } from "./styles";
-import type { PrototypeStrategy, PrototypeStrategyStatus } from "./types";
+import type { PrototypeStrategy, PrototypeStrategySettingsUpdateInput, PrototypeStrategyStatus } from "./types";
 
 export function StrategyDetailView({
   copy,
@@ -56,6 +57,7 @@ export function StrategyDetailView({
   telegramUser,
   onBack,
   onStrategyDelete,
+  onStrategySettingsUpdate,
   onStrategyStatusChange,
 }: {
   copy: WorkspaceCopy;
@@ -64,6 +66,7 @@ export function StrategyDetailView({
   telegramUser: TelegramSessionUser | null;
   onBack: () => void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
+  onStrategySettingsUpdate: (input: PrototypeStrategySettingsUpdateInput) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
   const [detail, setDetail] = useState<TradingFoxStrategyDetail | null>(null);
@@ -80,6 +83,7 @@ export function StrategyDetailView({
   const [selectedTradeKlineRowId, setSelectedTradeKlineRowId] = useState<string | null>(null);
   const [tradeKlineInterval, setTradeKlineInterval] = useState<KlineInterval>("15m");
   const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const strategyCopy = copy.workspace.accountCenter.strategy;
 
   useEffect(() => {
@@ -214,6 +218,21 @@ export function StrategyDetailView({
     }
   };
 
+  const updateSettings = async (input: PrototypeStrategySettingsUpdateInput) => {
+    setSyncError("");
+    setSyncMessage("");
+    await onStrategySettingsUpdate(input);
+    try {
+      setDetail(await requestStrategyDetail(liveStrategy.id, {
+        orderLimit: TRADE_HISTORY_PAGE_SIZE,
+        orderOffset: tradeHistoryPageOffset,
+      }));
+    } catch (refreshError) {
+      setSyncError(getTradingFoxErrorMessage(refreshError, copy));
+    }
+    setSyncMessage(strategyCopy.settingsSaved);
+  };
+
   return (
     <section className="space-y-4">
       <div className={getModalSectionClassName(isDarkTheme)}>
@@ -255,6 +274,7 @@ export function StrategyDetailView({
           </div>
         ) : null}
         <div className={isDarkTheme ? "mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/[0.075] pt-4 lg:flex-nowrap" : "mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-[#E5EAF0] pt-4 lg:flex-nowrap"}>
+          <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={() => setIsSettingsOpen(true)}>{strategyCopy.edit}</button>
           {liveStrategy.status === "running" ? (
             <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => void updateLifecycle("paused")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.pause}</button>
           ) : (
@@ -403,6 +423,15 @@ export function StrategyDetailView({
           copy={copy}
           isDarkTheme={isDarkTheme}
           onClose={() => setIsNotificationSettingsOpen(false)}
+        />
+      ) : null}
+      {isSettingsOpen ? (
+        <StrategySettingsDialog
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          strategy={liveStrategy}
+          onClose={() => setIsSettingsOpen(false)}
+          onSave={updateSettings}
         />
       ) : null}
     </section>

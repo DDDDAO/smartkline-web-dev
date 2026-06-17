@@ -66,6 +66,13 @@ export type PrototypeStrategyCreateInput = {
   target: CopyTradingPrototypeTarget;
 };
 
+export type PrototypeStrategySettingsUpdateInput = {
+  stopLossPercent: number;
+  strategyId: string;
+  strategyName: string;
+  takeProfitPercent: number;
+};
+
 export type PrototypeConnectionSaveInput = {
   accountName: string;
   apiKey?: string;
@@ -101,6 +108,7 @@ export type AccountCenterPrototypeProps = {
   onLogout: () => void;
   onStrategyCreate: (input: PrototypeStrategyCreateInput) => Promise<void> | void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
+  onStrategySettingsUpdate: (input: PrototypeStrategySettingsUpdateInput) => Promise<void> | void;
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 };
 

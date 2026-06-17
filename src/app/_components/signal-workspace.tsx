@@ -89,6 +89,7 @@ import type {
   PrototypeConnectionSaveInput,
   PrototypeStrategy,
   PrototypeStrategyCreateInput,
+  PrototypeStrategySettingsUpdateInput,
   PrototypeStrategyStatus,
 } from "./signal-workspace/copy-trading-prototype";
 import type {
@@ -1796,6 +1797,84 @@ export function SignalWorkspace({
     }
   }, [applyTradingFoxAccount, prototypeMarioStrategies, prototypeStrategies]);
 
+  const handlePrototypeStrategySettingsUpdate = useCallback(async (input: PrototypeStrategySettingsUpdateInput) => {
+    const strategyName = input.strategyName.trim();
+    if (!strategyName) {
+      throw new Error(copyRef.current.workspace.accountCenter.strategy.settingsNameRequired);
+    }
+
+    if (prototypeMarioStrategies.some((strategy) => strategy.id === input.strategyId)) {
+      setPrototypeMarioStrategies((currentStrategies) =>
+        currentStrategies.map((strategy) =>
+          strategy.id === input.strategyId
+            ? {
+              ...strategy,
+              stopLossPercent: input.stopLossPercent,
+              takeProfitPercent: input.takeProfitPercent,
+              traderName: strategyName,
+            }
+            : strategy,
+        ),
+      );
+      setWorkspaceNotification({
+        id: `mario-strategy-settings-${Date.now()}`,
+        kind: "success",
+        message: copyRef.current.workspace.accountCenter.strategy.settingsSaved,
+        meta: strategyName,
+        title: copyRef.current.workspace.accountCenter.strategy.title,
+      });
+      return;
+    }
+
+    if (!authMe.isLoggedIn) {
+      startTelegramLogin();
+      throw new Error(copyRef.current.workspace.accountCenter.strategyCreate.loginRequired);
+    }
+
+    const previousStrategies = prototypeStrategies;
+    setPrototypeStrategies((currentStrategies) =>
+      currentStrategies.map((strategy) =>
+        strategy.id === input.strategyId
+          ? {
+            ...strategy,
+            stopLossPercent: input.stopLossPercent,
+            takeProfitPercent: input.takeProfitPercent,
+            traderName: strategyName,
+          }
+          : strategy,
+      ),
+    );
+
+    try {
+      const account = await requestTradingFoxAccount(`/api/tradingfox/copy-strategies/${encodeURIComponent(input.strategyId)}`, {
+        body: JSON.stringify({
+          stopLossPercent: input.stopLossPercent,
+          strategyName,
+          takeProfitPercent: input.takeProfitPercent,
+        }),
+        method: "PATCH",
+      });
+      applyTradingFoxAccount(account);
+      setWorkspaceNotification({
+        id: `copy-strategy-settings-${Date.now()}`,
+        kind: "success",
+        message: copyRef.current.workspace.accountCenter.strategy.settingsSaved,
+        meta: strategyName,
+        title: copyRef.current.workspace.accountCenter.strategy.title,
+      });
+    } catch (error) {
+      setPrototypeStrategies(previousStrategies);
+      setWorkspaceNotification({
+        id: `copy-strategy-settings-error-${Date.now()}`,
+        kind: "error",
+        message: getTradingFoxErrorMessage(error, copyRef.current),
+        meta: strategyName || input.strategyId,
+        title: copyRef.current.workspace.accountCenter.strategy.title,
+      });
+      throw error;
+    }
+  }, [applyTradingFoxAccount, authMe.isLoggedIn, prototypeMarioStrategies, prototypeStrategies, startTelegramLogin]);
+
   const openCommunityConversion = useCallback((signal: StructuredSignal) => {
     handleSignalSelect(signal);
     setIsCommunityConversionOpen(true);
@@ -1991,6 +2070,7 @@ export function SignalWorkspace({
             onStrategyCreate={handlePrototypeStrategyCreate}
             onStrategyDelete={handlePrototypeStrategyDelete}
             onStrategyRouteChange={handleAccountStrategyRouteChange}
+            onStrategySettingsUpdate={handlePrototypeStrategySettingsUpdate}
             onStrategyStatusChange={handlePrototypeStrategyStatusChange}
           />
         ) : isStrategySquareTab ? (
