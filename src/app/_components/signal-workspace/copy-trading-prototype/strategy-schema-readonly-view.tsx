@@ -1,6 +1,8 @@
 "use client";
 
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import { SourceAvatar } from "../card-ui";
+import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 
 type JsonRecord = Record<string, unknown>;
 type UiCondition = { path?: string; eq?: unknown; ne?: unknown; in?: unknown[]; exists?: boolean };
@@ -14,12 +16,14 @@ export function StrategySchemaReadonlyView({
   formData,
   isDarkTheme,
   schema,
+  signalSourceIdentityById,
   uiSchema,
 }: {
   copy: WorkspaceCopy;
   formData: JsonRecord;
   isDarkTheme: boolean;
   schema: JsonRecord;
+  signalSourceIdentityById?: SignalSourceIdentityById;
   uiSchema?: JsonRecord;
 }) {
   const rendererCopy = copy.workspace.accountCenter.strategySchema;
@@ -51,7 +55,13 @@ export function StrategySchemaReadonlyView({
           </div>
           <div className="mt-3 grid gap-2">
             {section.fields.map((field) => (
-              <ReadonlyFieldCard key={field.path} copy={copy} field={field} isDarkTheme={isDarkTheme} />
+              <ReadonlyFieldCard
+                key={field.path}
+                copy={copy}
+                field={field}
+                isDarkTheme={isDarkTheme}
+                signalSourceIdentityById={signalSourceIdentityById}
+              />
             ))}
           </div>
         </section>
@@ -64,11 +74,28 @@ function ReadonlyFieldCard({
   copy,
   field,
   isDarkTheme,
+  signalSourceIdentityById,
 }: {
   copy: WorkspaceCopy;
   field: ReadonlyField;
   isDarkTheme: boolean;
+  signalSourceIdentityById?: SignalSourceIdentityById;
 }) {
+  if (field.path.split(".").pop() === "signalSourceConfigs" && Array.isArray(field.value)) {
+    return (
+      <div className={isDarkTheme ? "rounded-xl border border-white/[0.065] bg-[#0F131A]/70 px-3 py-3" : "rounded-xl border border-[#E5EAF0] bg-white px-3 py-3"}>
+        <div className={isDarkTheme ? "text-xs font-black text-slate-200" : "text-xs font-black text-slate-800"}>{field.label}</div>
+        {field.description ? <div className={isDarkTheme ? "mt-1 text-[11px] leading-4 text-slate-500" : "mt-1 text-[11px] leading-4 text-slate-500"}>{field.description}</div> : null}
+        <SignalSourceConfigGrid
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          signalSourceIdentityById={signalSourceIdentityById}
+          value={field.value}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={isDarkTheme ? "rounded-xl border border-white/[0.065] bg-[#0F131A]/70 px-3 py-2" : "rounded-xl border border-[#E5EAF0] bg-white px-3 py-2"}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -136,6 +163,67 @@ function ReadonlyArray({ copy, isDarkTheme, value }: { copy: WorkspaceCopy; isDa
       ))}
     </div>
   );
+}
+
+function SignalSourceConfigGrid({
+  copy,
+  isDarkTheme,
+  signalSourceIdentityById,
+  value,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  signalSourceIdentityById?: SignalSourceIdentityById;
+  value: unknown[];
+}) {
+  const rendererCopy = copy.workspace.accountCenter.strategySchema;
+  const configs = value
+    .filter(isRecord)
+    .map((config) => createSignalSourceConfigViewModel(config, signalSourceIdentityById, rendererCopy));
+
+  if (configs.length === 0) {
+    return <div className="mt-2 text-xs font-bold text-slate-500">{rendererCopy.emptyList}</div>;
+  }
+
+  return (
+    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      {configs.map((config, index) => (
+        <div
+          key={`${config.name}-${index}`}
+          className={isDarkTheme
+            ? "flex min-w-0 items-center gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.04] px-3 py-3"
+            : "flex min-w-0 items-center gap-3 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3"}
+        >
+          <SourceAvatar isDarkTheme={isDarkTheme} name={config.name} url={config.avatarUrl} />
+          <div className="min-w-0 flex-1">
+            <div className={isDarkTheme ? "truncate text-sm font-black text-slate-100" : "truncate text-sm font-black text-slate-950"}>
+              {config.name}
+            </div>
+          </div>
+          <span className={isDarkTheme ? "shrink-0 rounded-full bg-sky-400/15 px-2.5 py-1 text-xs font-black text-sky-200" : "shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-black text-sky-700"}>
+            {config.ratio}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function createSignalSourceConfigViewModel(
+  config: JsonRecord,
+  signalSourceIdentityById: SignalSourceIdentityById | undefined,
+  rendererCopy: StrategySchemaCopy,
+): { avatarUrl: string | null; name: string; ratio: string } {
+  const signalSourceId = stringValue(config.signalSourceID ?? config.signalSourceId);
+  const identity = signalSourceId ? signalSourceIdentityById?.get(signalSourceId) : undefined;
+  const name = identity?.name
+    || stringValue(config.signalSourceName ?? config.name)
+    || rendererCopy.unknownSignalSource;
+  return {
+    avatarUrl: identity?.avatarUrl ?? (stringValue(config.avatarUrl) || null),
+    name,
+    ratio: formatPercentValue(numberValue(config.marginPercent ?? config.followRatioPercent ?? config.useAmountPercent), rendererCopy),
+  };
 }
 
 function ReadonlyObject({ copy, isDarkTheme, value }: { copy: WorkspaceCopy; isDarkTheme: boolean; value: JsonRecord }) {
@@ -353,6 +441,31 @@ function formatLabel(key: string): string {
 function labelForKey(rendererCopy: StrategySchemaCopy, key: string): string {
   const fieldLabels: Readonly<Record<string, string>> = rendererCopy.fieldLabels;
   return fieldLabels[key] ?? formatLabel(key);
+}
+
+function formatPercentValue(value: number | null, rendererCopy: StrategySchemaCopy): string {
+  if (value === null) {
+    return rendererCopy.notSet;
+  }
+  if (Number.isInteger(value)) {
+    return `${value}%`;
+  }
+  return `${value.toFixed(2).replace(/\.?0+$/, "")}%`;
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function numberValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 function joinSectionTitle(prefix: string, title: unknown): string {

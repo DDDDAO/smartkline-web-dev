@@ -437,6 +437,7 @@ export function StrategyDetailView({
             copy={copy}
             detail={detail}
             isDarkTheme={isDarkTheme}
+            signalSourceIdentityById={signalSourceIdentityById}
             strategyCopy={strategyCopy}
             strategyDefinition={strategyDefinition}
             strategyDefinitionError={strategyDefinitionError}
