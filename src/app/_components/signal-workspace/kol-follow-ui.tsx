@@ -1,7 +1,4 @@
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
-import type { StructuredSignal } from "@/app/_types/signal";
-import type { KolFollowModel } from "./kol-follow-models";
-import { formatSymbolLabel } from "./kol-follow-models";
 
 export function CommunityConversionCard({
   copy,

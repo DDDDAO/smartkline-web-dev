@@ -27,7 +27,6 @@ export function useSignalWorkspaceTradingStrategyActions(
     copyRef,
     handleProductTabChange,
     handleSignalSelect,
-    handleTradingFoxConnectorBound: _handleTradingFoxConnectorBound,
     prototypeMarioStrategies,
     prototypeStrategies,
     setCopyTradingTarget,

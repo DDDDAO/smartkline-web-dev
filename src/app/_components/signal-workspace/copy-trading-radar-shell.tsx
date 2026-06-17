@@ -1,5 +1,4 @@
 import type { KolSignalSourceStatus } from "./types";
-import { getStatusBadgeClass } from "./copy-trading-radar-utils";
 
 export function RadarMetric({ isDarkTheme, label, value }: { isDarkTheme: boolean; label: string; value: string }) {
   return (

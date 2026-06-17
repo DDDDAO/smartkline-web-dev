@@ -2,27 +2,15 @@
 
 import Image from "next/image";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount, useDisconnect, useSignTypedData } from "wagmi";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
+import { useState } from "react";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
-import { isWalletConnectConfigured } from "@/app/_lib/wallet-connect";
-import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
-import type { TradingFoxAccountResponse, TradingFoxHyperliquidAgentBindingStartResponse, TradingFoxHyperliquidSigningAction } from "@/app/_lib/tradingfox-control-plane";
-import { SourceAvatar } from "../card-ui";
-import { StrategyDetailView } from "./strategy-detail-view";
-import { StrategySettingsDialog } from "./strategy-settings-dialog";
-import { TelegramUserAvatar, getTelegramUserDisplayName } from "./telegram-user-avatar";
-import { EXCHANGES, HYPERLIQUID_DEPOSIT_URL, MOCK_MARGIN_BALANCE_MAX, MOCK_MARGIN_BALANCE_PRESETS, NOTIFICATION_CHANNELS, type PrototypeExchange, type PrototypeExchangeId } from "./constants";
-import type { AccountCenterPrototypeProps, AccountManagementTab, CopyTradingPrototypeModalProps, CopyTradingPrototypeTarget, PrototypeApiConnection, PrototypeConnectionSaveInput, PrototypeStrategy, PrototypeStrategyCreateInput, PrototypeStrategySettingsUpdateInput, PrototypeStrategyStatus, PrototypeStrategyType } from "./types";
-import { formatAccountBalance, formatDetailCurrency, formatSignedDetailCurrency, getPnlClassName, numberOrZero } from "./formatters";
-import { CheckGlyph, CopyGlyph, ExternalLinkGlyph } from "./icons";
+import { EXCHANGES, type PrototypeExchange } from "./constants";
+import type { PrototypeApiConnection } from "./types";
+import { formatAccountBalance } from "./formatters";
+import { ExternalLinkGlyph } from "./icons";
 import { MiniMetric } from "./mini-metric";
-import { getPrototypeStrategyType, getStrategyStatusLabel } from "./strategy-helpers";
-import { getAccountCenterTabButtonClassName, getDangerButtonClassName, getExchangeButtonClassName, getExchangeResourceLinkClassName, getIconButtonClassName, getInlineErrorClassName, getLabelClassName, getModalSectionClassName, getNotificationIconClassName, getNotificationUnavailableBadgeClassName, getPrimaryButtonClassName, getSoftButtonClassName, getStrategyStatusClassName, getStrategyTypeOptionClassName, getWhitelistCopyButtonClassName } from "./styles";
-import type { SignTypedDataMutateAsync as SignTypedDataAsync, SignTypedDataVariables as WagmiSignTypedDataVariables } from "wagmi/query";
-import { ExchangeIcon, getExchangeById, getExchangeName } from "./exchange-utils";
+import { getDangerButtonClassName, getExchangeResourceLinkClassName } from "./styles";
+import { getExchangeById, getExchangeName } from "./exchange-utils";
 
 export function ApiConnectionCard({
   accountCopy,
