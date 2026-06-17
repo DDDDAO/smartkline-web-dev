@@ -2,6 +2,7 @@
 
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
+import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import { StrategySchemaRenderer } from "./strategy-schema-renderer";
 import { getInlineErrorClassName, getModalSectionClassName } from "./styles";
 
@@ -9,6 +10,7 @@ export function StrategyDetailConfigSection({
   copy,
   detail,
   isDarkTheme,
+  signalSourceIdentityById,
   strategyCopy,
   strategyDefinition,
   strategyDefinitionError,
@@ -16,6 +18,7 @@ export function StrategyDetailConfigSection({
   copy: WorkspaceCopy;
   detail: TradingFoxStrategyDetail;
   isDarkTheme: boolean;
+  signalSourceIdentityById: SignalSourceIdentityById;
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
   strategyDefinition: TradingFoxStrategyDefinition | null;
   strategyDefinitionError: string;
@@ -36,6 +39,7 @@ export function StrategyDetailConfigSection({
             isDarkTheme={isDarkTheme}
             mode="readonly"
             schema={strategyDefinition.configSchema}
+            signalSourceIdentityById={signalSourceIdentityById}
             uiSchema={strategyDefinition.uiSchema}
           />
         ) : (

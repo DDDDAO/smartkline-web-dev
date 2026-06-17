@@ -280,6 +280,7 @@ export const enWorkspaceAccountCenter = {
         sectionFallbackTitle: (index) => `Configuration group ${index}`,
         stringListPlaceholder: "BTC/USDT:USDT\nETH/USDT:USDT",
         symbolPlaceholder: "BTC/USDT:USDT",
+        unknownSignalSource: "Unnamed signal source",
       },
       strategy: {
         accountEquity: "Account equity",

@@ -277,6 +277,7 @@ export const zhWorkspaceAccountCenter = {
         sectionFallbackTitle: (index: number) => `配置分组 ${index}`,
         stringListPlaceholder: "BTC/USDT:USDT\nETH/USDT:USDT",
         symbolPlaceholder: "BTC/USDT:USDT",
+        unknownSignalSource: "未命名信号源",
       },
       strategy: {
         accountEquity: "账户权益",
