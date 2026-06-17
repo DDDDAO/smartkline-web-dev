@@ -2212,8 +2212,8 @@ function PrototypeStrategyCard({
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <MiniMetric isDarkTheme={isDarkTheme} label={copy.workspace.topSignals.currentPositions} value={String(strategy.positionsCount)} />
-        <MiniMetric isDarkTheme={isDarkTheme} label={copy.workspace.topSignals.tradeHistory} value={String(strategy.eventsCount)} />
+        <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={String(strategy.positionsCount)} />
+        <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.tradeHistoryCount} value={String(strategy.eventsCount)} />
         <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.accountEquity} value={formatDetailCurrency(strategy.accountEquity)} />
         <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.unrealizedPnl} value={formatSignedDetailCurrency(strategy.unrealizedPnl)} valueClassName={getPnlClassName(isDarkTheme, numberOrZero(strategy.unrealizedPnl))} />
       </div>

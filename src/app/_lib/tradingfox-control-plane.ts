@@ -110,9 +110,10 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
       return null;
     }
 
-    const [accountStatus, positions] = await Promise.all([
+    const [accountStatus, positions, orderHistory] = await Promise.all([
       settleTradingFoxRequest<TradingFoxAccountStatusResponse>(`/v1/traders/${trader.id}/account-status`),
       settleTradingFoxRequest<{ items: TradingFoxPosition[] }>(`/v1/traders/${trader.id}/positions`),
+      settleTradingFoxRequest<TradingFoxOrderHistory>(`/v1/traders/${trader.id}/orders?section=trader&limit=500`),
     ]);
     const accountEquity = accountStatus.value?.account?.equity;
     if (typeof accountEquity === "number" && Number.isFinite(accountEquity)) {
@@ -122,7 +123,9 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
     return {
       ...strategy,
       accountEquity: accountStatus.value?.account?.equity,
-      unrealizedPnl: positions.value?.items.reduce((sum, position) => sum + numberValue(position.unrealizedPnl), 0),
+      eventsCount: countTradingFoxTraderOrders(orderHistory.value),
+      positionsCount: countTradingFoxPositions(positions.value),
+      unrealizedPnl: sumTradingFoxUnrealizedPnl(positions.value),
     };
   }));
   const connectorsWithAccountEquity = activeConnectors.map((connector) => ({
@@ -136,6 +139,20 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
     connectors: publicConnectors,
     strategies: strategies.filter((strategy) => strategy !== null),
   };
+}
+
+function countTradingFoxPositions(response: { items?: TradingFoxPosition[] } | undefined): number {
+  return Array.isArray(response?.items) ? response.items.length : 0;
+}
+
+function countTradingFoxTraderOrders(orderHistory: TradingFoxOrderHistory | undefined): number {
+  return Array.isArray(orderHistory?.items) ? orderHistory.items.length : 0;
+}
+
+function sumTradingFoxUnrealizedPnl(response: { items?: TradingFoxPosition[] } | undefined): number | undefined {
+  return Array.isArray(response?.items)
+    ? response.items.reduce((sum, position) => sum + numberValue(position.unrealizedPnl), 0)
+    : undefined;
 }
 
 async function getTradingFoxConnectorAccountEquityById(
@@ -437,6 +454,8 @@ export async function getTradingFoxCopyStrategyDetail(
     ? {
       ...mappedStrategy,
       accountEquity: accountStrategy.accountEquity,
+      eventsCount: accountStrategy.eventsCount,
+      positionsCount: accountStrategy.positionsCount,
       status: accountStrategy.status,
       unrealizedPnl: accountStrategy.unrealizedPnl,
     }
@@ -1264,10 +1283,11 @@ function mapCopyStrategy(trader: TradingFoxTrader, connector: TradingFoxConnecto
     exchangeConnectorId: trader.exchangeConnectorId,
     avatarUrl: stringValue(metadata.avatarUrl),
     createdAtLabel: formatBackendDateLabel(trader.createdAt),
-    eventsCount: numberValue(metadata.eventsCount),
+    // Filled from trader-owned endpoints; smartkline metadata stores the copied source snapshot.
+    eventsCount: 0,
     id: String(trader.id),
     platform: stringValue(metadata.platform) || "Copy Trading",
-    positionsCount: numberValue(metadata.positionsCount),
+    positionsCount: 0,
     startedAt: stringValue(signalSourceConfig?.startTime) || trader.createdAt,
     status: mapBackendStrategyStatus(trader),
     stopLossPercent: numberValue(metadata.stopLossPercent, 10),
