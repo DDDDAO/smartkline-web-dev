@@ -4,6 +4,42 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+## Code Size and Refactoring
+
+Keep TypeScript and TSX files around 500 lines or less. When a file approaches
+that size, split it by responsibility instead of adding more logic to it.
+
+Preferred split boundaries:
+
+- UI components: move subcomponents, presentation-only overlays, modal bodies,
+  and formatting helpers into adjacent files.
+- Hooks: move imperative lifecycle effects and derived state into focused
+  `use-*` modules when the component shell becomes hard to scan.
+- API/client modules: split by resource or operation area, with a small barrel
+  file preserving existing import paths.
+- Shared logic: extract constants, types, normalizers, adapters, and pure
+  utilities into explicit modules rather than leaving them below a component.
+
+After refactors, verify the line budget with:
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+for p in sorted(Path('src').rglob('*')):
+    if p.is_file() and p.suffix in {'.ts', '.tsx'}:
+        try:
+            n = sum(1 for _ in p.open())
+        except UnicodeDecodeError:
+            continue
+        if n > 500:
+            print(f'{n:5d} {p}')
+PY
+```
+
+Do not break public import compatibility during file-size refactors. If callers
+already import from a top-level module path, keep that path as a barrel or thin
+composition layer.
+
 ## Pull Request Descriptions
 
 When opening or updating a pull request, write a reviewable description that
