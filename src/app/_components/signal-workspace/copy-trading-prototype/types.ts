@@ -34,11 +34,11 @@ export type PrototypeStrategy = {
   exchangeConnectorId: number;
   avatarUrl: string;
   createdAtLabel: string;
-  eventsCount: number;
+  eventsCount?: number;
   followRatioPercent?: number;
   id: string;
   platform: string;
-  positionsCount: number;
+  positionsCount?: number;
   signalSourceAvatarUrl?: string;
   signalSourceName?: string;
   signalSourcePlatform?: string;
