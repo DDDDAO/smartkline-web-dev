@@ -10,7 +10,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const session = await requireTradingFoxSession(request);
-    return NextResponse.json(await getTradingFoxAccount(session));
+    return NextResponse.json(await getTradingFoxAccount(session, {
+      includeConnectorAccountEquity: false,
+      includeStrategyRuntimeMetrics: false,
+    }));
   } catch (error) {
     return tradingFoxErrorResponse(error);
   }
