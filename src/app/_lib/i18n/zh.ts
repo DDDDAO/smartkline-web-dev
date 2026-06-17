@@ -346,6 +346,8 @@ export const zh = {
         modalTitle: "创建策略",
         noAvailableAccount: "当前没有可用交易账户，已有运行策略占用的账户不会重复展示。",
         signalSourceEmpty: "暂无可选信号源。进入顶级信号后会同步可用信号源列表。",
+        signalSourceNoMatches: "没有匹配的信号源。",
+        signalSourceSearchPlaceholder: "搜索信号源",
         signalSourceSelect: "信号源选择",
         start: "启动策略",
         starting: "启动中",

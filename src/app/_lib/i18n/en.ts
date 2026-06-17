@@ -348,6 +348,8 @@ export const en: WorkspaceCopy = {
         modalTitle: "Create Strategy",
         noAvailableAccount: "No available trading account. Accounts used by running strategies are hidden.",
         signalSourceEmpty: "No signal source is available yet. Open Top Signals to sync the source list.",
+        signalSourceNoMatches: "No matching signal sources.",
+        signalSourceSearchPlaceholder: "Search signal sources",
         signalSourceSelect: "Signal source",
         start: "Start Strategy",
         starting: "Starting",
