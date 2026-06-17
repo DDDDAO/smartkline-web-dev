@@ -39,6 +39,9 @@ export type PrototypeStrategy = {
   id: string;
   platform: string;
   positionsCount: number;
+  signalSourceAvatarUrl?: string;
+  signalSourceName?: string;
+  signalSourcePlatform?: string;
   startedAt?: string;
   status: PrototypeStrategyStatus;
   stopLossPercent: number;
@@ -51,11 +54,13 @@ export type PrototypeStrategy = {
 
 export type PrototypeStrategyCreateInput = {
   exchangeConnectorId: number;
+  strategyName: string;
   strategyType: "mario";
 } | {
   exchangeConnectorId: number;
   followRatioPercent: 100;
   stopLossPercent: number;
+  strategyName: string;
   strategyType: "copyTrading";
   takeProfitPercent: number;
   target: CopyTradingPrototypeTarget;
@@ -109,6 +114,7 @@ export type CopyTradingPrototypeModalProps = {
   onClose: () => void;
   onStart: (input: {
     exchangeConnectorId: number;
+    strategyName: string;
     stopLossPercent: number;
     takeProfitPercent: number;
     target: CopyTradingPrototypeTarget;

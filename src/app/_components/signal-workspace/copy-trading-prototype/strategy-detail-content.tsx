@@ -838,6 +838,8 @@ export function createSignalSourceIdentityById(
   strategy: PrototypeStrategy,
 ): SignalSourceIdentityById {
   const identities = new Map<string, TradeHistorySourceIdentity>();
+  const fallbackSignalSourceName = strategy.signalSourceName || strategy.traderId;
+  const fallbackSignalSourceAvatarUrl = strategy.signalSourceAvatarUrl || strategy.avatarUrl || null;
   signalSources.forEach((source) => {
     const sourceId = source.signalSourceId.trim();
     if (!sourceId) {
@@ -846,15 +848,17 @@ export function createSignalSourceIdentityById(
     identities.set(sourceId, {
       avatarUrl: null,
       id: sourceId,
-      name: source.name || strategy.traderName || sourceId,
+      name: source.name || fallbackSignalSourceName || sourceId,
     });
   });
 
-  if (strategy.traderId.trim()) {
-    identities.set(strategy.traderId, {
-      avatarUrl: strategy.avatarUrl || null,
-      id: strategy.traderId,
-      name: strategy.traderName,
+  const strategySignalSourceId = strategy.traderId.trim();
+  if (strategySignalSourceId) {
+    const existingIdentity = identities.get(strategySignalSourceId);
+    identities.set(strategySignalSourceId, {
+      avatarUrl: existingIdentity?.avatarUrl ?? fallbackSignalSourceAvatarUrl,
+      id: strategySignalSourceId,
+      name: existingIdentity?.name || fallbackSignalSourceName || strategySignalSourceId,
     });
   }
 
@@ -909,7 +913,7 @@ function createSignalSourceTradeHistoryRow(
   signalSourceIdentityById: SignalSourceIdentityById,
   strategy: PrototypeStrategy,
 ): TradeHistoryRow {
-  const fallbackName = order.signalSourceName || strategy.traderName || order.signalSourceId;
+  const fallbackName = order.signalSourceName || strategy.signalSourceName || strategy.traderId || order.signalSourceId;
   const source = signalSourceIdentityById.get(order.signalSourceId) ?? {
     avatarUrl: null,
     id: order.signalSourceId || strategy.traderId,
@@ -958,7 +962,8 @@ function createTradeLogHistoryRow(
     trade.sourceName,
     config.signalSourceName,
     config.sourceName,
-    strategy.traderName,
+    strategy.signalSourceName,
+    strategy.traderId,
     sourceId,
   );
   const source = signalSourceIdentityById.get(sourceId) ?? {

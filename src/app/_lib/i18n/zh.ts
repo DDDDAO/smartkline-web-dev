@@ -352,6 +352,9 @@ export const zh = {
         signalSourceSelect: "信号源选择",
         start: "启动策略",
         starting: "启动中",
+        strategyName: "策略名称",
+        strategyNamePlaceholder: "例如：BTC 跟单策略",
+        strategyNameRequired: "请输入策略名称。",
       },
       strategy: {
         accountEquity: "账户权益",
@@ -374,6 +377,8 @@ export const zh = {
         empty: "还没有策略。点击创建策略可创建跟单策略或 Mario 策略。",
         entryPrice: "入场价",
         failed: "异常",
+        followingSignalSource: "跟随信号源",
+        followingSignalSourceUnknown: "信号源未同步",
         followSide: "跟随方向",
         leverage: "杠杆",
         loadingDetail: "正在加载策略详情…",

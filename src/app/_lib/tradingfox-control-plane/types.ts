@@ -81,6 +81,9 @@ export type TradingFoxCopyStrategy = {
   id: string;
   platform: string;
   positionsCount: number;
+  signalSourceAvatarUrl?: string;
+  signalSourceName?: string;
+  signalSourcePlatform?: string;
   startedAt: string;
   status: TradingFoxCopyStrategyStatus;
   stopLossPercent: number;
@@ -303,6 +306,7 @@ export type TradingFoxConnectorWhitelistIP = {
 export type CreateCopyStrategyInput = {
   exchangeConnectorId?: unknown;
   signalSourceId: string;
+  strategyName?: unknown;
   traderName: string;
   platform: string;
   avatarUrl?: string;

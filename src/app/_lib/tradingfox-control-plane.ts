@@ -336,7 +336,8 @@ export async function createTradingFoxCopyStrategy(
   await ensureCopyStrategyConnectorPositionMode(connector);
 
   const signalSourceId = requireText(input.signalSourceId, "signalSourceId");
-  const traderName = requireText(input.traderName, "traderName");
+  const signalSourceName = requireText(input.traderName, "traderName");
+  const strategyName = normalizeOptionalText(input.strategyName) || signalSourceName;
   const takeProfitPercent = normalizePositiveNumber(input.takeProfitPercent) ?? 20;
   const stopLossPercent = normalizePositiveNumber(input.stopLossPercent) ?? 10;
   const config = createTradingFoxCopyStrategyConfig({
@@ -352,7 +353,7 @@ export async function createTradingFoxCopyStrategy(
       configSchemaVersion: 1,
       enableSltpMonitoring: true,
       exchangeConnectorId: connector.id,
-      name: traderName,
+      name: strategyName,
       strategyDefinitionId: TRADINGFOX_COPY_STRATEGY_DEFINITION_ID,
       userId,
     }),
@@ -1282,8 +1283,13 @@ function createTradingFoxCopyStrategyConfig(input: TradingFoxCopyStrategyConfigI
       market: {},
       orders: {},
       risk: {
-        stopLossMargin: input.stopLossPercent,
-        takeProfitMargin: input.takeProfitPercent,
+        /**
+         * TradingFox treats stopLossMargin/takeProfitMargin as absolute
+         * account-equity cutoffs. SmartKline's copy setup collects percentage
+         * inputs, so only send the percent field consumed by the backend
+         * trailing-equity stop-loss monitor.
+         */
+        stopLossPercent: input.stopLossPercent,
       },
       sltp: {},
     },
@@ -1347,7 +1353,7 @@ function normalizeTradingFoxFollowSide(value: unknown): "BOTH" | "LONG" | "SHORT
 }
 
 async function ensureTradingFoxCopyStrategyConfigEnvelope(trader: TradingFoxTrader): Promise<void> {
-  if (isTradingFoxConfigEnvelope(trader.config)) {
+  if (isTradingFoxConfigEnvelope(trader.config) && !hasCopyStrategyAbsoluteMarginRisk(trader.config)) {
     return;
   }
   const signalSourceConfig = firstSignalSourceConfig(trader.config);
@@ -1380,6 +1386,16 @@ function isTradingFoxConfigEnvelope(config: Record<string, unknown>): boolean {
   return isRecord(config.common) && isRecord(config.strategy);
 }
 
+function hasCopyStrategyAbsoluteMarginRisk(config: Record<string, unknown>): boolean {
+  const common = recordValue(config.common);
+  const risk = recordValue(common.risk);
+  const settings = recordValue(config.settings);
+  return numberOrNull(risk.takeProfitMargin) !== null
+    || numberOrNull(risk.stopLossMargin) !== null
+    || numberOrNull(settings.takeProfitMargin) !== null
+    || numberOrNull(settings.stopLossMargin) !== null;
+}
+
 function normalizeStrategyDefinitionId(value: unknown): string {
   return normalizeOptionalText(value).toUpperCase();
 }
@@ -1391,23 +1407,32 @@ function mapCopyStrategy(trader: TradingFoxTrader, connector: TradingFoxConnecto
   const signalSourceConfig = firstSignalSourceConfig(trader.config);
   const metadata = recordValue(trader.config.smartkline);
   const signalSourceId = stringValue(metadata.signalSourceId) || signalSourceIdFromConfig(signalSourceConfig) || String(trader.id);
+  const signalSourceName = stringValue(metadata.traderName)
+    || stringValue(signalSourceConfig?.signalSourceName)
+    || stringValue(signalSourceConfig?.name);
+  const signalSourcePlatform = stringValue(metadata.platform)
+    || stringValue(signalSourceConfig?.platform)
+    || stringValue(signalSourceConfig?.exchangePlatform);
 
   return {
     apiAccountName: connector?.name ?? `Connector #${trader.exchangeConnectorId}`,
     exchangeConnectorId: trader.exchangeConnectorId,
     avatarUrl: stringValue(metadata.avatarUrl),
     createdAtLabel: formatBackendDateLabel(trader.createdAt),
-    // Filled from trader-owned endpoints; smartkline metadata stores the copied source snapshot.
+    // Filled from trader-owned endpoints; legacy SmartKline metadata can still carry a source snapshot.
     eventsCount: 0,
     id: String(trader.id),
-    platform: stringValue(metadata.platform) || "Copy Trading",
+    platform: signalSourcePlatform || "Copy Trading",
     positionsCount: 0,
+    signalSourceAvatarUrl: stringValue(metadata.avatarUrl),
+    signalSourceName,
+    signalSourcePlatform,
     startedAt: stringValue(signalSourceConfig?.startTime) || trader.createdAt,
     status: mapBackendStrategyStatus(trader),
     stopLossPercent: copyStrategyConfigNumber(trader.config, "stopLossPercent", 10),
     takeProfitPercent: copyStrategyConfigNumber(trader.config, "takeProfitPercent", 20),
     traderId: signalSourceId,
-    traderName: stringValue(metadata.traderName) || trader.name,
+    traderName: trader.name,
   };
 }
 

@@ -116,6 +116,10 @@ export function AccountCenterPrototype({
   const [isStrategyCreateOpen, setIsStrategyCreateOpen] = useState(false);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
+  const followedSignalSourceById = useMemo(
+    () => createSignalSourceTargetById(availableSignalSources),
+    [availableSignalSources],
+  );
   const openStrategyDetail = (strategy: PrototypeStrategy) => {
     if (getPrototypeStrategyType(strategy) === "mario") {
       window.location.assign("/mario-dashboard");
@@ -240,6 +244,7 @@ export function AccountCenterPrototype({
                         <PrototypeStrategyCard
                           key={strategy.id}
                           copy={copy}
+                          followedSignalSource={followedSignalSourceById.get(strategy.traderId) ?? null}
                           isDarkTheme={isDarkTheme}
                           strategy={strategy}
                           onOpenDetail={openStrategyDetail}
@@ -345,6 +350,10 @@ export function AccountManagementPanel({
   const selectedStrategyId = activeStrategyId || localSelectedStrategyId;
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
   const effectiveActiveAccountTab = activeStrategyId || localSelectedStrategyId ? "strategies" : activeAccountTab;
+  const followedSignalSourceById = useMemo(
+    () => createSignalSourceTargetById(availableSignalSources),
+    [availableSignalSources],
+  );
   const accountTabs: readonly {
     key: AccountManagementTab;
     label: string;
@@ -498,6 +507,7 @@ export function AccountManagementPanel({
                     <PrototypeStrategyCard
                       key={strategy.id}
                       copy={copy}
+                      followedSignalSource={followedSignalSourceById.get(strategy.traderId) ?? null}
                       isDarkTheme={isDarkTheme}
                       strategy={strategy}
                       onOpenDetail={openStrategyDetail}
@@ -541,6 +551,24 @@ export function AccountManagementPanel({
       ) : null}
     </section>
   );
+}
+
+function createSignalSourceTargetById(
+  sources: readonly CopyTradingPrototypeTarget[],
+): Map<string, CopyTradingPrototypeTarget> {
+  return new Map(sources.map((source) => [source.trader.trader_id, source]));
+}
+
+function formatDefaultCopyStrategyName(
+  target: CopyTradingPrototypeTarget | null,
+  typeLabel: string,
+): string {
+  const sourceName = target?.trader.name.trim() ?? "";
+  if (!sourceName) {
+    return "";
+  }
+
+  return `${sourceName} ${typeLabel}`.trim();
 }
 
 function NotificationSettingsPlaceholder({
@@ -702,11 +730,16 @@ export function CopyTradingPrototypeModal({
   onClose,
   onStart,
 }: CopyTradingPrototypeModalProps) {
+  const accountCopy = copy.workspace.accountCenter;
+  const defaultStrategyName = formatDefaultCopyStrategyName(target, accountCopy.strategyCreate.copyTradingTitle);
+  const [strategyName, setStrategyName] = useState(defaultStrategyName);
+  const [hasEditedStrategyName, setHasEditedStrategyName] = useState(false);
   const [takeProfitPercent, setTakeProfitPercent] = useState("20");
   const [selectedConnectorId, setSelectedConnectorId] = useState(String(apiConnection.id));
   const [stopLossPercent, setStopLossPercent] = useState("10");
-  const accountCopy = copy.workspace.accountCenter;
 
+  const effectiveStrategyName = hasEditedStrategyName ? strategyName : defaultStrategyName;
+  const normalizedStrategyName = effectiveStrategyName.trim();
   const parsedTakeProfit = Number(takeProfitPercent);
   const parsedStopLoss = Number(stopLossPercent);
   const occupiedConnectorIds = useMemo(() => new Set(strategies
@@ -720,6 +753,7 @@ export function CopyTradingPrototypeModal({
   const canStart = Boolean(target)
     && selectedApiConnection !== null
     && selectedApiConnection.status === "connected"
+    && normalizedStrategyName.length > 0
     && Number.isFinite(parsedTakeProfit)
     && Number.isFinite(parsedStopLoss)
     && parsedTakeProfit > 0
@@ -768,6 +802,17 @@ export function CopyTradingPrototypeModal({
           </div>
 
           <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+            <PrototypeInput
+              fieldName="quick-strategy-name"
+              isDarkTheme={isDarkTheme}
+              label={accountCopy.strategyCreate.strategyName}
+              placeholder={accountCopy.strategyCreate.strategyNamePlaceholder}
+              value={effectiveStrategyName}
+              onChange={(value) => {
+                setHasEditedStrategyName(true);
+                setStrategyName(value);
+              }}
+            />
             <label className="block">
               <span className={getLabelClassName(isDarkTheme)}>{accountCopy.copyTrading.apiSelect}</span>
               {availableApiConnections.length > 0 ? (
@@ -823,6 +868,7 @@ export function CopyTradingPrototypeModal({
                 }
                 onStart({
                   exchangeConnectorId: selectedApiConnection.id,
+                  strategyName: normalizedStrategyName,
                   stopLossPercent: parsedStopLoss,
                   takeProfitPercent: parsedTakeProfit,
                   target,
@@ -858,6 +904,8 @@ function StrategyCreateLayer({
   const accountCopy = copy.workspace.accountCenter;
   const strategyCreateCopy = accountCopy.strategyCreate;
   const [strategyType, setStrategyType] = useState<PrototypeStrategyType>("copyTrading");
+  const [strategyName, setStrategyName] = useState("");
+  const [hasEditedStrategyName, setHasEditedStrategyName] = useState(false);
   const [selectedConnectorId, setSelectedConnectorId] = useState("");
   const [selectedSignalSourceId, setSelectedSignalSourceId] = useState("");
   const [takeProfitPercent, setTakeProfitPercent] = useState("20");
@@ -873,10 +921,16 @@ function StrategyCreateLayer({
   const selectedApiConnection = availableApiConnections.find((connection) => String(connection.id) === selectedConnectorId) ?? availableApiConnections[0] ?? null;
   const selectedTradingAccountId = selectedApiConnection ? String(selectedApiConnection.id) : "";
   const selectedSignalSource = availableSignalSources.find((target) => target.trader.trader_id === selectedSignalSourceId) ?? availableSignalSources[0] ?? null;
+  const defaultStrategyName = strategyType === "mario"
+    ? strategyCreateCopy.marioStrategyName
+    : formatDefaultCopyStrategyName(selectedSignalSource, strategyCreateCopy.copyTradingTitle);
+  const effectiveStrategyName = hasEditedStrategyName ? strategyName : defaultStrategyName;
+  const normalizedStrategyName = effectiveStrategyName.trim();
   const parsedTakeProfit = Number(takeProfitPercent);
   const parsedStopLoss = Number(stopLossPercent);
   const canCreate = selectedApiConnection !== null
     && !isSubmitting
+    && normalizedStrategyName.length > 0
     && (strategyType === "mario" || (
       selectedSignalSource !== null
       && Number.isFinite(parsedTakeProfit)
@@ -884,7 +938,6 @@ function StrategyCreateLayer({
       && parsedTakeProfit > 0
       && parsedStopLoss > 0
     ));
-
 
   const submitStrategy = async () => {
     if (!canCreate || !selectedApiConnection) {
@@ -894,9 +947,14 @@ function StrategyCreateLayer({
     setIsSubmitting(true);
     setSubmitError("");
     try {
+      if (!normalizedStrategyName) {
+        throw new Error(strategyCreateCopy.strategyNameRequired);
+      }
+
       if (strategyType === "mario") {
         await onCreate({
           exchangeConnectorId: selectedApiConnection.id,
+          strategyName: normalizedStrategyName,
           strategyType: "mario",
         });
       } else if (selectedSignalSource) {
@@ -904,6 +962,7 @@ function StrategyCreateLayer({
           exchangeConnectorId: selectedApiConnection.id,
           followRatioPercent: 100,
           stopLossPercent: parsedStopLoss,
+          strategyName: normalizedStrategyName,
           strategyType: "copyTrading",
           takeProfitPercent: parsedTakeProfit,
           target: selectedSignalSource,
@@ -962,6 +1021,18 @@ function StrategyCreateLayer({
                 onSelect={() => setStrategyType("mario")}
               />
             </section>
+
+            <PrototypeInput
+              fieldName="strategy-name"
+              isDarkTheme={isDarkTheme}
+              label={strategyCreateCopy.strategyName}
+              placeholder={strategyCreateCopy.strategyNamePlaceholder}
+              value={effectiveStrategyName}
+              onChange={(value) => {
+                setHasEditedStrategyName(true);
+                setStrategyName(value);
+              }}
+            />
 
             <label className="block">
               <span className={getLabelClassName(isDarkTheme)}>{strategyCreateCopy.apiSelect}</span>
@@ -2187,8 +2258,41 @@ function WhitelistIpCopyPanel({
   );
 }
 
+type FollowedSignalSourceDisplay = {
+  avatarUrl: string | null;
+  id: string;
+  name: string;
+  platform: string;
+};
+
+function resolveFollowedSignalSourceDisplay(
+  strategy: PrototypeStrategy,
+  followedSignalSource: CopyTradingPrototypeTarget | null | undefined,
+  unknownLabel: string,
+): FollowedSignalSourceDisplay {
+  if (followedSignalSource) {
+    return {
+      avatarUrl: followedSignalSource.trader.avatar || null,
+      id: followedSignalSource.trader.trader_id,
+      name: followedSignalSource.trader.name || followedSignalSource.trader.trader_id || unknownLabel,
+      platform: followedSignalSource.trader.platform,
+    };
+  }
+
+  const id = strategy.traderId.trim();
+  const fallbackPlatform = strategy.platform === "Copy Trading" ? "" : strategy.platform;
+
+  return {
+    avatarUrl: strategy.signalSourceAvatarUrl || strategy.avatarUrl || null,
+    id,
+    name: strategy.signalSourceName?.trim() || id || unknownLabel,
+    platform: strategy.signalSourcePlatform?.trim() || fallbackPlatform,
+  };
+}
+
 function PrototypeStrategyCard({
   copy,
+  followedSignalSource,
   isDarkTheme,
   strategy,
   onOpenDetail,
@@ -2196,6 +2300,7 @@ function PrototypeStrategyCard({
   onStrategyStatusChange,
 }: {
   copy: WorkspaceCopy;
+  followedSignalSource?: CopyTradingPrototypeTarget | null;
   isDarkTheme: boolean;
   strategy: PrototypeStrategy;
   onOpenDetail: (strategy: PrototypeStrategy) => void;
@@ -2207,6 +2312,8 @@ function PrototypeStrategyCard({
   const strategyType = getPrototypeStrategyType(strategy);
   const statusLabel = getStrategyStatusLabel(strategyCopy, strategy.status);
   const typeLabel = strategyType === "mario" ? accountCopy.strategyCreate.marioTypeChip : accountCopy.strategyCreate.copyTradingTypeChip;
+  const followedSource = resolveFollowedSignalSourceDisplay(strategy, followedSignalSource, strategyCopy.followingSignalSourceUnknown);
+  const followedSourceMeta = [followedSource.platform, followedSource.id].filter(Boolean).join(" · ");
 
   return (
     <article className={isDarkTheme ? "relative rounded-2xl border border-white/[0.075] bg-[#181A20] p-3" : "relative rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
@@ -2228,6 +2335,24 @@ function PrototypeStrategyCard({
           </div>
         </div>
       </div>
+      {strategyType === "copyTrading" ? (
+        <div className={isDarkTheme ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3"}>
+          <div className={isDarkTheme ? "text-[10px] font-black uppercase tracking-[0.14em] text-slate-500" : "text-[10px] font-black uppercase tracking-[0.14em] text-slate-400"}>
+            {strategyCopy.followingSignalSource}
+          </div>
+          <div className="mt-2 flex min-w-0 items-center gap-2">
+            <SourceAvatar isDarkTheme={isDarkTheme} name={followedSource.name} url={followedSource.avatarUrl} />
+            <div className="min-w-0">
+              <div className={isDarkTheme ? "truncate text-sm font-black text-slate-100" : "truncate text-sm font-black text-slate-950"}>{followedSource.name}</div>
+              {followedSourceMeta ? (
+                <div className={isDarkTheme ? "mt-0.5 truncate text-xs font-bold text-slate-500" : "mt-0.5 truncate text-xs font-bold text-slate-500"}>
+                  {followedSourceMeta}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
         <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={String(strategy.positionsCount)} />
         <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.tradeHistoryCount} value={String(strategy.eventsCount)} />

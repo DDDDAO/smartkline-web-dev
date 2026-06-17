@@ -354,6 +354,9 @@ export const en: WorkspaceCopy = {
         signalSourceSelect: "Signal source",
         start: "Start Strategy",
         starting: "Starting",
+        strategyName: "Strategy name",
+        strategyNamePlaceholder: "e.g. BTC copy strategy",
+        strategyNameRequired: "Enter a strategy name.",
       },
       strategy: {
         accountEquity: "Account equity",
@@ -376,6 +379,8 @@ export const en: WorkspaceCopy = {
         empty: "No strategies yet. Create a copy strategy or Mario strategy from here.",
         entryPrice: "Entry",
         failed: "Failed",
+        followingSignalSource: "Following signal source",
+        followingSignalSourceUnknown: "Signal source not synced",
         followSide: "Follow",
         leverage: "Leverage",
         loadingDetail: "Loading strategy detail…",

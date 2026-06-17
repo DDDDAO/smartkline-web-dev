@@ -1600,6 +1600,7 @@ export function SignalWorkspace({
 
   const requestPrototypeCopyStrategyStart = useCallback(async (input: {
     exchangeConnectorId: number;
+    strategyName: string;
     stopLossPercent: number;
     takeProfitPercent: number;
     target: CopyTradingPrototypeTarget;
@@ -1612,6 +1613,7 @@ export function SignalWorkspace({
         positionsCount: input.target.positionsCount,
         exchangeConnectorId: input.exchangeConnectorId,
         signalSourceId: input.target.trader.trader_id,
+        strategyName: input.strategyName,
         stopLossPercent: input.stopLossPercent,
         takeProfitPercent: input.takeProfitPercent,
         traderName: input.target.trader.name,
@@ -1624,6 +1626,7 @@ export function SignalWorkspace({
 
   const handlePrototypeStrategyStart = useCallback(async (input: {
     exchangeConnectorId: number;
+    strategyName: string;
     stopLossPercent: number;
     takeProfitPercent: number;
     target: CopyTradingPrototypeTarget;
@@ -1641,7 +1644,7 @@ export function SignalWorkspace({
         id: `copy-strategy-created-${Date.now()}`,
         kind: "success",
         message: copyRef.current.workspace.accountCenter.strategyCreate.copyTradingCreatedToast,
-        meta: input.target.trader.name,
+        meta: input.strategyName,
         title: copyRef.current.workspace.accountCenter.copyTrading.start,
       });
     } catch (error) {
@@ -1649,7 +1652,7 @@ export function SignalWorkspace({
         id: `copy-strategy-error-${Date.now()}`,
         kind: "error",
         message: getTradingFoxErrorMessage(error, copyRef.current),
-        meta: input.target.trader.name,
+        meta: input.strategyName,
         title: copyRef.current.workspace.accountCenter.copyTrading.start,
       });
     } finally {
@@ -1668,6 +1671,7 @@ export function SignalWorkspace({
       if (input.strategyType === "copyTrading") {
         await requestPrototypeCopyStrategyStart({
           exchangeConnectorId: input.exchangeConnectorId,
+          strategyName: input.strategyName,
           stopLossPercent: input.stopLossPercent,
           takeProfitPercent: input.takeProfitPercent,
           target: input.target,
@@ -1676,7 +1680,7 @@ export function SignalWorkspace({
           id: `copy-strategy-created-${Date.now()}`,
           kind: "success",
           message: copyRef.current.workspace.accountCenter.strategyCreate.copyTradingCreatedToast,
-          meta: input.target.trader.name,
+          meta: input.strategyName,
           title: copyRef.current.workspace.accountCenter.strategyCreate.modalTitle,
         });
         return;
@@ -1687,18 +1691,18 @@ export function SignalWorkspace({
         throw new Error(copyRef.current.workspace.accountCenter.copyTrading.apiRequired);
       }
 
-      const marioStrategy = createMarioPrototypeStrategy(connector, copyRef.current, language);
+      const marioStrategy = createMarioPrototypeStrategy(connector, copyRef.current, language, input.strategyName);
       setPrototypeMarioStrategies((currentStrategies) => [marioStrategy, ...currentStrategies]);
       handleProductTabChange("accountManagement");
       setWorkspaceNotification({
         id: `mario-strategy-created-${Date.now()}`,
         kind: "success",
         message: copyRef.current.workspace.accountCenter.strategyCreate.marioCreatedToast,
-        meta: connector.accountName,
+        meta: input.strategyName,
         title: copyRef.current.workspace.accountCenter.strategyCreate.marioTitle,
       });
     } catch (error) {
-      const meta = input.strategyType === "copyTrading" ? input.target.trader.name : String(input.exchangeConnectorId);
+      const meta = input.strategyName;
       setWorkspaceNotification({
         id: `strategy-create-error-${Date.now()}`,
         kind: "error",
@@ -2242,6 +2246,7 @@ function createMarioPrototypeStrategy(
   connector: PrototypeApiConnection,
   copy: WorkspaceCopy,
   language: WorkspaceLanguage,
+  strategyName: string,
 ): PrototypeStrategy {
   const now = new Date().toISOString();
 
@@ -2261,7 +2266,7 @@ function createMarioPrototypeStrategy(
     strategyType: "mario",
     takeProfitPercent: 0,
     traderId: `mario-${connector.id}`,
-    traderName: copy.workspace.accountCenter.strategyCreate.marioStrategyName,
+    traderName: strategyName.trim() || copy.workspace.accountCenter.strategyCreate.marioStrategyName,
     unrealizedPnl: 0,
   };
 }
