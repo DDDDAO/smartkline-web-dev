@@ -15,6 +15,7 @@ import type {
   TradingFoxConnectorWhitelistIP,
   TradingFoxCopyStrategy,
   TradingFoxCopyStrategyStatus,
+  TradingFoxCopyStrategyCurveWindow,
   TradingFoxCopyStrategyDetailInput,
   TradingFoxHyperliquidAgentBindingCompleteResponse,
   TradingFoxHyperliquidAgentBindingStartResponse,
@@ -24,6 +25,7 @@ import type {
   TradingFoxRuntimeStatus,
   TradingFoxRuntimeStatusResponse,
   TradingFoxSignalSource,
+  TradingFoxStrategyDetailSection,
   TradingFoxStrategyCurve,
   TradingFoxStrategyDetail,
   TradingFoxTrader,
@@ -47,6 +49,7 @@ export type {
   TradingFoxConnectorWhitelistIP,
   TradingFoxCopyStrategy,
   TradingFoxCopyStrategyStatus,
+  TradingFoxCopyStrategyCurveWindow,
   TradingFoxCopyStrategyDetailInput,
   TradingFoxHyperliquidAgentBinding,
   TradingFoxHyperliquidAgentBindingCompleteResponse,
@@ -59,6 +62,7 @@ export type {
   TradingFoxRuntimeStatus,
   TradingFoxSignalSource,
   TradingFoxStrategyCurve,
+  TradingFoxStrategyDetailSection,
   TradingFoxStrategyCurvePoint,
   TradingFoxStrategyDetail,
   TradingFoxTrader,
@@ -75,8 +79,28 @@ const DEFAULT_MOCK_MARGIN_BALANCE = 10_000;
 const DEFAULT_DEMO_EXCHANGE_PLATFORM = "Mock";
 const TRADINGFOX_COPY_STRATEGY_DEFINITION_ID = "COPY_TRADING";
 const TRADINGFOX_ACTION_SYNC_POSITIONS = "sync_positions";
+const TRADINGFOX_STRATEGY_DETAIL_SECTIONS: readonly TradingFoxStrategyDetailSection[] = [
+  "account",
+  "positions",
+  "signalSources",
+  "orders",
+  "curve",
+];
+const TRADINGFOX_STRATEGY_DETAIL_SECTION_SET = new Set<TradingFoxStrategyDetailSection>(TRADINGFOX_STRATEGY_DETAIL_SECTIONS);
 type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
 type TradingFoxLiveExchangePlatform = "Aster" | "Binance" | "Bitget" | "Bybit" | "Gate" | "HyperLiquid" | "OKX";
+type TradingFoxAccountOptions = {
+  includeConnectorAccountEquity?: boolean;
+  includeStrategyRuntimeMetrics?: boolean;
+};
+type TradingFoxCopyStrategyContext = {
+  accountInitialEquity: number | undefined;
+  strategy: TradingFoxCopyStrategy;
+  trader: TradingFoxTrader;
+};
+const TRADINGFOX_STRATEGY_CURVE_WINDOWS: readonly TradingFoxCopyStrategyCurveWindow[] = ["24h", "7d", "30d", "90d", "180d"];
+const TRADINGFOX_STRATEGY_CURVE_WINDOW_SET = new Set<TradingFoxCopyStrategyCurveWindow>(TRADINGFOX_STRATEGY_CURVE_WINDOWS);
+
 type TradingFoxCopyStrategyConfigInput = {
   signalSourceConfigs?: readonly Record<string, unknown>[];
   signalSourceId: string;
@@ -104,7 +128,10 @@ type TradingFoxAccountStatusResponse = {
 };
 
 
-export async function getTradingFoxAccount(session: TelegramAuthSession): Promise<TradingFoxAccountResponse> {
+export async function getTradingFoxAccount(
+  session: TelegramAuthSession,
+  options: TradingFoxAccountOptions = {},
+): Promise<TradingFoxAccountResponse> {
   const userId = tradingFoxUserIdFromSession(session);
   const [connectors, traders] = await Promise.all([
     tradingFoxRequest<{ items: TradingFoxConnector[] }>(`/v1/exchange-connectors?userId=${userId}&dead=false`),
@@ -112,32 +139,36 @@ export async function getTradingFoxAccount(session: TelegramAuthSession): Promis
   ]);
   const activeConnectors = pickActiveConnectors(connectors.items);
   const connectorById = new Map(activeConnectors.map((connector) => [connector.id, connector]));
-  const accountEquityByConnectorId = await getTradingFoxConnectorAccountEquityById(activeConnectors);
-  const strategies = await Promise.all(traders.items.map(async (trader) => {
-    const connector = connectorById.get(trader.exchangeConnectorId) ?? null;
-    const strategy = mapCopyStrategy(trader, connector);
-    if (!strategy) {
-      return null;
-    }
+  const accountEquityByConnectorId = options.includeConnectorAccountEquity
+    ? await getTradingFoxConnectorAccountEquityById(activeConnectors)
+    : new Map<number, number>();
+  const strategies = options.includeStrategyRuntimeMetrics
+    ? await Promise.all(traders.items.map(async (trader) => {
+      const connector = connectorById.get(trader.exchangeConnectorId) ?? null;
+      const strategy = mapCopyStrategy(trader, connector);
+      if (!strategy) {
+        return null;
+      }
 
-    const [accountStatus, positions, orderHistory] = await Promise.all([
-      settleTradingFoxRequest<TradingFoxAccountStatusResponse>(`/v1/traders/${trader.id}/account-status`),
-      settleTradingFoxRequest<{ items: TradingFoxPosition[] }>(`/v1/traders/${trader.id}/positions`),
-      settleTradingFoxRequest<TradingFoxOrderHistory>(`/v1/traders/${trader.id}/orders?section=trader&limit=500`),
-    ]);
-    const accountEquity = accountStatus.value?.account?.equity;
-    if (typeof accountEquity === "number" && Number.isFinite(accountEquity)) {
-      accountEquityByConnectorId.set(trader.exchangeConnectorId, accountEquity);
-    }
+      const [accountStatus, positions, orderHistory] = await Promise.all([
+        settleTradingFoxRequest<TradingFoxAccountStatusResponse>(`/v1/traders/${trader.id}/account-status`),
+        settleTradingFoxRequest<{ items: TradingFoxPosition[] }>(`/v1/traders/${trader.id}/positions`),
+        settleTradingFoxRequest<TradingFoxOrderHistory>(`/v1/traders/${trader.id}/orders?section=trader&limit=500`),
+      ]);
+      const accountEquity = accountStatus.value?.account?.equity;
+      if (typeof accountEquity === "number" && Number.isFinite(accountEquity)) {
+        accountEquityByConnectorId.set(trader.exchangeConnectorId, accountEquity);
+      }
 
-    return {
-      ...strategy,
-      accountEquity: accountStatus.value?.account?.equity,
-      eventsCount: countTradingFoxTraderOrders(orderHistory.value),
-      positionsCount: countTradingFoxPositions(positions.value),
-      unrealizedPnl: sumTradingFoxUnrealizedPnl(positions.value),
-    };
-  }));
+      return {
+        ...strategy,
+        accountEquity: accountStatus.value?.account?.equity,
+        eventsCount: countTradingFoxTraderOrders(orderHistory.value),
+        positionsCount: countTradingFoxPositions(positions.value),
+        unrealizedPnl: sumTradingFoxUnrealizedPnl(positions.value),
+      };
+    }))
+    : traders.items.map((trader) => mapCopyStrategy(trader, connectorById.get(trader.exchangeConnectorId) ?? null));
   const connectorsWithAccountEquity = activeConnectors.map((connector) => ({
     ...connector,
     accountEquity: accountEquityByConnectorId.get(connector.id),
@@ -482,83 +513,110 @@ export async function getTradingFoxCopyStrategyDetail(
   strategyId: string,
   input: TradingFoxCopyStrategyDetailInput = {},
 ): Promise<TradingFoxStrategyDetail> {
-  const userId = tradingFoxUserIdFromSession(session);
-  const traderId = parsePositiveInteger(strategyId, "strategyId");
   const orderHistoryPage = normalizeTradingFoxOrderHistoryPage(input);
-  const account = await getTradingFoxAccount(session);
+  const sections = normalizeTradingFoxStrategyDetailSections(input.sections);
+  const curveWindow = normalizeTradingFoxStrategyCurveWindow(input.curveWindow);
+  const traderId = parsePositiveInteger(strategyId, "strategyId");
+  const context = await getTradingFoxCopyStrategyContext(session, traderId);
+  const { accountInitialEquity, strategy: baseStrategy, trader } = context;
+
+  const [accountStatus, positions, signalSources, orderHistory, strategyCurveResponse] = await Promise.all([
+    sections.has("account")
+      ? settleTradingFoxRequest<TradingFoxAccountStatusResponse>(`/v1/traders/${traderId}/account-status`)
+      : settledTradingFoxSkipped<TradingFoxAccountStatusResponse>(),
+    sections.has("positions")
+      ? settleTradingFoxRequest<{ items: TradingFoxPosition[] }>(`/v1/traders/${traderId}/positions`)
+      : settledTradingFoxSkipped<{ items: TradingFoxPosition[] }>(),
+    sections.has("signalSources")
+      ? settleTradingFoxRequest<{ items: TradingFoxSignalSource[] }>(`/v1/traders/${traderId}/signal-source-positions`)
+      : settledTradingFoxSkipped<{ items: TradingFoxSignalSource[] }>(),
+    sections.has("orders")
+      ? settleTradingFoxRequest<TradingFoxOrderHistory>(
+        `/v1/traders/${traderId}/orders?limit=${orderHistoryPage.fetchLimit}`,
+      )
+      : settledTradingFoxSkipped<TradingFoxOrderHistory>(),
+    sections.has("curve")
+      ? settleTradingFoxStrategyCurveRequest(traderId, curveWindow)
+      : settledTradingFoxSkipped<unknown>(),
+  ]);
+
+  const signalSourceItems = signalSources.value?.items ?? [];
+  const normalizedOrderHistory = orderHistory.value
+    ? applyTradingFoxOrderHistoryPage(orderHistory.value, orderHistoryPage, baseStrategy.startedAt)
+    : null;
+  const strategyCurve = adaptTradingFoxStrategyCurve(
+    readTradingFoxStrategyCurvePayload(strategyCurveResponse.value, sections.has("account") ? accountStatus.value : undefined, trader),
+    {
+      baseEquity: accountInitialEquity,
+    },
+  );
+  const positionItems = positions.value?.items ?? [];
+  const strategy: TradingFoxCopyStrategy = {
+    ...baseStrategy,
+    accountEquity: accountStatus.value?.account?.equity ?? baseStrategy.accountEquity,
+    eventsCount: normalizedOrderHistory ? countTradingFoxTraderOrders(normalizedOrderHistory) : baseStrategy.eventsCount,
+    positionsCount: sections.has("positions") ? positionItems.length : baseStrategy.positionsCount,
+    unrealizedPnl: sections.has("positions") ? sumTradingFoxUnrealizedPnl(positions.value) : baseStrategy.unrealizedPnl,
+  };
+
+  return {
+    account: accountStatus.value?.account ?? null,
+    accountError: sections.has("account") ? accountStatus.error : undefined,
+    accountInitialEquity,
+    loadedSections: [...sections],
+    orderHistory: normalizedOrderHistory
+      ? enrichTradingFoxOrderHistorySignalSourcePrices(normalizedOrderHistory, signalSourceItems)
+      : null,
+    orderHistoryError: sections.has("orders") ? orderHistory.error : undefined,
+    positions: positionItems,
+    positionsError: sections.has("positions") ? positions.error : undefined,
+    signalSources: signalSourceItems,
+    signalSourcesError: sections.has("signalSources") ? signalSources.error : undefined,
+    strategyCurve,
+    strategyCurveError: sections.has("curve") && !strategyCurve ? normalizeTradingFoxStrategyCurveError(strategyCurveResponse.error) : undefined,
+    strategy,
+    trader,
+  };
+}
+
+async function getTradingFoxCopyStrategyContext(
+  session: TelegramAuthSession,
+  traderId: number,
+): Promise<TradingFoxCopyStrategyContext> {
+  const userId = tradingFoxUserIdFromSession(session);
   const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
 
   if (trader.userId !== userId || !isCopyTradingTrader(trader)) {
     throw new TradingFoxApiError("Copy strategy not found.", 404);
   }
 
-  const connector = account.connectors.find((item) => item.id === trader.exchangeConnectorId) ?? account.connector;
-  const mappedStrategy = mapCopyStrategy(trader, connector);
-  if (!mappedStrategy) {
+  const connector = await getConnectorForUser(trader.exchangeConnectorId, userId);
+  const strategy = mapCopyStrategy(trader, connector);
+  if (!strategy) {
     throw new TradingFoxApiError("Copy strategy not found.", 404);
   }
-  const accountStrategy = account.strategies.find((item) => item.id === String(trader.id));
-  const strategy = accountStrategy
-    ? {
-      ...mappedStrategy,
-      accountEquity: accountStrategy.accountEquity,
-      eventsCount: accountStrategy.eventsCount,
-      positionsCount: accountStrategy.positionsCount,
-      status: accountStrategy.status,
-      unrealizedPnl: accountStrategy.unrealizedPnl,
-    }
-    : mappedStrategy;
-
-  const [accountStatus, positions, signalSources, orderHistory, strategyCurveResponse] = await Promise.all([
-    settleTradingFoxRequest<TradingFoxAccountStatusResponse>(`/v1/traders/${traderId}/account-status`),
-    settleTradingFoxRequest<{ items: TradingFoxPosition[] }>(`/v1/traders/${traderId}/positions`),
-    settleTradingFoxRequest<{ items: TradingFoxSignalSource[] }>(`/v1/traders/${traderId}/signal-source-positions`),
-    settleTradingFoxRequest<TradingFoxOrderHistory>(
-      `/v1/traders/${traderId}/orders?limit=${orderHistoryPage.fetchLimit}`,
-    ),
-    settleTradingFoxStrategyCurveRequest(traderId),
-  ]);
-
-  const signalSourceItems = signalSources.value?.items ?? [];
-  const normalizedOrderHistory = orderHistory.value
-    ? applyTradingFoxOrderHistoryPage(orderHistory.value, orderHistoryPage, strategy.startedAt)
-    : null;
-  const accountInitialEquity = connector && !isBinanceDemoConnector(connector) ? connector.mockMarginBalance : undefined;
-  const strategyCurve = adaptTradingFoxStrategyCurve(
-    readTradingFoxStrategyCurvePayload(strategyCurveResponse.value, accountStatus.value, trader),
-    {
-      baseEquity: accountInitialEquity,
-    },
-  );
 
   return {
-    account: accountStatus.value?.account ?? null,
-    accountError: accountStatus.error,
-    accountInitialEquity,
-    orderHistory: normalizedOrderHistory
-      ? enrichTradingFoxOrderHistorySignalSourcePrices(normalizedOrderHistory, signalSourceItems)
-      : null,
-    orderHistoryError: orderHistory.error,
-    positions: positions.value?.items ?? [],
-    positionsError: positions.error,
-    signalSources: signalSourceItems,
-    signalSourcesError: signalSources.error,
-    strategyCurve,
-    strategyCurveError: strategyCurve ? undefined : normalizeTradingFoxStrategyCurveError(strategyCurveResponse.error),
+    accountInitialEquity: !isBinanceDemoConnector(connector) ? connector.mockMarginBalance : undefined,
     strategy,
     trader,
   };
 }
 
+function settledTradingFoxSkipped<T>(): Promise<{ error?: string; value?: T }> {
+  return Promise.resolve({});
+}
+
 async function settleTradingFoxStrategyCurveRequest(
   traderId: number,
+  window: TradingFoxCopyStrategyCurveWindow,
 ): Promise<{ error?: string; value?: unknown }> {
-  const primaryResponse = await settleTradingFoxRequest<unknown>(`/v1/traders/${traderId}/strategy-curve?limit=240`);
+  const primaryResponse = await settleTradingFoxRequest<unknown>(`/v1/traders/${traderId}/strategy-curve?window=${encodeURIComponent(window)}&limit=240`);
   if (primaryResponse.value !== undefined) {
     return primaryResponse;
   }
 
-  const snapshotResponse = await settleTradingFoxRequest<unknown>(`/v1/traders/${traderId}/account-snapshots?limit=240`);
+  const snapshotResponse = await settleTradingFoxRequest<unknown>(`/v1/traders/${traderId}/account-snapshots?window=${encodeURIComponent(window)}&limit=240`);
   return snapshotResponse.value !== undefined ? snapshotResponse : primaryResponse;
 }
 
@@ -1488,6 +1546,40 @@ function normalizeStrategyDefinitionId(value: unknown): string {
   return normalizeOptionalText(value).toUpperCase();
 }
 
+function normalizeTradingFoxStrategyCurveWindow(value: unknown): TradingFoxCopyStrategyCurveWindow {
+  const normalized = normalizeOptionalText(value).toLowerCase();
+  if (TRADINGFOX_STRATEGY_CURVE_WINDOW_SET.has(normalized as TradingFoxCopyStrategyCurveWindow)) {
+    return normalized as TradingFoxCopyStrategyCurveWindow;
+  }
+
+  return "30d";
+}
+
+function normalizeTradingFoxStrategyDetailSections(value: unknown): Set<TradingFoxStrategyDetailSection> {
+  if (value === undefined || value === null || value === "") {
+    return new Set(TRADINGFOX_STRATEGY_DETAIL_SECTIONS);
+  }
+
+  const rawSections = Array.isArray(value) ? value : String(value).split(",");
+  const sections = new Set<TradingFoxStrategyDetailSection>();
+
+  for (const rawSection of rawSections) {
+    const section = String(rawSection).trim();
+    if (!section) {
+      continue;
+    }
+    if (section === "all") {
+      return new Set(TRADINGFOX_STRATEGY_DETAIL_SECTIONS);
+    }
+    if (!TRADINGFOX_STRATEGY_DETAIL_SECTION_SET.has(section as TradingFoxStrategyDetailSection)) {
+      throw new TradingFoxApiError(`Unsupported strategy detail section: ${section}.`, 400);
+    }
+    sections.add(section as TradingFoxStrategyDetailSection);
+  }
+
+  return sections.size > 0 ? sections : new Set(TRADINGFOX_STRATEGY_DETAIL_SECTIONS);
+}
+
 function mapCopyStrategy(trader: TradingFoxTrader, connector: TradingFoxConnector | null): TradingFoxCopyStrategy | null {
   if (!isCopyTradingTrader(trader)) {
     return null;
@@ -1507,11 +1599,8 @@ function mapCopyStrategy(trader: TradingFoxTrader, connector: TradingFoxConnecto
     exchangeConnectorId: trader.exchangeConnectorId,
     avatarUrl: stringValue(metadata.avatarUrl),
     createdAtLabel: formatBackendDateLabel(trader.createdAt),
-    // Filled from trader-owned endpoints; legacy SmartKline metadata can still carry a source snapshot.
-    eventsCount: 0,
     id: String(trader.id),
     platform: signalSourcePlatform || "Copy Trading",
-    positionsCount: 0,
     signalSourceAvatarUrl: stringValue(metadata.avatarUrl),
     signalSourceName,
     signalSourcePlatform,

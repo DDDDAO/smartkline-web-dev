@@ -26,8 +26,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const session = await requireTradingFoxSession(request);
     const { strategyId } = await context.params;
     return NextResponse.json(await getTradingFoxCopyStrategyDetail(session, strategyId, {
+      curveWindow: request.nextUrl.searchParams.get("curveWindow"),
       orderLimit: request.nextUrl.searchParams.get("orderLimit"),
       orderOffset: request.nextUrl.searchParams.get("orderOffset"),
+      sections: request.nextUrl.searchParams.get("sections") ?? request.nextUrl.searchParams.get("section"),
     }));
   } catch (error) {
     return tradingFoxErrorResponse(error);

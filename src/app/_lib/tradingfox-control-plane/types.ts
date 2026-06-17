@@ -70,6 +70,7 @@ export type TradingFoxRuntimeStatusResponse = {
 };
 
 export type TradingFoxCopyStrategyStatus = "failed" | "paused" | "pending" | "running" | "stopped";
+export type TradingFoxStrategyDetailSection = "account" | "positions" | "signalSources" | "orders" | "curve";
 
 export type TradingFoxCopyStrategy = {
   apiAccountName: string;
@@ -77,10 +78,10 @@ export type TradingFoxCopyStrategy = {
   exchangeConnectorId: number;
   avatarUrl: string;
   createdAtLabel: string;
-  eventsCount: number;
+  eventsCount?: number;
   id: string;
   platform: string;
-  positionsCount: number;
+  positionsCount?: number;
   signalSourceAvatarUrl?: string;
   signalSourceName?: string;
   signalSourcePlatform?: string;
@@ -252,6 +253,7 @@ export type TradingFoxStrategyDetail = {
   account: TradingFoxAccountStatus | null;
   accountError?: string;
   accountInitialEquity?: number;
+  loadedSections?: TradingFoxStrategyDetailSection[];
   orderHistory: TradingFoxOrderHistory | null;
   orderHistoryError?: string;
   positions: TradingFoxPosition[];
@@ -264,9 +266,13 @@ export type TradingFoxStrategyDetail = {
   trader: TradingFoxTrader;
 };
 
+export type TradingFoxCopyStrategyCurveWindow = "24h" | "7d" | "30d" | "90d" | "180d";
+
 export type TradingFoxCopyStrategyDetailInput = {
+  curveWindow?: unknown;
   orderLimit?: unknown;
   orderOffset?: unknown;
+  sections?: unknown;
 };
 
 export type CreateMockConnectorInput = {
