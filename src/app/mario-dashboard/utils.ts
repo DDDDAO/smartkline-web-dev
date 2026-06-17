@@ -3,13 +3,16 @@ import {
   ACCOUNT_BALANCE,
   BUDGET_OPTIONS,
   COUNTDOWN_URGENT_MS,
+  DEFAULT_TAKE_PROFIT_TARGETS,
   INITIAL_DASHBOARD_STATE,
   MAX_COUNTDOWNS,
   PERCENT_A_OPTIONS,
   PRIORITY_SYMBOLS,
   RATIO_OPTIONS,
+  TAKE_PROFIT_TARGET_IDS,
 } from "./constants";
 import type {
+  CalculatedTakeProfitTarget,
   BulkActionType,
   BudgetPercent,
   CalculatorForm,
@@ -18,17 +21,43 @@ import type {
   DashboardState,
   EntryAPercent,
   PendingOrder,
+  PendingOrderTakeProfitTarget,
   RewardRiskRatio,
   SegmentTone,
+  TakeProfitTargetConfig,
+  TakeProfitTargetId,
 } from "./types";
 
-export function calculatePosition(form: CalculatorForm, budgetPercentValue: BudgetPercent, ratio: RewardRiskRatio): Calculation {
+const TAKE_PROFIT_RATIO_TEMPLATES: Record<RewardRiskRatio, readonly [RewardRiskRatio, RewardRiskRatio, RewardRiskRatio]> = {
+  2: [2, 3, 4],
+  3: [2, 3, 4],
+  4: [3, 4, 5],
+  5: [3, 4, 5],
+};
+
+const TAKE_PROFIT_CLOSE_PERCENT_TEMPLATES: Record<RewardRiskRatio, readonly [number, number, number]> = {
+  2: [50, 30, 20],
+  3: [30, 40, 30],
+  4: [30, 30, 40],
+  5: [20, 30, 50],
+};
+
+export function calculatePosition(
+  form: CalculatorForm,
+  budgetPercentValue: BudgetPercent,
+  takeProfitTargetsInput: readonly TakeProfitTargetConfig[],
+): Calculation {
   const budget = ACCOUNT_BALANCE * (budgetPercentValue / 100);
   const stopLoss = parseDecimal(form.stopLoss);
   const entryA = parseDecimal(form.entryA);
   const percentA = form.percentA;
   const remainPercent = 100 - percentA;
   const entryB = remainPercent > 0 ? parseDecimal(form.entryB) : 0;
+  const normalizedTakeProfitTargets = normalizeTakeProfitTargets(takeProfitTargetsInput);
+  const takeProfitClosePercentTotal = normalizedTakeProfitTargets.reduce((sum, target) => sum + target.closePercent, 0);
+  const takeProfitPlanWarning = takeProfitClosePercentTotal === 100
+    ? ""
+    : `分批比例合计需等于 100%，当前 ${takeProfitClosePercentTotal}%`;
   let amountA = 0;
   let amountB = 0;
 
@@ -61,15 +90,27 @@ export function calculatePosition(form: CalculatorForm, budgetPercentValue: Budg
   const direction = entryA > 0 && stopLoss > 0 ? (entryA > stopLoss ? "long" : "short") : null;
   let takeProfit = 0;
   let profit = 0;
+  let takeProfitTargets = normalizedTakeProfitTargets.map(createEmptyCalculatedTakeProfitTarget);
 
-  if (totalAmount > 0 && stopLoss > 0 && entryA > 0 && direction) {
+  if (totalAmount > 0 && stopLoss > 0 && entryA > 0 && direction && !takeProfitPlanWarning) {
     const avgEntry = entryB > 0 && amountB > 0 ? (entryA * amountA + entryB * amountB) / totalAmount : entryA;
-    takeProfit = avgEntry + (direction === "long" ? 1 : -1) * Math.abs(avgEntry - stopLoss) * ratio;
-    profit = totalAmount * Math.abs(takeProfit - avgEntry);
+    const riskDistance = Math.abs(avgEntry - stopLoss);
+    takeProfitTargets = normalizedTakeProfitTargets.map((target) => {
+      const price = avgEntry + (direction === "long" ? 1 : -1) * riskDistance * target.ratio;
+      const targetProfit = totalAmount * (target.closePercent / 100) * Math.abs(price - avgEntry);
+
+      return {
+        ...target,
+        price,
+        profit: targetProfit,
+      };
+    });
+    takeProfit = takeProfitTargets.reduce((sum, target) => sum + target.price * (target.closePercent / 100), 0);
+    profit = takeProfitTargets.reduce((sum, target) => sum + target.profit, 0);
   }
 
   const hasRequiredInputs = stopLoss > 0 && entryA > 0 && amountA > 0;
-  const isValidOrder = hasRequiredInputs && !entryAWarning && !entryBWarning && direction !== null;
+  const isValidOrder = hasRequiredInputs && !entryAWarning && !entryBWarning && !takeProfitPlanWarning && direction !== null;
 
   return {
     amountA,
@@ -87,6 +128,43 @@ export function calculatePosition(form: CalculatorForm, budgetPercentValue: Budg
     remainPercent,
     stopLoss,
     takeProfit,
+    takeProfitClosePercentTotal,
+    takeProfitPlanWarning,
+    takeProfitTargets,
+  };
+}
+
+export function createTakeProfitTemplate(ratio: RewardRiskRatio): TakeProfitTargetConfig[] {
+  const ratios = TAKE_PROFIT_RATIO_TEMPLATES[ratio];
+  const closePercents = TAKE_PROFIT_CLOSE_PERCENT_TEMPLATES[ratio];
+
+  return TAKE_PROFIT_TARGET_IDS.map((id, index) => ({
+    closePercent: closePercents[index] ?? DEFAULT_TAKE_PROFIT_TARGETS[index]?.closePercent ?? 0,
+    id,
+    ratio: ratios[index] ?? ratio,
+  }));
+}
+
+export function normalizeTakeProfitTargets(value: unknown): TakeProfitTargetConfig[] {
+  const parsedTargets = Array.isArray(value) ? value : [];
+
+  return TAKE_PROFIT_TARGET_IDS.map((id, index) => {
+    const fallbackTarget = DEFAULT_TAKE_PROFIT_TARGETS[index] ?? DEFAULT_TAKE_PROFIT_TARGETS[0];
+    const candidate = parsedTargets.find((target) => isTakeProfitTargetWithId(target, id)) as Partial<TakeProfitTargetConfig> | undefined;
+
+    return {
+      closePercent: normalizeTakeProfitClosePercent(candidate?.closePercent, fallbackTarget.closePercent),
+      id,
+      ratio: isRewardRiskRatio(candidate?.ratio) ? candidate.ratio : fallbackTarget.ratio,
+    };
+  });
+}
+
+function createEmptyCalculatedTakeProfitTarget(target: TakeProfitTargetConfig): CalculatedTakeProfitTarget {
+  return {
+    ...target,
+    price: 0,
+    profit: 0,
   };
 }
 
@@ -203,8 +281,9 @@ export function parseStoredDashboardState(rawState: string | null): DashboardSta
       budget: isBudgetPercent(parsed.budget) ? parsed.budget : INITIAL_DASHBOARD_STATE.budget,
       countdowns: Array.isArray(parsed.countdowns) ? parsed.countdowns.filter(isCountdown) : [],
       darkMode: parsed.darkMode === true,
-      orders: Array.isArray(parsed.orders) ? parsed.orders.filter(isPendingOrder) : [],
+      orders: Array.isArray(parsed.orders) ? parsed.orders.map(normalizePendingOrder).filter((order): order is PendingOrder => order !== null) : [],
       ratio: isRewardRiskRatio(parsed.ratio) ? parsed.ratio : INITIAL_DASHBOARD_STATE.ratio,
+      takeProfitTargets: normalizeTakeProfitTargets(parsed.takeProfitTargets),
     };
   } catch {
     return INITIAL_DASHBOARD_STATE;
@@ -219,13 +298,22 @@ function isRewardRiskRatio(value: unknown): value is RewardRiskRatio {
   return RATIO_OPTIONS.some((option) => option === value);
 }
 
-function isPendingOrder(value: unknown): value is PendingOrder {
+function isTakeProfitTargetWithId(value: unknown, id: TakeProfitTargetId): value is Partial<TakeProfitTargetConfig> {
   if (!value || typeof value !== "object") {
     return false;
   }
 
+  const target = value as Partial<TakeProfitTargetConfig>;
+  return target.id === id;
+}
+
+function normalizePendingOrder(value: unknown): PendingOrder | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
   const order = value as Partial<PendingOrder>;
-  return typeof order.id === "number"
+  if (!(typeof order.id === "number"
     && (order.direction === "long" || order.direction === "short")
     && typeof order.symbol === "string"
     && typeof order.entryA === "number"
@@ -233,7 +321,53 @@ function isPendingOrder(value: unknown): value is PendingOrder {
     && typeof order.amountA === "number"
     && typeof order.amountB === "number"
     && typeof order.stopLoss === "number"
-    && order.status === "pending";
+    && order.status === "pending")) {
+    return null;
+  }
+
+  return {
+    amountA: order.amountA,
+    amountB: order.amountB,
+    direction: order.direction,
+    entryA: order.entryA,
+    entryB: order.entryB,
+    id: order.id,
+    status: "pending",
+    stopLoss: order.stopLoss,
+    symbol: order.symbol,
+    takeProfitTargets: normalizePendingOrderTakeProfitTargets(order.takeProfitTargets),
+  };
+}
+
+function normalizePendingOrderTakeProfitTargets(value: unknown): PendingOrderTakeProfitTarget[] {
+  if (!Array.isArray(value)) {
+    return DEFAULT_TAKE_PROFIT_TARGETS.map((target) => ({ ...target, price: 0 }));
+  }
+
+  const targets = value.filter((target): target is PendingOrderTakeProfitTarget => {
+    if (!target || typeof target !== "object") {
+      return false;
+    }
+
+    const candidate = target as Partial<PendingOrderTakeProfitTarget>;
+    return TAKE_PROFIT_TARGET_IDS.some((id) => id === candidate.id)
+      && isRewardRiskRatio(candidate.ratio)
+      && typeof candidate.closePercent === "number"
+      && Number.isFinite(candidate.closePercent)
+      && candidate.closePercent >= 0
+      && candidate.closePercent <= 100
+      && typeof candidate.price === "number"
+      && Number.isFinite(candidate.price);
+  });
+
+  if (targets.length !== TAKE_PROFIT_TARGET_IDS.length) {
+    return DEFAULT_TAKE_PROFIT_TARGETS.map((target) => ({ ...target, price: 0 }));
+  }
+
+  return TAKE_PROFIT_TARGET_IDS.map((id, index) => targets.find((target) => target.id === id) ?? {
+    ...DEFAULT_TAKE_PROFIT_TARGETS[index],
+    price: 0,
+  });
 }
 
 function isCountdown(value: unknown): value is Countdown {
@@ -250,6 +384,21 @@ export function toEntryAPercent(value: string): EntryAPercent {
   return PERCENT_A_OPTIONS.find((option) => option === numericValue) ?? 100;
 }
 
+export function toRewardRiskRatio(value: string): RewardRiskRatio {
+  const numericValue = Number(value);
+  return RATIO_OPTIONS.find((option) => option === numericValue) ?? INITIAL_DASHBOARD_STATE.ratio;
+}
+
+export function toTakeProfitClosePercent(value: string): number {
+  const numericValue = Number(sanitizeIntegerInput(value));
+
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, numericValue));
+}
+
 export function sanitizeDecimalInput(value: string): string {
   const filteredValue = value.replace(/[^0-9.]/gu, "");
   const [integerPart = "", ...decimalParts] = filteredValue.split(".");
@@ -264,6 +413,14 @@ export function sanitizeIntegerInput(value: string): string {
 export function parsePositiveInteger(value: string): number {
   const parsedValue = Number.parseInt(value, 10);
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0;
+}
+
+function normalizeTakeProfitClosePercent(value: unknown, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(value)));
 }
 
 function parseDecimal(value: string): number {
@@ -299,6 +456,16 @@ export function formatPrice(value: number): string {
 
 export function formatAmount(value: number): string {
   return value > 0 ? String(value) : "-";
+}
+
+export function formatTakeProfitTargetSummary(targets: readonly Pick<PendingOrderTakeProfitTarget, "closePercent" | "price">[]): string {
+  if (targets.length === 0) {
+    return "-";
+  }
+
+  return targets
+    .map((target, index) => `TP${index + 1} ${target.price > 0 ? target.price.toFixed(2) : "-"} / ${target.closePercent}%`)
+    .join(" · ");
 }
 
 export function formatPricePair(entryA: number, entryB: number): string {

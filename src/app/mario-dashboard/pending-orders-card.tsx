@@ -2,7 +2,7 @@ import { DocumentIcon } from "./icons";
 import type { ThemeClasses } from "./theme";
 import type { BulkActionType, PendingOrder, TradeDirection } from "./types";
 import { ActionButton, Card, CountBadge, ResponsiveTable, TableCell, TableHeader } from "./ui";
-import { formatAmountPair, formatPrice, formatPricePair } from "./utils";
+import { formatAmountPair, formatPrice, formatPricePair, formatTakeProfitTargetSummary } from "./utils";
 
 export function PendingOrdersCard({ longOrders, onCancelOrder, onOpenBulkAction, shortOrders, theme }: {
   longOrders: readonly PendingOrder[];
@@ -43,6 +43,7 @@ function PendingOrderTable({ countTone, emptyLabel, onCancelOrder, orders, theme
             <TableHeader theme={theme}>币种</TableHeader>
             <TableHeader theme={theme}>价格</TableHeader>
             <TableHeader theme={theme}>数量</TableHeader>
+            <TableHeader theme={theme}>止盈</TableHeader>
             <TableHeader theme={theme}>止损</TableHeader>
             <TableHeader theme={theme}>操作</TableHeader>
           </tr>
@@ -53,6 +54,7 @@ function PendingOrderTable({ countTone, emptyLabel, onCancelOrder, orders, theme
               <TableCell theme={theme}>{order.symbol}</TableCell>
               <TableCell theme={theme}>{formatPricePair(order.entryA, order.entryB)}</TableCell>
               <TableCell theme={theme}>{formatAmountPair(order.amountA, order.amountB)}</TableCell>
+              <TableCell theme={theme}>{formatTakeProfitTargetSummary(order.takeProfitTargets)}</TableCell>
               <TableCell theme={theme}>{formatPrice(order.stopLoss)}</TableCell>
               <TableCell theme={theme}>
                 <button className="cancel-btn" type="button" onClick={() => onCancelOrder(order.id)}>取消</button>

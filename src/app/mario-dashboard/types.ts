@@ -1,8 +1,24 @@
 export type BudgetPercent = 1 | 2 | 3 | 5;
 export type RewardRiskRatio = 2 | 3 | 4 | 5;
 export type EntryAPercent = 100 | 70 | 50 | 30;
+export type TakeProfitTargetId = "tp1" | "tp2" | "tp3";
 export type TradeDirection = "long" | "short";
 export type BulkActionType = TradeDirection | "all";
+
+export type TakeProfitTargetConfig = {
+  closePercent: number;
+  id: TakeProfitTargetId;
+  ratio: RewardRiskRatio;
+};
+
+export type CalculatedTakeProfitTarget = TakeProfitTargetConfig & {
+  price: number;
+  profit: number;
+};
+
+export type PendingOrderTakeProfitTarget = TakeProfitTargetConfig & {
+  price: number;
+};
 
 export type PendingOrder = {
   amountA: number;
@@ -14,6 +30,7 @@ export type PendingOrder = {
   status: "pending";
   stopLoss: number;
   symbol: string;
+  takeProfitTargets: PendingOrderTakeProfitTarget[];
 };
 
 export type Countdown = {
@@ -27,6 +44,7 @@ export type DashboardState = {
   darkMode: boolean;
   orders: PendingOrder[];
   ratio: RewardRiskRatio;
+  takeProfitTargets: TakeProfitTargetConfig[];
 };
 
 export type CalculatorForm = {
@@ -53,6 +71,9 @@ export type Calculation = {
   remainPercent: number;
   stopLoss: number;
   takeProfit: number;
+  takeProfitClosePercentTotal: number;
+  takeProfitPlanWarning: string;
+  takeProfitTargets: CalculatedTakeProfitTarget[];
 };
 
 export type BulkAction = {

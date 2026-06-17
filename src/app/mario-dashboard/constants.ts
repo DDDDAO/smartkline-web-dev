@@ -1,5 +1,5 @@
 import type { MarketSymbol } from "@/app/_types/market";
-import type { CalculatorForm, DashboardState, HistoryOrder, MockPosition } from "./types";
+import type { CalculatorForm, DashboardState, HistoryOrder, MockPosition, TakeProfitTargetConfig, TakeProfitTargetId } from "./types";
 
 export const STORAGE_KEY = "mario-dashboard:v1";
 export const ACCOUNT_BALANCE = 10_000;
@@ -12,6 +12,12 @@ export const FALLBACK_MARKET_SYMBOLS = FALLBACK_SYMBOLS.map((symbol) => `${symbo
 export const BUDGET_OPTIONS = [1, 2, 3, 5] as const;
 export const RATIO_OPTIONS = [2, 3, 4, 5] as const;
 export const PERCENT_A_OPTIONS = [100, 70, 50, 30] as const;
+export const TAKE_PROFIT_TARGET_IDS = ["tp1", "tp2", "tp3"] satisfies readonly TakeProfitTargetId[];
+export const DEFAULT_TAKE_PROFIT_TARGETS: readonly TakeProfitTargetConfig[] = [
+  { closePercent: 30, id: "tp1", ratio: 2 },
+  { closePercent: 30, id: "tp2", ratio: 3 },
+  { closePercent: 40, id: "tp3", ratio: 4 },
+];
 
 export const INITIAL_DASHBOARD_STATE: DashboardState = {
   budget: 1,
@@ -19,6 +25,7 @@ export const INITIAL_DASHBOARD_STATE: DashboardState = {
   darkMode: false,
   orders: [],
   ratio: 2,
+  takeProfitTargets: [...DEFAULT_TAKE_PROFIT_TARGETS],
 };
 
 export const INITIAL_FORM: CalculatorForm = {

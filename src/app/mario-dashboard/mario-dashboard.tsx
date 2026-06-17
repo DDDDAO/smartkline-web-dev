@@ -33,16 +33,18 @@ import {
 } from "./constants";
 import { AccountIcon, ClockIcon, LayersIcon, MoonIcon, SunIcon } from "./icons";
 import { getThemeClasses } from "./theme";
-import type { BulkAction, BudgetPercent, CalculatorForm, DashboardState, PendingOrder, RewardRiskRatio, TradeDirection } from "./types";
+import type { BulkAction, BudgetPercent, CalculatorForm, DashboardState, PendingOrder, RewardRiskRatio, TakeProfitTargetId, TradeDirection } from "./types";
 import { ActionButton, CalculatedValue, Card, FormRow, IconButton, InfoRow, Modal, ModalActions, OverviewItem, SegmentedButtons } from "./ui";
 import {
   calculatePosition,
+  createTakeProfitTemplate,
   createPrioritizedMarketSymbols,
   formatAmount,
   formatCountdown,
   formatNumber,
   formatPrice,
   formatSignedNumber,
+  formatTakeProfitTargetSummary,
   getActiveCountdowns,
   getBudgetTone,
   getBulkOrderLabel,
@@ -55,6 +57,8 @@ import {
   sanitizeDecimalInput,
   sanitizeIntegerInput,
   toEntryAPercent,
+  toRewardRiskRatio,
+  toTakeProfitClosePercent,
   toUsdtPerpetualMarketSymbol,
 } from "./utils";
 
@@ -255,8 +259,8 @@ export function MarioDashboard({ className = "" }: { className?: string }) {
   }, []);
 
   const calculation = useMemo(
-    () => calculatePosition(form, dashboardState.budget, dashboardState.ratio),
-    [dashboardState.budget, dashboardState.ratio, form],
+    () => calculatePosition(form, dashboardState.budget, dashboardState.takeProfitTargets),
+    [dashboardState.budget, dashboardState.takeProfitTargets, form],
   );
   const activeCountdowns = useMemo(
     () => getActiveCountdowns(dashboardState.countdowns, now),
@@ -287,12 +291,23 @@ export function MarioDashboard({ className = "" }: { className?: string }) {
   };
 
   const selectRatio = (ratio: RewardRiskRatio) => {
-    setDashboardState((currentState) => ({ ...currentState, ratio }));
+    setDashboardState((currentState) => ({
+      ...currentState,
+      ratio,
+      takeProfitTargets: createTakeProfitTemplate(ratio),
+    }));
+  };
+
+  const updateTakeProfitTarget = (targetId: TakeProfitTargetId, updates: Partial<DashboardState["takeProfitTargets"][number]>) => {
+    setDashboardState((currentState) => ({
+      ...currentState,
+      takeProfitTargets: currentState.takeProfitTargets.map((target) => target.id === targetId ? { ...target, ...updates } : target),
+    }));
   };
 
   const openConfirmModal = (direction: TradeDirection) => {
     if (!calculation.isValidOrder) {
-      window.alert("请先填写有效的止损位和开仓点。");
+      window.alert("请先填写有效的止损位、开仓点和分批止盈比例。");
       return;
     }
 
@@ -314,6 +329,12 @@ export function MarioDashboard({ className = "" }: { className?: string }) {
       status: "pending",
       stopLoss: calculation.stopLoss,
       symbol: form.symbol,
+      takeProfitTargets: calculation.takeProfitTargets.map((target) => ({
+        closePercent: target.closePercent,
+        id: target.id,
+        price: target.price,
+        ratio: target.ratio,
+      })),
     };
 
     setDashboardState((currentState) => ({
@@ -535,6 +556,39 @@ export function MarioDashboard({ className = "" }: { className?: string }) {
                 />
               </FormRow>
 
+              <FormRow label="分批止盈" theme={theme}>
+                <div className="take-profit-plan" aria-label="分批止盈设置">
+                  <div className="take-profit-plan-header">
+                    <span>目标 / 盈亏比 / 仓位 / 价格</span>
+                    <span className={calculation.takeProfitPlanWarning ? "loss" : "profit"}>合计 {calculation.takeProfitClosePercentTotal}%</span>
+                  </div>
+                  {dashboardState.takeProfitTargets.map((target, index) => {
+                    const calculatedTarget = calculation.takeProfitTargets.find((calculated) => calculated.id === target.id);
+                    return (
+                      <div key={target.id} className="take-profit-target-row">
+                        <span className="take-profit-target-name">TP{index + 1}</span>
+                        <select
+                          aria-label={`TP${index + 1} 盈亏比`}
+                          value={target.ratio}
+                          onChange={(event) => updateTakeProfitTarget(target.id, { ratio: toRewardRiskRatio(event.target.value) })}
+                        >
+                          {RATIO_OPTIONS.map((ratio) => <option key={ratio} value={ratio}>1:{ratio}</option>)}
+                        </select>
+                        <input
+                          aria-label={`TP${index + 1} 平仓比例`}
+                          inputMode="numeric"
+                          maxLength={3}
+                          value={target.closePercent}
+                          onChange={(event) => updateTakeProfitTarget(target.id, { closePercent: toTakeProfitClosePercent(event.target.value) })}
+                        />
+                        <span className="take-profit-target-price">{calculatedTarget && calculatedTarget.price > 0 ? calculatedTarget.price.toFixed(2) : "-"}</span>
+                      </div>
+                    );
+                  })}
+                  {calculation.takeProfitPlanWarning ? <span className="warning">{calculation.takeProfitPlanWarning}</span> : null}
+                </div>
+              </FormRow>
+
               <FormRow label="参考止盈位" theme={theme}>
                 <CalculatedValue theme={theme} value={calculation.takeProfit > 0 ? calculation.takeProfit.toFixed(2) : "-"} />
               </FormRow>
@@ -580,7 +634,7 @@ export function MarioDashboard({ className = "" }: { className?: string }) {
             {calculation.entryB > 0 ? <InfoRow label="开仓点B" theme={theme} value={formatPrice(calculation.entryB)} /> : null}
             {calculation.amountB > 0 ? <InfoRow label="仓位B" theme={theme} value={formatAmount(calculation.amountB)} /> : null}
             <InfoRow label="止损位" theme={theme} value={formatPrice(calculation.stopLoss)} />
-            <InfoRow label="止盈位" theme={theme} value={calculation.takeProfit > 0 ? calculation.takeProfit.toFixed(2) : "-"} />
+            <InfoRow label="分批止盈" theme={theme} value={formatTakeProfitTargetSummary(calculation.takeProfitTargets)} />
             <InfoRow label="预计盈亏" theme={theme} value={calculation.profit > 0 ? `+${calculation.profit.toFixed(2)}` : "-"} />
           </div>
           <ModalActions
