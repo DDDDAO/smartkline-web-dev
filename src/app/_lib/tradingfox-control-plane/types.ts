@@ -72,6 +72,44 @@ export type TradingFoxRuntimeStatusResponse = {
 export type TradingFoxCopyStrategyStatus = "failed" | "paused" | "pending" | "running" | "stopped";
 export type TradingFoxStrategyDetailSection = "account" | "positions" | "signalSources" | "orders" | "curve";
 
+export type TradingFoxActionDefinition = {
+  id: string;
+  label?: string;
+  description?: string;
+  payloadSchema?: Record<string, unknown>;
+  uiSchema?: Record<string, unknown>;
+};
+
+export type TradingFoxStrategyCapabilities = {
+  handlesTradeEvents?: boolean;
+  hasPollingLoop?: boolean;
+  supportsSltpMonitoring?: boolean;
+  supportsManualSync?: boolean;
+  supportsSignalSources?: boolean;
+  supportsPositionQuery?: boolean;
+  supportsAccountStatus?: boolean;
+  supportsCloseOnStop?: boolean;
+  actionDefinitions?: TradingFoxActionDefinition[];
+};
+
+export type TradingFoxStrategyDefinitionSummary = {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  version: string;
+  configSchemaVersion: number;
+  commonModules?: string[];
+  capabilities: TradingFoxStrategyCapabilities;
+};
+
+export type TradingFoxStrategyDefinition = TradingFoxStrategyDefinitionSummary & {
+  configSchema?: Record<string, unknown>;
+  uiSchema?: Record<string, unknown>;
+  strategyConfigSchema?: Record<string, unknown>;
+  strategyUiSchema?: Record<string, unknown>;
+};
+
 export type TradingFoxCopyStrategy = {
   apiAccountName: string;
   accountEquity?: number;
@@ -88,9 +126,11 @@ export type TradingFoxCopyStrategy = {
   startedAt: string;
   status: TradingFoxCopyStrategyStatus;
   stopLossPercent: number;
+  strategyDefinitionId?: string;
   takeProfitPercent: number;
   traderId: string;
   traderName: string;
+  strategyType?: "copyTrading" | "mario";
   unrealizedPnl?: number;
 };
 
@@ -320,6 +360,17 @@ export type CreateCopyStrategyInput = {
   eventsCount?: number;
   takeProfitPercent: number;
   stopLossPercent: number;
+};
+
+export type CreateTradingFoxStrategyInput = {
+  autoStart?: unknown;
+  config?: unknown;
+  configSchemaVersion?: unknown;
+  copyTrading?: unknown;
+  enableSltpMonitoring?: unknown;
+  exchangeConnectorId?: unknown;
+  strategyDefinitionId?: unknown;
+  strategyName?: unknown;
 };
 
 export type SyncCopyStrategyPositionsInput = {

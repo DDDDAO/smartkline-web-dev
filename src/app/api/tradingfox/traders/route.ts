@@ -1,19 +1,16 @@
 import { connection, NextRequest, NextResponse } from "next/server";
-import { getTradingFoxAccount } from "@/app/_lib/tradingfox-control-plane";
+import { createTradingFoxStrategy } from "@/app/_lib/tradingfox-control-plane";
 import { requireTradingFoxSession, tradingFoxErrorResponse } from "../_session";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   await connection();
 
   try {
     const session = await requireTradingFoxSession(request);
-    return NextResponse.json(await getTradingFoxAccount(session, {
-      includeConnectorAccountEquity: false,
-      includeStrategyRuntimeMetrics: false,
-    }));
+    return NextResponse.json(await createTradingFoxStrategy(session, await request.json()));
   } catch (error) {
     return tradingFoxErrorResponse(error);
   }

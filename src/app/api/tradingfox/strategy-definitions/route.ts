@@ -1,5 +1,5 @@
 import { connection, NextRequest, NextResponse } from "next/server";
-import { getTradingFoxAccount } from "@/app/_lib/tradingfox-control-plane";
+import { listTradingFoxStrategyDefinitions } from "@/app/_lib/tradingfox-control-plane";
 import { requireTradingFoxSession, tradingFoxErrorResponse } from "../_session";
 
 export const dynamic = "force-dynamic";
@@ -9,11 +9,8 @@ export async function GET(request: NextRequest) {
   await connection();
 
   try {
-    const session = await requireTradingFoxSession(request);
-    return NextResponse.json(await getTradingFoxAccount(session, {
-      includeConnectorAccountEquity: false,
-      includeStrategyRuntimeMetrics: false,
-    }));
+    await requireTradingFoxSession(request);
+    return NextResponse.json({ items: await listTradingFoxStrategyDefinitions() });
   } catch (error) {
     return tradingFoxErrorResponse(error);
   }
