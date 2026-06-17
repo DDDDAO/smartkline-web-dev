@@ -87,6 +87,10 @@ export type {
 type SignTypedDataAsync = ReturnType<typeof useSignTypedData>["signTypedDataAsync"];
 type WagmiSignTypedDataVariables = Parameters<SignTypedDataAsync>[0];
 
+function formatOptionalStrategyCount(value: number | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) ? String(value) : "—";
+}
+
 
 export function AccountCenterPrototype({
   apiConnection,
@@ -2327,6 +2331,8 @@ function PrototypeStrategyCard({
   const typeLabel = strategyType === "mario" ? accountCopy.strategyCreate.marioTypeChip : accountCopy.strategyCreate.copyTradingTypeChip;
   const followedSource = resolveFollowedSignalSourceDisplay(strategy, followedSignalSource, strategyCopy.followingSignalSourceUnknown);
   const followedSourceMeta = [followedSource.platform, followedSource.id].filter(Boolean).join(" · ");
+  const positionsCountValue = formatOptionalStrategyCount(strategy.positionsCount);
+  const eventsCountValue = formatOptionalStrategyCount(strategy.eventsCount);
 
   return (
     <>
@@ -2368,8 +2374,8 @@ function PrototypeStrategyCard({
           </div>
         ) : null}
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={String(strategy.positionsCount)} />
-          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.tradeHistoryCount} value={String(strategy.eventsCount)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={positionsCountValue} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.tradeHistoryCount} value={eventsCountValue} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.accountEquity} value={formatDetailCurrency(strategy.accountEquity)} />
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.unrealizedPnl} value={formatSignedDetailCurrency(strategy.unrealizedPnl)} valueClassName={getPnlClassName(isDarkTheme, numberOrZero(strategy.unrealizedPnl))} />
         </div>

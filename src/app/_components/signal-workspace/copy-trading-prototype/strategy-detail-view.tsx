@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
-import type { TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
+import type {
+  TradingFoxStrategyDetail,
+  TradingFoxStrategyDetailSection,
+} from "@/app/_lib/tradingfox-control-plane";
 import type { KlineInterval } from "@/app/_types/market";
 import { SourceAvatar } from "../card-ui";
 import {
@@ -72,6 +75,7 @@ export function StrategyDetailView({
   const [detail, setDetail] = useState<TradingFoxStrategyDetail | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [shouldLoadTradeHistory, setShouldLoadTradeHistory] = useState(false);
   const [syncRatioPercent, setSyncRatioPercent] = useState("100");
   const [syncError, setSyncError] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
@@ -84,18 +88,23 @@ export function StrategyDetailView({
   const [tradeKlineInterval, setTradeKlineInterval] = useState<KlineInterval>("15m");
   const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const tradeHistorySectionRef = useRef<HTMLElement | null>(null);
   const strategyCopy = copy.workspace.accountCenter.strategy;
 
   useEffect(() => {
     let isMounted = true;
 
-    const loadDetail = async () => {
+    const loadSummary = async () => {
+      setDetail(null);
       setIsLoading(true);
+      setShouldLoadTradeHistory(false);
+      setTradeHistoryPageOffset(0);
+      setIsTradeKlineOpen(false);
+      setSelectedTradeKlineRowId(null);
       setError("");
       try {
         const nextDetail = await requestStrategyDetail(strategy.id, {
-          orderLimit: TRADE_HISTORY_PAGE_SIZE,
-          orderOffset: tradeHistoryPageOffset,
+          sections: ["account"],
         });
         if (isMounted) {
           setDetail(nextDetail);
@@ -111,13 +120,125 @@ export function StrategyDetailView({
       }
     };
 
-    void loadDetail();
+    void loadSummary();
 
     return () => {
       isMounted = false;
     };
-  }, [copy, strategy.id, tradeHistoryPageOffset]);
+  }, [copy, strategy.id]);
 
+  const detailStrategyId = detail?.strategy.id ?? "";
+
+  useEffect(() => {
+    if (!detailStrategyId) {
+      return;
+    }
+
+    let isMounted = true;
+    const cancelIdleTask = scheduleStrategyDetailTask(() => {
+      requestStrategyDetail(detailStrategyId, {
+        sections: ["curve"],
+      })
+        .then((nextDetail) => {
+          if (isMounted) {
+            setDetail((currentDetail) => mergeStrategyDetail(currentDetail, nextDetail));
+          }
+        })
+        .catch((loadError) => {
+          if (isMounted) {
+            setError(getTradingFoxErrorMessage(loadError, copy));
+          }
+        })
+    });
+
+    return () => {
+      isMounted = false;
+      cancelIdleTask();
+    };
+  }, [copy, detailStrategyId]);
+
+  useEffect(() => {
+    if (!detailStrategyId) {
+      return;
+    }
+
+    let isMounted = true;
+    const cancelIdleTask = scheduleStrategyDetailTask(() => {
+      requestStrategyDetail(detailStrategyId, {
+        sections: ["positions", "signalSources"],
+      })
+        .then((nextDetail) => {
+          if (isMounted) {
+            setDetail((currentDetail) => mergeStrategyDetail(currentDetail, nextDetail));
+          }
+        })
+        .catch((loadError) => {
+          if (isMounted) {
+            setError(getTradingFoxErrorMessage(loadError, copy));
+          }
+        })
+    });
+
+    return () => {
+      isMounted = false;
+      cancelIdleTask();
+    };
+  }, [copy, detailStrategyId]);
+
+  useEffect(() => {
+    if (!detailStrategyId || shouldLoadTradeHistory) {
+      return;
+    }
+
+    const sectionElement = tradeHistorySectionRef.current;
+    if (!sectionElement || typeof IntersectionObserver === "undefined") {
+      const timeoutId = window.setTimeout(() => setShouldLoadTradeHistory(true), 800);
+      return () => window.clearTimeout(timeoutId);
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setShouldLoadTradeHistory(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: "640px 0px" });
+    observer.observe(sectionElement);
+
+    return () => observer.disconnect();
+  }, [detailStrategyId, shouldLoadTradeHistory]);
+
+  useEffect(() => {
+    if (!detailStrategyId || !shouldLoadTradeHistory) {
+      return;
+    }
+
+    let isMounted = true;
+    const loadTradeHistory = async () => {
+      try {
+        const nextDetail = await requestStrategyDetail(detailStrategyId, {
+          orderLimit: TRADE_HISTORY_PAGE_SIZE,
+          orderOffset: tradeHistoryPageOffset,
+          sections: ["orders", "signalSources"],
+        });
+        if (isMounted) {
+          setDetail((currentDetail) => mergeStrategyDetail(currentDetail, nextDetail));
+        }
+      } catch (loadError) {
+        if (isMounted) {
+          setError(getTradingFoxErrorMessage(loadError, copy));
+        }
+      }
+    };
+
+    void loadTradeHistory();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [copy, detailStrategyId, shouldLoadTradeHistory, tradeHistoryPageOffset]);
+
+  const loadedSections = detail?.loadedSections ?? [];
+  const hasLoadedSection = (section: TradingFoxStrategyDetailSection) => loadedSections.includes(section);
   const liveStrategy = detail?.strategy ?? strategy;
   const isStrategyRunning = liveStrategy.status === "running";
   const parsedSyncRatioPercent = Number(syncRatioPercent);
@@ -125,7 +246,7 @@ export function StrategyDetailView({
   const orderItems = detail?.orderHistory?.items ?? [];
   const signalSourceOrderItems = detail?.orderHistory?.signalSourceOrders ?? [];
   const tradeLogItems = detail?.orderHistory?.tradeLogs ?? [];
-  const signalSourceIdentityById = createSignalSourceIdentityById(detail?.signalSources ?? [], liveStrategy);
+  const signalSourceIdentityById = createSignalSourceIdentityById(hasLoadedSection("signalSources") ? detail?.signalSources ?? [] : [], liveStrategy);
   const tradeHistoryOffset = detail?.orderHistory?.offset ?? tradeHistoryPageOffset;
   const allTradeHistoryRows = filterTradeHistoryRowsByStrategyStart(createTradeHistoryRows({
     orders: orderItems,
@@ -134,10 +255,12 @@ export function StrategyDetailView({
     strategy: liveStrategy,
     tradeLogs: tradeLogItems,
   }), liveStrategy);
-  const visibleTradeHistoryRows = allTradeHistoryRows.slice(tradeHistoryOffset, tradeHistoryOffset + TRADE_HISTORY_PAGE_SIZE);
+  const visibleTradeHistoryRows = hasLoadedSection("orders")
+    ? allTradeHistoryRows.slice(tradeHistoryOffset, tradeHistoryOffset + TRADE_HISTORY_PAGE_SIZE)
+    : [];
   const selectedTradeKlineRow = visibleTradeHistoryRows.find((row) => row.id === selectedTradeKlineRowId) ?? visibleTradeHistoryRows.find((row) => row.kind === "me") ?? visibleTradeHistoryRows[0] ?? null;
   const hasPreviousTradeHistoryPage = tradeHistoryOffset > 0;
-  const hasNextTradeHistoryPage = allTradeHistoryRows.length > tradeHistoryOffset + TRADE_HISTORY_PAGE_SIZE || Boolean(detail?.orderHistory?.hasMore);
+  const hasNextTradeHistoryPage = hasLoadedSection("orders") && (allTradeHistoryRows.length > tradeHistoryOffset + TRADE_HISTORY_PAGE_SIZE || Boolean(detail?.orderHistory?.hasMore));
   const shouldShowTradeHistoryPagination = hasPreviousTradeHistoryPage || hasNextTradeHistoryPage;
   const tradeHistoryRangeLabel = createOpenEndedPageRangeLabel(tradeHistoryOffset, visibleTradeHistoryRows.length);
   const detailPositions = detail?.positions ?? EMPTY_TRADING_FOX_POSITIONS;
@@ -146,6 +269,13 @@ export function StrategyDetailView({
     [detailPositions],
   );
   const shouldShowActionMessage = Boolean(detail && (syncMessage || syncError || liveStrategy.status === "paused" || liveStrategy.status === "stopped"));
+  const positionsSectionLoaded = hasLoadedSection("positions");
+  const signalSourcesSectionLoaded = hasLoadedSection("signalSources");
+  const ordersSectionLoaded = hasLoadedSection("orders");
+  const curveSectionLoaded = hasLoadedSection("curve");
+  const positionsMetricValue = positionsSectionLoaded ? String(detail?.positions.length ?? 0) : "—";
+  const signalSourcesMetricValue = signalSourcesSectionLoaded ? String(detail?.signalSources.length ?? 0) : "—";
+  const traderOrdersMetricValue = ordersSectionLoaded ? String(orderItems.length) : "—";
 
   const openTradeKline = (row: TradeHistoryRow) => {
     setSelectedTradeKlineRowId(row.id);
@@ -257,9 +387,9 @@ export function StrategyDetailView({
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs lg:grid-cols-4">
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.accountEquity} value={formatDetailCurrency(detail?.account?.equity)} />
-          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={String(detail?.positions.length ?? liveStrategy.positionsCount)} />
-          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.signalSourceCount} value={String(detail?.signalSources.length ?? 0)} />
-          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.traderOrders} value={String(orderItems.length)} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={positionsMetricValue} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.signalSourceCount} value={signalSourcesMetricValue} />
+          <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.traderOrders} value={traderOrdersMetricValue} />
         </div>
         {detail?.trader.statusMessage ? (
           <p className={isDarkTheme ? "mt-3 whitespace-pre-line break-words text-xs leading-5 text-amber-200" : "mt-3 whitespace-pre-line break-words text-xs leading-5 text-amber-700"}>
@@ -307,17 +437,23 @@ export function StrategyDetailView({
         <div className={getErrorPanelClassName(isDarkTheme)}>{error}</div>
       ) : detail ? (
         <>
-          <StrategyPerformanceCurvePanel
-            curve={detail.strategyCurve}
-            curveError={detail.strategyCurveError}
-            isDarkTheme={isDarkTheme}
-            strategyCopy={strategyCopy}
-          />
+          {!curveSectionLoaded ? (
+            <div className={getModalSectionClassName(isDarkTheme)}>{strategyCopy.loadingDetail}</div>
+          ) : (
+            <StrategyPerformanceCurvePanel
+              curve={detail.strategyCurve}
+              curveError={detail.strategyCurveError}
+              isDarkTheme={isDarkTheme}
+              strategyCopy={strategyCopy}
+            />
+          )}
 
           <section className={getModalSectionClassName(isDarkTheme)}>
             <h3 className="text-sm font-black">{strategyCopy.copyPositions}</h3>
-            {detail.positionsError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.positionsError, copy)}</p> : null}
-            {detail.positions.length > 0 ? (
+            {!positionsSectionLoaded ? (
+              <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.loadingDetail}</div>
+            ) : detail.positionsError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.positionsError, copy)}</p> : null}
+            {positionsSectionLoaded && detail.positions.length > 0 ? (
               <>
                 <PositionSummaryPanel
                   isDarkTheme={isDarkTheme}
@@ -326,14 +462,16 @@ export function StrategyDetailView({
                 />
                 <CopyPositionTable isDarkTheme={isDarkTheme} positions={detail.positions} strategyCopy={strategyCopy} />
               </>
-            ) : <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.copyPositionsEmpty}</div>}
+            ) : positionsSectionLoaded ? <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.copyPositionsEmpty}</div> : null}
           </section>
 
           <section className={getModalSectionClassName(isDarkTheme)}>
             <h3 className="text-sm font-black">{strategyCopy.signalSourcePositions}</h3>
-            {detail.signalSourcesError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.signalSourcesError, copy)}</p> : null}
+            {!signalSourcesSectionLoaded ? (
+              <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.loadingDetail}</div>
+            ) : detail.signalSourcesError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.signalSourcesError, copy)}</p> : null}
             <div className="mt-3 grid gap-2">
-              {detail.signalSources.length > 0 ? detail.signalSources.map((source) => (
+              {signalSourcesSectionLoaded && detail.signalSources.length > 0 ? detail.signalSources.map((source) => (
                 <div key={source.signalSourceId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#F8FAFC] p-3"}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="text-sm font-black">{source.name || source.signalSourceId}</div>
@@ -353,21 +491,21 @@ export function StrategyDetailView({
                     />
                   ) : <div className={isDarkTheme ? "mt-3 text-xs text-slate-500" : "mt-3 text-xs text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
                 </div>
-              )) : <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
+              )) : signalSourcesSectionLoaded ? <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div> : null}
             </div>
           </section>
 
-          <section className={getModalSectionClassName(isDarkTheme)}>
+          <section ref={tradeHistorySectionRef} className={getModalSectionClassName(isDarkTheme)}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-black">{strategyCopy.tradeHistory}</h3>
                 <div className={isDarkTheme ? "mt-1 text-[11px] font-bold text-slate-500" : "mt-1 text-[11px] font-bold text-slate-400"}>
-                  {tradeHistoryRangeLabel}
+                  {ordersSectionLoaded ? tradeHistoryRangeLabel : strategyCopy.loadingDetail}
                 </div>
               </div>
               <button
                 className={getSoftButtonClassName(isDarkTheme)}
-                disabled={!selectedTradeKlineRow}
+                disabled={!ordersSectionLoaded || !selectedTradeKlineRow}
                 type="button"
                 onClick={toggleTradeKline}
               >
@@ -387,7 +525,9 @@ export function StrategyDetailView({
                 onIntervalChange={setTradeKlineInterval}
               />
             ) : null}
-            {visibleTradeHistoryRows.length > 0 ? (
+            {!ordersSectionLoaded ? (
+              <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.loadingDetail}</div>
+            ) : visibleTradeHistoryRows.length > 0 ? (
               <>
                 <TradeHistoryTable
                   activeKlineRowId={selectedTradeKlineRow?.id ?? null}
@@ -413,7 +553,7 @@ export function StrategyDetailView({
                   </div>
                 ) : null}
               </>
-            ) : <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.noTradeHistory}</div>}
+            ) : ordersSectionLoaded ? <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.noTradeHistory}</div> : null}
           </section>
 
         </>
@@ -583,9 +723,73 @@ function StrategyNotificationSettingsDialog({
   );
 }
 
+type RequestStrategyDetailOptions = {
+  orderLimit?: number;
+  orderOffset?: number;
+  sections?: readonly TradingFoxStrategyDetailSection[];
+};
+
+type IdleCallbackWindow = Window & {
+  cancelIdleCallback?: (handle: number) => void;
+  requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+};
+
+function scheduleStrategyDetailTask(callback: () => void): () => void {
+  const idleWindow = window as IdleCallbackWindow;
+  if (idleWindow.requestIdleCallback && idleWindow.cancelIdleCallback) {
+    const handle = idleWindow.requestIdleCallback(callback, { timeout: 700 });
+    return () => idleWindow.cancelIdleCallback?.(handle);
+  }
+
+  const timeoutId = window.setTimeout(callback, 120);
+  return () => window.clearTimeout(timeoutId);
+}
+
+function mergeStrategyDetail(
+  currentDetail: TradingFoxStrategyDetail | null,
+  nextDetail: TradingFoxStrategyDetail,
+): TradingFoxStrategyDetail {
+  if (!currentDetail) {
+    return nextDetail;
+  }
+
+  const nextLoadedSections = new Set(nextDetail.loadedSections ?? []);
+  return {
+    ...currentDetail,
+    ...nextDetail,
+    account: nextLoadedSections.has("account") ? nextDetail.account : currentDetail.account,
+    accountError: nextLoadedSections.has("account") ? nextDetail.accountError : currentDetail.accountError,
+    accountInitialEquity: nextDetail.accountInitialEquity ?? currentDetail.accountInitialEquity,
+    loadedSections: mergeLoadedStrategyDetailSections(currentDetail.loadedSections, nextDetail.loadedSections),
+    orderHistory: nextLoadedSections.has("orders") ? nextDetail.orderHistory : currentDetail.orderHistory,
+    orderHistoryError: nextLoadedSections.has("orders") ? nextDetail.orderHistoryError : currentDetail.orderHistoryError,
+    positions: nextLoadedSections.has("positions") ? nextDetail.positions : currentDetail.positions,
+    positionsError: nextLoadedSections.has("positions") ? nextDetail.positionsError : currentDetail.positionsError,
+    signalSources: nextLoadedSections.has("signalSources") ? nextDetail.signalSources : currentDetail.signalSources,
+    signalSourcesError: nextLoadedSections.has("signalSources") ? nextDetail.signalSourcesError : currentDetail.signalSourcesError,
+    strategy: {
+      ...currentDetail.strategy,
+      ...nextDetail.strategy,
+    },
+    strategyCurve: nextLoadedSections.has("curve") ? nextDetail.strategyCurve : currentDetail.strategyCurve,
+    strategyCurveError: nextLoadedSections.has("curve") ? nextDetail.strategyCurveError : currentDetail.strategyCurveError,
+    trader: {
+      ...currentDetail.trader,
+      ...nextDetail.trader,
+    },
+  };
+}
+
+function mergeLoadedStrategyDetailSections(
+  currentSections: readonly TradingFoxStrategyDetailSection[] | undefined,
+  nextSections: readonly TradingFoxStrategyDetailSection[] | undefined,
+): TradingFoxStrategyDetailSection[] {
+  return Array.from(new Set([...(currentSections ?? []), ...(nextSections ?? [])]));
+}
+
 async function requestStrategyDetail(
   strategyId: string,
-  options: { orderLimit?: number; orderOffset?: number } = {},
+  options: RequestStrategyDetailOptions = {},
 ): Promise<TradingFoxStrategyDetail> {
   const query = new URLSearchParams();
   if (options.orderLimit !== undefined) {
@@ -593,6 +797,9 @@ async function requestStrategyDetail(
   }
   if (options.orderOffset !== undefined) {
     query.set("orderOffset", String(options.orderOffset));
+  }
+  if (options.sections && options.sections.length > 0) {
+    query.set("sections", options.sections.join(","));
   }
   const queryString = query.toString();
   const response = await fetch(`/api/tradingfox/copy-strategies/${encodeURIComponent(strategyId)}${queryString ? `?${queryString}` : ""}`, {
