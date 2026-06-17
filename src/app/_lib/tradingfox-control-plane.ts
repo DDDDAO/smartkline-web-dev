@@ -66,7 +66,7 @@ import {
 const DEFAULT_TRADINGFOX_CONTROL_PLANE_API_BASE_URL = "https://api.smartkline.com/tradingfox-trader";
 const DEFAULT_MOCK_MARGIN_BALANCE = 10_000;
 const DEFAULT_DEMO_EXCHANGE_PLATFORM = "Mock";
-const TRADINGFOX_COPY_TRADER_DEFINITION_ID = "COPY_TRADING";
+const TRADINGFOX_COPY_STRATEGY_DEFINITION_ID = "COPY_TRADING";
 const TRADINGFOX_ACTION_SYNC_POSITIONS = "sync_positions";
 type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
 type TradingFoxLiveExchangePlatform = "Aster" | "Binance" | "Bitget" | "Bybit" | "Gate" | "HyperLiquid" | "OKX";
@@ -312,7 +312,7 @@ export async function createTradingFoxCopyStrategy(
       enableSltpMonitoring: true,
       exchangeConnectorId: connector.id,
       name: traderName,
-      traderDefinitionId: TRADINGFOX_COPY_TRADER_DEFINITION_ID,
+      strategyDefinitionId: TRADINGFOX_COPY_STRATEGY_DEFINITION_ID,
       userId,
     }),
     method: "POST",

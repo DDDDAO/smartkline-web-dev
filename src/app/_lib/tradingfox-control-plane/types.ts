@@ -38,7 +38,7 @@ export type TradingFoxTrader = {
   id: number;
   userId: number;
   name: string;
-  traderDefinitionId: string;
+  strategyDefinitionId: string;
   exchangeConnectorId: number;
   enabled: boolean;
   configSchemaVersion: number;
@@ -58,7 +58,7 @@ export type TradingFoxRuntimeStatus = {
   exchangeConnectorId: number;
   workerId: string;
   state: string;
-  traderDefinitionId: string;
+  strategyDefinitionId: string;
   traderName: string;
   errorMessage?: string;
   configRevision: number;
