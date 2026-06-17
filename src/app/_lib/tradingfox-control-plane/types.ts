@@ -130,7 +130,7 @@ export type TradingFoxCopyStrategy = {
   takeProfitPercent: number;
   traderId: string;
   traderName: string;
-  strategyType?: "copyTrading" | "mario";
+  strategyType?: "copyTrading" | "generic" | "mario";
   unrealizedPnl?: number;
 };
 

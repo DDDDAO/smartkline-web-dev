@@ -232,8 +232,25 @@ export function mapTradingFoxStrategy(
   }
 
   const strategyDefinitionId = normalizeStrategyDefinitionId(trader.strategyDefinitionId);
-  if (strategyDefinitionId !== TRADINGFOX_MARIO_STRATEGY_DEFINITION_ID) {
-    return null;
+  if (strategyDefinitionId === TRADINGFOX_MARIO_STRATEGY_DEFINITION_ID) {
+    return {
+      apiAccountName: connector?.name ?? `Connector #${trader.exchangeConnectorId}`,
+      exchangeConnectorId: trader.exchangeConnectorId,
+      avatarUrl: "/logo-mark.svg",
+      createdAtLabel: formatBackendDateLabel(trader.createdAt),
+      eventsCount: 0,
+      id: String(trader.id),
+      platform: "Mario",
+      positionsCount: 0,
+      startedAt: trader.createdAt,
+      status: mapBackendStrategyStatus(trader),
+      stopLossPercent: 0,
+      strategyDefinitionId,
+      strategyType: "mario",
+      takeProfitPercent: 0,
+      traderId: String(trader.id),
+      traderName: trader.name,
+    };
   }
 
   return {
@@ -243,13 +260,13 @@ export function mapTradingFoxStrategy(
     createdAtLabel: formatBackendDateLabel(trader.createdAt),
     eventsCount: 0,
     id: String(trader.id),
-    platform: "Mario",
+    platform: strategyDefinitionId || "TradingFox",
     positionsCount: 0,
     startedAt: trader.createdAt,
     status: mapBackendStrategyStatus(trader),
     stopLossPercent: 0,
     strategyDefinitionId,
-    strategyType: "mario",
+    strategyType: "generic",
     takeProfitPercent: 0,
     traderId: String(trader.id),
     traderName: trader.name,

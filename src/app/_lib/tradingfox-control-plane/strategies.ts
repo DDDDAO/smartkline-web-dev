@@ -7,7 +7,7 @@ import { settledTradingFoxSkipped, settleTradingFoxRequest, tradingFoxRequest, t
 import { normalizePositiveInteger } from "./normalizers";
 import { applyTradingFoxOrderHistoryPage, enrichTradingFoxOrderHistorySignalSourcePrices, normalizeTradingFoxOrderHistoryPage } from "./order-history";
 import { adaptTradingFoxStrategyCurve, normalizeTradingFoxStrategyCurveError, readTradingFoxStrategyCurvePayload, settleTradingFoxStrategyCurveRequest } from "./strategy-curve";
-import { createTradingFoxCopyStrategyConfig, ensureTradingFoxCopyStrategyConfigEnvelope, firstSignalSourceConfig, isCopyTradingTrader, mapCopyStrategy, resolveCopyStrategyTakeProfitMargin, signalSourceConfigsFromCopyStrategyConfig, signalSourceIdFromConfig } from "./strategy-config";
+import { createTradingFoxCopyStrategyConfig, ensureTradingFoxCopyStrategyConfigEnvelope, firstSignalSourceConfig, isCopyTradingTrader, mapTradingFoxStrategy, resolveCopyStrategyTakeProfitMargin, signalSourceConfigsFromCopyStrategyConfig, signalSourceIdFromConfig } from "./strategy-config";
 import { TradingFoxApiError } from "./types";
 import type {
   CreateCopyStrategyInput,
@@ -192,16 +192,20 @@ export async function updateTradingFoxCopyStrategyStatus(
   const traderId = parsePositiveInteger(strategyId, "strategyId");
   const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
 
-  if (trader.userId !== userId || !isCopyTradingTrader(trader)) {
-    throw new TradingFoxApiError("Copy strategy not found.", 404);
+  if (trader.userId !== userId) {
+    throw new TradingFoxApiError("Strategy not found.", 404);
   }
 
   if (status === "running") {
     const connector = await getConnectorForUser(trader.exchangeConnectorId, userId);
-    await ensureTradingFoxCopyStrategyConfigEnvelope(trader, connector);
-    await ensureCopyStrategyConnectorPositionMode(connector);
+    const startBody: Record<string, unknown> = { startType: "manual_start" };
+    if (isCopyTradingTrader(trader)) {
+      await ensureTradingFoxCopyStrategyConfigEnvelope(trader, connector);
+      await ensureCopyStrategyConnectorPositionMode(connector);
+      startBody.enableSltpMonitoring = true;
+    }
     await tradingFoxRequest<TradingFoxRuntimeStatusResponse>(`/v1/traders/${traderId}/start`, {
-      body: JSON.stringify({ enableSltpMonitoring: true, startType: "manual_start" }),
+      body: JSON.stringify(startBody),
       method: "POST",
     });
   } else {
@@ -223,12 +227,23 @@ export async function updateTradingFoxCopyStrategySettings(
   const traderId = parsePositiveInteger(strategyId, "strategyId");
   const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
 
-  if (trader.userId !== userId || !isCopyTradingTrader(trader)) {
-    throw new TradingFoxApiError("Copy strategy not found.", 404);
+  if (trader.userId !== userId) {
+    throw new TradingFoxApiError("Strategy not found.", 404);
+  }
+
+  const strategyName = requireText(input.strategyName, "strategyName");
+  if (!isCopyTradingTrader(trader)) {
+    await tradingFoxRequest<{ trader?: TradingFoxTrader; runtimeStatus?: TradingFoxRuntimeStatus }>(
+      `/v1/traders/${traderId}`,
+      {
+        body: JSON.stringify({ name: strategyName }),
+        method: "PATCH",
+      },
+    );
+    return getTradingFoxAccount(session);
   }
 
   const connector = await getConnectorForUser(trader.exchangeConnectorId, userId);
-  const strategyName = requireText(input.strategyName, "strategyName");
   const takeProfitPercent = normalizePositiveNumber(input.takeProfitPercent);
   const stopLossPercent = normalizePositiveNumber(input.stopLossPercent);
   if (takeProfitPercent === undefined) {
@@ -276,8 +291,8 @@ export async function deleteTradingFoxCopyStrategy(
   const traderId = parsePositiveInteger(strategyId, "strategyId");
   const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
 
-  if (trader.userId !== userId || !isCopyTradingTrader(trader)) {
-    throw new TradingFoxApiError("Copy strategy not found.", 404);
+  if (trader.userId !== userId) {
+    throw new TradingFoxApiError("Strategy not found.", 404);
   }
 
   if (trader.enabled) {
@@ -370,14 +385,14 @@ async function getTradingFoxCopyStrategyContext(
   const userId = tradingFoxUserIdFromSession(session);
   const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
 
-  if (trader.userId !== userId || !isCopyTradingTrader(trader)) {
-    throw new TradingFoxApiError("Copy strategy not found.", 404);
+  if (trader.userId !== userId) {
+    throw new TradingFoxApiError("Strategy not found.", 404);
   }
 
   const connector = await getConnectorForUser(trader.exchangeConnectorId, userId);
-  const strategy = mapCopyStrategy(trader, connector);
+  const strategy = mapTradingFoxStrategy(trader, connector);
   if (!strategy) {
-    throw new TradingFoxApiError("Copy strategy not found.", 404);
+    throw new TradingFoxApiError("Strategy not found.", 404);
   }
 
   return {

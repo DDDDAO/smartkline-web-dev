@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
-import type { TradingFoxStrategyDetail, TradingFoxStrategyDetailSection } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail, TradingFoxStrategyDetailSection } from "@/app/_lib/tradingfox-control-plane";
 import type { KlineInterval } from "@/app/_types/market";
 import { TRADE_HISTORY_PAGE_SIZE } from "./constants";
 import { CopyPositionTable, EMPTY_TRADING_FOX_POSITIONS, PositionSummaryPanel, SignalSourcePositionTable, StrategyPerformanceCurvePanel, createCopyPositionMarkPricesBySymbol, createCopyPositionSummary, createOpenEndedPageRangeLabel, createSignalSourceIdentityById, createSignalSourcePositionSummary, createTradeHistoryRows, filterTradeHistoryRowsByStrategyStart, type StrategyDetailCurveWindow, type TradeHistoryRow } from "./strategy-detail-content";
@@ -13,7 +13,9 @@ import { StrategySettingsDialog } from "./strategy-settings-dialog";
 import { StrategyNotificationSettingsDialog } from "./strategy-notification-settings-dialog";
 import { StrategyDetailSummaryCard } from "./strategy-detail-summary-card";
 import { StrategyTradeHistorySection } from "./strategy-trade-history-section";
+import { StrategySchemaRenderer } from "./strategy-schema-renderer";
 import { getAdjacentStrategyCurveWindows, getStrategyCurveQueryKey, mergeStrategyDetail, requestStrategyDetail, requestStrategyPositionSync, scheduleStrategyDetailTask } from "./strategy-detail-utils";
+import { getPrototypeStrategyType } from "./strategy-helpers";
 import { getErrorPanelClassName, getInlineErrorClassName, getModalSectionClassName } from "./styles";
 import type { PrototypeStrategy, PrototypeStrategySettingsUpdateInput, PrototypeStrategyStatus } from "./types";
 
@@ -42,6 +44,8 @@ export function StrategyDetailView({
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
   const [detail, setDetail] = useState<TradingFoxStrategyDetail | null>(null);
+  const [strategyDefinition, setStrategyDefinition] = useState<TradingFoxStrategyDefinition | null>(null);
+  const [strategyDefinitionError, setStrategyDefinitionError] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [shouldLoadTradeHistory, setShouldLoadTradeHistory] = useState(false);
@@ -100,6 +104,50 @@ export function StrategyDetailView({
   }, [copy, strategy.id]);
 
   const detailStrategyId = detail?.strategy.id ?? "";
+  const strategyDefinitionId = detail?.trader.strategyDefinitionId || strategy.strategyDefinitionId || "";
+
+  useEffect(() => {
+    if (!strategyDefinitionId) {
+      Promise.resolve().then(() => {
+        setStrategyDefinition(null);
+        setStrategyDefinitionError("");
+      });
+      return;
+    }
+
+    let isMounted = true;
+    Promise.resolve().then(() => {
+      if (isMounted) {
+        setStrategyDefinition(null);
+        setStrategyDefinitionError("");
+      }
+    });
+    fetch(`/api/tradingfox/strategy-definitions/${encodeURIComponent(strategyDefinitionId)}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null) as { error?: string } | null;
+          throw new Error(payload?.error || `Strategy definition failed with status ${response.status}.`);
+        }
+        return response.json() as Promise<TradingFoxStrategyDefinition>;
+      })
+      .then((definition) => {
+        if (isMounted) {
+          setStrategyDefinition(definition);
+        }
+      })
+      .catch((definitionError) => {
+        if (isMounted) {
+          setStrategyDefinitionError(getTradingFoxErrorMessage(definitionError, copy));
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [copy, strategyDefinitionId]);
 
   const curveQuery = useQuery({
     enabled: Boolean(detailStrategyId),
@@ -215,8 +263,9 @@ export function StrategyDetailView({
   const hasLoadedSection = (section: TradingFoxStrategyDetailSection) => loadedSections.includes(section);
   const liveStrategy = detail?.strategy ?? strategy;
   const isStrategyRunning = liveStrategy.status === "running";
+  const isCopyTradingStrategy = getPrototypeStrategyType(liveStrategy) === "copyTrading";
   const parsedSyncRatioPercent = Number(syncRatioPercent);
-  const canSyncPositions = Boolean(detail) && isStrategyRunning && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
+  const canSyncPositions = isCopyTradingStrategy && Boolean(detail) && isStrategyRunning && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
   const orderItems = detail?.orderHistory?.items ?? [];
   const signalSourceOrderItems = detail?.orderHistory?.signalSourceOrders ?? [];
   const tradeLogItems = detail?.orderHistory?.tradeLogs ?? [];
@@ -382,6 +431,28 @@ export function StrategyDetailView({
             strategyCopy={strategyCopy}
             onWindowChange={setActiveCurveWindow}
           />
+
+          <section className={getModalSectionClassName(isDarkTheme)}>
+            <h3 className="text-sm font-black">{strategyCopy.strategyConfigTitle}</h3>
+            <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>{strategyCopy.strategyConfigDescription}</p>
+            <div className="mt-3">
+              {strategyDefinitionError ? (
+                <p className={getInlineErrorClassName(isDarkTheme)}>{strategyDefinitionError}</p>
+              ) : strategyDefinition && detail.trader.configSchemaVersion !== strategyDefinition.configSchemaVersion ? (
+                <p className={getInlineErrorClassName(isDarkTheme)}>{strategyCopy.strategyConfigVersionMismatch(detail.trader.configSchemaVersion, strategyDefinition.configSchemaVersion)}</p>
+              ) : strategyDefinition ? (
+                <StrategySchemaRenderer
+                  formData={detail.trader.config}
+                  isDarkTheme={isDarkTheme}
+                  mode="readonly"
+                  schema={strategyDefinition.configSchema}
+                  uiSchema={strategyDefinition.uiSchema}
+                />
+              ) : (
+                <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.loadingDetail}</div>
+              )}
+            </div>
+          </section>
 
           <section className={getModalSectionClassName(isDarkTheme)}>
             <h3 className="text-sm font-black">{strategyCopy.copyPositions}</h3>
