@@ -382,6 +382,77 @@ button {
   z-index: 70;
 }
 
+.strategy-schema-form input:not([type="checkbox"]):not([type="radio"]),
+.strategy-schema-form select,
+.strategy-schema-form textarea {
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 14px;
+  color: #0F172A;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 40px;
+  outline: none;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.strategy-schema-form textarea {
+  min-height: 96px;
+  padding-bottom: 10px;
+  padding-top: 10px;
+}
+
+.strategy-schema-form input:not([type="checkbox"]):not([type="radio"]):focus,
+.strategy-schema-form select:focus,
+.strategy-schema-form textarea:focus {
+  border-color: #38BDF8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+}
+
+.strategy-schema-form input[type="checkbox"],
+.strategy-schema-form input[type="radio"] {
+  accent-color: #16AFF5;
+}
+
+.strategy-schema-form button {
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 900;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.strategy-schema-form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.strategy-schema-form legend {
+  color: #64748B;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.strategy-schema-form-dark input:not([type="checkbox"]):not([type="radio"]),
+.strategy-schema-form-dark select,
+.strategy-schema-form-dark textarea {
+  background: #0F131A;
+  border-color: rgba(255, 255, 255, 0.085);
+  color: #F8FAFC;
+}
+
+.strategy-schema-form-dark input:not([type="checkbox"]):not([type="radio"]):focus,
+.strategy-schema-form-dark select:focus,
+.strategy-schema-form-dark textarea:focus {
+  border-color: rgba(56, 189, 248, 0.48);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.10);
+}
+
 .kol-signal-pill {
   --pill-bg: #F8FAFC;
   --pill-border: #E5EAF0;

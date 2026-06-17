@@ -8,15 +8,16 @@ import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail, TradingFoxStrategyDetailSection } from "@/app/_lib/tradingfox-control-plane";
 import type { KlineInterval } from "@/app/_types/market";
 import { TRADE_HISTORY_PAGE_SIZE } from "./constants";
-import { CopyPositionTable, EMPTY_TRADING_FOX_POSITIONS, PositionSummaryPanel, SignalSourcePositionTable, StrategyPerformanceCurvePanel, createCopyPositionMarkPricesBySymbol, createCopyPositionSummary, createOpenEndedPageRangeLabel, createSignalSourceIdentityById, createSignalSourcePositionSummary, createTradeHistoryRows, filterTradeHistoryRowsByStrategyStart, type StrategyDetailCurveWindow, type TradeHistoryRow } from "./strategy-detail-content";
+import { EMPTY_TRADING_FOX_POSITIONS, StrategyPerformanceCurvePanel, createCopyPositionMarkPricesBySymbol, createOpenEndedPageRangeLabel, createSignalSourceIdentityById, createTradeHistoryRows, filterTradeHistoryRowsByStrategyStart, type StrategyDetailCurveWindow, type TradeHistoryRow } from "./strategy-detail-content";
 import { StrategySettingsDialog } from "./strategy-settings-dialog";
 import { StrategyNotificationSettingsDialog } from "./strategy-notification-settings-dialog";
 import { StrategyDetailSummaryCard } from "./strategy-detail-summary-card";
 import { StrategyTradeHistorySection } from "./strategy-trade-history-section";
-import { StrategySchemaRenderer } from "./strategy-schema-renderer";
+import { StrategyDetailConfigSection } from "./strategy-detail-config-section";
+import { StrategyDetailPositionsSections } from "./strategy-detail-positions-sections";
 import { getAdjacentStrategyCurveWindows, getStrategyCurveQueryKey, mergeStrategyDetail, requestStrategyDetail, requestStrategyPositionSync, scheduleStrategyDetailTask } from "./strategy-detail-utils";
 import { getPrototypeStrategyType } from "./strategy-helpers";
-import { getErrorPanelClassName, getInlineErrorClassName, getModalSectionClassName } from "./styles";
+import { getErrorPanelClassName, getModalSectionClassName } from "./styles";
 import type { PrototypeStrategy, PrototypeStrategySettingsUpdateInput, PrototypeStrategyStatus } from "./types";
 
 const STRATEGY_DETAIL_CURVE_WINDOWS: readonly StrategyDetailCurveWindow[] = ["24h", "7d", "30d", "90d"];
@@ -432,74 +433,24 @@ export function StrategyDetailView({
             onWindowChange={setActiveCurveWindow}
           />
 
-          <section className={getModalSectionClassName(isDarkTheme)}>
-            <h3 className="text-sm font-black">{strategyCopy.strategyConfigTitle}</h3>
-            <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>{strategyCopy.strategyConfigDescription}</p>
-            <div className="mt-3">
-              {strategyDefinitionError ? (
-                <p className={getInlineErrorClassName(isDarkTheme)}>{strategyDefinitionError}</p>
-              ) : strategyDefinition && detail.trader.configSchemaVersion !== strategyDefinition.configSchemaVersion ? (
-                <p className={getInlineErrorClassName(isDarkTheme)}>{strategyCopy.strategyConfigVersionMismatch(detail.trader.configSchemaVersion, strategyDefinition.configSchemaVersion)}</p>
-              ) : strategyDefinition ? (
-                <StrategySchemaRenderer
-                  formData={detail.trader.config}
-                  isDarkTheme={isDarkTheme}
-                  mode="readonly"
-                  schema={strategyDefinition.configSchema}
-                  uiSchema={strategyDefinition.uiSchema}
-                />
-              ) : (
-                <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.loadingDetail}</div>
-              )}
-            </div>
-          </section>
+          <StrategyDetailConfigSection
+            copy={copy}
+            detail={detail}
+            isDarkTheme={isDarkTheme}
+            strategyCopy={strategyCopy}
+            strategyDefinition={strategyDefinition}
+            strategyDefinitionError={strategyDefinitionError}
+          />
 
-          <section className={getModalSectionClassName(isDarkTheme)}>
-            <h3 className="text-sm font-black">{strategyCopy.copyPositions}</h3>
-            {!positionsSectionLoaded ? (
-              <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.loadingDetail}</div>
-            ) : detail.positionsError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.positionsError, copy)}</p> : null}
-            {positionsSectionLoaded && detail.positions.length > 0 ? (
-              <>
-                <PositionSummaryPanel
-                  isDarkTheme={isDarkTheme}
-                  strategyCopy={strategyCopy}
-                  summary={createCopyPositionSummary(detail)}
-                />
-                <CopyPositionTable isDarkTheme={isDarkTheme} positions={detail.positions} strategyCopy={strategyCopy} />
-              </>
-            ) : positionsSectionLoaded ? <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.copyPositionsEmpty}</div> : null}
-          </section>
-
-          <section className={getModalSectionClassName(isDarkTheme)}>
-            <h3 className="text-sm font-black">{strategyCopy.signalSourcePositions}</h3>
-            {!signalSourcesSectionLoaded ? (
-              <div className={isDarkTheme ? "mt-3 text-sm text-slate-500" : "mt-3 text-sm text-slate-500"}>{strategyCopy.loadingDetail}</div>
-            ) : detail.signalSourcesError ? <p className={getInlineErrorClassName(isDarkTheme)}>{getTradingFoxErrorMessage(detail.signalSourcesError, copy)}</p> : null}
-            <div className="mt-3 grid gap-2">
-              {signalSourcesSectionLoaded && detail.signalSources.length > 0 ? detail.signalSources.map((source) => (
-                <div key={source.signalSourceId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#F8FAFC] p-3"}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-sm font-black">{source.name || source.signalSourceId}</div>
-                    <div className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-500"}>{strategyCopy.followSide}: {source.followSide || "both"}</div>
-                  </div>
-                  <PositionSummaryPanel
-                    isDarkTheme={isDarkTheme}
-                    strategyCopy={strategyCopy}
-                    summary={createSignalSourcePositionSummary(source, copyPositionMarkPricesBySymbol)}
-                  />
-                  {source.positions.length > 0 ? (
-                    <SignalSourcePositionTable
-                      copyPositionMarkPricesBySymbol={copyPositionMarkPricesBySymbol}
-                      isDarkTheme={isDarkTheme}
-                      positions={source.positions}
-                      strategyCopy={strategyCopy}
-                    />
-                  ) : <div className={isDarkTheme ? "mt-3 text-xs text-slate-500" : "mt-3 text-xs text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
-                </div>
-              )) : signalSourcesSectionLoaded ? <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div> : null}
-            </div>
-          </section>
+          <StrategyDetailPositionsSections
+            copy={copy}
+            copyPositionMarkPricesBySymbol={copyPositionMarkPricesBySymbol}
+            detail={detail}
+            isDarkTheme={isDarkTheme}
+            positionsSectionLoaded={positionsSectionLoaded}
+            signalSourcesSectionLoaded={signalSourcesSectionLoaded}
+            strategyCopy={strategyCopy}
+          />
 
           <StrategyTradeHistorySection
             allTradeHistoryRows={allTradeHistoryRows}
