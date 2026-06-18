@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useLocale } from "next-intl";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import {
   getWorkspaceLanguageFromLocale,
@@ -15,7 +17,7 @@ import {
   actionDefinitionDescription,
   actionDefinitionLabel,
 } from "./strategy-display-metadata";
-import { getInlineErrorClassName, getModalSectionClassName, getPrimaryButtonClassName } from "./styles";
+import { getInlineErrorClassName } from "./styles";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -43,7 +45,7 @@ export function StrategyDetailActionsSection({
   const isActionDisabled = detail.strategy.status !== "running";
 
   return (
-    <section className={getModalSectionClassName(isDarkTheme)}>
+    <Card className={getModalSectionClassName(isDarkTheme)}>
       <h3 className="text-sm font-black">{strategyCopy.manualActionsTitle}</h3>
       <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>{strategyCopy.manualActionsDescription}</p>
       {isActionDisabled ? <p className={isDarkTheme ? "mt-2 text-xs leading-5 text-amber-200" : "mt-2 text-xs leading-5 text-amber-700"}>{strategyCopy.manualActionDisabled}</p> : null}
@@ -62,7 +64,7 @@ export function StrategyDetailActionsSection({
           />
         ))}
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -115,15 +117,15 @@ function StrategyActionCard({
   };
 
   return (
-    <article className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
+    <Card className={isDarkTheme ? "gap-0 rounded-2xl border-white/[0.075] bg-white/[0.035] p-3 text-slate-100 shadow-none" : "gap-0 rounded-2xl border-[#E5EAF0] bg-[#F8FAFC] p-3 text-slate-950 shadow-none"}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h4 className="text-sm font-black">{label}</h4>
           {description ? <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>{description}</p> : null}
         </div>
-        <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canSubmit} type="button" onClick={() => void submitAction()}>
+        <Button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canSubmit} type="button" onClick={() => void submitAction()}>
           {isSubmitting ? strategyCopy.manualActionRunning : strategyCopy.manualActionRun(label)}
-        </button>
+        </Button>
       </div>
       <div className="mt-3">
         {hasPayload ? (
@@ -145,8 +147,20 @@ function StrategyActionCard({
       </div>
       {message ? <p className={isDarkTheme ? "mt-3 text-xs font-bold text-emerald-200" : "mt-3 text-xs font-bold text-emerald-700"}>{message}</p> : null}
       {error ? <p className={getInlineErrorClassName(isDarkTheme)}>{error}</p> : null}
-    </article>
+    </Card>
   );
+}
+
+function getModalSectionClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none"
+    : "gap-0 rounded-[24px] border-[#E5EAF0] bg-white p-4 text-slate-950 shadow-sm";
+}
+
+function getPrimaryButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "rounded-2xl bg-sky-400 text-slate-950 hover:bg-sky-300"
+    : "rounded-2xl bg-[#16AFF5] text-white hover:bg-[#008DCC]";
 }
 
 function hasConfigurablePayload(schema: JsonRecord | undefined): boolean {

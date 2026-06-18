@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary } from "@/lib/tradingfox-control-plane";
 import type { WorkspaceCopy } from "@/i18n/workspace";
@@ -20,7 +23,7 @@ import { StrategyDefinitionSelect } from "./strategy-definition-select";
 import { COPY_TRADING_DEFINITION_ID, getStrategyPresentationForDefinitionId } from "./strategy-presentation-registry";
 import { createStrategyConfigSkeleton, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import type { CopyTradingPrototypeTarget, PrototypeApiConnection, PrototypeStrategy, PrototypeStrategyCreateInput } from "./types";
-import { getIconButtonClassName, getInlineErrorClassName, getLabelClassName, getPrimaryButtonClassName, getSoftButtonClassName } from "./styles";
+import { getInlineErrorClassName } from "./styles";
 
 export { StrategyTypeOptionButton } from "./strategy-create-fields";
 
@@ -273,42 +276,36 @@ export function StrategyCreateLayer({
   };
 
   return (
-    <>
-      <button
-        aria-label={copy.common.close}
-        className={isDarkTheme ? "fixed inset-0 z-[95] bg-black/52 backdrop-blur-[4px]" : "fixed inset-0 z-[95] bg-slate-950/24 backdrop-blur-[4px]"}
-        type="button"
-        onClick={onClose}
-      />
-      <section
+    <Sheet open onOpenChange={(open) => {
+      if (!open) {
+        onClose();
+      }
+    }}>
+      <SheetContent
         aria-describedby={dialogDescriptionId}
         aria-labelledby={dialogTitleId}
-        aria-modal="true"
-        className="fixed inset-x-0 bottom-0 z-[100] max-h-[92dvh] overflow-hidden rounded-t-[28px] shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-4 sm:bottom-auto sm:top-6 sm:mx-auto sm:max-h-[calc(100dvh-3rem)] sm:max-w-[760px] sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"
-        role="dialog"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            onClose();
-          }
-        }}
+        className={isDarkTheme
+          ? "inset-x-0 bottom-0 max-h-[92dvh] overflow-hidden rounded-t-[28px] border-white/[0.085] bg-[#111820] p-0 text-slate-100 shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-4 sm:bottom-auto sm:top-6 sm:mx-auto sm:max-h-[calc(100dvh-3rem)] sm:max-w-[760px] sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"
+          : "inset-x-0 bottom-0 max-h-[92dvh] overflow-hidden rounded-t-[28px] border-[#D5E4EF] bg-white p-0 text-slate-950 shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-4 sm:bottom-auto sm:top-6 sm:mx-auto sm:max-h-[calc(100dvh-3rem)] sm:max-w-[760px] sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"}
+        side="bottom"
       >
-        <div className={isDarkTheme ? "flex max-h-[92dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[calc(100dvh-3rem)]" : "flex max-h-[92dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[calc(100dvh-3rem)]"}>
-          <div className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <SheetHeader className={isDarkTheme ? "border-b border-white/[0.075]" : "border-b border-[#E5EAF0]"}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>{strategyCreateCopy.modalEyebrow}</div>
-                <h2 id={dialogTitleId} className="mt-2 text-xl font-black tracking-tight">{strategyCreateCopy.modalTitle}</h2>
-                <p id={dialogDescriptionId} className={isDarkTheme ? "mt-2 text-sm leading-5 text-slate-400" : "mt-2 text-sm leading-5 text-slate-600"}>{strategyCreateCopy.modalDescription}</p>
+                <SheetTitle id={dialogTitleId} className="mt-2 text-xl font-black tracking-tight">{strategyCreateCopy.modalTitle}</SheetTitle>
+                <SheetDescription id={dialogDescriptionId} className={isDarkTheme ? "mt-2 text-sm leading-5 text-slate-400" : "mt-2 text-sm leading-5 text-slate-600"}>{strategyCreateCopy.modalDescription}</SheetDescription>
               </div>
-              <button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} type="button" onClick={onClose}>
+              <Button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} size="icon" type="button" variant="outline" onClick={onClose}>
                 <span aria-hidden="true" className="text-lg leading-none">×</span>
-              </button>
+              </Button>
             </div>
-          </div>
+          </SheetHeader>
 
           <div className="kol-scroll-area min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 sm:py-5">
             <section>
-              <div className={getLabelClassName(isDarkTheme)}>{strategyCreateCopy.definitionSelect}</div>
+              <Label className={getFormLabelClassName(isDarkTheme)}>{strategyCreateCopy.definitionSelect}</Label>
               {isDefinitionsLoading ? (
                 <div className={getInfoPanelClassName(isDarkTheme)}>{strategyCreateCopy.definitionsLoading}</div>
               ) : definitions.length > 0 ? (
@@ -343,8 +340,8 @@ export function StrategyCreateLayer({
               onChange={setStrategyName}
             />
 
-            <label className="block">
-              <span className={getLabelClassName(isDarkTheme)}>{strategyCreateCopy.apiSelect}</span>
+            <div className="block">
+              <Label className={getFormLabelClassName(isDarkTheme)}>{strategyCreateCopy.apiSelect}</Label>
               {availableApiConnections.length > 0 ? (
                 <TradingAccountSelect
                   accountCopy={accountCopy}
@@ -358,7 +355,7 @@ export function StrategyCreateLayer({
                   {apiConnections.length > 0 ? strategyCreateCopy.noAvailableAccount : accountCopy.copyTrading.apiRequired}
                 </div>
               )}
-            </label>
+            </div>
 
             {isDefinitionDetailLoading ? (
               <div className={getInfoPanelClassName(isDarkTheme)}>{strategyCreateCopy.definitionLoading}</div>
@@ -399,15 +396,15 @@ export function StrategyCreateLayer({
             {submitError ? <p className={getInlineErrorClassName(isDarkTheme)}>{submitError}</p> : null}
           </div>
 
-          <div className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5"}>
-            <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onClose}>{copy.common.close}</button>
-            <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canCreate} type="button" onClick={() => void submitStrategy()}>
+          <SheetFooter className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex"}>
+            <Button className={getSoftButtonClassName(isDarkTheme)} type="button" variant="outline" onClick={onClose}>{copy.common.close}</Button>
+            <Button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canCreate} type="button" onClick={() => void submitStrategy()}>
               {isSubmitting ? strategyCreateCopy.starting : strategyCreateCopy.start}
-            </button>
-          </div>
+            </Button>
+          </SheetFooter>
         </div>
-      </section>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -417,6 +414,28 @@ function strategyDefinitionCacheKey(definition: Pick<TradingFoxStrategyDefinitio
 
 function preferredDefinitionId(definitions: readonly TradingFoxStrategyDefinitionSummary[]): string {
   return definitions.find((definition) => definition.id === COPY_TRADING_DEFINITION_ID)?.id ?? definitions[0]?.id ?? "";
+}
+
+function getPrimaryButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "h-10 rounded-2xl bg-sky-400 px-4 text-sm font-black text-slate-950 hover:bg-sky-300"
+    : "h-10 rounded-2xl bg-[#16AFF5] px-4 text-sm font-black text-white hover:bg-[#008DCC]";
+}
+
+function getSoftButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "h-10 rounded-2xl border-white/[0.075] bg-white/[0.04] text-sm font-black text-slate-200 hover:bg-white/[0.08]"
+    : "h-10 rounded-2xl border-[#D5E4EF] bg-white text-sm font-black text-slate-700 hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+}
+
+function getIconButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "rounded-full border-white/[0.075] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-slate-50"
+    : "rounded-full border-[#E5EAF0] bg-white text-slate-500 hover:border-[#BFE7FB] hover:text-slate-900";
+}
+
+function getFormLabelClassName(isDarkTheme: boolean): string {
+  return isDarkTheme ? "text-xs font-black text-slate-300" : "text-xs font-black text-slate-700";
 }
 
 function getInfoPanelClassName(isDarkTheme: boolean): string {

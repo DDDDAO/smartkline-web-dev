@@ -1,5 +1,8 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
@@ -9,15 +12,7 @@ import { BellGlyph } from "./icons";
 import { MiniMetric } from "./mini-metric";
 import { StrategySourceSummary } from "./strategy-source-summary";
 import { getPrototypeStrategyType, getStrategyStatusLabel } from "./strategy-helpers";
-import {
-  getDangerButtonClassName,
-  getInlineErrorClassName,
-  getModalSectionClassName,
-  getNotificationConfigureButtonClassName,
-  getPrimaryButtonClassName,
-  getSoftButtonClassName,
-  getStrategyStatusClassName,
-} from "./styles";
+import { getInlineErrorClassName } from "./styles";
 import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategyStatus } from "./types";
 
 export function StrategyDetailSummaryCard({
@@ -68,20 +63,20 @@ export function StrategyDetailSummaryCard({
   onUpdateLifecycle: (status: PrototypeStrategyStatus) => void;
 }) {
   return (
-    <div className={getModalSectionClassName(isDarkTheme)}>
+    <Card className={isDarkTheme ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[24px] border-[#E5EAF0] bg-white p-4 text-slate-950 shadow-sm"}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onBack}>← {strategyCopy.back}</button>
-        <button className={getNotificationConfigureButtonClassName(isDarkTheme)} type="button" onClick={onNotificationOpen}>
+        <Button className={getSoftButtonClassName(isDarkTheme)} size="sm" type="button" variant="outline" onClick={onBack}>← {strategyCopy.back}</Button>
+        <Button className={getNotificationButtonClassName(isDarkTheme)} type="button" variant="outline" onClick={onNotificationOpen}>
           <BellGlyph />
           {strategyCopy.configureNotifications}
-        </button>
+        </Button>
       </div>
       <div className="mt-4 flex min-w-0 items-start gap-3">
         <SourceAvatar isDarkTheme={isDarkTheme} name={liveStrategy.traderName} url={liveStrategy.avatarUrl} />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h3 className="truncate text-lg font-black">{liveStrategy.traderName}</h3>
-            <span className={getStrategyStatusClassName(isDarkTheme, liveStrategy.status)}>{getStrategyStatusLabel(strategyCopy, liveStrategy.status)}</span>
+            <Badge className={getStrategyStatusBadgeClassName(isDarkTheme, liveStrategy.status)}>{getStrategyStatusLabel(strategyCopy, liveStrategy.status)}</Badge>
           </div>
           <p className={isDarkTheme ? "mt-1 text-xs font-bold text-slate-500" : "mt-1 text-xs font-bold text-slate-500"}>
             #{liveStrategy.id} · {liveStrategy.platform} · {liveStrategy.apiAccountName}
@@ -114,19 +109,59 @@ export function StrategyDetailSummaryCard({
         </div>
       ) : null}
       <div className={isDarkTheme ? "mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/[0.075] pt-4 lg:flex-nowrap" : "mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-[#E5EAF0] pt-4 lg:flex-nowrap"}>
-        <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onEdit}>{strategyCopy.edit}</button>
+        <Button className={getSoftButtonClassName(isDarkTheme)} size="sm" type="button" variant="outline" onClick={onEdit}>{strategyCopy.edit}</Button>
         {shouldShowCopyTradingPositionSync ? (
-          <button className={getSoftButtonClassName(isDarkTheme)} disabled={isSyncingPositions} type="button" onClick={onSyncCopyTradingPositions}>
+          <Button className={getSoftButtonClassName(isDarkTheme)} disabled={isSyncingPositions} size="sm" type="button" variant="outline" onClick={onSyncCopyTradingPositions}>
             {isSyncingPositions ? strategyCopy.syncingPositions : strategyCopy.syncPositions}
-          </button>
+          </Button>
         ) : null}
         {liveStrategy.status === "running" ? (
-          <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => onUpdateLifecycle("paused")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.pause}</button>
+          <Button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} size="sm" type="button" variant="outline" onClick={() => onUpdateLifecycle("paused")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.pause}</Button>
         ) : (
-          <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => onUpdateLifecycle("running")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.resume}</button>
+          <Button className={getPrimaryButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} size="sm" type="button" onClick={() => onUpdateLifecycle("running")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.resume}</Button>
         )}
-        <button className={getDangerButtonClassName(isDarkTheme)} disabled={isDeletingStrategy} type="button" onClick={onDelete}>{isDeletingStrategy ? strategyCopy.deleting : strategyCopy.delete}</button>
+        <Button className={getDangerButtonClassName(isDarkTheme)} disabled={isDeletingStrategy} size="sm" type="button" variant="destructive" onClick={onDelete}>{isDeletingStrategy ? strategyCopy.deleting : strategyCopy.delete}</Button>
       </div>
-    </div>
+    </Card>
   );
+}
+
+function getPrimaryButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "bg-sky-400 text-slate-950 hover:bg-sky-300"
+    : "bg-[#16AFF5] text-white hover:bg-[#008DCC]";
+}
+
+function getSoftButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "border-white/[0.075] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
+    : "border-[#D5E4EF] bg-white text-slate-700 hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+}
+
+function getNotificationButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "min-h-10 rounded-2xl border-white/[0.075] bg-white/[0.04] text-sm font-black text-slate-200 hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-slate-50"
+    : "min-h-10 rounded-2xl border-[#D5E4EF] bg-white text-sm font-black text-slate-700 hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+}
+
+function getDangerButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "border border-rose-400/20 bg-rose-400/10 text-rose-200 hover:bg-rose-400/15"
+    : "border border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100";
+}
+
+function getStrategyStatusBadgeClassName(isDarkTheme: boolean, status: PrototypeStrategyStatus): string {
+  if (status === "running") {
+    return isDarkTheme ? "shrink-0 rounded-full border-0 bg-emerald-400/15 px-2 py-0.5 text-[10px] font-black text-emerald-300" : "shrink-0 rounded-full border-0 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700";
+  }
+  if (status === "paused") {
+    return isDarkTheme ? "shrink-0 rounded-full border-0 bg-amber-400/15 px-2 py-0.5 text-[10px] font-black text-amber-300" : "shrink-0 rounded-full border-0 bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700";
+  }
+  if (status === "pending") {
+    return isDarkTheme ? "shrink-0 rounded-full border-0 bg-sky-400/15 px-2 py-0.5 text-[10px] font-black text-sky-300" : "shrink-0 rounded-full border-0 bg-sky-50 px-2 py-0.5 text-[10px] font-black text-sky-700";
+  }
+  if (status === "failed") {
+    return isDarkTheme ? "shrink-0 rounded-full border-0 bg-rose-400/15 px-2 py-0.5 text-[10px] font-black text-rose-300" : "shrink-0 rounded-full border-0 bg-rose-50 px-2 py-0.5 text-[10px] font-black text-rose-700";
+  }
+  return isDarkTheme ? "shrink-0 rounded-full border-0 bg-slate-700 px-2 py-0.5 text-[10px] font-black text-slate-300" : "shrink-0 rounded-full border-0 bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-600";
 }

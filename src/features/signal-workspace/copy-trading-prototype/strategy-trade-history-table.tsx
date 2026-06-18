@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
@@ -51,13 +52,15 @@ export function TradeHistoryTable({
                   <TradeHistorySourceCell isDarkTheme={isDarkTheme} row={row} strategyCopy={strategyCopy} telegramUser={telegramUser} />
                 </td>
                 <td className="px-3 py-4 font-black">
-                  <button
-                    className={isActiveKlineRow ? "rounded-full bg-sky-400/15 px-2 py-1 text-sky-400" : "rounded-full px-2 py-1 underline underline-offset-2 transition hover:bg-sky-400/10 hover:text-sky-400"}
+                  <Button
+                    className={isActiveKlineRow ? "h-auto rounded-full bg-sky-400/15 px-2 py-1 text-sky-400 hover:bg-sky-400/15" : "h-auto rounded-full px-2 py-1 underline underline-offset-2 hover:bg-sky-400/10 hover:text-sky-400"}
+                    size="sm"
                     type="button"
+                    variant="ghost"
                     onClick={() => onRowKlineOpen(row)}
                   >
                     {row.symbol}
-                  </button>
+                  </Button>
                 </td>
                 <td className={`px-3 py-4 font-black ${getTradeHistorySideClassName(isDarkTheme, row)}`}>{formatTradeHistoryAction(row, strategyCopy)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(row.price)}</td>
@@ -170,21 +173,21 @@ export function RowsPaginationControls({
   onPrevious: () => void;
 }) {
   const buttonClassName = isDarkTheme
-    ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-[11px] font-bold text-sky-200 transition hover:border-sky-400/25 hover:bg-sky-400/10 disabled:cursor-not-allowed disabled:opacity-45"
-    : "rounded-2xl border border-[#B7E8FC] bg-white px-3 py-2 text-[11px] font-bold text-[#008DCC] transition hover:bg-[#EAF8FE] disabled:cursor-not-allowed disabled:opacity-45";
+    ? "rounded-2xl border-white/[0.075] bg-white/[0.035] px-3 py-2 text-[11px] font-bold text-sky-200 hover:border-sky-400/25 hover:bg-sky-400/10"
+    : "rounded-2xl border-[#B7E8FC] bg-white px-3 py-2 text-[11px] font-bold text-[#008DCC] hover:bg-[#EAF8FE]";
   const rangeClassName = isDarkTheme
     ? "text-center text-[10px] font-semibold text-slate-500"
     : "text-center text-[10px] font-semibold text-slate-400";
 
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-      <button className={buttonClassName} disabled={!canGoPrevious} type="button" onClick={onPrevious}>
+      <Button className={buttonClassName} disabled={!canGoPrevious} size="sm" type="button" variant="outline" onClick={onPrevious}>
         {previousLabel}
-      </button>
+      </Button>
       <span className={rangeClassName}>{rangeLabel}</span>
-      <button className={buttonClassName} disabled={!canGoNext} type="button" onClick={onNext}>
+      <Button className={buttonClassName} disabled={!canGoNext} size="sm" type="button" variant="outline" onClick={onNext}>
         {nextLabel}
-      </button>
+      </Button>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
@@ -12,7 +14,7 @@ import {
   createSignalSourcePositionSummary,
 } from "./strategy-detail-content";
 import type { CopyPositionMarkPricesBySymbol } from "./strategy-detail-shared";
-import { getInlineErrorClassName, getModalSectionClassName } from "./styles";
+import { getInlineErrorClassName } from "./styles";
 
 type PositionTabId = "signalSources" | "trader";
 
@@ -49,42 +51,44 @@ export function StrategyDetailPositionsSections({
   }
 
   return (
-    <section className={getModalSectionClassName(isDarkTheme)}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-sm font-black">{strategyCopy.currentPositions}</h3>
-        <div className={isDarkTheme ? "inline-flex rounded-2xl border border-white/[0.075] bg-white/[0.035] p-1" : "inline-flex rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC] p-1"}>
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              className={getPositionTabClassName(isDarkTheme, activeTab === tab.id)}
-              type="button"
-              onClick={() => setSelectedTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
+    <Card className={isDarkTheme ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[24px] border-[#E5EAF0] bg-white p-4 text-slate-950 shadow-sm"}>
+      <Tabs value={activeTab} onValueChange={(value) => setSelectedTab(value as PositionTabId)}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-sm font-black">{strategyCopy.currentPositions}</h3>
+          <TabsList className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035]" : "rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC]"}>
+            {tabs.map((tab) => (
+              <TabsTrigger
+                key={tab.id}
+                className={isDarkTheme ? "rounded-xl data-[state=active]:bg-sky-400/16 data-[state=active]:text-sky-200 data-[state=inactive]:text-slate-500" : "rounded-xl data-[state=active]:bg-white data-[state=active]:text-[#008DCC] data-[state=inactive]:text-slate-500"}
+                value={tab.id}
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
         </div>
-      </div>
 
-      {activeTab === "trader" ? (
-        <TraderPositionsPanel
-          copy={copy}
-          detail={detail}
-          isDarkTheme={isDarkTheme}
-          positionsSectionLoaded={positionsSectionLoaded}
-          strategyCopy={strategyCopy}
-        />
-      ) : (
-        <SignalSourcePositionsPanel
-          copy={copy}
-          copyPositionMarkPricesBySymbol={copyPositionMarkPricesBySymbol}
-          detail={detail}
-          isDarkTheme={isDarkTheme}
-          signalSourcesSectionLoaded={signalSourcesSectionLoaded}
-          strategyCopy={strategyCopy}
-        />
-      )}
-    </section>
+        <TabsContent className="mt-3" value="trader">
+          <TraderPositionsPanel
+            copy={copy}
+            detail={detail}
+            isDarkTheme={isDarkTheme}
+            positionsSectionLoaded={positionsSectionLoaded}
+            strategyCopy={strategyCopy}
+          />
+        </TabsContent>
+        <TabsContent className="mt-3" value="signalSources">
+          <SignalSourcePositionsPanel
+            copy={copy}
+            copyPositionMarkPricesBySymbol={copyPositionMarkPricesBySymbol}
+            detail={detail}
+            isDarkTheme={isDarkTheme}
+            signalSourcesSectionLoaded={signalSourcesSectionLoaded}
+            strategyCopy={strategyCopy}
+          />
+        </TabsContent>
+      </Tabs>
+    </Card>
   );
 }
 
@@ -173,15 +177,4 @@ function SignalSourcePositionsPanel({
       )) : <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.signalSourcePositionsEmpty}</div>}
     </div>
   );
-}
-
-function getPositionTabClassName(isDarkTheme: boolean, isActive: boolean): string {
-  if (isActive) {
-    return isDarkTheme
-      ? "rounded-xl bg-sky-400/16 px-3 py-2 text-xs font-black text-sky-200"
-      : "rounded-xl bg-white px-3 py-2 text-xs font-black text-[#008DCC] shadow-sm";
-  }
-  return isDarkTheme
-    ? "rounded-xl px-3 py-2 text-xs font-black text-slate-500 transition hover:text-slate-200"
-    : "rounded-xl px-3 py-2 text-xs font-black text-slate-500 transition hover:text-slate-900";
 }

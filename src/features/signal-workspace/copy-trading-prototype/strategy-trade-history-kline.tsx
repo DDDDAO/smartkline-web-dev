@@ -1,9 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import * as SelectPrimitive from "@radix-ui/react-select";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale } from "next-intl";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getWorkspaceLanguageFromLocale, type WorkspaceCopy } from "@/i18n/workspace";
 import { intervals } from "@/lib/demo-data";
 import { fetchHistoricalCandles, prependHistoricalCandles } from "@/lib/binance-market-data";
@@ -188,14 +189,16 @@ export function TradeHistoryKlinePanel({
         </div>
         <div className={isDarkTheme ? "inline-flex w-max items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5" : "inline-flex w-max items-center gap-1 rounded-full border border-[#E5EAF0] bg-white p-0.5"}>
           {intervals.map((item) => (
-            <button
+            <Button
               key={item}
-              className={item === interval ? "h-8 rounded-full bg-[#00A6F4] px-3 text-xs font-bold text-white" : isDarkTheme ? "h-8 rounded-full px-3 text-xs font-bold text-slate-400 transition hover:bg-white/[0.08] hover:text-slate-100" : "h-8 rounded-full px-3 text-xs font-bold text-slate-500 transition hover:bg-[#F1F7FB] hover:text-slate-950"}
+              className={item === interval ? "h-8 rounded-full bg-[#00A6F4] px-3 text-xs font-bold text-white hover:bg-[#00A6F4]" : isDarkTheme ? "h-8 rounded-full px-3 text-xs font-bold text-slate-400 hover:bg-white/[0.08] hover:text-slate-100" : "h-8 rounded-full px-3 text-xs font-bold text-slate-500 hover:bg-[#F1F7FB] hover:text-slate-950"}
+              size="sm"
               type="button"
+              variant="ghost"
               onClick={() => onIntervalChange(item)}
             >
               {item}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -265,43 +268,35 @@ function TradeHistoryKlineSymbolSelect({
   }
 
   return (
-    <SelectPrimitive.Root value={value} onValueChange={onChange}>
-      <SelectPrimitive.Trigger aria-label="Trade history symbol" className={triggerClassName}>
-        <SelectPrimitive.Value>{selectedOption.label}</SelectPrimitive.Value>
-        <SelectPrimitive.Icon asChild>
-          <span aria-hidden="true" className={isDarkTheme ? "text-[10px] text-slate-500" : "text-[10px] text-slate-400"}>⌄</span>
-        </SelectPrimitive.Icon>
-      </SelectPrimitive.Trigger>
-      <SelectPrimitive.Portal>
-        <SelectPrimitive.Content
-          className={isDarkTheme
-            ? "z-[140] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
-            : "z-[140] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
-          position="popper"
-          sideOffset={8}
-        >
-          <SelectPrimitive.Viewport className="grid gap-1">
-            {options.map((option) => (
-              <SelectPrimitive.Item
-                key={option.symbol}
-                className={isDarkTheme
-                  ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-sky-400/10 data-[state=checked]:text-sky-100"
-                  : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold outline-none transition data-[highlighted]:bg-[#F8FAFC] data-[state=checked]:bg-[#EAF8FE] data-[state=checked]:text-[#007DB8]"}
-                value={option.symbol}
-              >
-                <SelectPrimitive.ItemText asChild>
-                  <span>{option.label}</span>
-                </SelectPrimitive.ItemText>
-                <span className={isDarkTheme ? "text-[10px] text-slate-500" : "text-[10px] text-slate-400"}>
-                  {option.count}
-                </span>
-                <SelectPrimitive.ItemIndicator className="text-xs font-black">✓</SelectPrimitive.ItemIndicator>
-              </SelectPrimitive.Item>
-            ))}
-          </SelectPrimitive.Viewport>
-        </SelectPrimitive.Content>
-      </SelectPrimitive.Portal>
-    </SelectPrimitive.Root>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger aria-label="Trade history symbol" className={`${triggerClassName} [&>span]:line-clamp-none`}>
+        <SelectValue>{selectedOption.label}</SelectValue>
+      </SelectTrigger>
+      <SelectContent
+        className={isDarkTheme
+          ? "z-[140] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
+          : "z-[140] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
+        position="popper"
+        sideOffset={8}
+      >
+        {options.map((option) => (
+          <SelectItem
+            key={option.symbol}
+            className={isDarkTheme
+              ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-sky-400/10 data-[state=checked]:text-sky-100"
+              : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold outline-none transition data-[highlighted]:bg-[#F8FAFC] data-[state=checked]:bg-[#EAF8FE] data-[state=checked]:text-[#007DB8]"}
+            value={option.symbol}
+          >
+            <span className="flex w-full items-center justify-between gap-3">
+              <span>{option.label}</span>
+              <span className={isDarkTheme ? "text-[10px] text-slate-500" : "text-[10px] text-slate-400"}>
+                {option.count}
+              </span>
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
