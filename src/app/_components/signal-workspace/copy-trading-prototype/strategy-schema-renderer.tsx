@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { useLocale } from "next-intl";
 import Form from "@rjsf/core";
 import type { FieldTemplateProps, FormContextType, RJSFSchema, RegistryWidgetsType, UiSchema, WidgetProps } from "@rjsf/utils";
 import validator from "@rjsf/validator-ajv8";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import { getWorkspaceLanguageFromLocale, type WorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import {
   createStrategyDisplayUiSchema,
@@ -53,15 +54,16 @@ export function StrategySchemaRenderer({
 }) {
   const readonly = mode === "readonly";
   const rendererCopy = copy.workspace.accountCenter.strategySchema;
+  const language = getWorkspaceLanguageFromLocale(useLocale());
   const errors = useMemo(() => collectRendererErrors(schema, uiSchema), [schema, uiSchema]);
   const errorKey = errors.join("\n");
-  const renderSchema = useMemo(() => schema ? withStrategyDisplayMetadata(schema, copy) : undefined, [copy, schema]);
+  const renderSchema = useMemo(() => schema ? withStrategyDisplayMetadata(schema, language) : undefined, [language, schema]);
   const rjsfUiSchema = useMemo(() => toRjsfUiSchema({
-    copy,
     formData,
+    language,
     schema,
     uiSchema,
-  }), [copy, formData, schema, uiSchema]);
+  }), [formData, language, schema, uiSchema]);
 
   useEffect(() => {
     onValidationStateChange?.({ canSubmit: errors.length === 0, errors });
@@ -92,6 +94,7 @@ export function StrategySchemaRenderer({
         copy={copy}
         formData={formData}
         isDarkTheme={isDarkTheme}
+        language={language}
         schema={schema}
         signalSourceIdentityById={signalSourceIdentityById}
         uiSchema={uiSchema}
@@ -271,10 +274,12 @@ export function createStrategyConfigSkeleton(schema?: JsonRecord): JsonRecord {
 
 export function validateStrategySchemaData({
   formData,
+  language,
   schema,
   uiSchema,
 }: {
   formData: JsonRecord;
+  language: WorkspaceLanguage;
   schema?: JsonRecord;
   uiSchema?: JsonRecord;
 }): string[] {
@@ -288,7 +293,7 @@ export function validateStrategySchemaData({
     withoutStrategyDisplayMetadata(schema) as RJSFSchema,
     undefined,
     undefined,
-    toRjsfUiSchema({ formData, schema, uiSchema }),
+    toRjsfUiSchema({ formData, language, schema, uiSchema }),
   );
   return validation.errors
     .map((error) => error.stack || error.message || error.name)
@@ -320,18 +325,18 @@ function createDefaultValue(schema: unknown, isRequired: boolean): unknown {
 }
 
 function toRjsfUiSchema({
-  copy,
   formData,
+  language,
   schema,
   uiSchema,
 }: {
-  copy?: WorkspaceCopy;
   formData: JsonRecord;
+  language: WorkspaceLanguage;
   schema?: JsonRecord;
   uiSchema?: JsonRecord;
 }): UiSchema {
   const converted = uiSchema ? convertTradingFoxUiSchema(uiSchema, formData, schema) : {};
-  const displayUiSchema = copy ? createStrategyDisplayUiSchema(schema, copy) : {};
+  const displayUiSchema = createStrategyDisplayUiSchema(schema, language);
   return {
     ...mergeUiSchemas(converted, displayUiSchema),
     "ui:submitButtonOptions": { norender: true },

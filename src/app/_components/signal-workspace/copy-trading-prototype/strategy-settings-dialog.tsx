@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "next-intl";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import {
+  getWorkspaceLanguageFromLocale,
+  type WorkspaceCopy,
+} from "@/app/_lib/i18n";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import { requestStrategyConfigValidation } from "./strategy-detail-utils";
@@ -44,6 +48,7 @@ export function StrategySettingsDialog({
   const strategyCopy = accountCopy.strategy;
   const strategyCreateCopy = accountCopy.strategyCreate;
   const copyTradingCopy = accountCopy.copyTrading;
+  const language = getWorkspaceLanguageFromLocale(useLocale());
   const isCopyStrategy = getPrototypeStrategyType(strategy) === "copyTrading";
   const hasConfigEditor = detail !== undefined;
   const [strategyName, setStrategyName] = useState(strategy.traderName);
@@ -113,6 +118,7 @@ export function StrategySettingsDialog({
     }
     const localValidationErrors = validateStrategySchemaData({
       formData: config,
+      language,
       schema: strategyDefinition.configSchema,
       uiSchema: strategyDefinition.uiSchema,
     });

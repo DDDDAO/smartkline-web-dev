@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import { useLocale } from "next-intl";
+import {
+  getWorkspaceLanguageFromLocale,
+  type WorkspaceCopy,
+  type WorkspaceLanguage,
+} from "@/app/_lib/i18n";
 import type { TradingFoxStrategyDefinitionSummary } from "@/app/_lib/tradingfox-control-plane";
 import {
   strategyDefinitionDescription,
@@ -26,6 +31,7 @@ export function StrategyDefinitionSelect({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const strategyCreateCopy = copy.workspace.accountCenter.strategyCreate;
+  const language = getWorkspaceLanguageFromLocale(useLocale());
   const selectedDefinition = definitions.find((definition) => definition.id === value) ?? definitions[0] ?? null;
   const filteredDefinitions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -38,12 +44,12 @@ export function StrategyDefinitionSelect({
         definition.id,
         definition.name,
         definition.description,
-        strategyDefinitionLabel(definition, copy),
-        strategyDefinitionDescription(definition, copy),
+        strategyDefinitionLabel(definition, language),
+        strategyDefinitionDescription(definition, language),
       ].join(" ").toLowerCase();
       return searchableText.includes(normalizedQuery);
     });
-  }, [copy, definitions, query]);
+  }, [definitions, language, query]);
   const triggerClassName = isDarkTheme
     ? "mt-2 flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.085] bg-white/[0.04] px-3 py-2 text-left text-sm font-bold text-slate-100 outline-none transition hover:border-sky-300/25 hover:bg-white/[0.065] focus:border-sky-400/45 focus:ring-2 focus:ring-sky-400/10"
     : "mt-2 flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-[#D5E4EF] bg-white px-3 py-2 text-left text-sm font-bold text-slate-950 shadow-sm outline-none transition hover:border-[#BFE7FB] hover:bg-[#F8FAFC] focus:border-[#7DBEFF] focus:ring-2 focus:ring-[#16AFF5]/10";
@@ -101,6 +107,7 @@ export function StrategyDefinitionSelect({
             copy={copy}
             definition={selectedDefinition}
             isDarkTheme={isDarkTheme}
+            language={language}
           />
         ) : null}
         <span aria-hidden="true" className={isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-400"}>⌄</span>
@@ -132,7 +139,7 @@ export function StrategyDefinitionSelect({
                   type="button"
                   onClick={() => chooseDefinition(definition.id)}
                 >
-                  <StrategyDefinitionOptionContent copy={copy} definition={definition} isDarkTheme={isDarkTheme} />
+                  <StrategyDefinitionOptionContent copy={copy} definition={definition} isDarkTheme={isDarkTheme} language={language} />
                   {isSelected ? <span className="text-xs font-black">✓</span> : null}
                 </button>
               );
@@ -152,14 +159,16 @@ function StrategyDefinitionOptionContent({
   copy,
   definition,
   isDarkTheme,
+  language,
 }: {
   copy: WorkspaceCopy;
   definition: TradingFoxStrategyDefinitionSummary;
   isDarkTheme: boolean;
+  language: WorkspaceLanguage;
 }) {
   const strategyCreateCopy = copy.workspace.accountCenter.strategyCreate;
-  const label = strategyDefinitionLabel(definition, copy);
-  const description = strategyDefinitionDescription(definition, copy, definition.id);
+  const label = strategyDefinitionLabel(definition, language);
+  const description = strategyDefinitionDescription(definition, language, definition.id);
   return (
     <span className="min-w-0 flex-1">
       <span className="block truncate text-sm font-black">{label}</span>

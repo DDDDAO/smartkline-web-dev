@@ -1,5 +1,6 @@
 import { toCopyTradingMarketSymbol } from "@/app/_lib/copy-trading-radar-api";
 import type { MarketSymbol } from "@/app/_types/market";
+import { getAppLocaleFromPathname, isAppLocale } from "@/i18n/locales";
 import type { WorkspaceProductTab } from "./product-tabs";
 
 const WORKSPACE_TAB_ROUTE_SEGMENTS: Readonly<
@@ -68,7 +69,7 @@ export function readWorkspaceRouteState(
   search: string,
 ): WorkspaceRouteState {
   const segments = pathname.split("/").filter(Boolean);
-  const routeStartIndex = segments[0] === "zh" ? 1 : 0;
+  const routeStartIndex = isAppLocale(segments[0]) ? 1 : 0;
   const tab = workspaceTabFromRouteSegment(segments[routeStartIndex] ?? "");
   if (!tab) {
     return createEmptyWorkspaceRouteState();
@@ -147,8 +148,7 @@ export function shouldWorkspaceTabUseSymbolRoute(
 }
 
 export function getWorkspaceRoutePrefix(pathname: string): string {
-  const firstSegment = pathname.split("/").filter(Boolean)[0] ?? "";
-  return firstSegment === "zh" ? "/zh" : "";
+  return `/${getAppLocaleFromPathname(pathname)}`;
 }
 
 export function encodeMarketSymbolForRoute(symbol: MarketSymbol): string {

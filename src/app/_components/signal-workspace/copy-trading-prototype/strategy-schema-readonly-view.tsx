@@ -1,16 +1,8 @@
 "use client";
 
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy, WorkspaceLanguage } from "@/app/_lib/i18n";
 import { SourceAvatar } from "../card-ui";
-import {
-  hasSchemaDisplayDescription,
-  hasSchemaDisplayLabel,
-  propertySchemaForKey,
-  schemaAtPath,
-  schemaDisplayDescription,
-  schemaDisplayLabel,
-  schemaOptionLabel,
-} from "./strategy-display-metadata";
+import { hasSchemaDisplayDescription, hasSchemaDisplayLabel, propertySchemaForKey, schemaAtPath, schemaDisplayDescription, schemaDisplayLabel, schemaOptionLabel } from "./strategy-display-metadata";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import {
   booleanPillClassName,
@@ -39,6 +31,7 @@ export function StrategySchemaReadonlyView({
   copy,
   formData,
   isDarkTheme,
+  language,
   schema,
   signalSourceIdentityById,
   uiSchema,
@@ -46,12 +39,13 @@ export function StrategySchemaReadonlyView({
   copy: WorkspaceCopy;
   formData: JsonRecord;
   isDarkTheme: boolean;
+  language: WorkspaceLanguage;
   schema: JsonRecord;
   signalSourceIdentityById?: SignalSourceIdentityById;
   uiSchema?: JsonRecord;
 }) {
   const rendererCopy = copy.workspace.accountCenter.strategySchema;
-  const sections = createReadonlySections(schema, uiSchema, formData, rendererCopy, copy);
+  const sections = createReadonlySections(schema, uiSchema, formData, rendererCopy, copy, language);
   const visibleSections = sections
     .map((section) => ({ ...section, fields: section.fields.filter((field) => hasReadableField(field.value)) }))
     .filter((section) => section.fields.length > 0);
@@ -84,6 +78,7 @@ export function StrategySchemaReadonlyView({
                 copy={copy}
                 field={field}
                 isDarkTheme={isDarkTheme}
+                language={language}
                 signalSourceIdentityById={signalSourceIdentityById}
               />
             ))}
@@ -98,11 +93,13 @@ function ReadonlyFieldCard({
   copy,
   field,
   isDarkTheme,
+  language,
   signalSourceIdentityById,
 }: {
   copy: WorkspaceCopy;
   field: ReadonlyField;
   isDarkTheme: boolean;
+  language: WorkspaceLanguage;
   signalSourceIdentityById?: SignalSourceIdentityById;
 }) {
   if (field.path.split(".").pop() === "signalSourceConfigs" && Array.isArray(field.value)) {
@@ -128,7 +125,7 @@ function ReadonlyFieldCard({
           {field.description ? <div className={isDarkTheme ? "mt-1 text-[11px] leading-4 text-slate-500" : "mt-1 text-[11px] leading-4 text-slate-500"}>{field.description}</div> : null}
         </div>
         <div className="min-w-0 flex-1 sm:text-right">
-          <ReadonlyValue copy={copy} isDarkTheme={isDarkTheme} schema={field.schema} value={field.value} />
+          <ReadonlyValue copy={copy} isDarkTheme={isDarkTheme} language={language} schema={field.schema} value={field.value} />
         </div>
       </div>
     </div>
@@ -138,11 +135,13 @@ function ReadonlyFieldCard({
 function ReadonlyValue({
   copy,
   isDarkTheme,
+  language,
   schema,
   value,
 }: {
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
+  language: WorkspaceLanguage;
   schema?: JsonRecord;
   value: unknown;
 }) {
@@ -150,7 +149,7 @@ function ReadonlyValue({
   if (!hasReadableField(value)) {
     return <span className="text-xs font-bold text-slate-500">{rendererCopy.notSet}</span>;
   }
-  const optionLabel = schemaOptionLabel(schema, value, copy);
+  const optionLabel = schemaOptionLabel(schema, value, language);
   if (optionLabel) {
     return <span className={isDarkTheme ? "break-words text-sm font-bold text-slate-100" : "break-words text-sm font-bold text-slate-900"}>{optionLabel}</span>;
   }
@@ -161,10 +160,10 @@ function ReadonlyValue({
     return <span className={isDarkTheme ? "break-words text-sm font-bold text-slate-100" : "break-words text-sm font-bold text-slate-900"}>{String(value)}</span>;
   }
   if (Array.isArray(value)) {
-    return <ReadonlyArray copy={copy} isDarkTheme={isDarkTheme} schema={schema} value={value} />;
+    return <ReadonlyArray copy={copy} isDarkTheme={isDarkTheme} language={language} schema={schema} value={value} />;
   }
   if (isRecord(value)) {
-    return <ReadonlyObject copy={copy} isDarkTheme={isDarkTheme} schema={schema} value={value} />;
+    return <ReadonlyObject copy={copy} isDarkTheme={isDarkTheme} language={language} schema={schema} value={value} />;
   }
   return <span className={isDarkTheme ? "break-words text-sm font-bold text-slate-100" : "break-words text-sm font-bold text-slate-900"}>{String(value)}</span>;
 }
@@ -172,11 +171,13 @@ function ReadonlyValue({
 function ReadonlyArray({
   copy,
   isDarkTheme,
+  language,
   schema,
   value,
 }: {
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
+  language: WorkspaceLanguage;
   schema?: JsonRecord;
   value: unknown[];
 }) {
@@ -189,7 +190,7 @@ function ReadonlyArray({
     return (
       <div className="flex flex-wrap gap-1.5 sm:justify-end">
         {value.map((item, index) => {
-          const label = schemaOptionLabel(itemSchema, item, copy) ?? String(item);
+          const label = schemaOptionLabel(itemSchema, item, language) ?? String(item);
           return (
             <span key={`${index}-${String(item)}`} className={isDarkTheme ? "rounded-full bg-white/[0.055] px-2 py-1 text-xs font-black text-slate-300" : "rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-700"}>{label}</span>
           );
@@ -202,7 +203,7 @@ function ReadonlyArray({
       {value.map((item, index) => (
         <div key={index} className={isDarkTheme ? "rounded-xl border border-white/[0.065] bg-white/[0.035] p-2" : "rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] p-2"}>
           <div className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{rendererCopy.itemLabel(index + 1)}</div>
-          <ReadonlyValue copy={copy} isDarkTheme={isDarkTheme} schema={itemSchema} value={item} />
+          <ReadonlyValue copy={copy} isDarkTheme={isDarkTheme} language={language} schema={itemSchema} value={item} />
         </div>
       ))}
     </div>
@@ -273,11 +274,13 @@ function createSignalSourceConfigViewModel(
 function ReadonlyObject({
   copy,
   isDarkTheme,
+  language,
   schema,
   value,
 }: {
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
+  language: WorkspaceLanguage;
   schema?: JsonRecord;
   value: JsonRecord;
 }) {
@@ -289,11 +292,11 @@ function ReadonlyObject({
     <dl className="grid gap-1.5 text-left">
       {entries.map(([key, itemValue]) => {
         const propertySchema = propertySchemaForKey(schema, key);
-        const label = schemaDisplayLabel(propertySchema, copy, labelForKey(copy.workspace.accountCenter.strategySchema, key));
+        const label = schemaDisplayLabel(propertySchema, language, labelForKey(copy.workspace.accountCenter.strategySchema, key));
         return (
           <div key={key} className={isDarkTheme ? "rounded-lg bg-white/[0.035] px-2 py-1.5" : "rounded-lg bg-slate-50 px-2 py-1.5"}>
             <dt className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{label}</dt>
-            <dd className="mt-1"><ReadonlyValue copy={copy} isDarkTheme={isDarkTheme} schema={propertySchema} value={itemValue} /></dd>
+            <dd className="mt-1"><ReadonlyValue copy={copy} isDarkTheme={isDarkTheme} language={language} schema={propertySchema} value={itemValue} /></dd>
           </div>
         );
       })}
@@ -307,13 +310,14 @@ function createReadonlySections(
   formData: JsonRecord,
   rendererCopy: StrategySchemaCopy,
   copy: WorkspaceCopy,
+  language: WorkspaceLanguage,
 ): UiSection[] {
   const uiSections = Array.isArray(uiSchema?.sections) ? uiSchema.sections : null;
   if (uiSections) {
-    return createSectionsFromUiSections(schema, uiSections, formData, rendererCopy, copy);
+    return createSectionsFromUiSections(schema, uiSections, formData, rendererCopy, copy, language);
   }
 
-  const branchSections = createBranchReadonlySections(schema, uiSchema, formData, rendererCopy, copy);
+  const branchSections = createBranchReadonlySections(schema, uiSchema, formData, rendererCopy, copy, language);
   if (branchSections.length > 0) {
     return branchSections;
   }
@@ -321,13 +325,13 @@ function createReadonlySections(
   const properties = isRecord(schema.properties) ? schema.properties : {};
   return [{
     fields: Object.entries(properties).map(([key, childSchema]) => ({
-      description: schemaDisplayDescription(childSchema, copy),
-      label: schemaDisplayLabel(childSchema, copy, labelForKey(rendererCopy, key)),
+      description: schemaDisplayDescription(childSchema, language),
+      label: schemaDisplayLabel(childSchema, language, labelForKey(rendererCopy, key)),
       path: key,
       schema: isRecord(childSchema) ? childSchema : undefined,
       value: formData[key],
     })),
-    title: schemaDisplayLabel(schema, copy, rendererCopy.configurationFallbackTitle),
+    title: schemaDisplayLabel(schema, language, rendererCopy.configurationFallbackTitle),
   }];
 }
 
@@ -337,6 +341,7 @@ function createSectionsFromUiSections(
   formData: JsonRecord,
   rendererCopy: StrategySchemaCopy,
   copy: WorkspaceCopy,
+  language: WorkspaceLanguage,
   titlePrefix = "",
 ): UiSection[] {
   return uiSections
@@ -351,7 +356,7 @@ function createSectionsFromUiSections(
         fields: section.fields
           .filter(isUiField)
           .sort(compareUiFields)
-          .map((field) => createReadonlyField(schema, field, formData, rendererCopy, copy))
+          .map((field) => createReadonlyField(schema, field, formData, rendererCopy, language))
           .filter(isReadonlyField),
         title: titlePrefix ? `${titlePrefix} · ${sectionTitle}` : sectionTitle,
       };
@@ -364,6 +369,7 @@ function createBranchReadonlySections(
   formData: JsonRecord,
   rendererCopy: StrategySchemaCopy,
   copy: WorkspaceCopy,
+  language: WorkspaceLanguage,
 ): UiSection[] {
   const properties = isRecord(schema.properties) ? schema.properties : {};
   const branchSections: UiSection[] = [];
@@ -373,13 +379,13 @@ function createBranchReadonlySections(
     }
     const branchData = isRecord(formData[branchKey]) ? formData[branchKey] : {};
     const branchUiSchema = isRecord(uiSchema?.[branchKey]) ? uiSchema[branchKey] : undefined;
-    const branchTitle = schemaDisplayLabel(branchSchema, copy, labelForKey(rendererCopy, branchKey));
+    const branchTitle = schemaDisplayLabel(branchSchema, language, labelForKey(rendererCopy, branchKey));
     const branchUiSections = Array.isArray(branchUiSchema?.sections) ? branchUiSchema.sections : null;
     if (branchUiSections) {
-      branchSections.push(...createSectionsFromUiSections(branchSchema, branchUiSections, branchData, rendererCopy, copy, branchTitle));
+      branchSections.push(...createSectionsFromUiSections(branchSchema, branchUiSections, branchData, rendererCopy, copy, language, branchTitle));
       continue;
     }
-    branchSections.push(...createSectionsFromObjectSchema(branchSchema, branchData, rendererCopy, copy, branchTitle));
+    branchSections.push(...createSectionsFromObjectSchema(branchSchema, branchData, rendererCopy, copy, language, branchTitle));
   }
   return branchSections;
 }
@@ -389,6 +395,7 @@ function createSectionsFromObjectSchema(
   formData: JsonRecord,
   rendererCopy: StrategySchemaCopy,
   copy: WorkspaceCopy,
+  language: WorkspaceLanguage,
   titlePrefix = "",
 ): UiSection[] {
   const properties = isRecord(schema.properties) ? schema.properties : {};
@@ -401,25 +408,25 @@ function createSectionsFromObjectSchema(
     if (childRecord && isRecord(childRecord.properties)) {
       const childFields = Object.entries(childRecord.properties).map(([fieldKey, fieldSchema]) => createSchemaField({
         key: fieldKey,
-        copy,
+        language,
         rendererCopy,
         schema: fieldSchema,
         value: isRecord(value) ? value[fieldKey] : undefined,
       }));
       sections.push({
-        description: schemaDisplayDescription(childRecord, copy),
+        description: schemaDisplayDescription(childRecord, language),
         fields: childFields,
-        title: joinSectionTitle(titlePrefix, schemaDisplayLabel(childRecord, copy, labelForKey(rendererCopy, key))),
+        title: joinSectionTitle(titlePrefix, schemaDisplayLabel(childRecord, language, labelForKey(rendererCopy, key))),
       });
       continue;
     }
-    scalarFields.push(createSchemaField({ copy, key, rendererCopy, schema: childSchema, value }));
+    scalarFields.push(createSchemaField({ key, language, rendererCopy, schema: childSchema, value }));
   }
 
   if (scalarFields.length > 0) {
     sections.unshift({
       fields: scalarFields,
-      title: titlePrefix || schemaDisplayLabel(schema, copy, rendererCopy.configurationFallbackTitle),
+      title: titlePrefix || schemaDisplayLabel(schema, language, rendererCopy.configurationFallbackTitle),
     });
   }
 
@@ -427,22 +434,22 @@ function createSectionsFromObjectSchema(
 }
 
 function createSchemaField({
-  copy,
   key,
+  language,
   rendererCopy,
   schema,
   value,
 }: {
-  copy: WorkspaceCopy;
   key: string;
+  language: WorkspaceLanguage;
   rendererCopy: StrategySchemaCopy;
   schema: unknown;
   value: unknown;
 }): ReadonlyField {
   const schemaRecord = isRecord(schema) ? schema : undefined;
   return {
-    description: schemaDisplayDescription(schemaRecord, copy),
-    label: schemaDisplayLabel(schemaRecord, copy, labelForKey(rendererCopy, key)),
+    description: schemaDisplayDescription(schemaRecord, language),
+    label: schemaDisplayLabel(schemaRecord, language, labelForKey(rendererCopy, key)),
     path: key,
     schema: schemaRecord,
     value,
@@ -454,7 +461,7 @@ function createReadonlyField(
   field: UiField,
   formData: JsonRecord,
   rendererCopy: StrategySchemaCopy,
-  copy: WorkspaceCopy,
+  language: WorkspaceLanguage,
 ): ReadonlyField | null {
   if (field.visibleWhen && !evaluateCondition(field.visibleWhen, formData)) {
     return null;
@@ -462,8 +469,8 @@ function createReadonlyField(
   const fieldSchema = schemaAtPath(schema, field.path);
   const fallbackKey = field.path.split(".").pop() ?? field.path;
   return {
-    description: fieldSchema && hasSchemaDisplayDescription(fieldSchema) ? schemaDisplayDescription(fieldSchema, copy) : typeof field.help === "string" ? field.help : schemaDisplayDescription(fieldSchema, copy),
-    label: fieldSchema && hasSchemaDisplayLabel(fieldSchema) ? schemaDisplayLabel(fieldSchema, copy, labelForKey(rendererCopy, fallbackKey)) : typeof field.label === "string" ? field.label : schemaDisplayLabel(fieldSchema, copy, labelForKey(rendererCopy, fallbackKey)),
+    description: fieldSchema && hasSchemaDisplayDescription(fieldSchema) ? schemaDisplayDescription(fieldSchema, language) : typeof field.help === "string" ? field.help : schemaDisplayDescription(fieldSchema, language),
+    label: fieldSchema && hasSchemaDisplayLabel(fieldSchema) ? schemaDisplayLabel(fieldSchema, language, labelForKey(rendererCopy, fallbackKey)) : typeof field.label === "string" ? field.label : schemaDisplayLabel(fieldSchema, language, labelForKey(rendererCopy, fallbackKey)),
     path: field.path,
     schema: fieldSchema ?? undefined,
     value: getValueAtPath(formData, field.path),

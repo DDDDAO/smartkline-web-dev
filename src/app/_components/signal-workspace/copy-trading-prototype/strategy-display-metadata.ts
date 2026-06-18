@@ -1,4 +1,4 @@
-import { WORKSPACE_COPY, type WorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { WorkspaceLanguage } from "@/app/_lib/i18n";
 import type {
   TradingFoxActionDefinition,
   TradingFoxDisplayMetadata,
@@ -25,20 +25,16 @@ const SCHEMA_NODE_KEYS = new Set([
 ]);
 const SCHEMA_ARRAY_KEYS = new Set(["allOf", "anyOf", "oneOf", "prefixItems"]);
 
-export function resolveWorkspaceDisplayLanguage(copy: WorkspaceCopy): WorkspaceLanguage {
-  return copy === WORKSPACE_COPY["en-US"] ? "en-US" : "zh-CN";
-}
-
 export function localizedDisplayText(
   text: TradingFoxLocalizedText | undefined,
-  copy: WorkspaceCopy,
+  language: WorkspaceLanguage,
   fallback = "",
 ): string {
   if (!text) {
     return fallback;
   }
 
-  for (const locale of prioritizedLocales(copy)) {
+  for (const locale of prioritizedLocales(language)) {
     const value = normalizeDisplayString(text[locale]);
     if (value) {
       return value;
@@ -54,53 +50,53 @@ export function localizedDisplayText(
 
 export function strategyDefinitionLabel(
   definition: TradingFoxStrategyDefinitionSummary,
-  copy: WorkspaceCopy,
+  language: WorkspaceLanguage,
 ): string {
-  return localizedDisplayText(definition.display?.label, copy, definition.name || definition.id);
+  return localizedDisplayText(definition.display?.label, language, definition.name || definition.id);
 }
 
 export function strategyDefinitionDescription(
   definition: TradingFoxStrategyDefinitionSummary,
-  copy: WorkspaceCopy,
+  language: WorkspaceLanguage,
   fallback = "",
 ): string {
-  return localizedDisplayText(definition.display?.description, copy, definition.description || fallback);
+  return localizedDisplayText(definition.display?.description, language, definition.description || fallback);
 }
 
-export function actionDefinitionLabel(action: TradingFoxActionDefinition, copy: WorkspaceCopy): string {
-  return localizedDisplayText(action.display?.label, copy, action.label || action.id);
+export function actionDefinitionLabel(action: TradingFoxActionDefinition, language: WorkspaceLanguage): string {
+  return localizedDisplayText(action.display?.label, language, action.label || action.id);
 }
 
-export function actionDefinitionDescription(action: TradingFoxActionDefinition, copy: WorkspaceCopy): string {
-  return localizedDisplayText(action.display?.description, copy, action.description || "");
+export function actionDefinitionDescription(action: TradingFoxActionDefinition, language: WorkspaceLanguage): string {
+  return localizedDisplayText(action.display?.description, language, action.description || "");
 }
 
 export function schemaDisplayLabel(
   schema: unknown,
-  copy: WorkspaceCopy,
+  language: WorkspaceLanguage,
   fallback: string,
 ): string {
   const record = isRecord(schema) ? schema : undefined;
-  return localizedDisplayText(readDisplayMetadata(record)?.label, copy, stringProperty(record, "title") || fallback);
+  return localizedDisplayText(readDisplayMetadata(record)?.label, language, stringProperty(record, "title") || fallback);
 }
 
-export function schemaDisplayDescription(schema: unknown, copy: WorkspaceCopy): string | undefined {
+export function schemaDisplayDescription(schema: unknown, language: WorkspaceLanguage): string | undefined {
   const record = isRecord(schema) ? schema : undefined;
   const description = localizedDisplayText(
     readDisplayMetadata(record)?.description,
-    copy,
+    language,
     stringProperty(record, "description"),
   );
   return description || undefined;
 }
 
-export function schemaOptionLabel(schema: unknown, value: unknown, copy: WorkspaceCopy): string | null {
+export function schemaOptionLabel(schema: unknown, value: unknown, language: WorkspaceLanguage): string | null {
   const record = isRecord(schema) ? schema : undefined;
   const displayOption = optionDisplayMetadata(record, value);
   const oneOfTitle = oneOfOptionTitle(record, value);
   const enumName = enumNameForValue(record, value);
   const fallback = oneOfTitle || enumName;
-  const label = localizedDisplayText(displayOption?.label, copy, fallback);
+  const label = localizedDisplayText(displayOption?.label, language, fallback);
   return label || null;
 }
 
@@ -112,19 +108,19 @@ export function hasSchemaDisplayDescription(schema: unknown): boolean {
   return Boolean(readDisplayMetadata(isRecord(schema) ? schema : undefined)?.description);
 }
 
-export function withStrategyDisplayMetadata(schema: JsonRecord, copy: WorkspaceCopy): JsonRecord {
-  return transformSchemaNode(schema, copy, true) as JsonRecord;
+export function withStrategyDisplayMetadata(schema: JsonRecord, language: WorkspaceLanguage): JsonRecord {
+  return transformSchemaNode(schema, language, true) as JsonRecord;
 }
 
 export function withoutStrategyDisplayMetadata(schema: JsonRecord): JsonRecord {
   return transformSchemaNode(schema, undefined, false) as JsonRecord;
 }
 
-export function createStrategyDisplayUiSchema(schema: JsonRecord | undefined, copy: WorkspaceCopy): JsonRecord {
+export function createStrategyDisplayUiSchema(schema: JsonRecord | undefined, language: WorkspaceLanguage): JsonRecord {
   if (!schema) {
     return {};
   }
-  return createDisplayUiSchemaNode(schema, copy);
+  return createDisplayUiSchemaNode(schema, language);
 }
 
 export function mergeUiSchemas(base: JsonRecord, override: JsonRecord): JsonRecord {
@@ -157,12 +153,11 @@ export function propertySchemaForKey(schema: JsonRecord | undefined, key: string
   return properties && isRecord(properties[key]) ? properties[key] : undefined;
 }
 
-function prioritizedLocales(copy: WorkspaceCopy): readonly WorkspaceLanguage[] {
-  const primary = resolveWorkspaceDisplayLanguage(copy);
-  return [primary, ...FALLBACK_DISPLAY_LOCALES.filter((locale) => locale !== primary)];
+function prioritizedLocales(language: WorkspaceLanguage): readonly WorkspaceLanguage[] {
+  return [language, ...FALLBACK_DISPLAY_LOCALES.filter((locale) => locale !== language)];
 }
 
-function transformSchemaNode(value: unknown, copy: WorkspaceCopy | undefined, applyDisplay: boolean): unknown {
+function transformSchemaNode(value: unknown, language: WorkspaceLanguage | undefined, applyDisplay: boolean): unknown {
   if (!isRecord(value)) {
     return cloneJsonValue(value);
   }
@@ -173,42 +168,42 @@ function transformSchemaNode(value: unknown, copy: WorkspaceCopy | undefined, ap
       continue;
     }
     if (SCHEMA_MAP_KEYS.has(key) && isRecord(childValue)) {
-      output[key] = transformSchemaMap(childValue, copy, applyDisplay);
+      output[key] = transformSchemaMap(childValue, language, applyDisplay);
       continue;
     }
     if (SCHEMA_NODE_KEYS.has(key) && isRecord(childValue)) {
-      output[key] = transformSchemaNode(childValue, copy, applyDisplay);
+      output[key] = transformSchemaNode(childValue, language, applyDisplay);
       continue;
     }
     if (key === "items" && Array.isArray(childValue)) {
-      output[key] = childValue.map((item) => transformSchemaNode(item, copy, applyDisplay));
+      output[key] = childValue.map((item) => transformSchemaNode(item, language, applyDisplay));
       continue;
     }
     if (SCHEMA_ARRAY_KEYS.has(key) && Array.isArray(childValue)) {
-      output[key] = childValue.map((item) => transformSchemaNode(item, copy, applyDisplay));
+      output[key] = childValue.map((item) => transformSchemaNode(item, language, applyDisplay));
       continue;
     }
     output[key] = cloneJsonValue(childValue);
   }
 
-  if (applyDisplay && copy) {
-    applySchemaDisplay(output, value, copy);
+  if (applyDisplay && language) {
+    applySchemaDisplay(output, value, language);
   }
   return output;
 }
 
-function transformSchemaMap(schemaMap: JsonRecord, copy: WorkspaceCopy | undefined, applyDisplay: boolean): JsonRecord {
+function transformSchemaMap(schemaMap: JsonRecord, language: WorkspaceLanguage | undefined, applyDisplay: boolean): JsonRecord {
   const output: JsonRecord = {};
   for (const [key, schema] of Object.entries(schemaMap)) {
-    output[key] = transformSchemaNode(schema, copy, applyDisplay);
+    output[key] = transformSchemaNode(schema, language, applyDisplay);
   }
   return output;
 }
 
-function applySchemaDisplay(output: JsonRecord, source: JsonRecord, copy: WorkspaceCopy) {
+function applySchemaDisplay(output: JsonRecord, source: JsonRecord, language: WorkspaceLanguage) {
   const display = readDisplayMetadata(source);
-  const label = localizedDisplayText(display?.label, copy);
-  const description = localizedDisplayText(display?.description, copy);
+  const label = localizedDisplayText(display?.label, language);
+  const description = localizedDisplayText(display?.description, language);
   if (label) {
     output.title = label;
   }
@@ -220,8 +215,8 @@ function applySchemaDisplay(output: JsonRecord, source: JsonRecord, copy: Worksp
     output.oneOf = source.enum.map((value, index) => {
       const optionDisplay = optionDisplayMetadata(source, value);
       const optionSchema: JsonRecord = { const: value };
-      const title = localizedDisplayText(optionDisplay?.label, copy, typeof enumNames[index] === "string" ? enumNames[index] : String(value));
-      const optionDescription = localizedDisplayText(optionDisplay?.description, copy);
+      const title = localizedDisplayText(optionDisplay?.label, language, typeof enumNames[index] === "string" ? enumNames[index] : String(value));
+      const optionDescription = localizedDisplayText(optionDisplay?.description, language);
       if (title) {
         optionSchema.title = title;
       }
@@ -235,27 +230,27 @@ function applySchemaDisplay(output: JsonRecord, source: JsonRecord, copy: Worksp
   }
 }
 
-function createDisplayUiSchemaNode(schema: unknown, copy: WorkspaceCopy): JsonRecord {
+function createDisplayUiSchemaNode(schema: unknown, language: WorkspaceLanguage): JsonRecord {
   if (!isRecord(schema)) {
     return {};
   }
 
   const uiSchema: JsonRecord = {};
-  const placeholder = localizedDisplayText(readDisplayMetadata(schema)?.placeholder, copy);
+  const placeholder = localizedDisplayText(readDisplayMetadata(schema)?.placeholder, language);
   if (placeholder) {
     uiSchema["ui:placeholder"] = placeholder;
   }
 
   const properties = isRecord(schema.properties) ? schema.properties : {};
   for (const [key, childSchema] of Object.entries(properties)) {
-    const childUiSchema = createDisplayUiSchemaNode(childSchema, copy);
+    const childUiSchema = createDisplayUiSchemaNode(childSchema, language);
     if (Object.keys(childUiSchema).length > 0) {
       uiSchema[key] = childUiSchema;
     }
   }
 
   if (isRecord(schema.items)) {
-    const itemUiSchema = createDisplayUiSchemaNode(schema.items, copy);
+    const itemUiSchema = createDisplayUiSchemaNode(schema.items, language);
     if (Object.keys(itemUiSchema).length > 0) {
       uiSchema.items = itemUiSchema;
     }

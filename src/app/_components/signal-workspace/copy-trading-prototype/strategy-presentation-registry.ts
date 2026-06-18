@@ -1,3 +1,4 @@
+import { getAppLocaleFromPathname } from "@/i18n/locales";
 import type { PrototypeStrategy, PrototypeStrategyType } from "./types";
 
 export const COPY_TRADING_DEFINITION_ID = "COPY_TRADING";
@@ -8,7 +9,7 @@ export type StrategyDetailPresentation = "dashboard" | "generic";
 
 export type StrategyPresentation = {
   createPresentation: StrategyCreatePresentation;
-  dashboardPath?: string;
+  dashboardRouteSegment?: string;
   detailPresentation: StrategyDetailPresentation;
   strategyType: PrototypeStrategyType;
 };
@@ -27,7 +28,7 @@ const STRATEGY_PRESENTATION_BY_DEFINITION_ID: Record<string, StrategyPresentatio
   },
   [MARIO_DEFINITION_ID]: {
     createPresentation: "marioDashboardHint",
-    dashboardPath: "/mario-dashboard",
+    dashboardRouteSegment: "mario-dashboard",
     detailPresentation: "dashboard",
     strategyType: "mario",
   },
@@ -51,9 +52,17 @@ export function getStrategyTypeForDefinitionId(definitionId: string | null | und
   return getStrategyPresentationForDefinitionId(definitionId).strategyType;
 }
 
-export function getStrategyDashboardPath(strategy: Pick<PrototypeStrategy, "strategyDefinitionId" | "strategyType">): string | null {
+export function getStrategyDashboardPath(
+  strategy: Pick<PrototypeStrategy, "strategyDefinitionId" | "strategyType">,
+  currentPathname: string,
+): string | null {
   const presentation = getStrategyPresentation(strategy);
-  return presentation.detailPresentation === "dashboard" ? presentation.dashboardPath ?? null : null;
+  if (presentation.detailPresentation !== "dashboard" || !presentation.dashboardRouteSegment) {
+    return null;
+  }
+
+  const locale = getAppLocaleFromPathname(currentPathname);
+  return `/${locale}/${presentation.dashboardRouteSegment}`;
 }
 
 function strategyPresentationForStrategyType(strategyType: PrototypeStrategyType): StrategyPresentation {

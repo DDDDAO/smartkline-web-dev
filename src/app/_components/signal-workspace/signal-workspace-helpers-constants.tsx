@@ -9,8 +9,6 @@ import type { CopyTradingPrototypeTarget } from "./copy-trading-prototype";
 import type { WorkspaceProductTab } from "./product-tabs";
 
 export {
-  isWorkspaceLanguage,
-  WORKSPACE_LANGUAGE_STORAGE_KEY,
   type WorkspaceCopy,
   type WorkspaceLanguage,
 } from "@/app/_lib/i18n";
