@@ -3,6 +3,6 @@ import {
   type LegacyKolRoutePageProps,
 } from "../../legacy-kol-route";
 
-export default async function KolPage(props: LegacyKolRoutePageProps) {
+export default async function KolSquareSymbolPage(props: LegacyKolRoutePageProps) {
   await redirectToTopSignalsKolPanel(props);
 }
