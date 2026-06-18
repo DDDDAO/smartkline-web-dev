@@ -1,8 +1,13 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import { NOTIFICATION_CHANNELS } from "./constants";
-import { getLabelClassName, getNotificationIconClassName, getNotificationUnavailableBadgeClassName, getPrimaryButtonClassName } from "./styles";
 
 export function NotificationSettingsPlaceholder({
   copy,
@@ -15,7 +20,7 @@ export function NotificationSettingsPlaceholder({
   const notificationCopy = accountCopy.notifications;
 
   return (
-    <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
+    <Card className={isDarkTheme ? "gap-0 rounded-[28px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[28px] border-[#E5EAF0] bg-white p-4 text-slate-950 shadow-sm"}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-base font-black">{notificationCopy.title}</h2>
@@ -23,9 +28,9 @@ export function NotificationSettingsPlaceholder({
             {notificationCopy.description}
           </p>
         </div>
-        <span className={getNotificationUnavailableBadgeClassName(isDarkTheme)}>
+        <Badge className={getNotificationUnavailableBadgeClassName(isDarkTheme)}>
           {notificationCopy.unavailable}
-        </span>
+        </Badge>
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -38,7 +43,7 @@ export function NotificationSettingsPlaceholder({
           />
         ))}
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -60,11 +65,11 @@ export function NotificationChannelCard({
     ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
     : "rounded-2xl border border-[#E5EAF0] bg-[#FAFBFD] p-3";
   const inputClassName = isDarkTheme
-    ? "mt-2 h-11 w-full cursor-not-allowed rounded-xl border border-white/[0.075] bg-white/[0.025] px-3 text-sm font-semibold text-slate-500 outline-none placeholder:text-slate-700"
-    : "mt-2 h-11 w-full cursor-not-allowed rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 text-sm font-semibold text-slate-500 outline-none placeholder:text-slate-400";
+    ? "mt-2 h-11 cursor-not-allowed rounded-xl border-white/[0.075] bg-white/[0.025] text-sm font-semibold text-slate-500 placeholder:text-slate-700"
+    : "mt-2 h-11 cursor-not-allowed rounded-xl border-[#E5EAF0] bg-[#F8FAFC] text-sm font-semibold text-slate-500 placeholder:text-slate-400";
 
   return (
-    <article className={cardClassName}>
+    <Card className={`${cardClassName} gap-0 py-0`}>
       <div className={isDarkTheme ? "border-b border-white/[0.075] p-4" : "border-b border-[#EEF2F6] p-4"}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
@@ -80,9 +85,9 @@ export function NotificationChannelCard({
               </p>
             </div>
           </div>
-          <span className={getNotificationUnavailableBadgeClassName(isDarkTheme)}>
+          <Badge className={getNotificationUnavailableBadgeClassName(isDarkTheme)}>
             {notificationCopy.unavailable}
-          </span>
+          </Badge>
         </div>
       </div>
 
@@ -97,31 +102,29 @@ export function NotificationChannelCard({
                 {notificationCopy.enableDescription}
               </div>
             </div>
-            <button
+            <Switch
               aria-label={notificationCopy.enableChannel}
-              className={isDarkTheme ? "relative h-6 w-11 cursor-not-allowed rounded-full bg-white/[0.06] opacity-60" : "relative h-6 w-11 cursor-not-allowed rounded-full bg-slate-200 opacity-70"}
+              checked={false}
+              className={isDarkTheme ? "cursor-not-allowed bg-white/[0.06] opacity-60" : "cursor-not-allowed bg-slate-200 opacity-70"}
               disabled
-              type="button"
-            >
-              <span className={isDarkTheme ? "absolute left-1 top-1 h-4 w-4 rounded-full bg-slate-600" : "absolute left-1 top-1 h-4 w-4 rounded-full bg-white"} />
-            </button>
+            />
           </div>
         </div>
 
-        <label className="block">
-          <span className={getLabelClassName(isDarkTheme)}>{notificationCopy.displayName}</span>
-          <input
+        <div className="block">
+          <Label className={getLabelClassName(isDarkTheme)}>{notificationCopy.displayName}</Label>
+          <Input
             className={inputClassName}
             disabled
             readOnly
             value={channelCopy.defaultName}
           />
-        </label>
+        </div>
 
         {channel.requiresWebhookUrl ? (
-          <label className="block">
-            <span className={getLabelClassName(isDarkTheme)}>{notificationCopy.webhookUrl}</span>
-            <input
+          <div className="block">
+            <Label className={getLabelClassName(isDarkTheme)}>{notificationCopy.webhookUrl}</Label>
+            <Input
               className={inputClassName}
               disabled
               placeholder={notificationCopy.webhookPlaceholder}
@@ -131,7 +134,7 @@ export function NotificationChannelCard({
             <div className={isDarkTheme ? "mt-2 text-xs font-bold text-amber-300" : "mt-2 text-xs font-bold text-amber-600"}>
               {notificationCopy.unavailableHint}
             </div>
-          </label>
+          </div>
         ) : (
           <div className={mutedPanelClassName}>
             <div className={isDarkTheme ? "text-xs leading-5 text-slate-400" : "text-xs leading-5 text-slate-600"}>
@@ -145,10 +148,32 @@ export function NotificationChannelCard({
         <span className={isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-500"}>
           {notificationCopy.placeholderStatus}
         </span>
-        <button className={getPrimaryButtonClassName(isDarkTheme)} disabled type="button">
+        <Button className={getPrimaryButtonClassName(isDarkTheme)} disabled type="button">
           {notificationCopy.save}
-        </button>
+        </Button>
       </div>
-    </article>
+    </Card>
   );
+}
+
+function getPrimaryButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "rounded-2xl bg-sky-400 text-slate-950 hover:bg-sky-300"
+    : "rounded-2xl bg-[#16AFF5] text-white hover:bg-[#008DCC]";
+}
+
+function getNotificationUnavailableBadgeClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "shrink-0 rounded-full border-0 bg-amber-400/15 px-2.5 py-1 text-[11px] font-black text-amber-300"
+    : "shrink-0 rounded-full border-0 bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700";
+}
+
+function getNotificationIconClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/[0.075] bg-white/[0.035] text-base"
+    : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#E5EAF0] bg-[#FAFBFD] text-base";
+}
+
+function getLabelClassName(isDarkTheme: boolean): string {
+  return isDarkTheme ? "text-xs font-black text-slate-300" : "text-xs font-black text-slate-700";
 }

@@ -1,12 +1,13 @@
 "use client";
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import { isWalletConnectConfigured } from "@/lib/wallet-connect";
 import type { TradingFoxAccountResponse, TradingFoxHyperliquidAgentBindingStartResponse, TradingFoxHyperliquidSigningAction } from "@/lib/tradingfox-control-plane";
 import { HYPERLIQUID_DEPOSIT_URL } from "./constants";
 import { CheckGlyph, CopyGlyph } from "./icons";
-import { getLabelClassName, getModalSectionClassName, getPrimaryButtonClassName, getSoftButtonClassName, getWhitelistCopyButtonClassName } from "./styles";
+import { getLabelClassName, getModalSectionClassName } from "./styles";
 import type { SignTypedDataMutateAsync as SignTypedDataAsync, SignTypedDataVariables as WagmiSignTypedDataVariables } from "wagmi/query";
 
 export function HyperliquidAgentWalletPanel({
@@ -32,14 +33,14 @@ export function HyperliquidAgentWalletPanel({
   const connectActionLabel = isBinding ? bindingActionLabel : accountCopy.apiSetup.hyperliquidAgentConnectAuthorize;
   const authorizeActionLabel = isBinding ? bindingActionLabel : accountCopy.apiSetup.hyperliquidAgentContinueAuthorize;
   const renderConnectButton = (openConnectModal: (() => void) | undefined) => (
-    <button
+    <Button
       className={getPrimaryButtonClassName(isDarkTheme)}
       disabled={isBinding || !openConnectModal}
       type="button"
       onClick={() => openConnectModal?.()}
     >
       {connectActionLabel}
-    </button>
+    </Button>
   );
 
   return (
@@ -68,22 +69,23 @@ export function HyperliquidAgentWalletPanel({
           {({ account, mounted, openConnectModal }) => (
             mounted && account ? (
               <div className="flex flex-wrap gap-2 sm:justify-end">
-                <button
+                <Button
                   className={getPrimaryButtonClassName(isDarkTheme)}
                   disabled={isBinding}
                   type="button"
                   onClick={() => onBind()}
                 >
                   {authorizeActionLabel}
-                </button>
-                <button
+                </Button>
+                <Button
                   className={getSoftButtonClassName(isDarkTheme)}
                   disabled={isBinding}
                   type="button"
+                  variant="outline"
                   onClick={() => onReset()}
                 >
                   {accountCopy.apiSetup.hyperliquidAgentReconnect}
-                </button>
+                </Button>
               </div>
             ) : renderConnectButton(openConnectModal)
           )}
@@ -169,16 +171,18 @@ export function WhitelistIpCopyPanel({
         <div className={isDarkTheme ? "flex min-h-11 min-w-0 flex-1 items-center break-all rounded-[18px] border border-white/[0.085] bg-[#0F141B] px-3 font-mono text-sm font-black tracking-[0.045em] text-slate-100" : "flex min-h-11 min-w-0 flex-1 items-center break-all rounded-[18px] border border-[#D5E4EF] bg-[#F8FAFC] px-3 font-mono text-sm font-black tracking-[0.045em] text-slate-900"}>
           {isLoading ? accountCopy.apiSetup.whitelistIpLoading : (whitelistIp || accountCopy.apiSetup.whitelistIpUnavailable)}
         </div>
-        <button
+        <Button
           aria-label={accountCopy.apiSetup.copyWhitelistIp}
           className={getWhitelistCopyButtonClassName(isDarkTheme)}
           disabled={!hasWhitelistIp}
+          size="icon"
           title={accountCopy.apiSetup.copyWhitelistIp}
           type="button"
+          variant="outline"
           onClick={onCopy}
         >
           {hasCopiedIp ? <CheckGlyph /> : <CopyGlyph />}
-        </button>
+        </Button>
       </div>
       <p className={whitelistIpError
         ? isDarkTheme ? "mt-3 text-xs leading-5 text-amber-200" : "mt-3 text-xs leading-5 text-amber-700"
@@ -194,6 +198,24 @@ export type TradingFoxWhitelistIPAssignment = {
   assignmentStatus?: "assigned" | "unassigned";
   whitelistIp: string;
 };
+
+function getPrimaryButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "rounded-2xl bg-sky-400 text-slate-950 hover:bg-sky-300"
+    : "rounded-2xl bg-[#16AFF5] text-white hover:bg-[#008DCC]";
+}
+
+function getSoftButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "rounded-2xl border-white/[0.075] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
+    : "rounded-2xl border-[#D5E4EF] bg-white text-slate-700 hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+}
+
+function getWhitelistCopyButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "h-11 w-11 rounded-full border-white/[0.085] bg-white/[0.04] text-slate-300 hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-slate-50"
+    : "h-11 w-11 rounded-full border-[#D5E4EF] bg-white text-slate-500 shadow-sm hover:border-[#BFE7FB] hover:text-slate-900";
+}
 
 export async function requestTradingFoxConnectorWhitelistIP(exchangePlatform: string): Promise<TradingFoxWhitelistIPAssignment> {
   const query = new URLSearchParams({ exchangePlatform });

@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { SourceAvatar } from "../card-ui";
 import type { CopyTradingPrototypeModalProps } from "./types";
 import { getIconButtonClassName, getLabelClassName, getPrimaryButtonClassName, getSoftButtonClassName } from "./styles";
@@ -50,29 +53,26 @@ export function CopyTradingPrototypeModal({
   }
 
   return (
-    <>
-      <button
-        aria-label={copy.common.close}
-        className={isDarkTheme ? "fixed inset-0 z-[95] bg-black/52 backdrop-blur-[4px]" : "fixed inset-0 z-[95] bg-slate-950/24 backdrop-blur-[4px]"}
-        type="button"
-        onClick={onClose}
-      />
-      <section
+    <Sheet open onOpenChange={(open) => {
+      if (!open) {
+        onClose();
+      }
+    }}>
+      <SheetContent
         aria-label={accountCopy.copyTrading.modalTitle}
-        aria-modal="true"
-        className="fixed inset-x-0 bottom-0 z-[100] max-h-[92dvh] overflow-hidden rounded-t-[28px] shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(720px,calc(100dvh-2rem))] sm:max-w-[520px] sm:-translate-y-1/2 sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"
-        role="dialog"
+        className="inset-x-0 bottom-0 max-h-[92dvh] overflow-hidden rounded-t-[28px] p-0 shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(720px,calc(100dvh-2rem))] sm:max-w-[520px] sm:-translate-y-1/2 sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"
+        side="bottom"
       >
         <div className={isDarkTheme ? "flex max-h-[92dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[min(720px,calc(100dvh-2rem))]" : "flex max-h-[92dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[min(720px,calc(100dvh-2rem))]"}>
           <div className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>{accountCopy.copyTrading.copyMode}</div>
-                <h2 className="mt-2 text-xl font-black tracking-tight">{accountCopy.copyTrading.modalTitle}</h2>
+                <SheetTitle className="mt-2 text-xl font-black tracking-tight">{accountCopy.copyTrading.modalTitle}</SheetTitle>
               </div>
-              <button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} type="button" onClick={onClose}>
+              <Button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} size="icon" type="button" variant="outline" onClick={onClose}>
                 <span aria-hidden="true" className="text-lg leading-none">×</span>
-              </button>
+              </Button>
             </div>
             <div className={isDarkTheme ? "mt-5 flex items-center gap-3 rounded-3xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-5 flex items-center gap-3 rounded-3xl border border-[#E5EAF0] bg-[#FAFBFD] p-3"}>
               <SourceAvatar isDarkTheme={isDarkTheme} name={target.trader.name} url={target.trader.avatar} />
@@ -99,8 +99,8 @@ export function CopyTradingPrototypeModal({
                 setStrategyName(value);
               }}
             />
-            <label className="block">
-              <span className={getLabelClassName(isDarkTheme)}>{accountCopy.copyTrading.apiSelect}</span>
+            <div className="block">
+              <Label className={getLabelClassName(isDarkTheme)}>{accountCopy.copyTrading.apiSelect}</Label>
               {availableApiConnections.length > 0 ? (
                 <TradingAccountSelect
                   accountCopy={accountCopy}
@@ -114,7 +114,7 @@ export function CopyTradingPrototypeModal({
                   {apiConnections.length > 0 ? accountCopy.copyTrading.noAvailableAccount : accountCopy.copyTrading.apiRequired}
                 </div>
               )}
-            </label>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <PercentInput
                 copyLabel={accountCopy.copyTrading.takeProfit}
@@ -140,8 +140,8 @@ export function CopyTradingPrototypeModal({
           </div>
 
           <div className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5"}>
-            <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onClose}>{copy.common.close}</button>
-            <button
+            <Button className={getSoftButtonClassName(isDarkTheme)} type="button" variant="outline" onClick={onClose}>{copy.common.close}</Button>
+            <Button
               className={getPrimaryButtonClassName(isDarkTheme)}
               disabled={!canStart}
               type="button"
@@ -162,10 +162,10 @@ export function CopyTradingPrototypeModal({
               }}
             >
               {accountCopy.copyTrading.start}
-            </button>
+            </Button>
           </div>
         </div>
-      </section>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }

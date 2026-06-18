@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
 import type { TradingFoxAccountResponse } from "@/lib/tradingfox-control-plane";
 import type { WorkspaceCopy } from "@/i18n/workspace";
@@ -18,11 +21,6 @@ import {
   NotificationSettingsPlaceholder,
 } from "./copy-trading-prototype-helpers";
 import { ExchangeApiSetupLayer } from "./exchange-api-setup-layer";
-import {
-  getAccountCenterTabButtonClassName,
-  getPrimaryButtonClassName,
-  getSoftButtonClassName,
-} from "./styles";
 
 export function AccountManagementPanel({
   apiConnection,
@@ -79,19 +77,19 @@ export function AccountManagementPanel({
   return (
     <section className="min-h-0 flex-1 px-3 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4 lg:px-6 lg:py-5">
       <div className="mx-auto grid w-full max-w-6xl gap-4 sm:gap-5">
-        <header className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-5 text-slate-100" : "rounded-[28px] border border-[#E5EAF0] bg-white p-5 text-slate-950 shadow-sm"}>
+        <Card className={isDarkTheme ? "gap-0 rounded-[28px] border-white/[0.075] bg-white/[0.035] p-5 text-slate-100 shadow-none" : "gap-0 rounded-[28px] border-[#E5EAF0] bg-white p-5 text-slate-950 shadow-sm"}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h1 className="text-2xl font-black tracking-tight">{accountCopy.drawer.title}</h1>
             </div>
             {telegramUser ? (
-              <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onLogout}>
+              <Button className={getSoftButtonClassName(isDarkTheme)} type="button" variant="outline" onClick={onLogout}>
                 {accountCopy.user.logoutAction}
-              </button>
+              </Button>
             ) : (
-              <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={isAuthLoading} type="button" onClick={onLogin}>
+              <Button className={getPrimaryButtonClassName(isDarkTheme)} disabled={isAuthLoading} type="button" onClick={onLogin}>
                 {isAuthLoading ? accountCopy.user.loading : accountCopy.user.loginAction}
-              </button>
+              </Button>
             )}
           </div>
           <div className={isDarkTheme ? "mt-5 flex items-center gap-3 rounded-3xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-5 flex items-center gap-3 rounded-3xl border border-[#E5EAF0] bg-[#FAFBFD] p-3"}>
@@ -103,31 +101,28 @@ export function AccountManagementPanel({
               </div>
             </div>
           </div>
-        </header>
+        </Card>
 
-        <nav
-          aria-label={accountCopy.drawer.title}
-          className={isDarkTheme ? "grid grid-cols-2 gap-2 rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-2" : "grid grid-cols-2 gap-2 rounded-[24px] border border-[#E5EAF0] bg-[#F8FAFC] p-2"}
-        >
-          {accountTabs.map((tab) => {
-            const isActive = tab.key === activeAccountTab;
-            return (
-              <button
+        <Tabs value={activeAccountTab} onValueChange={(value) => setActiveAccountTab(value as AccountManagementTab)}>
+          <TabsList
+            aria-label={accountCopy.drawer.title}
+            className={isDarkTheme ? "grid h-auto w-full grid-cols-2 gap-2 rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-2" : "grid h-auto w-full grid-cols-2 gap-2 rounded-[24px] border border-[#E5EAF0] bg-[#F8FAFC] p-2"}
+          >
+            {accountTabs.map((tab) => (
+              <TabsTrigger
                 key={tab.key}
-                aria-pressed={isActive}
-                className={getAccountCenterTabButtonClassName(isDarkTheme, isActive)}
-                type="button"
-                onClick={() => setActiveAccountTab(tab.key)}
+                className={getAccountCenterTabButtonClassName(isDarkTheme)}
+                value={tab.key}
               >
                 <span className="truncate text-sm font-black">{tab.label}</span>
-                <span className={isActive ? "mt-0.5 truncate text-[11px] font-bold opacity-80" : "mt-0.5 truncate text-[11px] font-bold opacity-70"}>{tab.meta}</span>
-              </button>
-            );
-          })}
-        </nav>
+                <span className="mt-0.5 truncate text-[11px] font-bold opacity-75">{tab.meta}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         {activeAccountTab === "api" ? (
-          <section className={isDarkTheme ? "rounded-[28px] border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-[28px] border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
+          <Card className={isDarkTheme ? "gap-0 rounded-[28px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[28px] border-[#E5EAF0] bg-white p-4 text-slate-950 shadow-sm"}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-base font-black">{accountCopy.tabs.api}</h2>
@@ -135,9 +130,9 @@ export function AccountManagementPanel({
                   {accountCopy.api.connectedCount(apiConnections.length)}
                 </p>
               </div>
-              <button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
+              <Button className={getPrimaryButtonClassName(isDarkTheme)} type="button" onClick={onApiSetupOpen}>
                 {accountCopy.api.addAction}
-              </button>
+              </Button>
             </div>
             <div className="mt-4 grid gap-3">
               {hasApiConnections ? apiConnections.map((connection) => (
@@ -155,7 +150,7 @@ export function AccountManagementPanel({
                 </div>
               )}
             </div>
-          </section>
+          </Card>
         ) : (
           <NotificationSettingsPlaceholder copy={copy} isDarkTheme={isDarkTheme} />
         )}
@@ -175,4 +170,22 @@ export function AccountManagementPanel({
       ) : null}
     </section>
   );
+}
+
+function getPrimaryButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "rounded-2xl bg-sky-400 text-slate-950 hover:bg-sky-300"
+    : "rounded-2xl bg-[#16AFF5] text-white hover:bg-[#008DCC]";
+}
+
+function getSoftButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "rounded-2xl border-white/[0.075] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
+    : "rounded-2xl border-[#D5E4EF] bg-white text-slate-700 hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+}
+
+function getAccountCenterTabButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "h-auto min-w-0 flex-col items-start rounded-2xl border border-transparent px-4 py-3 text-left text-slate-400 data-[state=active]:border-sky-400/25 data-[state=active]:bg-sky-400/10 data-[state=active]:text-sky-100 data-[state=active]:shadow-[0_0_0_3px_rgba(56,189,248,0.08)]"
+    : "h-auto min-w-0 flex-col items-start rounded-2xl border border-transparent px-4 py-3 text-left text-slate-500 data-[state=active]:border-[#B7E8FC] data-[state=active]:bg-white data-[state=active]:text-[#007DB8] data-[state=active]:shadow-sm";
 }

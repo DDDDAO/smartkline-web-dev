@@ -2,6 +2,8 @@
 
 import { useAccount, useDisconnect, useSignTypedData } from "wagmi";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TradingFoxAccountResponse } from "@/lib/tradingfox-control-plane";
@@ -264,18 +266,15 @@ export function ExchangeApiSetupLayer({
     : "grid min-w-0 gap-4";
 
   return (
-    <>
-      <button
-        aria-label={copy.common.close}
-        className={isDarkTheme ? "fixed inset-0 z-[110] bg-black/58 backdrop-blur-[5px]" : "fixed inset-0 z-[110] bg-slate-950/28 backdrop-blur-[5px]"}
-        type="button"
-        onClick={onClose}
-      />
-      <section
+    <Sheet open onOpenChange={(open) => {
+      if (!open) {
+        onClose();
+      }
+    }}>
+      <SheetContent
         aria-label={accountCopy.apiSetup.title}
-        aria-modal="true"
-        className="fixed inset-x-0 bottom-0 z-[115] h-[96dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:h-[min(920px,calc(100dvh-1rem))] sm:max-w-[920px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
-        role="dialog"
+        className="inset-x-0 bottom-0 h-[96dvh] overflow-hidden rounded-t-[30px] p-0 shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:h-[min(920px,calc(100dvh-1rem))] sm:max-w-[920px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
+        side="bottom"
       >
         <form
           className={isDarkTheme ? "flex h-full flex-col border border-white/[0.085] bg-[#111820] text-slate-100" : "flex h-full flex-col border border-[#D5E4EF] bg-white text-slate-950"}
@@ -287,11 +286,11 @@ export function ExchangeApiSetupLayer({
                 <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>
                   {accountCopy.apiSetup.selectExchange}
                 </div>
-                <h2 className="mt-2 text-xl font-black tracking-tight">{accountCopy.apiSetup.title}</h2>
+                <SheetTitle className="mt-2 text-xl font-black tracking-tight">{accountCopy.apiSetup.title}</SheetTitle>
               </div>
-              <button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} type="button" onClick={onClose}>
+              <Button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} size="icon" type="button" variant="outline" onClick={onClose}>
                 <span aria-hidden="true" className="text-lg leading-none">×</span>
-              </button>
+              </Button>
             </div>
           </header>
 
@@ -303,11 +302,12 @@ export function ExchangeApiSetupLayer({
                 </div>
                 <div className={exchangeSelectorListClassName}>
                   {EXCHANGES.map((exchange) => (
-                    <button
+                    <Button
                       key={exchange.id}
                       className={getExchangeButtonClassName(isDarkTheme, exchange.enabled, exchange.id === selectedExchangeId)}
                       disabled={!exchange.enabled}
                       type="button"
+                      variant="ghost"
                       onClick={() => chooseExchange(exchange)}
                     >
                       <ExchangeIcon enabled={exchange.enabled} exchange={exchange} isDarkTheme={isDarkTheme} />
@@ -317,7 +317,7 @@ export function ExchangeApiSetupLayer({
                       ) : exchange.mode === "demo" ? (
                         <span className={isDarkTheme ? "shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-300" : "shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>{accountCopy.apiSetup.demoBadge}</span>
                       ) : null}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </aside>
@@ -381,14 +381,16 @@ export function ExchangeApiSetupLayer({
                         />
                         <div className="mt-2 flex flex-wrap gap-2">
                           {MOCK_MARGIN_BALANCE_PRESETS.map((amount) => (
-                            <button
+                            <Button
                               key={amount}
                               className={getSoftButtonClassName(isDarkTheme)}
+                              size="sm"
                               type="button"
+                              variant="outline"
                               onClick={() => setMockMarginBalance(String(amount))}
                             >
                               {formatAccountBalance(amount)}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                         <p className={isDarkTheme ? "mt-2 text-xs leading-5 text-slate-500" : "mt-2 text-xs leading-5 text-slate-500"}>{accountCopy.apiSetup.mockMarginBalanceLimit}</p>
@@ -464,20 +466,20 @@ export function ExchangeApiSetupLayer({
           </div>
 
           <footer className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5"}>
-            <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onClose}>{copy.common.close}</button>
+            <Button className={getSoftButtonClassName(isDarkTheme)} type="button" variant="outline" onClick={onClose}>{copy.common.close}</Button>
             {!isHyperliquidExchange ? (
-              <button
+              <Button
                 className={getPrimaryButtonClassName(isDarkTheme)}
                 disabled={!canSave}
                 type="button"
                 onClick={() => void handleManualSave()}
               >
                 {isSavingManual ? accountCopy.apiSetup.saving : accountCopy.apiSetup.save}
-              </button>
+              </Button>
             ) : null}
           </footer>
         </form>
-      </section>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }

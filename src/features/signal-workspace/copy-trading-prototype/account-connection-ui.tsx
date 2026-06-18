@@ -1,15 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import * as SelectPrimitive from "@radix-ui/react-select";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import { EXCHANGES, type PrototypeExchange } from "./constants";
 import type { PrototypeApiConnection } from "./types";
 import { formatAccountBalance } from "./formatters";
 import { ExternalLinkGlyph } from "./icons";
 import { MiniMetric } from "./mini-metric";
-import { getDangerButtonClassName, getExchangeResourceLinkClassName } from "./styles";
 import { getExchangeById, getExchangeName } from "./exchange-utils";
 
 export function ApiConnectionCard({
@@ -46,35 +47,37 @@ export function ApiConnectionCard({
               </div>
               <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
                 {apiConnection.isMock ? (
-                  <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
+                  <Badge className={getSuccessBadgeClassName(isDarkTheme)}>
                     {accountCopy.api.mockBadge}
-                  </span>
+                  </Badge>
                 ) : null}
                 {isBinanceDemoConnection ? (
-                  <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
+                  <Badge className={getSuccessBadgeClassName(isDarkTheme)}>
                     {accountCopy.apiSetup.demoBadge}
-                  </span>
+                  </Badge>
                 ) : null}
                 {apiConnection.recommended ? (
-                  <span className={isDarkTheme ? "rounded-full bg-sky-300/15 px-2 py-0.5 text-[10px] font-black text-sky-100" : "rounded-full bg-[#DDF5FF] px-2 py-0.5 text-[10px] font-black text-[#007DB8]"}>
+                  <Badge className={getInfoBadgeClassName(isDarkTheme)}>
                     {accountCopy.apiSetup.recommendedBadge}
-                  </span>
+                  </Badge>
                 ) : null}
                 {apiConnection.bindingLabel && !apiConnection.isMock ? (
-                  <span className={isDarkTheme ? "rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-slate-300" : "rounded-full bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-black text-slate-600"}>
+                  <Badge className={getNeutralBadgeClassName(isDarkTheme)} variant="secondary">
                     {apiConnection.bindingLabel}
-                  </span>
+                  </Badge>
                 ) : null}
               </div>
             </div>
-            <button
+            <Button
               className={getDangerButtonClassName(isDarkTheme)}
               disabled={isDisabled}
+              size="sm"
               type="button"
+              variant="destructive"
               onClick={() => void onDelete(apiConnection.id)}
             >
               {accountCopy.api.deleteAction}
-            </button>
+            </Button>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <MiniMetric isDarkTheme={isDarkTheme} label={accountCopy.api.accountType} value={exchangeLabel} />
@@ -124,16 +127,18 @@ export function ExchangeResourceLinks({
   return (
     <div className="flex shrink-0 flex-nowrap gap-2 xl:ml-auto xl:justify-end">
       {links.map((link) => (
-        <a
+        <Button
+          asChild
           key={link.label}
           className={getExchangeResourceLinkClassName(isDarkTheme)}
-          href={link.href}
-          rel="noreferrer"
-          target="_blank"
+          size="sm"
+          variant="outline"
         >
-          <span className="whitespace-nowrap">{link.label}</span>
-          <ExternalLinkGlyph />
-        </a>
+          <a href={link.href} rel="noreferrer" target="_blank">
+            <span className="whitespace-nowrap">{link.label}</span>
+            <ExternalLinkGlyph />
+          </a>
+        </Button>
       ))}
     </div>
   );
@@ -190,44 +195,34 @@ export function TradingAccountSelect({
   const selectedConnection = connections.find((connection) => String(connection.id) === value) ?? connections[0];
 
   return (
-    <SelectPrimitive.Root value={value} onValueChange={onChange}>
-      <SelectPrimitive.Trigger
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger
         className={isDarkTheme
-          ? "mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-left text-sm font-bold text-slate-100 outline-none transition hover:bg-white/[0.055] focus:border-sky-400/45 focus:ring-2 focus:ring-sky-400/10 data-[placeholder]:text-slate-500"
-          : "mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-[#D5E4EF] bg-white px-3 py-2 text-left text-sm font-bold text-slate-950 shadow-sm outline-none transition hover:bg-[#F8FAFC] focus:border-[#7DBEFF] focus:ring-2 focus:ring-[#16AFF5]/10 data-[placeholder]:text-slate-400"}
+          ? "mt-2 min-h-12 rounded-2xl border-white/[0.075] bg-white/[0.035] py-2 text-left text-sm font-bold text-slate-100 hover:bg-white/[0.055] focus:ring-sky-400/10 data-[placeholder]:text-slate-500 [&>span]:line-clamp-none"
+          : "mt-2 min-h-12 rounded-2xl border-[#D5E4EF] bg-white py-2 text-left text-sm font-bold text-slate-950 shadow-sm hover:bg-[#F8FAFC] focus:ring-[#16AFF5]/10 data-[placeholder]:text-slate-400 [&>span]:line-clamp-none"}
       >
         <TradingAccountOptionContent accountCopy={accountCopy} connection={selectedConnection} isDarkTheme={isDarkTheme} />
-        <SelectPrimitive.Icon asChild>
-          <span aria-hidden="true" className={isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-400"}>⌄</span>
-        </SelectPrimitive.Icon>
-      </SelectPrimitive.Trigger>
-      <SelectPrimitive.Portal>
-        <SelectPrimitive.Content
-          className={isDarkTheme
-            ? "z-[130] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
-            : "z-[130] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
-          position="popper"
-          sideOffset={8}
-        >
-          <SelectPrimitive.Viewport className="grid gap-1">
-            {connections.map((connection) => (
-              <SelectPrimitive.Item
-                key={connection.id}
-                className={isDarkTheme
-                  ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-sky-400/10 data-[state=checked]:text-sky-100"
-                  : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-[#F8FAFC] data-[state=checked]:bg-[#EAF8FE] data-[state=checked]:text-[#007DB8]"}
-                value={String(connection.id)}
-              >
-                <SelectPrimitive.ItemText asChild>
-                  <TradingAccountOptionContent accountCopy={accountCopy} connection={connection} isDarkTheme={isDarkTheme} />
-                </SelectPrimitive.ItemText>
-                <SelectPrimitive.ItemIndicator className="text-xs font-black">✓</SelectPrimitive.ItemIndicator>
-              </SelectPrimitive.Item>
-            ))}
-          </SelectPrimitive.Viewport>
-        </SelectPrimitive.Content>
-      </SelectPrimitive.Portal>
-    </SelectPrimitive.Root>
+      </SelectTrigger>
+      <SelectContent
+        className={isDarkTheme
+          ? "z-[130] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
+          : "z-[130] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
+        position="popper"
+        sideOffset={8}
+      >
+        {connections.map((connection) => (
+          <SelectItem
+            key={connection.id}
+            className={isDarkTheme
+              ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-sky-400/10 data-[state=checked]:text-sky-100"
+              : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-[#F8FAFC] data-[state=checked]:bg-[#EAF8FE] data-[state=checked]:text-[#007DB8]"}
+            value={String(connection.id)}
+          >
+            <TradingAccountOptionContent accountCopy={accountCopy} connection={connection} isDarkTheme={isDarkTheme} />
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -252,19 +247,19 @@ export function TradingAccountOptionContent({
         </span>
       </span>
       {connection.isMock ? (
-        <span className={isDarkTheme ? "shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
+        <Badge className={getSuccessBadgeClassName(isDarkTheme)}>
           {accountCopy.api.mockBadge}
-        </span>
+        </Badge>
       ) : null}
       {isBinanceDemoConnection ? (
-        <span className={isDarkTheme ? "shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
+        <Badge className={getSuccessBadgeClassName(isDarkTheme)}>
           {accountCopy.apiSetup.demoBadge}
-        </span>
+        </Badge>
       ) : null}
       {connection.recommended ? (
-        <span className={isDarkTheme ? "shrink-0 rounded-full bg-sky-300/15 px-2 py-0.5 text-[10px] font-black text-sky-100" : "shrink-0 rounded-full bg-[#DDF5FF] px-2 py-0.5 text-[10px] font-black text-[#007DB8]"}>
+        <Badge className={getInfoBadgeClassName(isDarkTheme)}>
           {accountCopy.apiSetup.recommendedBadge}
-        </span>
+        </Badge>
       ) : null}
     </span>
   );
@@ -310,4 +305,34 @@ export function createExchangeFallback(exchangePlatform: string): string {
   const fallback = exchangePlatform.replace(/[^a-z0-9]/giu, "").slice(0, 2).toUpperCase();
   return fallback || "API";
 
+}
+
+function getDangerButtonClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "border border-rose-400/20 bg-rose-400/10 text-rose-200 hover:bg-rose-400/15"
+    : "border border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100";
+}
+
+function getExchangeResourceLinkClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "h-9 min-w-[74px] rounded-xl border-white/[0.075] bg-white/[0.08] px-3 text-xs font-black text-slate-200 hover:border-sky-300/25 hover:bg-white/[0.12] hover:text-slate-50"
+    : "h-9 min-w-[74px] rounded-xl border-[#D5E4EF] bg-[#F8FAFC] px-3 text-xs font-black text-slate-700 shadow-sm hover:border-[#BFE7FB] hover:bg-white hover:text-slate-950";
+}
+
+function getSuccessBadgeClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "shrink-0 rounded-full border-0 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200"
+    : "shrink-0 rounded-full border-0 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700";
+}
+
+function getInfoBadgeClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "shrink-0 rounded-full border-0 bg-sky-300/15 px-2 py-0.5 text-[10px] font-black text-sky-100"
+    : "shrink-0 rounded-full border-0 bg-[#DDF5FF] px-2 py-0.5 text-[10px] font-black text-[#007DB8]";
+}
+
+function getNeutralBadgeClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "shrink-0 rounded-full border-0 bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-slate-300"
+    : "shrink-0 rounded-full border-0 bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-black text-slate-600";
 }
