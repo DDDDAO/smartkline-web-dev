@@ -68,8 +68,8 @@ export const AccountManagementPanelWithWallet = dynamic(
 );
 export const StrategyManagementPanel = dynamic(
   () =>
-    import("./copy-trading-prototype/strategy-management-panel").then(
-      (module) => module.StrategyManagementPanel,
+    import("./strategy-management-query-boundary").then(
+      (module) => module.StrategyManagementPanelWithQueryProvider,
     ),
   { loading: () => null },
 );
