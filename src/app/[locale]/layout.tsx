@@ -5,7 +5,7 @@ import { setRequestLocale } from "next-intl/server";
 import Script from "next/script";
 import { Suspense, type ReactNode } from "react";
 
-import { GoogleTagManagerPageView } from "../_components/google-tag-manager-page-view";
+import { GoogleTagManagerPageView } from "@/components/analytics/google-tag-manager-page-view";
 import {
   getHtmlLanguage,
   getWorkspaceLanguageFromAppLocale,

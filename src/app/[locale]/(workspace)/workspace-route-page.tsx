@@ -1,5 +1,5 @@
-import { SignalWorkspace } from "@/app/_components/signal-workspace";
-import type { SignalWorkspaceProps } from "@/app/_components/signal-workspace/signal-workspace-helpers";
+import { SignalWorkspace } from "@/features/signal-workspace";
+import type { SignalWorkspaceProps } from "@/features/signal-workspace";
 
 export function WorkspaceRoutePage({
   initialProductTab = "strategySquare",
