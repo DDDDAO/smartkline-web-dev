@@ -3,7 +3,8 @@
 import dynamic from "next/dynamic";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { WORKSPACE_COPY, type WorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import { useLocale } from "next-intl";
+import { getWorkspaceLanguageFromLocale, type WorkspaceCopy } from "@/app/_lib/i18n";
 import { intervals } from "@/app/_lib/demo-data";
 import { fetchHistoricalCandles, prependHistoricalCandles } from "@/app/_lib/binance-market-data";
 import { toCopyTradingMarketSymbol } from "@/app/_lib/copy-trading-radar-api";
@@ -60,7 +61,7 @@ export function TradeHistoryKlinePanel({
   const candles = candleState.key === chartKey ? candleState.candles : EMPTY_MARKET_CANDLES;
   const canLoadOlderHistory = candleState.key === chartKey ? candleState.canLoadOlderHistory : false;
   const loadError = candleState.key === chartKey ? candleState.error : "";
-  const language = resolveWorkspaceLanguage(copy);
+  const language = getWorkspaceLanguageFromLocale(useLocale());
 
   useEffect(() => {
     setSelectedSymbol(rowSymbol);
@@ -431,10 +432,6 @@ export function createOpenEndedPageRangeLabel(pageOffset: number, visibleCount: 
   }
 
   return `${pageOffset + 1}-${pageOffset + visibleCount}`;
-}
-
-function resolveWorkspaceLanguage(copy: WorkspaceCopy): WorkspaceLanguage {
-  return copy === WORKSPACE_COPY["en-US"] ? "en-US" : "zh-CN";
 }
 
 function isAbortError(error: unknown): boolean {

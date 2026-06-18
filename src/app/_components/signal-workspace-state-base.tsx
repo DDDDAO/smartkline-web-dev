@@ -1,14 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useLocale } from "next-intl";
 
 import type { ChartTimeFocusRequest } from "@/app/_components/kline-chart/types";
 import type { TelegramAuthMeResponse } from "@/app/_lib/auth/telegram-auth";
 import { markets } from "@/app/_lib/demo-data";
 import {
   getWorkspaceCopy,
+  getWorkspaceLanguageFromLocale,
   type WorkspaceCopy,
-  type WorkspaceLanguage,
 } from "@/app/_lib/i18n";
 import {
   createEmptyWorkspaceWatchlist,
@@ -55,7 +56,7 @@ export function useSignalWorkspaceStateBase({
   const [pnlColorMode, setPnlColorMode] =
     useState<PnlColorMode>("positiveGreen");
   const [isPnlColorModeHydrated, setIsPnlColorModeHydrated] = useState(false);
-  const [language, setLanguage] = useState<WorkspaceLanguage>("zh-CN");
+  const language = getWorkspaceLanguageFromLocale(useLocale());
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isMobileKolSheetOpen, setIsMobileKolSheetOpen] = useState(false);
   const [isMobileTopSignalsSheetOpen, setIsMobileTopSignalsSheetOpen] =
@@ -203,7 +204,6 @@ export function useSignalWorkspaceStateBase({
     setIsWatchlistHydrated,
     setIsWorkspaceMotionVisible,
     setKolSignalSourceStatus,
-    setLanguage,
     setLatestMarketCandleUpdate,
     setMarketOptions,
     setPendingCopyTradingTarget,

@@ -95,7 +95,7 @@ export function AccountManagementPanel({
     },
   ];
   const openStrategyDetail = (strategy: PrototypeStrategy) => {
-    const dashboardPath = getStrategyDashboardPath(strategy);
+    const dashboardPath = getStrategyDashboardPath(strategy, window.location.pathname);
     if (dashboardPath) {
       window.location.assign(dashboardPath);
       return;

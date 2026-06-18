@@ -1,7 +1,8 @@
 import type { TelegramAuthMeResponse } from "@/app/_lib/auth/telegram-auth";
 import type { TradingFoxAccountResponse, TradingFoxConnector } from "@/app/_lib/tradingfox-control-plane";
+import { getAppLocaleFromPathname, replacePathnameLocale, type AppLocale } from "@/i18n/locales";
 
-export const ACCOUNT_MANAGEMENT_PATH = "/account";
+const ACCOUNT_MANAGEMENT_ROUTE = "/account";
 
 export const LOGGED_OUT_AUTH_ME: TelegramAuthMeResponse = {
   botBinding: "unbound",
@@ -98,10 +99,21 @@ export function getApiKeySyncStatus(input: {
   };
 }
 
-export function getAccountManagementTarget(isLoggedIn: boolean): string {
-  if (isLoggedIn) {
-    return ACCOUNT_MANAGEMENT_PATH;
+export function getAccountManagementPath(locale: AppLocale): string {
+  return replacePathnameLocale(ACCOUNT_MANAGEMENT_ROUTE, locale);
+}
+
+export function getAccountManagementTarget(input: {
+  currentPathname: string;
+  isLoggedIn: boolean;
+}): string {
+  const accountManagementPath = getAccountManagementPath(
+    getAppLocaleFromPathname(input.currentPathname),
+  );
+
+  if (input.isLoggedIn) {
+    return accountManagementPath;
   }
 
-  return `/api/auth/login?redirect=${encodeURIComponent(ACCOUNT_MANAGEMENT_PATH)}`;
+  return `/api/auth/login?redirect=${encodeURIComponent(accountManagementPath)}`;
 }

@@ -402,7 +402,10 @@ export function MarioDashboard({ className = "" }: { className?: string }) {
     isLoggedIn: authMe.isLoggedIn,
   });
   const switchApiKey = () => {
-    window.location.href = getAccountManagementTarget(authMe.isLoggedIn);
+    window.location.href = getAccountManagementTarget({
+      currentPathname: window.location.pathname,
+      isLoggedIn: authMe.isLoggedIn,
+    });
   };
 
   return (

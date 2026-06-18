@@ -1,8 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "next-intl";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import {
+  getWorkspaceLanguageFromLocale,
+  type WorkspaceCopy,
+  type WorkspaceLanguage,
+} from "@/app/_lib/i18n";
 import type { TradingFoxActionDefinition, TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
 import { createStrategyConfigSkeleton, StrategySchemaRenderer, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import { requestStrategyAction } from "./strategy-detail-utils";
@@ -30,6 +35,7 @@ export function StrategyDetailActionsSection({
   onActionCompleted: (detail?: TradingFoxStrategyDetail) => Promise<void> | void;
 }) {
   const actionDefinitions = strategyDefinition?.capabilities.actionDefinitions ?? [];
+  const language = getWorkspaceLanguageFromLocale(useLocale());
   if (actionDefinitions.length === 0) {
     return null;
   }
@@ -50,6 +56,7 @@ export function StrategyDetailActionsSection({
             detail={detail}
             isActionDisabled={isActionDisabled}
             isDarkTheme={isDarkTheme}
+            language={language}
             strategyCopy={strategyCopy}
             onActionCompleted={onActionCompleted}
           />
@@ -65,6 +72,7 @@ function StrategyActionCard({
   detail,
   isActionDisabled,
   isDarkTheme,
+  language,
   strategyCopy,
   onActionCompleted,
 }: {
@@ -73,6 +81,7 @@ function StrategyActionCard({
   detail: TradingFoxStrategyDetail;
   isActionDisabled: boolean;
   isDarkTheme: boolean;
+  language: WorkspaceLanguage;
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
   onActionCompleted: (detail?: TradingFoxStrategyDetail) => Promise<void> | void;
 }) {
@@ -81,8 +90,8 @@ function StrategyActionCard({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const label = actionDefinitionLabel(action, copy);
-  const description = actionDefinitionDescription(action, copy);
+  const label = actionDefinitionLabel(action, language);
+  const description = actionDefinitionDescription(action, language);
   const hasPayload = hasConfigurablePayload(action.payloadSchema);
   const canSubmit = !isActionDisabled && !isSubmitting && rendererErrors.length === 0;
 

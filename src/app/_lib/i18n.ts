@@ -1,10 +1,9 @@
+import { isAppLocale, type AppLocale } from "@/i18n/locales";
 import { en } from "./i18n/en";
 import { zh } from "./i18n/zh";
 import type { Widen } from "./i18n/widen";
 
 export type WorkspaceLanguage = "zh-CN" | "en-US";
-
-export const WORKSPACE_LANGUAGE_STORAGE_KEY = "smartkline:workspace-language";
 
 export type WorkspaceCopy = Widen<typeof zh>;
 
@@ -17,6 +16,21 @@ export function getWorkspaceCopy(language: WorkspaceLanguage): WorkspaceCopy {
   return WORKSPACE_COPY[language];
 }
 
-export function isWorkspaceLanguage(value: string | null | undefined): value is WorkspaceLanguage {
-  return value === "zh-CN" || value === "en-US";
+export function getWorkspaceLanguageFromAppLocale(locale: AppLocale): WorkspaceLanguage {
+  return locale === "en" ? "en-US" : "zh-CN";
+}
+
+export function getWorkspaceLanguageFromLocale(locale: string): WorkspaceLanguage {
+  if (!isAppLocale(locale)) {
+    throw new Error(`Unsupported app locale: ${locale}`);
+  }
+  return getWorkspaceLanguageFromAppLocale(locale);
+}
+
+export function getAppLocaleFromWorkspaceLanguage(language: WorkspaceLanguage): AppLocale {
+  return language === "en-US" ? "en" : "zh";
+}
+
+export function getHtmlLanguage(language: WorkspaceLanguage): string {
+  return language;
 }

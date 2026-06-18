@@ -6,10 +6,6 @@ import { markets } from "@/app/_lib/demo-data";
 import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import {
-  isWorkspaceLanguage,
-  WORKSPACE_LANGUAGE_STORAGE_KEY,
-} from "@/app/_lib/i18n";
-import {
   createEmptyWorkspaceWatchlist,
   parseWorkspaceWatchlistValue,
   serializeWorkspaceWatchlist,
@@ -47,8 +43,6 @@ export function useSignalWorkspacePrimaryActionLifecycle(
     applyTradingFoxAccount,
     setIsTradingFoxLoading,
     setWorkspaceNotification,
-    language,
-    setLanguage,
     setPnlColorMode,
     pnlColorMode,
     isPnlColorModeHydrated,
@@ -175,32 +169,6 @@ export function useSignalWorkspacePrimaryActionLifecycle(
     isAuthLoading,
     isTradingFoxAccountLoaded,
   ]);
-
-  useEffect(() => {
-    document.documentElement.lang = language;
-    const title = copy.workspace.documentTitle;
-    document.title = title;
-    const timeoutId = window.setTimeout(() => {
-      document.title = title;
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [copy.workspace.documentTitle, language]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      try {
-        const storedLanguage = window.localStorage.getItem(WORKSPACE_LANGUAGE_STORAGE_KEY);
-        if (isWorkspaceLanguage(storedLanguage)) {
-          setLanguage(storedLanguage);
-        }
-      } catch {
-        // Keep the default language when local storage is unavailable.
-      }
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [setLanguage]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {

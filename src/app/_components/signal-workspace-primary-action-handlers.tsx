@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 
 import { type MarketSymbol } from "@/app/_types/market";
 import type { TradingFoxAccountResponse } from "@/app/_lib/tradingfox-control-plane";
@@ -9,15 +10,15 @@ import {
   mapTradingFoxConnectorToPrototypeConnection,
   openExternalTelegramUrl,
   TELEGRAM_DISCUSSION_GROUP_URL,
-  WORKSPACE_LANGUAGE_STORAGE_KEY,
   LOGGED_OUT_AUTH_ME,
 } from "./signal-workspace/signal-workspace-helpers";
 import type {
-  WorkspaceLanguage,
   WorkspaceProductTab,
   WorkspaceRouteState,
 } from "./signal-workspace/signal-workspace-helpers";
 import type { SignalWorkspaceState } from "./signal-workspace-state";
+import { getAppLocaleFromWorkspaceLanguage } from "@/app/_lib/i18n";
+import { replacePathnameLocale } from "@/i18n/locales";
 
 export function useSignalWorkspacePrimaryActionHandlers(
   context: SignalWorkspaceState,
@@ -37,7 +38,6 @@ export function useSignalWorkspacePrimaryActionHandlers(
     language,
     setPnlColorMode,
     setTheme,
-    setLanguage,
     setActiveSignalId,
     setTopSignalsSourceFilterId,
     setActiveTopSignalSourceId,
@@ -139,18 +139,14 @@ export function useSignalWorkspacePrimaryActionHandlers(
     );
   }, [setPnlColorMode]);
 
-  const setWorkspaceLanguage = useCallback((nextLanguage: WorkspaceLanguage) => {
-    setLanguage(nextLanguage);
-    try {
-      window.localStorage.setItem(WORKSPACE_LANGUAGE_STORAGE_KEY, nextLanguage);
-    } catch {
-      // Ignore storage failures in private browsing or restricted webviews.
-    }
-  }, [setLanguage]);
+  const router = useRouter();
 
   const toggleLanguage = useCallback(() => {
-    setWorkspaceLanguage(language === "zh-CN" ? "en-US" : "zh-CN");
-  }, [language, setWorkspaceLanguage]);
+    const nextLanguage = language === "zh-CN" ? "en-US" : "zh-CN";
+    const nextLocale = getAppLocaleFromWorkspaceLanguage(nextLanguage);
+    const nextPathname = replacePathnameLocale(window.location.pathname, nextLocale);
+    router.push(`${nextPathname}${window.location.search}${window.location.hash}`);
+  }, [language, router]);
 
   const applyWorkspaceRouteState = useCallback((
     routeState: WorkspaceRouteState,
@@ -254,7 +250,6 @@ export function useSignalWorkspacePrimaryActionHandlers(
     handleCommunityModalJoin,
     toggleTheme,
     togglePnlColorMode,
-    setWorkspaceLanguage,
     toggleLanguage,
     applyWorkspaceRouteState,
     updateWorkspaceRouteUrl,
