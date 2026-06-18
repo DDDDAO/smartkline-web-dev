@@ -19,7 +19,7 @@ import type {
 } from "./types";
 import { isRecord, normalizeOptionalText, normalizePositiveNumber, parsePositiveInteger, requireText, stringValue } from "./value-utils";
 
-export async function createTradingFoxMockConnector(
+export async function createTradingFoxDemoConnector(
   session: TelegramAuthSession,
   input: CreateMockConnectorInput,
 ): Promise<TradingFoxAccountResponse> {
@@ -35,7 +35,7 @@ export async function createTradingFoxMockConnector(
     body: JSON.stringify({
       credentials,
       exchangePlatform,
-      isMock: true,
+      isMock: exchangePlatform === "Mock",
       mockMarginBalance,
       name: accountName,
       positionSideDual: defaultDemoPositionSideDual(exchangePlatform),
@@ -47,12 +47,27 @@ export async function createTradingFoxMockConnector(
   return getTradingFoxAccount(session);
 }
 
+export async function createTradingFoxMockConnector(
+  session: TelegramAuthSession,
+  input: CreateMockConnectorInput,
+): Promise<TradingFoxAccountResponse> {
+  return createTradingFoxDemoConnector(session, { ...input, exchangePlatform: "Mock" });
+}
+
 export async function createTradingFoxConnector(
   session: TelegramAuthSession,
   input: CreateConnectorInput,
 ): Promise<TradingFoxAccountResponse> {
+  const requestedExchangePlatform = normalizeOptionalText(input.exchangePlatform);
+  const demoExchangePlatform = normalizeDemoExchangePlatform(input.exchangePlatform);
   if (input.isMock === true) {
-    return createTradingFoxMockConnector(session, input);
+    if (requestedExchangePlatform && demoExchangePlatform !== "Mock") {
+      throw new TradingFoxApiError("isMock is only valid for Mock exchange connectors.", 400);
+    }
+    return createTradingFoxDemoConnector(session, { ...input, exchangePlatform: "Mock" });
+  }
+  if (demoExchangePlatform) {
+    return createTradingFoxDemoConnector(session, { ...input, exchangePlatform: demoExchangePlatform });
   }
 
   const userId = tradingFoxUserIdFromSession(session);
@@ -270,8 +285,8 @@ function normalizeDemoExchangePlatform(value: unknown): TradingFoxDemoExchangePl
     return "Mock";
   }
 
-  if (normalizedValue === "binance" || normalizedValue === "binancedemo" || normalizedValue === "bn") {
-    return "Binance";
+  if (normalizedValue === "binancedemo") {
+    return "BinanceDemo";
   }
 
   return null;
@@ -311,7 +326,7 @@ function normalizeLiveExchangePlatform(value: unknown): TradingFoxLiveExchangePl
 }
 
 function defaultDemoAccountName(exchangePlatform: TradingFoxDemoExchangePlatform): string {
-  return exchangePlatform === "Binance" ? "Binance Demo #1" : "Mock Exchange #1";
+  return exchangePlatform === "BinanceDemo" ? "Binance Demo #1" : "Mock Exchange #1";
 }
 
 function defaultLiveAccountName(exchangePlatform: TradingFoxLiveExchangePlatform): string {
@@ -320,7 +335,7 @@ function defaultLiveAccountName(exchangePlatform: TradingFoxLiveExchangePlatform
 
 function defaultDemoPositionSideDual(exchangePlatform: TradingFoxDemoExchangePlatform): boolean {
   /**
-   * Binance Futures demo accounts are usually in one-way mode. Storing those
+   * Binance Futures demo accounts are usually in one-way mode. Creating those
    * connectors as hedge mode makes the worker send LONG/SHORT positionSide
    * params, which Binance rejects with a position-side mismatch.
    */
@@ -337,7 +352,6 @@ function createDemoExchangeCredentials(
 
   return {
     apiKey: requireText(input.apiKey, "apiKey"),
-    enableDemoTrading: true,
     secret: requireText(input.secret, "secret"),
   };
 }
@@ -401,7 +415,7 @@ export async function ensureCopyStrategyConnectorPositionMode(connector: Trading
 }
 
 export function isBinanceDemoConnector(connector: TradingFoxConnector): boolean {
-  return connector.isMock && normalizeDemoExchangePlatform(connector.exchangePlatform) === "Binance";
+  return normalizeDemoExchangePlatform(connector.exchangePlatform) === "BinanceDemo";
 }
 
 export function tradingFoxCopyTradersPath(userId: number): string {
