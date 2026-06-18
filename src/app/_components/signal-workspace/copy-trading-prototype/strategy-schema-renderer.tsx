@@ -5,6 +5,7 @@ import Form from "@rjsf/core";
 import type { FieldTemplateProps, FormContextType, RJSFSchema, RegistryWidgetsType, UiSchema, WidgetProps } from "@rjsf/utils";
 import validator from "@rjsf/validator-ajv8";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import { StrategySchemaReadonlyView } from "./strategy-schema-readonly-view";
 
 export type StrategySchemaRendererMode = "action" | "create" | "edit" | "readonly";
@@ -26,6 +27,7 @@ export function StrategySchemaRenderer({
   isDarkTheme,
   mode,
   schema,
+  signalSourceIdentityById,
   uiSchema,
   onChange,
   onValidationStateChange,
@@ -35,6 +37,7 @@ export function StrategySchemaRenderer({
   isDarkTheme: boolean;
   mode: StrategySchemaRendererMode;
   schema?: JsonRecord;
+  signalSourceIdentityById?: SignalSourceIdentityById;
   uiSchema?: JsonRecord;
   onChange?: (nextFormData: JsonRecord) => void;
   onValidationStateChange?: (state: StrategySchemaRendererState) => void;
@@ -74,6 +77,7 @@ export function StrategySchemaRenderer({
         formData={formData}
         isDarkTheme={isDarkTheme}
         schema={schema}
+        signalSourceIdentityById={signalSourceIdentityById}
         uiSchema={uiSchema}
       />
     );
