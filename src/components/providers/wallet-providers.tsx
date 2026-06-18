@@ -17,7 +17,6 @@ import {
   metaMaskWallet,
   okxWallet,
   rabbyWallet,
-  walletConnectWallet,
 } from "@rainbow-me/rainbowkit/wallets";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, http } from "wagmi";
@@ -188,15 +187,29 @@ const browserInjectedWallet = (params: Parameters<RainbowKitWalletFactory>[0]) =
   };
 };
 
+/**
+ * Keep one WalletConnect fallback family in the config. Mixing RainbowKit's
+ * generic WalletConnect entry with wallet-branded QR fallbacks creates multiple
+ * WalletConnect core clients during Wagmi setup and triggers duplicate-init warnings.
+ */
 const walletGroups = isWalletConnectConfigured
   ? [
       {
         groupName: "推荐",
-        wallets: [walletConnectWallet, metaMaskWallet, binanceWalletWithQrFallback, okxWalletWithQrFallback],
+        wallets: [
+          binanceWalletWithQrFallback,
+          okxWalletWithQrFallback,
+          installedOnlyWallet(metaMaskWallet),
+        ],
       },
       {
         groupName: "流行",
-        wallets: [bybitWalletWithQrFallback, coinbaseWallet, installedOnlyWallet(rabbyWallet), browserInjectedWallet],
+        wallets: [
+          bybitWalletWithQrFallback,
+          installedOnlyWallet(coinbaseWallet),
+          installedOnlyWallet(rabbyWallet),
+          browserInjectedWallet,
+        ],
       },
     ]
   : [
