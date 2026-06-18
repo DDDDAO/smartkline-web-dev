@@ -55,3 +55,11 @@ Include concise sections:
 - Verification: the exact checks run and their results.
 - Notes/Risks: relevant behavior changes, tradeoffs, or follow-up context when
   applicable.
+
+
+## 测例规范
+前端尽量不编写测例，除非用户要求。
+
+## 样式定义
+globals.css 只定义全局的样式，单独组件的样式在组件内使用tailwind来定义。
+新增组件尽量先用shadcn组件，如果没有合适的组件，尝试用shadcn基础组件组合，组合也不行才编写我们自己的组件，tailwind样式规范也遵循shadcn的命名规范。
