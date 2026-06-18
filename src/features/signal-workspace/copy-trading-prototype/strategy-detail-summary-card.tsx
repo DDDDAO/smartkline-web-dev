@@ -7,7 +7,8 @@ import { SourceAvatar } from "../card-ui";
 import { formatDetailCurrency } from "./formatters";
 import { BellGlyph } from "./icons";
 import { MiniMetric } from "./mini-metric";
-import { getStrategyStatusLabel } from "./strategy-helpers";
+import { StrategySourceSummary } from "./strategy-source-summary";
+import { getPrototypeStrategyType, getStrategyStatusLabel } from "./strategy-helpers";
 import {
   getDangerButtonClassName,
   getInlineErrorClassName,
@@ -17,18 +18,21 @@ import {
   getSoftButtonClassName,
   getStrategyStatusClassName,
 } from "./styles";
-import type { PrototypeStrategy, PrototypeStrategyStatus } from "./types";
+import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategyStatus } from "./types";
 
 export function StrategyDetailSummaryCard({
+  availableSignalSources,
   copy,
   detail,
   isDarkTheme,
   isDeletingStrategy,
+  isSyncingPositions,
   isUpdatingLifecycle,
   liveStrategy,
   positionsMetricValue,
   signalSourcesMetricValue,
   shouldShowActionMessage,
+  shouldShowCopyTradingPositionSync,
   strategyCopy,
   syncError,
   syncMessage,
@@ -37,17 +41,21 @@ export function StrategyDetailSummaryCard({
   onDelete,
   onEdit,
   onNotificationOpen,
+  onSyncCopyTradingPositions,
   onUpdateLifecycle,
 }: {
+  availableSignalSources: readonly CopyTradingPrototypeTarget[];
   copy: WorkspaceCopy;
   detail: TradingFoxStrategyDetail | null;
   isDarkTheme: boolean;
   isDeletingStrategy: boolean;
+  isSyncingPositions: boolean;
   isUpdatingLifecycle: boolean;
   liveStrategy: PrototypeStrategy;
   positionsMetricValue: string;
   signalSourcesMetricValue: string;
   shouldShowActionMessage: boolean;
+  shouldShowCopyTradingPositionSync: boolean;
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
   syncError: string;
   syncMessage: string;
@@ -56,6 +64,7 @@ export function StrategyDetailSummaryCard({
   onDelete: () => void;
   onEdit: () => void;
   onNotificationOpen: () => void;
+  onSyncCopyTradingPositions: () => void;
   onUpdateLifecycle: (status: PrototypeStrategyStatus) => void;
 }) {
   return (
@@ -79,6 +88,14 @@ export function StrategyDetailSummaryCard({
           </p>
         </div>
       </div>
+      {getPrototypeStrategyType(liveStrategy) === "copyTrading" ? (
+        <StrategySourceSummary
+          availableSignalSources={availableSignalSources}
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          strategy={liveStrategy}
+        />
+      ) : null}
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs lg:grid-cols-4">
         <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.accountEquity} value={formatDetailCurrency(detail?.account?.equity)} />
         <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={positionsMetricValue} />
@@ -98,6 +115,11 @@ export function StrategyDetailSummaryCard({
       ) : null}
       <div className={isDarkTheme ? "mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/[0.075] pt-4 lg:flex-nowrap" : "mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-[#E5EAF0] pt-4 lg:flex-nowrap"}>
         <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onEdit}>{strategyCopy.edit}</button>
+        {shouldShowCopyTradingPositionSync ? (
+          <button className={getSoftButtonClassName(isDarkTheme)} disabled={isSyncingPositions} type="button" onClick={onSyncCopyTradingPositions}>
+            {isSyncingPositions ? strategyCopy.syncingPositions : strategyCopy.syncPositions}
+          </button>
+        ) : null}
         {liveStrategy.status === "running" ? (
           <button className={getSoftButtonClassName(isDarkTheme)} disabled={isUpdatingLifecycle} type="button" onClick={() => onUpdateLifecycle("paused")}>{isUpdatingLifecycle ? strategyCopy.updating : strategyCopy.pause}</button>
         ) : (

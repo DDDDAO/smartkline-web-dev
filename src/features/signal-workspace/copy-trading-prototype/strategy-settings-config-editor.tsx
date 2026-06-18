@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TradingFoxStrategyDefinition } from "@/lib/tradingfox-control-plane";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
@@ -15,7 +17,9 @@ export function StrategySettingsConfigEditor({
   copy,
   definition,
   definitionError,
+  hiddenStrategyPaths = [],
   isDarkTheme,
+  strategyControls,
   signalSourceIdentityById,
   onBranchChange,
   onRendererStateChange,
@@ -25,7 +29,9 @@ export function StrategySettingsConfigEditor({
   copy: WorkspaceCopy;
   definition: TradingFoxStrategyDefinition | null;
   definitionError: string;
+  hiddenStrategyPaths?: readonly string[];
   isDarkTheme: boolean;
+  strategyControls?: ReactNode;
   signalSourceIdentityById?: SignalSourceIdentityById;
   onBranchChange: (branch: "common" | "strategy", nextBranchConfig: JsonRecord) => void;
   onRendererStateChange: (state: StrategySchemaRendererState) => void;
@@ -69,9 +75,11 @@ export function StrategySettingsConfigEditor({
         isDarkTheme={isDarkTheme}
         title={strategyCreateCopy.genericConfigTitle}
       >
+        {strategyControls ? <div className="mb-3">{strategyControls}</div> : null}
         <StrategySchemaRenderer
           copy={copy}
           formData={recordBranch(config, "strategy")}
+          hiddenPaths={hiddenStrategyPaths}
           isDarkTheme={isDarkTheme}
           mode="edit"
           schema={strategySchema}
@@ -115,11 +123,13 @@ function SettingsConfigSection({
   title: string;
 }) {
   return (
-    <section className={getSettingsConfigSectionClassName(isDarkTheme)}>
-      <h3 className="text-sm font-black">{title}</h3>
-      <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>{description}</p>
-      <div className="mt-3">{children}</div>
-    </section>
+    <Card className={getSettingsConfigSectionClassName(isDarkTheme)}>
+      <CardHeader className="px-0 py-0">
+        <CardTitle className="text-sm font-black">{title}</CardTitle>
+        <CardDescription className={isDarkTheme ? "text-xs leading-5 text-slate-400" : "text-xs leading-5 text-slate-600"}>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="px-0 pb-0 pt-3">{children}</CardContent>
+    </Card>
   );
 }
 
@@ -134,26 +144,29 @@ function SettingsConfigDisclosure({
   isDarkTheme: boolean;
   title: string;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
   return (
-    <details className={getSettingsConfigSectionClassName(isDarkTheme)}>
-      <summary className="cursor-pointer list-none">
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card className={getSettingsConfigSectionClassName(isDarkTheme)}>
+        <CollapsibleTrigger className="w-full text-left">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-black">{title}</h3>
+            <CardTitle className="text-sm font-black">{title}</CardTitle>
             <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>{description}</p>
           </div>
-          <span className={isDarkTheme ? "text-xs font-black text-slate-500" : "text-xs font-black text-slate-400"}>⌄</span>
+          <span className={isDarkTheme ? "text-xs font-black text-slate-500" : "text-xs font-black text-slate-400"}>{isOpen ? "⌃" : "⌄"}</span>
         </div>
-      </summary>
-      <div className="mt-3">{children}</div>
-    </details>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-3">{children}</CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }
 
 function getSettingsConfigSectionClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
-    : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3";
+    ? "gap-0 rounded-2xl border-white/[0.075] bg-white/[0.035] p-3 text-slate-100 shadow-none"
+    : "gap-0 rounded-2xl border-[#E5EAF0] bg-[#F8FAFC] p-3 text-slate-950 shadow-none";
 }
 
 function schemaBranch(schema: JsonRecord | undefined, branch: "common" | "strategy"): JsonRecord | undefined {

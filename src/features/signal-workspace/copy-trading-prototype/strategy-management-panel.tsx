@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type {
@@ -12,9 +12,7 @@ import type {
   PrototypeStrategyStatus,
 } from "./types";
 import { StrategyDetailView } from "./strategy-detail-view";
-import { getStrategyDashboardPath } from "./strategy-presentation-registry";
 import {
-  createSignalSourceTargetById,
   StrategyCreateLayer,
 } from "./copy-trading-prototype-helpers";
 import { PrototypeStrategyCard } from "./prototype-strategy-card";
@@ -53,17 +51,7 @@ export function StrategyManagementPanel({
   const [localSelectedStrategyId, setLocalSelectedStrategyId] = useState<string | null>(null);
   const selectedStrategyId = activeStrategyId || localSelectedStrategyId;
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
-  const followedSignalSourceById = useMemo(
-    () => createSignalSourceTargetById(availableSignalSources),
-    [availableSignalSources],
-  );
-
   const openStrategyDetail = (strategy: PrototypeStrategy) => {
-    const dashboardPath = getStrategyDashboardPath(strategy, window.location.pathname);
-    if (dashboardPath) {
-      window.location.assign(dashboardPath);
-      return;
-    }
     setLocalSelectedStrategyId(strategy.id);
     onStrategyRouteChange(strategy.id, "push");
   };
@@ -109,8 +97,8 @@ export function StrategyManagementPanel({
                 {strategies.length > 0 ? strategies.map((strategy) => (
                   <PrototypeStrategyCard
                     key={strategy.id}
+                    availableSignalSources={availableSignalSources}
                     copy={copy}
-                    followedSignalSource={followedSignalSourceById.get(strategy.traderId) ?? null}
                     isDarkTheme={isDarkTheme}
                     strategy={strategy}
                     onOpenDetail={openStrategyDetail}

@@ -1,25 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "next-intl";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import {
   getWorkspaceLanguageFromLocale,
   type WorkspaceCopy,
 } from "@/i18n/workspace";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
+import { CopyTradingSignalSourceConfigEditor } from "./copy-trading-signal-source-config-editor";
+import {
+  createAvailableSourceById,
+  createCopyTradingConfigWithSourceRows,
+  createCopyTradingSourceRowsFromConfig,
+  updateCopyTradingSourceRow,
+  validateCopyTradingSourceRows,
+  type CopyTradingSignalSourceConfigRow,
+} from "./copy-trading-signal-source-config";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import { requestStrategyConfigValidation } from "./strategy-detail-utils";
 import { getPrototypeStrategyType } from "./strategy-helpers";
 import { StrategySettingsConfigEditor } from "./strategy-settings-config-editor";
 import { validateStrategySchemaData, type StrategySchemaRendererState } from "./strategy-schema-renderer";
-import {
-  getIconButtonClassName,
-  getInlineErrorClassName,
-  getPrimaryButtonClassName,
-  getSoftButtonClassName,
-} from "./styles";
-import type { PrototypeStrategy, PrototypeStrategySettingsUpdateInput } from "./types";
+import { getInlineErrorClassName } from "./styles";
+import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategySettingsUpdateInput } from "./types";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -27,6 +35,7 @@ export function StrategySettingsDialog({
   copy,
   detail,
   isDarkTheme,
+  availableSignalSources = [],
   signalSourceIdentityById,
   strategy,
   strategyDefinition,
@@ -37,6 +46,7 @@ export function StrategySettingsDialog({
   copy: WorkspaceCopy;
   detail?: TradingFoxStrategyDetail | null;
   isDarkTheme: boolean;
+  availableSignalSources?: readonly CopyTradingPrototypeTarget[];
   signalSourceIdentityById?: SignalSourceIdentityById;
   strategy: PrototypeStrategy;
   strategyDefinition?: TradingFoxStrategyDefinition | null;
@@ -53,6 +63,12 @@ export function StrategySettingsDialog({
   const hasConfigEditor = detail !== undefined;
   const [strategyName, setStrategyName] = useState(strategy.traderName);
   const [config, setConfig] = useState<JsonRecord>(() => cloneJsonRecord(detail?.trader.config));
+  const [copyTradingSignalSourceRows, setCopyTradingSignalSourceRows] = useState<CopyTradingSignalSourceConfigRow[]>(() => (
+    isCopyStrategy && detail?.trader.config
+      ? createCopyTradingSourceRowsFromConfig({ availableSignalSources, config: cloneJsonRecord(detail.trader.config) })
+      : []
+  ));
+  const [copyTradingAdvancedSourcesEnabled, setCopyTradingAdvancedSourcesEnabled] = useState(() => copyTradingSignalSourceRows.length > 1);
   const [takeProfitPercent, setTakeProfitPercent] = useState(String(strategy.takeProfitPercent || 20));
   const [stopLossPercent, setStopLossPercent] = useState(String(strategy.stopLossPercent || 10));
   const [rendererState, setRendererState] = useState<StrategySchemaRendererState>({ canSubmit: !hasConfigEditor, errors: [] });
@@ -63,15 +79,55 @@ export function StrategySettingsDialog({
   const parsedTakeProfitPercent = Number(takeProfitPercent);
   const parsedStopLossPercent = Number(stopLossPercent);
   const shouldShowLegacyRiskInputs = isCopyStrategy && !hasConfigEditor;
+  const shouldShowCopyTradingSourceEditor = isCopyStrategy && hasConfigEditor;
+  const hiddenStrategyPaths = shouldShowCopyTradingSourceEditor ? ["signalSourceConfigs"] : [];
+  const hiddenConfigPaths = shouldShowCopyTradingSourceEditor ? ["strategy.signalSourceConfigs"] : [];
+  const copyTradingSignalSourceErrors = useMemo(() => shouldShowCopyTradingSourceEditor ? validateCopyTradingSourceRows({
+    advancedEnabled: copyTradingAdvancedSourcesEnabled,
+    availableSignalSources,
+    copy,
+    rows: copyTradingSignalSourceRows,
+  }) : [], [availableSignalSources, copy, copyTradingAdvancedSourcesEnabled, copyTradingSignalSourceRows, shouldShowCopyTradingSourceEditor]);
   const canSave = normalizedStrategyName.length > 0
     && !isSubmitting
     && (!hasConfigEditor || rendererState.canSubmit)
+    && copyTradingSignalSourceErrors.length === 0
     && (!shouldShowLegacyRiskInputs || (
       Number.isFinite(parsedTakeProfitPercent)
       && Number.isFinite(parsedStopLossPercent)
       && parsedTakeProfitPercent > 0
       && parsedStopLossPercent > 0
     ));
+
+  useEffect(() => {
+    if (!shouldShowCopyTradingSourceEditor) {
+      return;
+    }
+    let isMounted = true;
+    Promise.resolve().then(() => {
+      if (!isMounted) {
+        return;
+      }
+      const sourceById = createAvailableSourceById(availableSignalSources);
+      setCopyTradingSignalSourceRows((currentRows) => {
+        if (currentRows.length > 0) {
+          return currentRows
+            .filter((row) => sourceById.has(row.signalSourceId))
+            .map((row) => updateCopyTradingSourceRow([row], row.rowKey, { signalSourceId: row.signalSourceId }, availableSignalSources)[0])
+            .filter((row): row is CopyTradingSignalSourceConfigRow => row !== undefined);
+        }
+        const rowsFromConfig = createCopyTradingSourceRowsFromConfig({ availableSignalSources, config: cloneJsonRecord(detail?.trader.config) });
+        if (rowsFromConfig.length > 0) {
+          return rowsFromConfig;
+        }
+        return [];
+      });
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [availableSignalSources, detail?.trader.config, shouldShowCopyTradingSourceEditor]);
 
   const updateConfigBranch = (branch: "common" | "strategy", nextBranchConfig: JsonRecord) => {
     setConfig((currentConfig) => ({ ...currentConfig, [branch]: nextBranchConfig }));
@@ -116,8 +172,20 @@ export function StrategySettingsDialog({
     if (!detail || !strategyDefinition) {
       throw new Error(strategyDefinitionError || strategyCopy.settingsConfigUnavailable);
     }
+    const configToSave = shouldShowCopyTradingSourceEditor
+      ? createCopyTradingConfigWithSourceRows({
+        advancedEnabled: copyTradingAdvancedSourcesEnabled,
+        baseConfig: config,
+        rows: copyTradingSignalSourceRows,
+      })
+      : config;
+    if (copyTradingSignalSourceErrors.length > 0) {
+      setValidationErrors(copyTradingSignalSourceErrors);
+      throw new Error(strategyCopy.settingsValidationFailed);
+    }
     const localValidationErrors = validateStrategySchemaData({
-      formData: config,
+      formData: configToSave,
+      hiddenPaths: hiddenConfigPaths,
       language,
       schema: strategyDefinition.configSchema,
       uiSchema: strategyDefinition.uiSchema,
@@ -128,12 +196,12 @@ export function StrategySettingsDialog({
     }
 
     await requestStrategyConfigValidation({
-      config,
+      config: configToSave,
       configSchemaVersion: detail.trader.configSchemaVersion,
       strategyDefinitionId: detail.trader.strategyDefinitionId,
     });
     await onSave({
-      config,
+      config: configToSave,
       configSchemaVersion: detail.trader.configSchemaVersion,
       stopLossPercent: strategy.stopLossPercent,
       strategyDefinitionId: detail.trader.strategyDefinitionId,
@@ -144,100 +212,117 @@ export function StrategySettingsDialog({
   };
 
   return (
-    <>
-      <button
-        aria-label={copy.common.close}
-        className={isDarkTheme ? "fixed inset-0 z-[125] bg-black/58 backdrop-blur-[5px]" : "fixed inset-0 z-[125] bg-slate-950/28 backdrop-blur-[5px]"}
-        type="button"
-        onClick={onClose}
-      />
-      <section
+    <Sheet open onOpenChange={(open) => {
+      if (!open) {
+        onClose();
+      }
+    }}>
+      <SheetContent
         aria-label={strategyCopy.editSettingsTitle}
-        aria-modal="true"
-        className="fixed inset-x-0 bottom-0 z-[130] max-h-[92dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(760px,calc(100dvh-1rem))] sm:max-w-[760px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
-        role="dialog"
+        className={isDarkTheme
+          ? "max-h-[92dvh] overflow-hidden border-white/[0.085] bg-[#111820] p-0 text-slate-100 sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:w-[min(760px,calc(100vw-1.5rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[30px] sm:border"
+          : "max-h-[92dvh] overflow-hidden border-[#D5E4EF] bg-white p-0 text-slate-950 sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:w-[min(760px,calc(100vw-1.5rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[30px] sm:border"}
+        side="bottom"
       >
-        <div className={isDarkTheme ? "flex max-h-[92dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[min(760px,calc(100dvh-1rem))]" : "flex max-h-[92dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[min(760px,calc(100dvh-1rem))]"}>
-          <header className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>{strategyCopy.editSettingsEyebrow}</div>
-                <h2 className="mt-2 text-xl font-black tracking-tight">{strategyCopy.editSettingsTitle}</h2>
-                <p className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
-                  {hasConfigEditor ? strategyCopy.editSettingsDescription : strategyCopy.editLegacySettingsDescription}
-                </p>
-              </div>
-              <button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} type="button" onClick={onClose}>
-                <span aria-hidden="true" className="text-lg leading-none">×</span>
-              </button>
+        <SheetHeader className={isDarkTheme ? "border-b border-white/[0.075]" : "border-b border-[#E5EAF0]"}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>{strategyCopy.editSettingsEyebrow}</div>
+              <SheetTitle className="mt-2 text-xl font-black tracking-tight">{strategyCopy.editSettingsTitle}</SheetTitle>
+              <SheetDescription className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
+                {hasConfigEditor ? strategyCopy.editSettingsDescription : strategyCopy.editLegacySettingsDescription}
+              </SheetDescription>
             </div>
-          </header>
-
-          <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
-            <StrategySettingsTextInput
-              fieldName="strategy-settings-name"
-              isDarkTheme={isDarkTheme}
-              label={strategyCreateCopy.strategyName}
-              placeholder={strategyCreateCopy.strategyNamePlaceholder}
-              value={strategyName}
-              onChange={setStrategyName}
-            />
-
-            {shouldShowLegacyRiskInputs ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <StrategySettingsPercentInput
-                  fieldName="strategy-settings-take-profit"
-                  isDarkTheme={isDarkTheme}
-                  label={copyTradingCopy.takeProfit}
-                  placeholder={copyTradingCopy.takeProfitPlaceholder}
-                  value={takeProfitPercent}
-                  onChange={setTakeProfitPercent}
-                />
-                <StrategySettingsPercentInput
-                  fieldName="strategy-settings-stop-loss"
-                  isDarkTheme={isDarkTheme}
-                  label={copyTradingCopy.stopLoss}
-                  placeholder={copyTradingCopy.stopLossPlaceholder}
-                  value={stopLossPercent}
-                  onChange={setStopLossPercent}
-                />
-              </div>
-            ) : null}
-
-            {hasConfigEditor ? (
-              <StrategySettingsConfigEditor
-                config={config}
-                configSchemaVersion={detail?.trader.configSchemaVersion ?? 0}
-                copy={copy}
-                definition={strategyDefinition ?? null}
-                definitionError={strategyDefinitionError}
-                isDarkTheme={isDarkTheme}
-                signalSourceIdentityById={signalSourceIdentityById}
-                onBranchChange={updateConfigBranch}
-                onRendererStateChange={setRendererState}
-              />
-            ) : null}
-
-            {validationErrors.length > 0 ? (
-              <div className={getInlineErrorClassName(isDarkTheme)}>
-                <div className="font-black">{strategyCopy.settingsValidationTitle}</div>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5">
-                  {validationErrors.map((error) => <li key={error}>{error}</li>)}
-                </ul>
-              </div>
-            ) : null}
-            {submitError ? <p className={getInlineErrorClassName(isDarkTheme)}>{submitError}</p> : null}
+            <Button
+              aria-label={copy.common.close}
+              className={isDarkTheme ? "rounded-full border-white/[0.075] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-slate-50" : "rounded-full border-[#E5EAF0] bg-white text-slate-500 hover:border-[#BFE7FB] hover:text-slate-900"}
+              size="icon"
+              type="button"
+              variant="outline"
+              onClick={onClose}
+            >
+              <span aria-hidden="true" className="text-lg leading-none">×</span>
+            </Button>
           </div>
+        </SheetHeader>
 
-          <footer className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5"}>
-            <button className={getSoftButtonClassName(isDarkTheme)} type="button" onClick={onClose}>{copy.common.close}</button>
-            <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canSave} type="button" onClick={() => void saveSettings()}>
-              {isSubmitting ? strategyCopy.savingSettings : strategyCopy.saveSettings}
-            </button>
-          </footer>
+        <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+          <StrategySettingsTextInput
+            fieldName="strategy-settings-name"
+            isDarkTheme={isDarkTheme}
+            label={strategyCreateCopy.strategyName}
+            placeholder={strategyCreateCopy.strategyNamePlaceholder}
+            value={strategyName}
+            onChange={setStrategyName}
+          />
+
+          {shouldShowLegacyRiskInputs ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <StrategySettingsPercentInput
+                fieldName="strategy-settings-take-profit"
+                isDarkTheme={isDarkTheme}
+                label={copyTradingCopy.takeProfit}
+                placeholder={copyTradingCopy.takeProfitPlaceholder}
+                value={takeProfitPercent}
+                onChange={setTakeProfitPercent}
+              />
+              <StrategySettingsPercentInput
+                fieldName="strategy-settings-stop-loss"
+                isDarkTheme={isDarkTheme}
+                label={copyTradingCopy.stopLoss}
+                placeholder={copyTradingCopy.stopLossPlaceholder}
+                value={stopLossPercent}
+                onChange={setStopLossPercent}
+              />
+            </div>
+          ) : null}
+
+          {hasConfigEditor ? (
+            <StrategySettingsConfigEditor
+              config={config}
+              configSchemaVersion={detail?.trader.configSchemaVersion ?? 0}
+              copy={copy}
+              definition={strategyDefinition ?? null}
+              definitionError={strategyDefinitionError}
+              hiddenStrategyPaths={hiddenStrategyPaths}
+              isDarkTheme={isDarkTheme}
+              signalSourceIdentityById={signalSourceIdentityById}
+              strategyControls={shouldShowCopyTradingSourceEditor ? (
+                <CopyTradingSignalSourceConfigEditor
+                  advancedEnabled={copyTradingAdvancedSourcesEnabled}
+                  availableSignalSources={availableSignalSources}
+                  copy={copy}
+                  errors={copyTradingSignalSourceErrors}
+                  isDarkTheme={isDarkTheme}
+                  rows={copyTradingSignalSourceRows}
+                  onAdvancedEnabledChange={setCopyTradingAdvancedSourcesEnabled}
+                  onRowsChange={setCopyTradingSignalSourceRows}
+                />
+              ) : null}
+              onBranchChange={updateConfigBranch}
+              onRendererStateChange={setRendererState}
+            />
+          ) : null}
+
+          {validationErrors.length > 0 ? (
+            <div className={getInlineErrorClassName(isDarkTheme)}>
+              <div className="font-black">{strategyCopy.settingsValidationTitle}</div>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5">
+                {validationErrors.map((error) => <li key={error}>{error}</li>)}
+              </ul>
+            </div>
+          ) : null}
+          {submitError ? <p className={getInlineErrorClassName(isDarkTheme)}>{submitError}</p> : null}
         </div>
-      </section>
-    </>
+
+        <SheetFooter className={isDarkTheme ? "border-t border-white/[0.075]" : "border-t border-[#E5EAF0]"}>
+          <Button className={isDarkTheme ? "border-white/[0.075] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]" : "border-[#D5E4EF] bg-white text-slate-700 hover:bg-[#F8FAFC]"} type="button" variant="outline" onClick={onClose}>{copy.common.close}</Button>
+          <Button disabled={!canSave} type="button" onClick={() => void saveSettings()}>
+            {isSubmitting ? strategyCopy.savingSettings : strategyCopy.saveSettings}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -257,17 +342,17 @@ function StrategySettingsTextInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block" htmlFor={fieldName}>
-      <span className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.13em] text-slate-500" : "text-[11px] font-black uppercase tracking-[0.13em] text-slate-400"}>{label}</span>
-      <input
-        className={isDarkTheme ? "mt-2 h-12 w-full rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 text-sm font-semibold text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-sky-400/45" : "mt-2 h-12 w-full rounded-2xl border border-[#D5E4EF] bg-white px-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#7DBEFF]"}
+    <div className="space-y-2">
+      <Label className={isDarkTheme ? "text-[11px] uppercase tracking-[0.13em] text-slate-500" : "text-[11px] uppercase tracking-[0.13em] text-slate-400"} htmlFor={fieldName}>{label}</Label>
+      <Input
+        className={isDarkTheme ? "h-12 rounded-2xl border-white/[0.075] bg-white/[0.035] text-slate-100 placeholder:text-slate-600" : "h-12 rounded-2xl border-[#D5E4EF] bg-white text-slate-950 placeholder:text-slate-400"}
         id={fieldName}
         name={fieldName}
         placeholder={placeholder}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
-    </label>
+    </div>
   );
 }
 
@@ -287,11 +372,11 @@ function StrategySettingsPercentInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block" htmlFor={fieldName}>
-      <span className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.13em] text-slate-500" : "text-[11px] font-black uppercase tracking-[0.13em] text-slate-400"}>{label}</span>
+    <div className="space-y-2">
+      <Label className={isDarkTheme ? "text-[11px] uppercase tracking-[0.13em] text-slate-500" : "text-[11px] uppercase tracking-[0.13em] text-slate-400"} htmlFor={fieldName}>{label}</Label>
       <div className="relative mt-2">
-        <input
-          className={isDarkTheme ? "h-12 w-full rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 pr-8 text-sm font-black text-slate-100 outline-none transition focus:border-sky-400/45" : "h-12 w-full rounded-2xl border border-[#D5E4EF] bg-white px-3 pr-8 text-sm font-black text-slate-950 outline-none transition focus:border-[#7DBEFF]"}
+        <Input
+          className={isDarkTheme ? "h-12 rounded-2xl border-white/[0.075] bg-white/[0.035] pr-8 text-slate-100" : "h-12 rounded-2xl border-[#D5E4EF] bg-white pr-8 text-slate-950"}
           id={fieldName}
           inputMode="decimal"
           name={fieldName}
@@ -301,7 +386,7 @@ function StrategySettingsPercentInput({
         />
         <span className={isDarkTheme ? "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500" : "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400"}>%</span>
       </div>
-    </label>
+    </div>
   );
 }
 

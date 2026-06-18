@@ -132,6 +132,7 @@ export type TradingFoxCopyStrategy = {
   platform: string;
   positionsCount?: number;
   signalSourceAvatarUrl?: string;
+  signalSourceConfigs?: Record<string, unknown>[];
   signalSourceName?: string;
   signalSourcePlatform?: string;
   startedAt: string;

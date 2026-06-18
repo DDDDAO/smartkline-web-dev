@@ -8,8 +8,8 @@ import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategySe
 import { formatDetailCurrency, formatSignedDetailCurrency, getPnlClassName, numberOrZero } from "./formatters";
 import { MiniMetric } from "./mini-metric";
 import { getPrototypeStrategyType, getStrategyStatusLabel } from "./strategy-helpers";
+import { StrategySourceSummary } from "./strategy-source-summary";
 import { getDangerButtonClassName, getSoftButtonClassName, getStrategyStatusClassName } from "./styles";
-import { resolveFollowedSignalSourceDisplay } from "./copy-trading-prototype-helpers";
 
 
 function formatOptionalStrategyCount(value?: number): string {
@@ -21,8 +21,8 @@ function formatOptionalStrategyCount(value?: number): string {
 }
 
 export function PrototypeStrategyCard({
+  availableSignalSources,
   copy,
-  followedSignalSource,
   isDarkTheme,
   strategy,
   onOpenDetail,
@@ -30,8 +30,8 @@ export function PrototypeStrategyCard({
   onStrategySettingsUpdate,
   onStrategyStatusChange,
 }: {
+  availableSignalSources: readonly CopyTradingPrototypeTarget[];
   copy: WorkspaceCopy;
-  followedSignalSource?: CopyTradingPrototypeTarget | null;
   isDarkTheme: boolean;
   strategy: PrototypeStrategy;
   onOpenDetail: (strategy: PrototypeStrategy) => void;
@@ -49,8 +49,6 @@ export function PrototypeStrategyCard({
     : strategyType === "generic"
       ? (strategy.strategyDefinitionId ?? "Strategy")
       : accountCopy.strategyCreate.copyTradingTypeChip;
-  const followedSource = resolveFollowedSignalSourceDisplay(strategy, followedSignalSource, strategyCopy.followingSignalSourceUnknown);
-  const followedSourceMeta = [followedSource.platform, followedSource.id].filter(Boolean).join(" · ");
   const positionsCountValue = formatOptionalStrategyCount(strategy.positionsCount);
   const eventsCountValue = formatOptionalStrategyCount(strategy.eventsCount);
 
@@ -76,22 +74,7 @@ export function PrototypeStrategyCard({
           </div>
         </div>
         {strategyType === "copyTrading" ? (
-          <div className={isDarkTheme ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3"}>
-            <div className={isDarkTheme ? "text-[10px] font-black uppercase tracking-[0.14em] text-slate-500" : "text-[10px] font-black uppercase tracking-[0.14em] text-slate-400"}>
-              {strategyCopy.followingSignalSource}
-            </div>
-            <div className="mt-2 flex min-w-0 items-center gap-2">
-              <SourceAvatar isDarkTheme={isDarkTheme} name={followedSource.name} url={followedSource.avatarUrl} />
-              <div className="min-w-0">
-                <div className={isDarkTheme ? "truncate text-sm font-black text-slate-100" : "truncate text-sm font-black text-slate-950"}>{followedSource.name}</div>
-                {followedSourceMeta ? (
-                  <div className={isDarkTheme ? "mt-0.5 truncate text-xs font-bold text-slate-500" : "mt-0.5 truncate text-xs font-bold text-slate-500"}>
-                    {followedSourceMeta}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
+          <StrategySourceSummary availableSignalSources={availableSignalSources} copy={copy} isDarkTheme={isDarkTheme} strategy={strategy} />
         ) : null}
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
           <MiniMetric isDarkTheme={isDarkTheme} label={strategyCopy.positionCount} value={positionsCountValue} />
@@ -115,6 +98,7 @@ export function PrototypeStrategyCard({
       </article>
       {isSettingsOpen ? (
         <StrategySettingsDialog
+          availableSignalSources={availableSignalSources}
           copy={copy}
           isDarkTheme={isDarkTheme}
           strategy={strategy}

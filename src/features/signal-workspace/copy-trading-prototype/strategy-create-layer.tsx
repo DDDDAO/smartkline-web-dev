@@ -6,16 +6,23 @@ import type { TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary 
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import { TradingAccountSelect } from "./account-connection-ui";
 import { CopyTradingCreateBody } from "./strategy-create-fields";
+import {
+  createAvailableSourceById,
+  createCopyTradingConfigWithSourceRows,
+  createDefaultCopyTradingSourceRows,
+  updateCopyTradingSourceRow,
+  validateCopyTradingSourceRows,
+  type CopyTradingSignalSourceConfigRow,
+} from "./copy-trading-signal-source-config";
 import { PrototypeInput } from "./prototype-form-fields";
 import { DefinitionDrivenConfigForm, type JsonRecord } from "./strategy-definition-config-form";
 import { StrategyDefinitionSelect } from "./strategy-definition-select";
 import { COPY_TRADING_DEFINITION_ID, getStrategyPresentationForDefinitionId } from "./strategy-presentation-registry";
 import { createStrategyConfigSkeleton, type StrategySchemaRendererState } from "./strategy-schema-renderer";
-import type { CopyTradingPrototypeTarget, PrototypeApiConnection, PrototypeStrategy, PrototypeStrategyCreateInput, PrototypeStrategyType } from "./types";
+import type { CopyTradingPrototypeTarget, PrototypeApiConnection, PrototypeStrategy, PrototypeStrategyCreateInput } from "./types";
 import { getIconButtonClassName, getInlineErrorClassName, getLabelClassName, getPrimaryButtonClassName, getSoftButtonClassName } from "./styles";
-import { formatDefaultCopyStrategyName } from "./target-utils";
 
-export { SignalSourceOptionContent, SignalSourceSelect, StrategyTypeOptionButton } from "./strategy-create-fields";
+export { StrategyTypeOptionButton } from "./strategy-create-fields";
 
 type StrategyDefinitionDetailsById = Record<string, TradingFoxStrategyDefinition | undefined>;
 export function StrategyCreateLayer({
@@ -43,9 +50,9 @@ export function StrategyCreateLayer({
   const [definitionDetailsById, setDefinitionDetailsById] = useState<StrategyDefinitionDetailsById>({});
   const [selectedDefinitionId, setSelectedDefinitionId] = useState("");
   const [strategyName, setStrategyName] = useState("");
-  const [hasEditedStrategyName, setHasEditedStrategyName] = useState(false);
   const [selectedConnectorId, setSelectedConnectorId] = useState("");
-  const [selectedSignalSourceId, setSelectedSignalSourceId] = useState("");
+  const [copyTradingAdvancedSourcesEnabled, setCopyTradingAdvancedSourcesEnabled] = useState(false);
+  const [copyTradingSignalSourceRows, setCopyTradingSignalSourceRows] = useState<CopyTradingSignalSourceConfigRow[]>(() => createDefaultCopyTradingSourceRows(availableSignalSources));
   const [takeProfitPercent, setTakeProfitPercent] = useState("20");
   const [stopLossPercent, setStopLossPercent] = useState("10");
   const [genericConfig, setGenericConfig] = useState<Record<string, unknown>>({});
@@ -97,6 +104,27 @@ export function StrategyCreateLayer({
       isMounted = false;
     };
   }, [copy, strategyCreateCopy.requestFailed]);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.resolve().then(() => {
+      if (!isMounted) {
+        return;
+      }
+      const sourceById = createAvailableSourceById(availableSignalSources);
+      setCopyTradingSignalSourceRows((currentRows) => {
+        const nextRows = currentRows
+          .filter((row) => sourceById.has(row.signalSourceId))
+          .map((row) => updateCopyTradingSourceRow([row], row.rowKey, { signalSourceId: row.signalSourceId }, availableSignalSources)[0])
+          .filter((row): row is CopyTradingSignalSourceConfigRow => row !== undefined);
+        return nextRows.length > 0 ? nextRows : createDefaultCopyTradingSourceRows(availableSignalSources);
+      });
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [availableSignalSources]);
 
   const selectedSummary = definitions.find((definition) => definition.id === selectedDefinitionId) ?? null;
   const selectedDefinitionCacheKey = selectedSummary ? strategyDefinitionCacheKey(selectedSummary) : "";
@@ -160,19 +188,17 @@ export function StrategyCreateLayer({
   const selectedDefinition = selectedDefinitionCacheKey ? definitionDetailsById[selectedDefinitionCacheKey] : undefined;
   const strategyPresentation = getStrategyPresentationForDefinitionId(selectedDefinitionId);
   const strategyType = strategyPresentation.strategyType;
-  const selectedSignalSource = availableSignalSources.find((target) => target.trader.trader_id === selectedSignalSourceId) ?? availableSignalSources[0] ?? null;
-  const defaultStrategyName = defaultNameForStrategy({
-    selectedDefinition,
-    selectedSignalSource,
-    strategyCreateCopy,
-    strategyType,
-  });
-  const effectiveStrategyName = hasEditedStrategyName ? strategyName : defaultStrategyName;
-  const normalizedStrategyName = effectiveStrategyName.trim();
+  const normalizedStrategyName = strategyName.trim();
   const parsedTakeProfit = Number(takeProfitPercent);
   const parsedStopLoss = Number(stopLossPercent);
+  const copyTradingSignalSourceErrors = useMemo(() => validateCopyTradingSourceRows({
+    advancedEnabled: copyTradingAdvancedSourcesEnabled,
+    availableSignalSources,
+    copy,
+    rows: copyTradingSignalSourceRows,
+  }), [availableSignalSources, copy, copyTradingAdvancedSourcesEnabled, copyTradingSignalSourceRows]);
   const hasValidCopyTradingInputs = strategyType !== "copyTrading" || (
-    selectedSignalSource !== null
+    copyTradingSignalSourceErrors.length === 0
     && Number.isFinite(parsedTakeProfit)
     && Number.isFinite(parsedStopLoss)
     && parsedTakeProfit > 0
@@ -198,8 +224,14 @@ export function StrategyCreateLayer({
         throw new Error(strategyCreateCopy.strategyNameRequired);
       }
 
-      const config = strategyType === "copyTrading" && selectedSignalSource
-        ? createCopyTradingConfig(selectedSignalSource, parsedTakeProfit, parsedStopLoss)
+      const config = strategyType === "copyTrading"
+        ? createCopyTradingConfigWithSourceRows({
+          advancedEnabled: copyTradingAdvancedSourcesEnabled,
+          baseConfig: genericConfig,
+          rows: copyTradingSignalSourceRows,
+          stopLossPercent: parsedStopLoss,
+          takeProfitPercent: parsedTakeProfit,
+        })
         : genericConfig;
       await validateStrategyConfig({
         config,
@@ -211,16 +243,6 @@ export function StrategyCreateLayer({
         autoStart: true,
         config,
         configSchemaVersion: selectedDefinition.configSchemaVersion,
-        copyTrading: strategyType === "copyTrading" && selectedSignalSource ? {
-          avatarUrl: selectedSignalSource.trader.avatar,
-          eventsCount: selectedSignalSource.eventsCount,
-          platform: selectedSignalSource.trader.platform,
-          positionsCount: selectedSignalSource.positionsCount,
-          signalSourceId: selectedSignalSource.trader.trader_id,
-          stopLossPercent: parsedStopLoss,
-          takeProfitPercent: parsedTakeProfit,
-          traderName: selectedSignalSource.trader.name,
-        } : undefined,
         definition: selectedDefinition,
         exchangeConnectorId: selectedApiConnection.id,
         strategyDefinitionId: selectedDefinition.id,
@@ -299,7 +321,6 @@ export function StrategyCreateLayer({
                     const nextDefinition = definitions.find((definition) => definition.id === definitionId);
                     const definitionDetail = nextDefinition ? definitionDetailsById[strategyDefinitionCacheKey(nextDefinition)] : undefined;
                     setSelectedDefinitionId(definitionId);
-                    setHasEditedStrategyName(false);
                     setStrategyName("");
                     setGenericConfig(definitionDetail
                       ? createStrategyConfigSkeleton(definitionDetail.configSchema)
@@ -318,11 +339,8 @@ export function StrategyCreateLayer({
               isDarkTheme={isDarkTheme}
               label={strategyCreateCopy.strategyName}
               placeholder={strategyCreateCopy.strategyNamePlaceholder}
-              value={effectiveStrategyName}
-              onChange={(value) => {
-                setHasEditedStrategyName(true);
-                setStrategyName(value);
-              }}
+              value={strategyName}
+              onChange={setStrategyName}
             />
 
             <label className="block">
@@ -347,13 +365,16 @@ export function StrategyCreateLayer({
             ) : selectedDefinition && strategyPresentation.createPresentation === "copyTrading" ? (
               <CopyTradingCreateBody
                 accountCopy={accountCopy}
+                advancedSourcesEnabled={copyTradingAdvancedSourcesEnabled}
                 availableSignalSources={availableSignalSources}
                 copy={copy}
                 isDarkTheme={isDarkTheme}
-                selectedSignalSource={selectedSignalSource}
+                signalSourceErrors={copyTradingSignalSourceErrors}
+                signalSourceRows={copyTradingSignalSourceRows}
                 stopLossPercent={stopLossPercent}
                 takeProfitPercent={takeProfitPercent}
-                onSelectedSignalSourceIdChange={setSelectedSignalSourceId}
+                onAdvancedSourcesEnabledChange={setCopyTradingAdvancedSourcesEnabled}
+                onSignalSourceRowsChange={setCopyTradingSignalSourceRows}
                 onStopLossPercentChange={setStopLossPercent}
                 onTakeProfitPercentChange={setTakeProfitPercent}
               />
@@ -396,55 +417,6 @@ function strategyDefinitionCacheKey(definition: Pick<TradingFoxStrategyDefinitio
 
 function preferredDefinitionId(definitions: readonly TradingFoxStrategyDefinitionSummary[]): string {
   return definitions.find((definition) => definition.id === COPY_TRADING_DEFINITION_ID)?.id ?? definitions[0]?.id ?? "";
-}
-
-function defaultNameForStrategy({
-  selectedDefinition,
-  selectedSignalSource,
-  strategyCreateCopy,
-  strategyType,
-}: {
-  selectedDefinition?: TradingFoxStrategyDefinition;
-  selectedSignalSource: CopyTradingPrototypeTarget | null;
-  strategyCreateCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategyCreate"];
-  strategyType: PrototypeStrategyType;
-}): string {
-  if (strategyType === "copyTrading") {
-    return formatDefaultCopyStrategyName(selectedSignalSource, strategyCreateCopy.copyTradingTitle);
-  }
-  if (strategyType === "mario") {
-    return strategyCreateCopy.marioStrategyName;
-  }
-  return selectedDefinition?.name
-    ? strategyCreateCopy.genericStrategyName(selectedDefinition.name)
-    : strategyCreateCopy.genericStrategyFallbackName;
-}
-
-function createCopyTradingConfig(
-  selectedSignalSource: CopyTradingPrototypeTarget,
-  takeProfitPercent: number,
-  stopLossPercent: number,
-): Record<string, unknown> {
-  return {
-    common: {
-      execution: { leverage: 10 },
-      market: {},
-      orders: {},
-      risk: { stopLossPercent },
-      sltp: {},
-    },
-    strategy: {
-      signalSourceConfigs: [{
-        followSide: "BOTH",
-        id: 1,
-        marginPercent: 100,
-        signalSourceID: selectedSignalSource.trader.trader_id,
-        smartklineTakeProfitPercent: takeProfitPercent,
-        startTime: new Date().toISOString(),
-        traderID: 0,
-      }],
-    },
-  };
 }
 
 function getInfoPanelClassName(isDarkTheme: boolean): string {

@@ -2,6 +2,7 @@ import type { PriceColorMode } from "@/components/charts/kline-chart/types";
 
 export type PerformanceCurveMetric = "roi" | "pnl";
 export type PerformanceCurveWindow = "24h" | "7d" | "30d" | "90d" | "180d";
+export type PerformanceCurveStrokeMode = "brand" | "pnl";
 
 export type PerformanceCurvePoint = {
   asset?: string | null;

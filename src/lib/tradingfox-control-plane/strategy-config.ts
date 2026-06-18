@@ -166,6 +166,27 @@ export async function ensureTradingFoxCopyStrategyConfigEnvelope(
   );
 }
 
+export async function normalizeCopyStrategyDefinitionConfigForWrite(
+  config: Record<string, unknown>,
+  connector: TradingFoxConnector,
+): Promise<Record<string, unknown>> {
+  const signalSourceConfigs = signalSourceConfigsFromCopyStrategyConfig(config);
+  const signalSourceConfig = signalSourceConfigs[0] ?? null;
+  const signalSourceId = signalSourceIdFromConfig(signalSourceConfig);
+  if (!signalSourceId) {
+    throw new TradingFoxApiError("Copy strategy signal source is missing.", 400);
+  }
+  const takeProfitPercent = copyStrategyConfigNumber(config, "takeProfitPercent", 20);
+  return createTradingFoxCopyStrategyConfig({
+    signalSourceConfigs,
+    signalSourceId,
+    startTime: stringValue(signalSourceConfig?.startTime) || new Date().toISOString(),
+    stopLossPercent: copyStrategyConfigNumber(config, "stopLossPercent", 10),
+    takeProfitMargin: await resolveCopyStrategyTakeProfitMargin(connector, takeProfitPercent),
+    takeProfitPercent,
+  });
+}
+
 function isTradingFoxConfigEnvelope(config: Record<string, unknown>): boolean {
   return isRecord(config.common) && isRecord(config.strategy);
 }
@@ -209,6 +230,7 @@ export function mapCopyStrategy(trader: TradingFoxTrader, connector: TradingFoxC
     id: String(trader.id),
     platform: signalSourcePlatform || "Copy Trading",
     signalSourceAvatarUrl: stringValue(metadata.avatarUrl),
+    signalSourceConfigs: signalSourceConfigsFromCopyStrategyConfig(trader.config),
     signalSourceName,
     signalSourcePlatform,
     startedAt: stringValue(signalSourceConfig?.startTime) || trader.createdAt,

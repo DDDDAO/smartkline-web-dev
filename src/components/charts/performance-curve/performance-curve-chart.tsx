@@ -16,6 +16,7 @@ import type {
   PerformanceCurveMetric,
   PerformanceCurveMetricLabels,
   PerformanceCurvePoint,
+  PerformanceCurveStrokeMode,
   PerformanceCurveValueFormatters,
 } from "./types";
 import {
@@ -40,6 +41,7 @@ type PerformanceCurveChartProps = {
   points: readonly PerformanceCurvePoint[];
   primaryMetric: PerformanceCurveMetric;
   showValueAxis?: boolean;
+  strokeMode?: PerformanceCurveStrokeMode;
   tooltipMetrics?: readonly PerformanceCurveMetric[];
   valueFormatters?: PerformanceCurveValueFormatters;
 };
@@ -72,6 +74,7 @@ export function PerformanceCurveChart({
   points,
   primaryMetric,
   showValueAxis = true,
+  strokeMode = "pnl",
   tooltipMetrics = [primaryMetric],
   valueFormatters,
 }: PerformanceCurveChartProps) {
@@ -86,7 +89,9 @@ export function PerformanceCurveChart({
   );
   const latestPoint = getLatestPerformanceCurvePoint(data, primaryMetric);
   const latestValue = getPerformanceCurveMetricValue(latestPoint, primaryMetric);
-  const strokeColor = getPerformanceCurveStrokeColor(isDarkTheme, latestValue, pnlColorMode);
+  const strokeColor = strokeMode === "brand"
+    ? (isDarkTheme ? "#38BDF8" : "#00A6F4")
+    : getPerformanceCurveStrokeColor(isDarkTheme, latestValue, pnlColorMode);
   const gridColor = isDarkTheme ? "rgba(148,163,184,0.20)" : "rgba(148,163,184,0.28)";
   const cursorColor = isDarkTheme ? "rgba(125,211,252,0.44)" : "rgba(0,166,244,0.28)";
   const axisColor = isDarkTheme ? "rgba(203,213,225,0.72)" : "rgba(71,85,105,0.78)";

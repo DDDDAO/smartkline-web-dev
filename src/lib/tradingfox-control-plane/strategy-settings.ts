@@ -1,6 +1,6 @@
 import type { TelegramAuthSession } from "@/lib/auth/telegram-auth";
 import { getTradingFoxAccount } from "./account";
-import { getConnectorForUser } from "./connectors";
+import { ensureCopyStrategyConnectorPositionMode, getConnectorForUser } from "./connectors";
 import { tradingFoxRequest, tradingFoxUserIdFromSession } from "./http";
 import { normalizePositiveInteger } from "./normalizers";
 import { validateTradingFoxStrategyConfig } from "./strategy-definitions";
@@ -8,6 +8,7 @@ import {
   createTradingFoxCopyStrategyConfig,
   firstSignalSourceConfig,
   isCopyTradingTrader,
+  normalizeCopyStrategyDefinitionConfigForWrite,
   resolveCopyStrategyTakeProfitMargin,
   signalSourceConfigsFromCopyStrategyConfig,
   signalSourceIdFromConfig,
@@ -78,8 +79,11 @@ async function updateDefinitionDrivenTraderConfig(
   }
 
   const configSchemaVersion = normalizePositiveInteger(input.configSchemaVersion) ?? trader.configSchemaVersion;
+  const normalizedConfig = isCopyTradingTrader(trader)
+    ? await normalizeDefinitionDrivenCopyConfig(session, trader, input.config)
+    : input.config;
   const validation = await validateTradingFoxStrategyConfig({
-    config: input.config,
+    config: normalizedConfig,
     configSchemaVersion,
     strategyDefinitionId: trader.strategyDefinitionId,
   });
@@ -88,11 +92,22 @@ async function updateDefinitionDrivenTraderConfig(
   }
 
   await patchTrader(trader.id, {
-    config: input.config,
+    config: normalizedConfig,
     configSchemaVersion,
     name: strategyName,
   });
   return getTradingFoxAccount(session);
+}
+
+async function normalizeDefinitionDrivenCopyConfig(
+  session: TelegramAuthSession,
+  trader: TradingFoxTrader,
+  config: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const userId = tradingFoxUserIdFromSession(session);
+  const connector = await getConnectorForUser(trader.exchangeConnectorId, userId);
+  await ensureCopyStrategyConnectorPositionMode(connector);
+  return normalizeCopyStrategyDefinitionConfigForWrite(config, connector);
 }
 
 async function updateLegacyCopyStrategySettings(

@@ -1,6 +1,5 @@
-import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { TradingFoxAccountResponse, TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary } from "@/lib/tradingfox-control-plane";
+import type { TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary } from "@/lib/tradingfox-control-plane";
 import type { CopyTradingTrader } from "@/types/copy-trading";
 
 export type CopyTradingPrototypeTarget = {
@@ -40,6 +39,7 @@ export type PrototypeStrategy = {
   platform: string;
   positionsCount?: number;
   signalSourceAvatarUrl?: string;
+  signalSourceConfigs?: Record<string, unknown>[];
   signalSourceName?: string;
   signalSourcePlatform?: string;
   startedAt?: string;
@@ -97,32 +97,6 @@ export type PrototypeConnectionSaveInput = {
   privateKey?: string;
   secret?: string;
   walletAddress?: string;
-};
-
-export type AccountCenterPrototypeProps = {
-  apiConnection: PrototypeApiConnection;
-  apiConnections: readonly PrototypeApiConnection[];
-  availableSignalSources: readonly CopyTradingPrototypeTarget[];
-  copy: WorkspaceCopy;
-  isApiSetupOpen: boolean;
-  isAuthLoading: boolean;
-  isCoveredByModal?: boolean;
-  isDarkTheme: boolean;
-  isOpen: boolean;
-  strategies: readonly PrototypeStrategy[];
-  telegramUser: TelegramSessionUser | null;
-  onApiSetupOpen: () => void;
-  onApiSetupOpenChange: (isOpen: boolean) => void;
-  onClose: () => void;
-  onConnectionDelete: (connectionId: number) => Promise<void> | void;
-  onConnectionSave: (input: PrototypeConnectionSaveInput) => Promise<boolean> | boolean;
-  onHyperliquidAgentBound: (account: TradingFoxAccountResponse, accountName: string) => void;
-  onLogin: () => void;
-  onLogout: () => void;
-  onStrategyCreate: (input: PrototypeStrategyCreateInput) => Promise<void> | void;
-  onStrategyDelete: (strategyId: string) => Promise<void> | void;
-  onStrategySettingsUpdate: (input: PrototypeStrategySettingsUpdateInput) => Promise<void> | void;
-  onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 };
 
 export type CopyTradingPrototypeModalProps = {

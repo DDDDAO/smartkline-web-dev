@@ -162,6 +162,7 @@ export function StrategyPerformanceCurvePanel({
               }}
               points={points}
               primaryMetric="roi"
+              strokeMode="brand"
               tooltipMetrics={["roi", "pnl"]}
             />
             {isCurveLoading ? <PerformanceCurveLoadingOverlay isDarkTheme={isDarkTheme} label={strategyCopy.curveLoading} /> : null}

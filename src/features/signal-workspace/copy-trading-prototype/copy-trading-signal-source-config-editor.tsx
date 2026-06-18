@@ -1,0 +1,228 @@
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import type { WorkspaceCopy } from "@/i18n/workspace";
+import { SourceAvatar } from "../card-ui";
+import {
+  addCopyTradingSourceRow,
+  createDefaultCopyTradingSourceRows,
+  removeCopyTradingSourceRow,
+  updateCopyTradingSourceRow,
+  type CopyTradingSignalSourceConfigRow,
+} from "./copy-trading-signal-source-config";
+import type { CopyTradingPrototypeTarget } from "./types";
+
+export function CopyTradingSignalSourceConfigEditor({
+  advancedEnabled,
+  availableSignalSources,
+  copy,
+  errors = [],
+  isDarkTheme,
+  rows,
+  onAdvancedEnabledChange,
+  onRowsChange,
+}: {
+  advancedEnabled: boolean;
+  availableSignalSources: readonly CopyTradingPrototypeTarget[];
+  copy: WorkspaceCopy;
+  errors?: readonly string[];
+  isDarkTheme: boolean;
+  rows: readonly CopyTradingSignalSourceConfigRow[];
+  onAdvancedEnabledChange: (value: boolean) => void;
+  onRowsChange: (rows: CopyTradingSignalSourceConfigRow[]) => void;
+}) {
+  const strategyCreateCopy = copy.workspace.accountCenter.strategyCreate;
+  const visibleRows = advancedEnabled ? rows : rows.slice(0, 1);
+  const cardClassName = isDarkTheme
+    ? "border-white/[0.075] bg-white/[0.035] text-slate-100"
+    : "border-[#E5EAF0] bg-[#F8FAFC] text-slate-950";
+  const canAddSource = availableSignalSources.length > 0 && rows.length < availableSignalSources.length;
+
+  const setAdvancedEnabled = (nextValue: boolean) => {
+    onAdvancedEnabledChange(nextValue);
+    if (nextValue && rows.length === 0) {
+      onRowsChange(createDefaultCopyTradingSourceRows(availableSignalSources));
+    }
+  };
+
+  return (
+    <Card className={`gap-0 rounded-2xl py-0 shadow-none ${cardClassName}`}>
+      <CardHeader className="gap-2 px-3 py-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <CardTitle className="text-sm font-black">{strategyCreateCopy.copyTradingSignalSourcesTitle}</CardTitle>
+            <CardDescription className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>
+              {strategyCreateCopy.copyTradingSignalSourcesDescription}
+            </CardDescription>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 rounded-full border border-sky-400/15 px-3 py-2">
+            <Switch
+              checked={advancedEnabled}
+              disabled={availableSignalSources.length === 0}
+              onCheckedChange={setAdvancedEnabled}
+            />
+            <span className={isDarkTheme ? "text-xs font-black text-sky-100" : "text-xs font-black text-sky-700"}>
+              {strategyCreateCopy.copyTradingAdvancedSources}
+            </span>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3 px-3 pb-3">
+        <Separator className={isDarkTheme ? "bg-white/[0.075]" : "bg-[#E5EAF0]"} />
+        {availableSignalSources.length === 0 ? (
+          <p className={isDarkTheme ? "rounded-xl bg-rose-300/[0.08] px-3 py-2 text-xs font-bold text-rose-100" : "rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700"}>
+            {strategyCreateCopy.copyTradingNoAvailableSignalSource}
+          </p>
+        ) : null}
+        <div className="grid gap-2">
+          {visibleRows.map((row, index) => (
+            <SignalSourceConfigRowEditor
+              key={row.rowKey}
+              availableSignalSources={availableSignalSources}
+              canRemove={advancedEnabled && visibleRows.length > 1}
+              copy={copy}
+              index={index}
+              isDarkTheme={isDarkTheme}
+              rows={rows}
+              row={row}
+              onRemove={() => onRowsChange(removeCopyTradingSourceRow(rows, row.rowKey))}
+              onRowsChange={onRowsChange}
+            />
+          ))}
+        </div>
+        {advancedEnabled ? (
+          <Button
+            className={isDarkTheme ? "border-white/[0.085] bg-white/[0.035] text-slate-100 hover:bg-white/[0.075]" : "border-[#D5E4EF] bg-white text-slate-700 hover:bg-slate-50"}
+            disabled={!canAddSource}
+            size="sm"
+            type="button"
+            variant="outline"
+            onClick={() => onRowsChange(addCopyTradingSourceRow(rows, availableSignalSources))}
+          >
+            {strategyCreateCopy.copyTradingAddSignalSource}
+          </Button>
+        ) : (
+          <p className={isDarkTheme ? "text-xs leading-5 text-slate-500" : "text-xs leading-5 text-slate-500"}>
+            {strategyCreateCopy.copyTradingSingleSourceHint}
+          </p>
+        )}
+        {errors.length > 0 ? (
+          <ul className={isDarkTheme ? "list-disc space-y-1 rounded-xl bg-rose-300/[0.08] px-5 py-2 text-xs font-bold text-rose-100" : "list-disc space-y-1 rounded-xl bg-rose-50 px-5 py-2 text-xs font-bold text-rose-700"}>
+            {errors.map((error) => <li key={error}>{error}</li>)}
+          </ul>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SignalSourceConfigRowEditor({
+  availableSignalSources,
+  canRemove,
+  copy,
+  index,
+  isDarkTheme,
+  row,
+  rows,
+  onRemove,
+  onRowsChange,
+}: {
+  availableSignalSources: readonly CopyTradingPrototypeTarget[];
+  canRemove: boolean;
+  copy: WorkspaceCopy;
+  index: number;
+  isDarkTheme: boolean;
+  row: CopyTradingSignalSourceConfigRow;
+  rows: readonly CopyTradingSignalSourceConfigRow[];
+  onRemove: () => void;
+  onRowsChange: (rows: CopyTradingSignalSourceConfigRow[]) => void;
+}) {
+  const strategyCreateCopy = copy.workspace.accountCenter.strategyCreate;
+  const selectedByOtherRows = new Set(rows.filter((item) => item.rowKey !== row.rowKey).map((item) => item.signalSourceId));
+  const sourceOptions = availableSignalSources.filter((source) => {
+    const sourceId = source.trader.trader_id;
+    return sourceId === row.signalSourceId || !selectedByOtherRows.has(sourceId);
+  });
+  const rowClassName = isDarkTheme
+    ? "rounded-2xl border border-white/[0.075] bg-[#0F131A]/70 p-3"
+    : "rounded-2xl border border-[#E5EAF0] bg-white p-3";
+
+  return (
+    <div className={rowClassName}>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className={isDarkTheme ? "text-[10px] font-black uppercase tracking-[0.12em] text-slate-500" : "text-[10px] font-black uppercase tracking-[0.12em] text-slate-400"}>
+          {strategyCreateCopy.copyTradingSignalSourceItem(index + 1)}
+        </div>
+        {canRemove ? (
+          <Button size="sm" type="button" variant="ghost" onClick={onRemove}>
+            {strategyCreateCopy.copyTradingRemoveSignalSource}
+          </Button>
+        ) : null}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
+        <div className="space-y-2">
+          <Label className={isDarkTheme ? "text-[11px] uppercase tracking-[0.13em] text-slate-500" : "text-[11px] uppercase tracking-[0.13em] text-slate-400"}>
+            {strategyCreateCopy.signalSourceSelect}
+          </Label>
+          <Select
+            value={row.signalSourceId}
+            onValueChange={(value) => onRowsChange(updateCopyTradingSourceRow(rows, row.rowKey, { signalSourceId: value }, availableSignalSources))}
+          >
+            <SelectTrigger className={isDarkTheme ? "h-12 border-white/[0.075] bg-white/[0.035] text-slate-100" : "h-12 border-[#D5E4EF] bg-white text-slate-950"}>
+              <SelectValue placeholder={strategyCreateCopy.signalSourceSelect} />
+            </SelectTrigger>
+            <SelectContent className={isDarkTheme ? "border-white/[0.075] bg-[#111820] text-slate-100" : "border-[#D5E4EF] bg-white text-slate-950"}>
+              {sourceOptions.map((source) => (
+                <SelectItem key={source.trader.trader_id} value={source.trader.trader_id}>
+                  <SignalSourceOptionLabel copy={copy} isDarkTheme={isDarkTheme} source={source} />
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label className={isDarkTheme ? "text-[11px] uppercase tracking-[0.13em] text-slate-500" : "text-[11px] uppercase tracking-[0.13em] text-slate-400"}>
+            {strategyCreateCopy.copyTradingMarginPercent}
+          </Label>
+          <div className="relative">
+            <Input
+              className={isDarkTheme ? "h-12 border-white/[0.075] bg-white/[0.035] pr-8 text-slate-100" : "h-12 border-[#D5E4EF] bg-white pr-8 text-slate-950"}
+              inputMode="decimal"
+              value={row.marginPercent}
+              onChange={(event) => onRowsChange(updateCopyTradingSourceRow(rows, row.rowKey, { marginPercent: event.target.value }, availableSignalSources))}
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500">%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SignalSourceOptionLabel({
+  copy,
+  isDarkTheme,
+  source,
+}: {
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  source: CopyTradingPrototypeTarget;
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <SourceAvatar isDarkTheme={isDarkTheme} name={source.trader.name} url={source.trader.avatar} />
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-black">{source.trader.name}</span>
+        <span className="block truncate text-xs font-semibold text-slate-500">
+          {source.trader.platform} · {copy.workspace.topSignals.currentPositions}: {source.positionsCount}
+        </span>
+      </span>
+    </span>
+  );
+}

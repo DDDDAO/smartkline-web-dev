@@ -8,7 +8,7 @@ import { normalizePositiveInteger } from "./normalizers";
 import { applyTradingFoxOrderHistoryPage, enrichTradingFoxOrderHistorySignalSourcePrices, normalizeTradingFoxOrderHistoryPage } from "./order-history";
 import { validateTradingFoxStrategyConfig } from "./strategy-definitions";
 import { adaptTradingFoxStrategyCurve, normalizeTradingFoxStrategyCurveError, readTradingFoxStrategyCurvePayload, settleTradingFoxStrategyCurveRequest } from "./strategy-curve";
-import { createTradingFoxCopyStrategyConfig, ensureTradingFoxCopyStrategyConfigEnvelope, isCopyTradingTrader, mapTradingFoxStrategy, resolveCopyStrategyTakeProfitMargin } from "./strategy-config";
+import { createTradingFoxCopyStrategyConfig, ensureTradingFoxCopyStrategyConfigEnvelope, isCopyTradingTrader, mapTradingFoxStrategy, normalizeCopyStrategyDefinitionConfigForWrite, resolveCopyStrategyTakeProfitMargin } from "./strategy-config";
 import { TradingFoxApiError } from "./types";
 import type {
   CreateCopyStrategyInput,
@@ -70,7 +70,13 @@ export async function createTradingFoxStrategy(
   if (!isRecord(input.config)) {
     throw new TradingFoxApiError("config is required.", 400);
   }
-  const config = input.config;
+  const isCopyTradingDefinition = strategyDefinitionId === TRADINGFOX_COPY_STRATEGY_DEFINITION_ID;
+  if (isCopyTradingDefinition) {
+    await ensureCopyStrategyConnectorPositionMode(connector);
+  }
+  const config = isCopyTradingDefinition
+    ? await normalizeCopyStrategyDefinitionConfigForWrite(input.config, connector)
+    : input.config;
   const configSchemaVersion = normalizePositiveInteger(input.configSchemaVersion);
   await validateTradingFoxStrategyConfig({
     config,
@@ -89,7 +95,7 @@ export async function createTradingFoxStrategy(
   if (configSchemaVersion !== undefined) {
     body.configSchemaVersion = configSchemaVersion;
   }
-  const enableSltpMonitoring = booleanValue(input.enableSltpMonitoring, false);
+  const enableSltpMonitoring = isCopyTradingDefinition || booleanValue(input.enableSltpMonitoring, false);
   if (enableSltpMonitoring) {
     body.enableSltpMonitoring = true;
   }

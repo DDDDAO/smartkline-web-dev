@@ -7,6 +7,7 @@ export type {
   PerformanceCurveMetric,
   PerformanceCurveMetricLabels,
   PerformanceCurvePoint,
+  PerformanceCurveStrokeMode,
   PerformanceCurveToneOptions,
   PerformanceCurveValueFormatters,
   PerformanceCurveWindow,
