@@ -126,6 +126,12 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
     activeSignal,
     paperPositionsBySignalId,
   } = runtime;
+  const isMobileSignalPanelOpen =
+    isMobileKolSheetOpen || isMobileTopSignalsSheetOpen;
+  const setMobileSignalPanelOpen = (isOpen: boolean) => {
+    setIsMobileKolSheetOpen(isOpen && isTopSignalsKolPanel);
+    setIsMobileTopSignalsSheetOpen(isOpen && isTopSignalsLeadPanel);
+  };
 
   return (
     <main className={pageClassName} data-compact-ui>
@@ -309,17 +315,19 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
       {isCompactLayout && isTopSignalsKolPanel ? (
         <MobileKolBottomSheet
           activeSignal={activeSignal}
+          activePanel={topSignalsPanel}
           copy={copy}
           isCompactLayout={isCompactLayout}
           isDarkTheme={isDarkTheme}
-          isOpen={isMobileKolSheetOpen}
+          isOpen={isMobileSignalPanelOpen}
           paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
           paperPositionsBySignalId={paperPositionsBySignalId}
           signals={kolSignals}
           sourceStatus={kolSignalSourceStatus}
           watchlistedSourceKeys={watchlistedKolSourceKeys}
           onFollowRequest={openCommunityConversion}
-          onOpenChange={setIsMobileKolSheetOpen}
+          onOpenChange={setMobileSignalPanelOpen}
+          onPanelChange={handleTopSignalsPanelChange}
           onSourceWatchToggle={handleKolSourceWatchToggle}
           onSignalSelect={handleSignalSelect}
         />
@@ -327,10 +335,11 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
       {isCompactLayout && isTopSignalsLeadPanel ? (
         <MobileTopSignalsBottomSheet
           activeSourceId={activeTopSignalSourceId}
+          activePanel={topSignalsPanel}
           copy={copy}
           isCompactLayout={isCompactLayout}
           isDarkTheme={isDarkTheme}
-          isOpen={isMobileTopSignalsSheetOpen}
+          isOpen={isMobileSignalPanelOpen}
           performanceWindow={topSignalPerformanceWindow}
           pnlColorMode={pnlColorMode}
           snapshot={topSignalsDisplaySnapshot}
@@ -338,7 +347,8 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
           sourceFilterId={effectiveTopSignalsSourceFilterId}
           sourceStatus={topSignalsSourceStatus}
           watchlistedSourceIds={watchlistedTopSignalSourceIds}
-          onOpenChange={setIsMobileTopSignalsSheetOpen}
+          onOpenChange={setMobileSignalPanelOpen}
+          onPanelChange={handleTopSignalsPanelChange}
           onPositionSelect={handleTopSignalPositionSelect}
           onSourceFilterChange={handleTopSignalSourceFilterChange}
           onSourceSelect={handleTopSignalSourceSelect}

@@ -1,5 +1,4 @@
 export type {
-  AccountCenterPrototypeProps,
   CopyTradingPrototypeModalProps,
   CopyTradingPrototypeTarget,
   PrototypeApiConnection,
@@ -11,7 +10,6 @@ export type {
   PrototypeStrategyType,
 } from "./types";
 
-export { AccountCenterPrototype } from "./account-center-prototype";
 export { AccountManagementPanel } from "./account-management-panel";
 export { StrategyManagementPanel } from "./strategy-management-panel";
 export { AccountEntryButton } from "./account-entry-button";

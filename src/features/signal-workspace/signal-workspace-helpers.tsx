@@ -6,3 +6,4 @@ export * from "./signal-workspace-helpers-notifications";
 export * from "./signal-workspace-helpers-icons";
 export * from "./signal-workspace-paper-helpers";
 export * from "./signal-workspace-route-helpers";
+export * from "./signal-workspace-top-signal-bias";

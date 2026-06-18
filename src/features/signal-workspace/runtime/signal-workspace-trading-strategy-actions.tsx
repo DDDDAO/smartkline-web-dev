@@ -14,6 +14,10 @@ import type { SignalWorkspaceSecondaryActions } from "./signal-workspace-seconda
 import type { SignalWorkspaceState } from "./signal-workspace-state";
 import type { SignalWorkspaceTradingCopyActions } from "./signal-workspace-trading-copy-actions";
 import { requestTradingFoxAccount } from "../signal-workspace-helpers";
+import {
+  findCreatedCopyStrategyId,
+  findCreatedStrategyId,
+} from "./signal-workspace-created-strategy-route";
 
 export function useSignalWorkspaceTradingStrategyActions(
   context: SignalWorkspaceState &
@@ -25,9 +29,10 @@ export function useSignalWorkspaceTradingStrategyActions(
     applyTradingFoxAccount,
     authMe,
     copyRef,
-    handleProductTabChange,
+    handleAccountStrategyRouteChange,
     handleSignalSelect,
     prototypeMarioStrategies,
+    prototypeStrategyList,
     prototypeStrategies,
     setCopyTradingTarget,
     setIsCommunityConversionOpen,
@@ -64,9 +69,16 @@ export function useSignalWorkspaceTradingStrategyActions(
         method: "POST",
       });
       applyTradingFoxAccount(account);
-      handleProductTabChange("strategyManagement");
+      handleAccountStrategyRouteChange(
+        findCreatedCopyStrategyId({
+          account,
+          previousStrategies: prototypeStrategyList,
+          signalSourceId: input.target.trader.trader_id,
+          strategyName: input.strategyName,
+        }) || null,
+      );
     },
-    [applyTradingFoxAccount, handleProductTabChange],
+    [applyTradingFoxAccount, handleAccountStrategyRouteChange, prototypeStrategyList],
   );
 
   const handlePrototypeStrategyStart = useCallback(
@@ -127,9 +139,15 @@ export function useSignalWorkspaceTradingStrategyActions(
         method: "POST",
       });
       applyTradingFoxAccount(account);
-      handleProductTabChange("strategyManagement");
+      handleAccountStrategyRouteChange(
+        findCreatedStrategyId({
+          account,
+          input,
+          previousStrategies: prototypeStrategyList,
+        }) || null,
+      );
     },
-    [applyTradingFoxAccount, handleProductTabChange],
+    [applyTradingFoxAccount, handleAccountStrategyRouteChange, prototypeStrategyList],
   );
 
   const handlePrototypeStrategyCreate = useCallback(

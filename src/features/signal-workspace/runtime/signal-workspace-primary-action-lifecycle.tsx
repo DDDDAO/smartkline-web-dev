@@ -35,7 +35,7 @@ export function useSignalWorkspacePrimaryActionLifecycle(
     setIsAuthLoading,
     isAuthLoading,
     authMe,
-    isAccountManagementTab,
+    isPrivateWorkspaceTab,
     isTradingFoxAccountLoaded,
     setIsTradingFoxAccountLoaded,
     setPrototypeApiConnections,
@@ -65,6 +65,7 @@ export function useSignalWorkspacePrimaryActionLifecycle(
     isTopSignalsKolPanel,
     kolSignalSourceStatus,
     startOnboardingGuide,
+    startTelegramLogin,
     isWorkspaceMotionVisible,
     updateWorkspaceRouteUrl,
     applyWorkspaceRouteState,
@@ -116,6 +117,27 @@ export function useSignalWorkspacePrimaryActionLifecycle(
   }, [setAuthMe, setIsAuthLoading, copyRef]);
 
   useEffect(() => {
+    if (
+      isAuthLoading ||
+      !isProductTabHydrated ||
+      !isPrivateWorkspaceTab ||
+      authMe.isLoggedIn
+    ) {
+      return;
+    }
+
+    startTelegramLogin(
+      `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    );
+  }, [
+    authMe.isLoggedIn,
+    isAuthLoading,
+    isPrivateWorkspaceTab,
+    isProductTabHydrated,
+    startTelegramLogin,
+  ]);
+
+  useEffect(() => {
     let isMounted = true;
 
     const loadTradingFoxAccount = async () => {
@@ -130,7 +152,7 @@ export function useSignalWorkspacePrimaryActionLifecycle(
         return;
       }
 
-      if (!isAccountManagementTab || isTradingFoxAccountLoaded) {
+      if (!isPrivateWorkspaceTab || isTradingFoxAccountLoaded) {
         return;
       }
 
@@ -166,8 +188,8 @@ export function useSignalWorkspacePrimaryActionLifecycle(
     applyTradingFoxAccount,
     authMe.isLoggedIn,
     copyRef,
-    isAccountManagementTab,
     isAuthLoading,
+    isPrivateWorkspaceTab,
     isTradingFoxAccountLoaded,
     setIsTradingFoxAccountLoaded,
     setIsTradingFoxLoading,

@@ -13,7 +13,10 @@ import type {
 import type { MarketSymbol } from "@/types/market";
 import type { StructuredSignal } from "@/types/signal";
 import type { WorkspaceProductTab } from "../product-tabs";
-import type { TopSignalsWorkspacePanel } from "../signal-workspace-helpers";
+import {
+  createWorkspaceRouteUrl,
+  type TopSignalsWorkspacePanel,
+} from "../signal-workspace-helpers";
 import type { SignalWorkspacePrimaryActions } from "./signal-workspace-primary-actions";
 import type { SignalWorkspaceState } from "./signal-workspace-state";
 
@@ -23,7 +26,11 @@ export function useSignalWorkspaceSecondaryActionHandlers(
   const {
     activeAccountStrategyId,
     activeProductTab,
+    activeSignalId,
+    activeTopSignalTradeEventId,
     authMe,
+    explicitTopSignalSourceId,
+    isAuthLoading,
     isRightPanelCollapsed,
     isRightPanelExiting,
     pendingRouteTopSignalTradeEventIdRef,
@@ -44,9 +51,11 @@ export function useSignalWorkspaceSecondaryActionHandlers(
     setWatchlist,
     signals,
     startTelegramLogin,
+    symbol,
     topSignalsPanel,
     topSignalsActiveSourceIds,
     topSignalsEventsById,
+    topSignalsSourceFilterId,
     updateWorkspaceRouteUrl,
   } = context;
 
@@ -92,17 +101,22 @@ export function useSignalWorkspaceSecondaryActionHandlers(
 
   const handleSymbolChange = useCallback(
     (nextSymbol: MarketSymbol) => {
-      const nextSignal = signals.find((signal) => signal.symbol === nextSymbol);
+      const nextSignal =
+        topSignalsPanel === "kol"
+          ? signals.find((signal) => signal.symbol === nextSymbol)
+          : null;
       setChartFocusSignalRequestKey(null);
       setChartFocusTimeRequest(null);
       setSymbol(nextSymbol);
-      setActiveSignalId(nextSignal?.id ?? "");
+      if (topSignalsPanel === "kol") {
+        setActiveSignalId(nextSignal?.id ?? "");
+      }
       if (activeProductTab === "topSignals") {
         setActiveTopSignalTradeEventId("");
         pendingRouteTopSignalTradeEventIdRef.current = "";
       }
       updateWorkspaceRouteUrl("replace", {
-        signalId: nextSignal?.id ?? "",
+        signalId: topSignalsPanel === "kol" ? (nextSignal?.id ?? "") : undefined,
         symbol: nextSymbol,
       });
     },
@@ -115,12 +129,51 @@ export function useSignalWorkspaceSecondaryActionHandlers(
       setChartFocusTimeRequest,
       setSymbol,
       signals,
+      topSignalsPanel,
       updateWorkspaceRouteUrl,
+    ],
+  );
+
+  const createProductTabRouteUrl = useCallback(
+    (nextTab: WorkspaceProductTab, nextStrategyId = "") => createWorkspaceRouteUrl({
+      accountStrategyId: nextTab === "strategyManagement" ? nextStrategyId : "",
+      activeSignalId,
+      currentPathname: window.location.pathname,
+      symbol,
+      tab: nextTab,
+      topSignalSourceId:
+        explicitTopSignalSourceId ||
+        (topSignalsSourceFilterId !== "all" ? topSignalsSourceFilterId : ""),
+      topSignalTradeEventId: activeTopSignalTradeEventId,
+      topSignalsPanel,
+    }),
+    [
+      activeSignalId,
+      activeTopSignalTradeEventId,
+      explicitTopSignalSourceId,
+      symbol,
+      topSignalsPanel,
+      topSignalsSourceFilterId,
     ],
   );
 
   const handleProductTabChange = useCallback(
     (nextTab: WorkspaceProductTab) => {
+      if (isPrivateWorkspaceProductTab(nextTab)) {
+        if (isAuthLoading) {
+          return;
+        }
+        if (!authMe.isLoggedIn) {
+          startTelegramLogin(
+            createProductTabRouteUrl(
+              nextTab,
+              nextTab === "strategyManagement" ? activeAccountStrategyId : "",
+            ),
+          );
+          return;
+        }
+      }
+
       setActiveProductTab(nextTab);
       if (nextTab !== "strategyManagement") {
         setActiveAccountStrategyId("");
@@ -136,21 +189,34 @@ export function useSignalWorkspaceSecondaryActionHandlers(
     },
     [
       activeAccountStrategyId,
+      authMe.isLoggedIn,
+      createProductTabRouteUrl,
+      isAuthLoading,
       pendingRouteTopSignalTradeEventIdRef,
       setActiveAccountStrategyId,
       setActiveProductTab,
+      startTelegramLogin,
       updateWorkspaceRouteUrl,
     ],
   );
 
   const handleAccountEntry = useCallback(() => {
+    if (isAuthLoading) {
+      return;
+    }
     if (authMe.isLoggedIn) {
       handleProductTabChange("accountManagement");
       return;
     }
 
-    startTelegramLogin();
-  }, [authMe.isLoggedIn, handleProductTabChange, startTelegramLogin]);
+    startTelegramLogin(createProductTabRouteUrl("accountManagement"));
+  }, [
+    authMe.isLoggedIn,
+    createProductTabRouteUrl,
+    handleProductTabChange,
+    isAuthLoading,
+    startTelegramLogin,
+  ]);
 
   const handleAccountStrategyRouteChange = useCallback(
     (strategyId: string | null, mode: "push" | "replace" = "push") => {
@@ -397,3 +463,7 @@ export function useSignalWorkspaceSecondaryActionHandlers(
 export type SignalWorkspaceSecondaryActionHandlers = ReturnType<
   typeof useSignalWorkspaceSecondaryActionHandlers
 >;
+
+function isPrivateWorkspaceProductTab(tab: WorkspaceProductTab): boolean {
+  return tab === "accountManagement" || tab === "strategyManagement";
+}

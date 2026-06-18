@@ -2,16 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-import { toCopyTradingMarketSymbol } from "@/lib/copy-trading-radar-api";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { PaperPositionRecord } from "@/lib/paper-position";
-import type { KlineSignalBiasSummary } from "@/components/charts/kline-chart/types";
 import type {
   CopyTradingPosition,
   CopyTradingRadarSnapshot,
   CopyTradingTrader,
 } from "@/types/copy-trading";
-import type { MarketSymbol } from "@/types/market";
 import type { StructuredSignal } from "@/types/signal";
 import { SourceAvatar, SymbolIcon } from "./card-ui";
 import type { CopyTradingPrototypeTarget } from "./copy-trading-prototype";
@@ -23,6 +20,8 @@ import {
 } from "./paper-position-summary";
 import {
   COMPACT_LAYOUT_MEDIA_QUERY,
+  TopSignalsWorkspaceTabs,
+  type TopSignalsWorkspacePanel,
   TopSignalsPanel,
 } from "./signal-workspace-helpers-constants";
 import {
@@ -53,46 +52,9 @@ export function useCompactLayout(): boolean {
   return isCompactLayout;
 }
 
-export function createTopSignalsSignalBiasSummary(
-  snapshot: CopyTradingRadarSnapshot | null,
-  symbol: MarketSymbol,
-): KlineSignalBiasSummary | null {
-  if (!snapshot) {
-    return null;
-  }
-
-  let longCount = 0;
-  let shortCount = 0;
-
-  for (const event of snapshot.events) {
-    if (toCopyTradingMarketSymbol(event.symbol) !== symbol) {
-      continue;
-    }
-
-    if (event.direction === "long") {
-      longCount += 1;
-    } else {
-      shortCount += 1;
-    }
-  }
-
-  const totalCount = longCount + shortCount;
-  if (totalCount === 0) {
-    return null;
-  }
-
-  const longPercent = Math.round((longCount / totalCount) * 100);
-  return {
-    longCount,
-    longPercent,
-    shortCount,
-    shortPercent: 100 - longPercent,
-    totalCount,
-  };
-}
-
 export function MobileKolBottomSheet({
   activeSignal,
+  activePanel,
   copy,
   isCompactLayout,
   isDarkTheme,
@@ -104,10 +66,12 @@ export function MobileKolBottomSheet({
   watchlistedSourceKeys,
   onFollowRequest,
   onOpenChange,
+  onPanelChange,
   onSourceWatchToggle,
   onSignalSelect,
 }: {
   activeSignal: StructuredSignal | null;
+  activePanel: TopSignalsWorkspacePanel;
   copy: WorkspaceCopy;
   isCompactLayout: boolean;
   isDarkTheme: boolean;
@@ -119,6 +83,7 @@ export function MobileKolBottomSheet({
   watchlistedSourceKeys: ReadonlySet<string>;
   onFollowRequest: (signal: StructuredSignal) => void;
   onOpenChange: (isOpen: boolean) => void;
+  onPanelChange: (panel: TopSignalsWorkspacePanel) => void;
   onSourceWatchToggle: (signal: StructuredSignal) => void;
   onSignalSelect: (signal: StructuredSignal) => void;
 }) {
@@ -144,34 +109,42 @@ export function MobileKolBottomSheet({
           onClick={() => onOpenChange(false)}
         />
         <div className="fixed inset-x-0 bottom-0 z-[80] h-[min(78dvh,680px)] px-2 pb-[max(8px,env(safe-area-inset-bottom))] lg:hidden">
-          <KolPanel
-            activeSignal={activeSignal}
-            activeCardScrollBlock="nearest"
-            copy={copy}
-            headerAction={
-              <button
-                className={closeButtonClassName}
-                type="button"
-                onClick={() => onOpenChange(false)}
-              >
-                <CloseIcon className="h-3.5 w-3.5" />
-                <span>{copy.common.close}</span>
-              </button>
-            }
-            isDarkTheme={isDarkTheme}
-            paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
-            paperPositionsBySignalId={paperPositionsBySignalId}
-            sourceStatus={sourceStatus}
-            signals={signals}
-            variant="mobileSheet"
-            watchlistedSourceKeys={watchlistedSourceKeys}
-            onFollowRequest={onFollowRequest}
-            onSourceWatchToggle={onSourceWatchToggle}
-            onSignalSelect={(signal) => {
-              onSignalSelect(signal);
-              onOpenChange(false);
-            }}
-          />
+          <div className="flex h-full min-h-0 flex-col gap-2">
+            <TopSignalsWorkspaceTabs
+              activePanel={activePanel}
+              copy={copy}
+              isDarkTheme={isDarkTheme}
+              onPanelChange={onPanelChange}
+            />
+            <KolPanel
+              activeSignal={activeSignal}
+              activeCardScrollBlock="nearest"
+              copy={copy}
+              headerAction={
+                <button
+                  className={closeButtonClassName}
+                  type="button"
+                  onClick={() => onOpenChange(false)}
+                >
+                  <CloseIcon className="h-3.5 w-3.5" />
+                  <span>{copy.common.close}</span>
+                </button>
+              }
+              isDarkTheme={isDarkTheme}
+              paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
+              paperPositionsBySignalId={paperPositionsBySignalId}
+              sourceStatus={sourceStatus}
+              signals={signals}
+              variant="mobileSheet"
+              watchlistedSourceKeys={watchlistedSourceKeys}
+              onFollowRequest={onFollowRequest}
+              onSourceWatchToggle={onSourceWatchToggle}
+              onSignalSelect={(signal) => {
+                onSignalSelect(signal);
+                onOpenChange(false);
+              }}
+            />
+          </div>
         </div>
       </>
     );
@@ -179,6 +152,14 @@ export function MobileKolBottomSheet({
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-[max(12px,env(safe-area-inset-bottom))] lg:hidden">
+      <div className="mb-2">
+        <TopSignalsWorkspaceTabs
+          activePanel={activePanel}
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          onPanelChange={onPanelChange}
+        />
+      </div>
       <MobileKolSheetHandle
         activeSignal={activeSignal}
         copy={copy}
@@ -194,6 +175,7 @@ export function MobileKolBottomSheet({
 
 export function MobileTopSignalsBottomSheet({
   activeSourceId,
+  activePanel,
   copy,
   isCompactLayout,
   isDarkTheme,
@@ -206,6 +188,7 @@ export function MobileTopSignalsBottomSheet({
   sourceStatus,
   watchlistedSourceIds,
   onOpenChange,
+  onPanelChange,
   onPositionSelect,
   onSourceFilterChange,
   onSourceSelect,
@@ -215,6 +198,7 @@ export function MobileTopSignalsBottomSheet({
   onSortKeyChange,
 }: {
   activeSourceId: string;
+  activePanel: TopSignalsWorkspacePanel;
   copy: WorkspaceCopy;
   isCompactLayout: boolean;
   isDarkTheme: boolean;
@@ -227,6 +211,7 @@ export function MobileTopSignalsBottomSheet({
   sourceStatus: KolSignalSourceStatus;
   watchlistedSourceIds: ReadonlySet<string>;
   onOpenChange: (isOpen: boolean) => void;
+  onPanelChange: (panel: TopSignalsWorkspacePanel) => void;
   onPositionSelect: (position: CopyTradingPosition) => void;
   onSourceFilterChange: (sourceId: string) => void;
   onSourceSelect: (sourceId: string) => void;
@@ -257,42 +242,50 @@ export function MobileTopSignalsBottomSheet({
           onClick={() => onOpenChange(false)}
         />
         <div className="fixed inset-x-0 bottom-0 z-[80] h-[min(78dvh,680px)] px-2 pb-[max(8px,env(safe-area-inset-bottom))] lg:hidden">
-          <TopSignalsPanel
-            activeSourceId={activeSourceId}
-            copy={copy}
-            headerAction={
-              <button
-                className={closeButtonClassName}
-                type="button"
-                onClick={() => onOpenChange(false)}
-              >
-                <CloseIcon className="h-3.5 w-3.5" />
-                <span>{copy.common.close}</span>
-              </button>
-            }
-            isDarkTheme={isDarkTheme}
-            performanceWindow={performanceWindow}
-            pnlColorMode={pnlColorMode}
-            snapshot={snapshot}
-            sortKey={sortKey}
-            sourceFilterId={sourceFilterId}
-            sourceStatus={sourceStatus}
-            variant="mobileSheet"
-            watchlistedSourceIds={watchlistedSourceIds}
-            onPositionSelect={(position) => {
-              onPositionSelect(position);
-              onOpenChange(false);
-            }}
-            onSourceFilterChange={onSourceFilterChange}
-            onSourceSelect={onSourceSelect}
-            onSourceWatchToggle={onSourceWatchToggle}
-            onCopyTradingRequest={(target) => {
-              onCopyTradingRequest(target);
-              onOpenChange(false);
-            }}
-            onPerformanceWindowChange={onPerformanceWindowChange}
-            onSortKeyChange={onSortKeyChange}
-          />
+          <div className="flex h-full min-h-0 flex-col gap-2">
+            <TopSignalsWorkspaceTabs
+              activePanel={activePanel}
+              copy={copy}
+              isDarkTheme={isDarkTheme}
+              onPanelChange={onPanelChange}
+            />
+            <TopSignalsPanel
+              activeSourceId={activeSourceId}
+              copy={copy}
+              headerAction={
+                <button
+                  className={closeButtonClassName}
+                  type="button"
+                  onClick={() => onOpenChange(false)}
+                >
+                  <CloseIcon className="h-3.5 w-3.5" />
+                  <span>{copy.common.close}</span>
+                </button>
+              }
+              isDarkTheme={isDarkTheme}
+              performanceWindow={performanceWindow}
+              pnlColorMode={pnlColorMode}
+              snapshot={snapshot}
+              sortKey={sortKey}
+              sourceFilterId={sourceFilterId}
+              sourceStatus={sourceStatus}
+              variant="mobileSheet"
+              watchlistedSourceIds={watchlistedSourceIds}
+              onPositionSelect={(position) => {
+                onPositionSelect(position);
+                onOpenChange(false);
+              }}
+              onSourceFilterChange={onSourceFilterChange}
+              onSourceSelect={onSourceSelect}
+              onSourceWatchToggle={onSourceWatchToggle}
+              onCopyTradingRequest={(target) => {
+                onCopyTradingRequest(target);
+                onOpenChange(false);
+              }}
+              onPerformanceWindowChange={onPerformanceWindowChange}
+              onSortKeyChange={onSortKeyChange}
+            />
+          </div>
         </div>
       </>
     );
@@ -300,6 +293,14 @@ export function MobileTopSignalsBottomSheet({
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-[max(12px,env(safe-area-inset-bottom))] lg:hidden">
+      <div className="mb-2">
+        <TopSignalsWorkspaceTabs
+          activePanel={activePanel}
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          onPanelChange={onPanelChange}
+        />
+      </div>
       <MobileTopSignalsSheetHandle
         copy={copy}
         isDarkTheme={isDarkTheme}

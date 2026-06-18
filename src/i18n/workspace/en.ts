@@ -114,14 +114,14 @@ export const en: WorkspaceCopy = {
       "The selected KOL trade data — entries, TP/SL lines, and buy/sell markers — is synced onto the K-line chart.",
       "Tap the KOL avatars at the bottom to switch cards and chart data quickly.",
       "Open the AI brief to review market-wide long/short bias and recent dynamics.",
-      "Watched KOLs and sources appear at the top of their own panels; the KOL Copy tab keeps the ranking.",
+      "Watched KOLs and sources appear at the top of the KOL Intel or Lead Signals panels.",
     ],
     steps: [
       "This area shows the latest KOL trade signals. Click “Original” to review the source message.",
       "The selected KOL trade data — entries, TP/SL lines, and buy/sell markers — is synced directly onto the K-line chart.",
       "Click the KOL avatars at the bottom to switch cards and chart data quickly.",
       "Open the AI brief to review market-wide long/short bias and recent dynamics.",
-      "Watched KOLs and sources appear at the top of their own panels; the KOL Copy tab keeps the ranking.",
+      "Watched KOLs and sources appear at the top of the KOL Intel or Lead Signals panels.",
     ],
   },
   paper: {
