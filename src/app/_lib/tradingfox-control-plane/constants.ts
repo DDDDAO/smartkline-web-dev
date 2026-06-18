@@ -16,7 +16,7 @@ export const TRADINGFOX_STRATEGY_DETAIL_SECTION_SET = new Set<TradingFoxStrategy
 export const TRADINGFOX_STRATEGY_CURVE_WINDOWS: readonly TradingFoxCopyStrategyCurveWindow[] = ["24h", "7d", "30d", "90d", "180d"];
 export const TRADINGFOX_STRATEGY_CURVE_WINDOW_SET = new Set<TradingFoxCopyStrategyCurveWindow>(TRADINGFOX_STRATEGY_CURVE_WINDOWS);
 
-export type TradingFoxDemoExchangePlatform = "Mock" | "Binance";
+export type TradingFoxDemoExchangePlatform = "Mock" | "BinanceDemo";
 export type TradingFoxLiveExchangePlatform = "Aster" | "Binance" | "Bitget" | "Bybit" | "Gate" | "HyperLiquid" | "OKX";
 
 export type TradingFoxCopyStrategyConfigInput = {

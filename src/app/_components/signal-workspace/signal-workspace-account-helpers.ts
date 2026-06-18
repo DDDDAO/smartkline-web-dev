@@ -210,7 +210,7 @@ export function mapTradingFoxConnectorToPrototypeConnection(
   language: WorkspaceLanguage,
 ): PrototypeApiConnection {
   const isBinanceDemoConnector =
-    connector.isMock && isBinanceDemoExchangePlatform(connector.exchangePlatform);
+    isBinanceDemoExchangePlatform(connector.exchangePlatform);
 
   return {
     accountBalance:
@@ -235,11 +235,7 @@ export function mapTradingFoxConnectorToPrototypeConnection(
 
 export function isBinanceDemoExchangePlatform(exchangePlatform: string): boolean {
   const normalizedPlatform = exchangePlatform.replace(/[\s_-]/gu, "").toLowerCase();
-  return (
-    normalizedPlatform === "binance" ||
-    normalizedPlatform === "binancedemo" ||
-    normalizedPlatform === "bn"
-  );
+  return normalizedPlatform === "binancedemo";
 }
 
 export function formatTradingFoxDateLabel(

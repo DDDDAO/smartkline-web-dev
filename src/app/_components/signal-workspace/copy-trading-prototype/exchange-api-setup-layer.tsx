@@ -237,7 +237,7 @@ export function ExchangeApiSetupLayer({
         apiKey: requiresApiCredentials ? apiKey.trim() : undefined,
         exchangePlatform: selectedExchange.connectorExchangePlatform,
         ipAddress: isLiveExchange && hasWhitelistIp ? whitelistIp.trim() : undefined,
-        isMock: isDemoExchange,
+        isMock: isBuiltInMockExchange,
         mockMarginBalance: isBuiltInMockExchange && hasValidMockMarginBalance ? parsedMockMarginBalance : undefined,
         password: requiresApiPassword ? apiPassword.trim() : undefined,
         privateKey: requiresPrivateKey ? privateKey.trim() : undefined,

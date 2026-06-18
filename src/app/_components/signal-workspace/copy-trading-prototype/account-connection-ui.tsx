@@ -27,6 +27,7 @@ export function ApiConnectionCard({
 }) {
   const exchangeLabel = getConnectionExchangeLabel(accountCopy, apiConnection);
   const exchange = getConnectionExchange(apiConnection);
+  const isBinanceDemoConnection = isBinanceDemoConnectionPlatform(apiConnection.exchangePlatform);
 
   return (
     <div className={isDarkTheme ? "rounded-3xl border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-3xl border border-[#E5EAF0] bg-white p-3 shadow-sm"}>
@@ -47,6 +48,11 @@ export function ApiConnectionCard({
                 {apiConnection.isMock ? (
                   <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
                     {accountCopy.api.mockBadge}
+                  </span>
+                ) : null}
+                {isBinanceDemoConnection ? (
+                  <span className={isDarkTheme ? "rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
+                    {accountCopy.apiSetup.demoBadge}
                   </span>
                 ) : null}
                 {apiConnection.recommended ? (
@@ -235,6 +241,7 @@ export function TradingAccountOptionContent({
   isDarkTheme: boolean;
 }) {
   const exchangeLabel = getConnectionExchangeLabel(accountCopy, connection);
+  const isBinanceDemoConnection = isBinanceDemoConnectionPlatform(connection.exchangePlatform);
 
   return (
     <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -247,6 +254,11 @@ export function TradingAccountOptionContent({
       {connection.isMock ? (
         <span className={isDarkTheme ? "shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
           {accountCopy.api.mockBadge}
+        </span>
+      ) : null}
+      {isBinanceDemoConnection ? (
+        <span className={isDarkTheme ? "shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200" : "shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700"}>
+          {accountCopy.apiSetup.demoBadge}
         </span>
       ) : null}
       {connection.recommended ? (
@@ -275,7 +287,7 @@ export function getConnectionFallback(connection: PrototypeApiConnection): strin
 
 export function getConnectionExchange(connection: PrototypeApiConnection): PrototypeExchange | null {
   const normalizedPlatform = normalizeConnectionExchangePlatform(connection.exchangePlatform);
-  if (connection.isMock && isBinanceDemoConnectionPlatform(connection.exchangePlatform)) {
+  if (isBinanceDemoConnectionPlatform(connection.exchangePlatform)) {
     return getExchangeById("binanceDemo");
   }
 
@@ -287,7 +299,7 @@ export function getConnectionExchange(connection: PrototypeApiConnection): Proto
 
 export function isBinanceDemoConnectionPlatform(value: string): boolean {
   const normalizedPlatform = normalizeConnectionExchangePlatform(value);
-  return normalizedPlatform === "binance" || normalizedPlatform === "binancedemo" || normalizedPlatform === "bn";
+  return normalizedPlatform === "binancedemo";
 }
 
 export function normalizeConnectionExchangePlatform(value: string): string {

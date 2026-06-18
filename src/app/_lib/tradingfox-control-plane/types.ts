@@ -72,10 +72,20 @@ export type TradingFoxRuntimeStatusResponse = {
 export type TradingFoxCopyStrategyStatus = "failed" | "paused" | "pending" | "running" | "stopped";
 export type TradingFoxStrategyDetailSection = "account" | "positions" | "signalSources" | "orders" | "curve";
 
+export type TradingFoxLocalizedText = Record<string, string>;
+
+export type TradingFoxDisplayMetadata = {
+  label?: TradingFoxLocalizedText;
+  description?: TradingFoxLocalizedText;
+  placeholder?: TradingFoxLocalizedText;
+  options?: Record<string, TradingFoxDisplayMetadata>;
+};
+
 export type TradingFoxActionDefinition = {
   id: string;
   label?: string;
   description?: string;
+  display?: TradingFoxDisplayMetadata;
   payloadSchema?: Record<string, unknown>;
   uiSchema?: Record<string, unknown>;
 };
@@ -96,6 +106,7 @@ export type TradingFoxStrategyDefinitionSummary = {
   id: string;
   name: string;
   description?: string;
+  display?: TradingFoxDisplayMetadata;
   status: string;
   version: string;
   configSchemaVersion: number;

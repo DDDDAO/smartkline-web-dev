@@ -6,6 +6,10 @@ import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { TradingFoxActionDefinition, TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
 import { createStrategyConfigSkeleton, StrategySchemaRenderer, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import { requestStrategyAction } from "./strategy-detail-utils";
+import {
+  actionDefinitionDescription,
+  actionDefinitionLabel,
+} from "./strategy-display-metadata";
 import { getInlineErrorClassName, getModalSectionClassName, getPrimaryButtonClassName } from "./styles";
 
 type JsonRecord = Record<string, unknown>;
@@ -77,7 +81,8 @@ function StrategyActionCard({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const label = action.label || action.id;
+  const label = actionDefinitionLabel(action, copy);
+  const description = actionDefinitionDescription(action, copy);
   const hasPayload = hasConfigurablePayload(action.payloadSchema);
   const canSubmit = !isActionDisabled && !isSubmitting && rendererErrors.length === 0;
 
@@ -105,7 +110,7 @@ function StrategyActionCard({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h4 className="text-sm font-black">{label}</h4>
-          {action.description ? <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>{action.description}</p> : null}
+          {description ? <p className={isDarkTheme ? "mt-1 text-xs leading-5 text-slate-400" : "mt-1 text-xs leading-5 text-slate-600"}>{description}</p> : null}
         </div>
         <button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canSubmit} type="button" onClick={() => void submitAction()}>
           {isSubmitting ? strategyCopy.manualActionRunning : strategyCopy.manualActionRun(label)}
