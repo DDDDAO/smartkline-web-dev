@@ -77,6 +77,7 @@ export function CalculatorCard({
 
         <FormRow label="止损位" theme={theme}>
           <input
+            aria-label="止损位"
             id="stopLoss"
             inputMode="decimal"
             placeholder="价格"
@@ -87,6 +88,7 @@ export function CalculatorCard({
 
         <FormRow label="开仓点A" theme={theme}>
           <input
+            aria-label="开仓点A"
             id="entryA"
             inputMode="decimal"
             placeholder="价格"
@@ -109,6 +111,7 @@ export function CalculatorCard({
 
         <FormRow label="开仓点B" theme={theme}>
           <input
+            aria-label="开仓点B"
             id="entryB"
             disabled={calculation.entryBDisabled}
             inputMode="decimal"

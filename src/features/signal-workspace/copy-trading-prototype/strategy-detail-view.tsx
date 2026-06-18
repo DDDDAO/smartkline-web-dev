@@ -23,12 +23,13 @@ const STRATEGY_DETAIL_CURVE_WINDOWS: readonly StrategyDetailCurveWindow[] = ["24
 const DEFAULT_STRATEGY_DETAIL_CURVE_WINDOW: StrategyDetailCurveWindow = "30d";
 const STRATEGY_CURVE_QUERY_STALE_TIME_MS = 60_000;
 const STRATEGY_CURVE_QUERY_GC_TIME_MS = 5 * 60_000;
+const EMPTY_COPY_TRADING_TARGETS: readonly CopyTradingPrototypeTarget[] = [];
 export function StrategyDetailView({
   copy,
   isDarkTheme,
   strategy,
   telegramUser,
-  availableSignalSources = [],
+  availableSignalSources = EMPTY_COPY_TRADING_TARGETS,
   onBack,
   onStrategyDelete,
   onStrategySettingsUpdate,
@@ -45,8 +46,6 @@ export function StrategyDetailView({
   onStrategyStatusChange: (strategyId: string, status: PrototypeStrategyStatus) => Promise<void> | void;
 }) {
   const [detail, setDetail] = useState<TradingFoxStrategyDetail | null>(null);
-  const [strategyDefinition, setStrategyDefinition] = useState<TradingFoxStrategyDefinition | null>(null);
-  const [strategyDefinitionError, setStrategyDefinitionError] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [shouldLoadTradeHistory, setShouldLoadTradeHistory] = useState(false);
@@ -103,50 +102,21 @@ export function StrategyDetailView({
   const detailStrategyId = detail?.strategy.id ?? "";
   const strategyDefinitionId = detail?.trader.strategyDefinitionId || strategy.strategyDefinitionId || "";
 
-  useEffect(() => {
-    if (!strategyDefinitionId) {
-      Promise.resolve().then(() => {
-        setStrategyDefinition(null);
-        setStrategyDefinitionError("");
-      });
-      return;
-    }
+  const {
+    data: strategyDefinitionData,
+    error: strategyDefinitionQueryError,
+  } = useQuery({
+    enabled: Boolean(strategyDefinitionId),
+    queryFn: () => requestStrategyDefinition(strategyDefinitionId),
+    queryKey: ["tradingfox", "strategy-definition", strategyDefinitionId],
+    refetchOnMount: "always",
+  });
 
-    let isMounted = true;
-    Promise.resolve().then(() => {
-      if (isMounted) {
-        setStrategyDefinition(null);
-        setStrategyDefinitionError("");
-      }
-    });
-    fetch(`/api/tradingfox/strategy-definitions/${encodeURIComponent(strategyDefinitionId)}`, {
-      cache: "no-store",
-      credentials: "same-origin",
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          const payload = await response.json().catch(() => null) as { error?: string } | null;
-          throw new Error(payload?.error || `Strategy definition failed with status ${response.status}.`);
-        }
-        return response.json() as Promise<TradingFoxStrategyDefinition>;
-      })
-      .then((definition) => {
-        if (isMounted) {
-          setStrategyDefinition(definition);
-        }
-      })
-      .catch((definitionError) => {
-        if (isMounted) {
-          setStrategyDefinitionError(getTradingFoxErrorMessage(definitionError, copy));
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [copy, strategyDefinitionId]);
-
-  const curveQuery = useQuery({
+  const {
+    data: curveQueryData,
+    error: curveQueryError,
+    isFetching: isCurveFetching,
+  } = useQuery({
     enabled: Boolean(detailStrategyId),
     gcTime: STRATEGY_CURVE_QUERY_GC_TIME_MS,
     placeholderData: (previousData) => previousData,
@@ -291,12 +261,16 @@ export function StrategyDetailView({
   const positionsSectionLoaded = hasLoadedSection("positions");
   const signalSourcesSectionLoaded = hasLoadedSection("signalSources");
   const ordersSectionLoaded = hasLoadedSection("orders");
-  const curveDetail = curveQuery.data ?? (hasLoadedSection("curve") ? detail : null);
-  const curveErrorMessage = curveQuery.error ? getTradingFoxErrorMessage(curveQuery.error, copy) : curveDetail?.strategyCurveError;
+  const curveDetail = curveQueryData ?? (hasLoadedSection("curve") ? detail : null);
+  const curveErrorMessage = curveQueryError ? getTradingFoxErrorMessage(curveQueryError, copy) : curveDetail?.strategyCurveError;
   const positionsMetricValue = positionsSectionLoaded ? String(detail?.positions.length ?? 0) : "—";
   const signalSourcesMetricValue = signalSourcesSectionLoaded ? String(detail?.signalSources.length ?? 0) : "—";
   const traderOrdersMetricValue = ordersSectionLoaded ? String(orderItems.length) : "—";
   const shouldShowCopyTradingPositionSync = Boolean(detail && getPrototypeStrategyType(liveStrategy) === "copyTrading" && liveStrategy.status === "running");
+  const strategyDefinition = strategyDefinitionData ?? null;
+  const strategyDefinitionError = strategyDefinitionQueryError
+    ? getTradingFoxErrorMessage(strategyDefinitionQueryError, copy)
+    : "";
 
   const openTradeKline = (row: TradeHistoryRow) => {
     setSelectedTradeKlineRowId(row.id);
@@ -428,7 +402,7 @@ export function StrategyDetailView({
             curve={curveDetail?.strategyCurve ?? null}
             curveError={curveErrorMessage}
             curveWindows={STRATEGY_DETAIL_CURVE_WINDOWS}
-            isCurveLoading={curveQuery.isFetching}
+            isCurveLoading={isCurveFetching}
             isDarkTheme={isDarkTheme}
             strategyCopy={strategyCopy}
             onWindowChange={setActiveCurveWindow}
@@ -495,4 +469,17 @@ export function StrategyDetailView({
       ) : null}
     </section>
   );
+}
+
+async function requestStrategyDefinition(strategyDefinitionId: string): Promise<TradingFoxStrategyDefinition> {
+  const response = await fetch(`/api/tradingfox/strategy-definitions/${encodeURIComponent(strategyDefinitionId)}`, {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(payload?.error || `Strategy definition failed with status ${response.status}.`);
+  }
+
+  return response.json() as Promise<TradingFoxStrategyDefinition>;
 }

@@ -41,7 +41,11 @@ async function proxySignalCenterRequest(request: Request, context: SignalCenterR
       cache: "no-store",
       headers,
       method: request.method,
+      redirect: "manual",
     });
+    if (isRedirectResponse(response)) {
+      return createSignalCenterRedirectErrorResponse(response);
+    }
     return createSignalCenterProxyResponse(response, path, request.url);
   } catch (error) {
     return Response.json(
@@ -54,6 +58,24 @@ async function proxySignalCenterRequest(request: Request, context: SignalCenterR
       },
     );
   }
+}
+
+function isRedirectResponse(response: Response): boolean {
+  return response.status >= 300 && response.status < 400;
+}
+
+function createSignalCenterRedirectErrorResponse(response: Response): Response {
+  return Response.json(
+    {
+      error: `Signal Center API returned unexpected redirect ${response.status}.`,
+    },
+    {
+      headers: {
+        "cache-control": SIGNAL_CENTER_PROXY_ERROR_CACHE_CONTROL,
+      },
+      status: 502,
+    },
+  );
 }
 
 function isProtectedSignalCenterPath(pathSegments: readonly string[]): boolean {

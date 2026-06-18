@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { getResolvedKolAvatarUrl } from "@/lib/kol-avatar";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { StructuredSignal } from "@/types/signal";
@@ -128,7 +128,7 @@ export function FavoriteStarButton({
   );
 }
 
-export function getSymbolBaseAsset(symbol: string): string {
+function getSymbolBaseAsset(symbol: string): string {
   const normalizedSymbol = symbol.trim().toUpperCase();
   const [marketPair] = normalizedSymbol.split(":");
   const [baseAsset] = marketPair.split("/");
@@ -221,7 +221,7 @@ export function TelegramSignalMessage({
   );
 }
 
-export function formatKolSourceType(sourceType: string, copy: WorkspaceCopy["kol"]): string {
+function formatKolSourceType(sourceType: string, copy: WorkspaceCopy["kol"]): string {
   if (sourceType === "\u5F00\u4ED3\u4FE1\u53F7") {
     return copy.sourceTypes.opening;
   }
@@ -259,7 +259,17 @@ export function SignalField({
   valueClassName?: string;
 }) {
   const valueRef = useRef<HTMLDivElement | null>(null);
-  const [isValueTruncated, setIsValueTruncated] = useState(false);
+  const [truncationState, setTruncationState] = useState({
+    isValueTruncated: false,
+    value,
+  });
+  if (truncationState.value !== value) {
+    setTruncationState({
+      isValueTruncated: false,
+      value,
+    });
+  }
+  const isValueTruncated = truncationState.value === value && truncationState.isValueTruncated;
   const fieldClassName = isDarkTheme
     ? "signal-field-card group relative rounded-2xl border border-white/[0.075] bg-white/[0.035] px-2 py-2"
     : "signal-field-card group relative rounded-2xl border border-[#E5EAF0] bg-white px-2 py-2";
@@ -268,25 +278,31 @@ export function SignalField({
     ? "motion-fx-9-tooltip signal-field-tooltip pointer-events-none invisible absolute left-0 top-0 min-h-full w-full rounded-2xl border border-white/[0.10] bg-[#181A20] px-2 py-2 text-xs leading-4 text-slate-100 opacity-0 shadow-[0_14px_36px_rgba(0,0,0,0.34)] group-hover:visible group-hover:opacity-100"
     : "motion-fx-9-tooltip signal-field-tooltip pointer-events-none invisible absolute left-0 top-0 min-h-full w-full rounded-2xl border border-[#E5EAF0] bg-white px-2 py-2 text-xs leading-4 text-slate-800 opacity-0 shadow-[0_14px_36px_rgba(15,23,42,0.14)] group-hover:visible group-hover:opacity-100";
 
-  useEffect(() => {
+  const updateTruncationState = () => {
     const element = valueRef.current;
     if (!element) {
       return;
     }
 
-    const updateTruncationState = () => {
-      setIsValueTruncated(element.scrollWidth > element.clientWidth + 1);
-    };
+    const nextIsValueTruncated = element.scrollWidth > element.clientWidth + 1;
+    setTruncationState((currentState) => {
+      if (currentState.value === value && currentState.isValueTruncated === nextIsValueTruncated) {
+        return currentState;
+      }
 
-    updateTruncationState();
-    const resizeObserver = new ResizeObserver(updateTruncationState);
-    resizeObserver.observe(element);
-
-    return () => resizeObserver.disconnect();
-  }, [value]);
+      return {
+        isValueTruncated: nextIsValueTruncated,
+        value,
+      };
+    });
+  };
 
   return (
-    <div className={fieldClassName} aria-label={isValueTruncated ? `${label}: ${value}` : undefined}>
+    <div
+      className={fieldClassName}
+      aria-label={isValueTruncated ? `${label}: ${value}` : undefined}
+      onMouseEnter={updateTruncationState}
+    >
       <div className={isDarkTheme ? "text-slate-500" : "text-slate-400"}>{label}</div>
       <div ref={valueRef} className={valueClassName ?? defaultValueClassName}>{value}</div>
       {isValueTruncated ? (
