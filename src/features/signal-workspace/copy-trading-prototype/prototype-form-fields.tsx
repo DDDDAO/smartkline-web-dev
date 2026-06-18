@@ -1,6 +1,8 @@
 "use client";
 
-import { getLabelClassName } from "./styles";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 export function PercentInput({
   copyLabel,
@@ -20,11 +22,16 @@ export function PercentInput({
   const id = `copy-trading-${fieldName}`;
 
   return (
-    <label className="block" htmlFor={id}>
-      <span className={getLabelClassName(isDarkTheme)}>{copyLabel}</span>
+    <div className="block">
+      <Label className={getPrototypeLabelClassName(isDarkTheme)} htmlFor={id}>{copyLabel}</Label>
       <div className="relative mt-2">
-        <input
-          className={isDarkTheme ? "h-12 w-full rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 pr-8 text-sm font-black text-slate-100 outline-none transition focus:border-sky-400/45" : "h-12 w-full rounded-2xl border border-[#D5E4EF] bg-white px-3 pr-8 text-sm font-black text-slate-950 outline-none transition focus:border-[#7DBEFF]"}
+        <Input
+          className={cn(
+            "h-12 rounded-2xl pr-8 text-sm font-black",
+            isDarkTheme
+              ? "border-white/[0.075] bg-white/[0.035] text-slate-100 focus-visible:border-sky-400/45 focus-visible:ring-sky-400/10"
+              : "border-[#D5E4EF] bg-white text-slate-950 focus-visible:border-[#7DBEFF] focus-visible:ring-[#16AFF5]/10",
+          )}
           id={id}
           inputMode="decimal"
           name={id}
@@ -34,7 +41,7 @@ export function PercentInput({
         />
         <span className={isDarkTheme ? "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500" : "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400"}>%</span>
       </div>
-    </label>
+    </div>
   );
 }
 
@@ -62,11 +69,16 @@ export function PrototypeInput({
   const id = `copy-trading-api-${fieldName}`;
 
   return (
-    <label className="block" htmlFor={id}>
-      <span className={getLabelClassName(isDarkTheme)}>{label}</span>
-      <input
+    <div className="block">
+      <Label className={getPrototypeLabelClassName(isDarkTheme)} htmlFor={id}>{label}</Label>
+      <Input
         autoComplete={autoComplete}
-        className={isDarkTheme ? "mt-2 h-12 w-full rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 text-sm font-semibold text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-sky-400/45" : "mt-2 h-12 w-full rounded-2xl border border-[#D5E4EF] bg-white px-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#7DBEFF]"}
+        className={cn(
+          "mt-2 h-12 rounded-2xl text-sm font-semibold",
+          isDarkTheme
+            ? "border-white/[0.075] bg-white/[0.035] text-slate-100 placeholder:text-slate-600 focus-visible:border-sky-400/45 focus-visible:ring-sky-400/10"
+            : "border-[#D5E4EF] bg-white text-slate-950 placeholder:text-slate-400 focus-visible:border-[#7DBEFF] focus-visible:ring-[#16AFF5]/10",
+        )}
         id={id}
         inputMode={inputMode}
         name={id}
@@ -75,6 +87,10 @@ export function PrototypeInput({
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
-    </label>
+    </div>
   );
+}
+
+function getPrototypeLabelClassName(isDarkTheme: boolean): string {
+  return isDarkTheme ? "text-xs font-black text-slate-300" : "text-xs font-black text-slate-700";
 }

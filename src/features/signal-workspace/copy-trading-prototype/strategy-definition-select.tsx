@@ -2,12 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale } from "next-intl";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   getWorkspaceLanguageFromLocale,
   type WorkspaceCopy,
   type WorkspaceLanguage,
 } from "@/i18n/workspace";
 import type { TradingFoxStrategyDefinitionSummary } from "@/lib/tradingfox-control-plane";
+import { cn } from "@/lib/utils";
 import {
   strategyDefinitionDescription,
   strategyDefinitionLabel,
@@ -51,14 +55,14 @@ export function StrategyDefinitionSelect({
     });
   }, [definitions, language, query]);
   const triggerClassName = isDarkTheme
-    ? "mt-2 flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.085] bg-white/[0.04] px-3 py-2 text-left text-sm font-bold text-slate-100 outline-none transition hover:border-sky-300/25 hover:bg-white/[0.065] focus:border-sky-400/45 focus:ring-2 focus:ring-sky-400/10"
-    : "mt-2 flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-[#D5E4EF] bg-white px-3 py-2 text-left text-sm font-bold text-slate-950 shadow-sm outline-none transition hover:border-[#BFE7FB] hover:bg-[#F8FAFC] focus:border-[#7DBEFF] focus:ring-2 focus:ring-[#16AFF5]/10";
+    ? "mt-2 h-auto min-h-14 w-full justify-between whitespace-normal rounded-2xl border-white/[0.085] bg-white/[0.04] px-3 py-2 text-left text-sm font-bold text-slate-100 hover:border-sky-300/25 hover:bg-white/[0.065] focus-visible:border-sky-400/45 focus-visible:ring-sky-400/10"
+    : "mt-2 h-auto min-h-14 w-full justify-between whitespace-normal rounded-2xl border-[#D5E4EF] bg-white px-3 py-2 text-left text-sm font-bold text-slate-950 shadow-sm hover:border-[#BFE7FB] hover:bg-[#F8FAFC] focus-visible:border-[#7DBEFF] focus-visible:ring-[#16AFF5]/10";
   const dropdownClassName = isDarkTheme
     ? "absolute left-0 right-0 top-full z-[140] mt-2 overflow-hidden rounded-2xl border border-white/[0.085] bg-[#111820] p-1 text-slate-100 shadow-[0_22px_54px_rgba(0,0,0,0.42)]"
     : "absolute left-0 right-0 top-full z-[140] mt-2 overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_22px_54px_rgba(15,23,42,0.16)]";
   const searchClassName = isDarkTheme
-    ? "h-10 w-full rounded-xl border border-white/[0.075] bg-[#0F131A] px-3 text-xs font-medium text-slate-100 outline-none placeholder:text-slate-600 focus:border-sky-400/40"
-    : "h-10 w-full rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#B7E8FC]";
+    ? "h-10 rounded-xl border-white/[0.075] bg-[#0F131A] text-xs font-medium text-slate-100 placeholder:text-slate-600 focus-visible:border-sky-400/40 focus-visible:ring-sky-400/10"
+    : "h-10 rounded-xl border-[#E5EAF0] bg-[#F8FAFC] text-xs font-medium text-slate-900 placeholder:text-slate-400 focus-visible:border-[#B7E8FC] focus-visible:ring-[#16AFF5]/10";
 
   useEffect(() => {
     if (!isOpen) {
@@ -95,11 +99,12 @@ export function StrategyDefinitionSelect({
         }
       }}
     >
-      <button
+      <Button
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         className={triggerClassName}
         type="button"
+        variant="outline"
         onClick={() => setIsOpen((current) => !current)}
       >
         {selectedDefinition ? (
@@ -111,11 +116,11 @@ export function StrategyDefinitionSelect({
           />
         ) : null}
         <span aria-hidden="true" className={isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-400"}>⌄</span>
-      </button>
+      </Button>
       {isOpen ? (
         <div className={dropdownClassName} role="listbox">
           <div className="p-2">
-            <input
+            <Input
               ref={searchInputRef}
               aria-label={strategyCreateCopy.definitionSearchPlaceholder}
               className={searchClassName}
@@ -129,19 +134,24 @@ export function StrategyDefinitionSelect({
             {filteredDefinitions.length > 0 ? filteredDefinitions.map((definition) => {
               const isSelected = definition.id === selectedDefinition?.id;
               return (
-                <button
+                <Button
                   key={`${definition.id}:${definition.version}:${definition.configSchemaVersion}`}
                   aria-selected={isSelected}
-                  className={isDarkTheme
-                    ? `flex w-full cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition hover:bg-white/[0.055] focus:bg-white/[0.055] ${isSelected ? "bg-sky-400/10 text-sky-100" : ""}`
-                    : `flex w-full cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition hover:bg-[#F8FAFC] focus:bg-[#F8FAFC] ${isSelected ? "bg-[#EAF8FE] text-[#007DB8]" : ""}`}
+                  className={cn(
+                    "h-auto w-full cursor-pointer justify-between whitespace-normal rounded-xl px-3 py-2 text-left",
+                    isDarkTheme
+                      ? "text-slate-100 hover:bg-white/[0.055] focus-visible:bg-white/[0.055]"
+                      : "text-slate-950 hover:bg-[#F8FAFC] focus-visible:bg-[#F8FAFC]",
+                    isSelected && (isDarkTheme ? "bg-sky-400/10 text-sky-100" : "bg-[#EAF8FE] text-[#007DB8]"),
+                  )}
                   role="option"
                   type="button"
+                  variant="ghost"
                   onClick={() => chooseDefinition(definition.id)}
                 >
                   <StrategyDefinitionOptionContent copy={copy} definition={definition} isDarkTheme={isDarkTheme} language={language} />
                   {isSelected ? <span className="text-xs font-black">✓</span> : null}
-                </button>
+                </Button>
               );
             }) : (
               <div className="rounded-xl px-3 py-4 text-center text-xs font-bold text-slate-500">
@@ -186,8 +196,8 @@ function StrategyDefinitionOptionContent({
 
 function MetaPill({ children, isDarkTheme }: { children: string; isDarkTheme: boolean }) {
   return (
-    <span className={isDarkTheme ? "rounded-full bg-white/[0.055] px-2 py-0.5 text-[10px] font-black text-slate-400" : "rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500"}>
+    <Badge className={isDarkTheme ? "rounded-full border-0 bg-white/[0.055] px-2 py-0.5 text-[10px] font-black text-slate-400" : "rounded-full border-0 bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500"} variant="secondary">
       {children}
-    </span>
+    </Badge>
   );
 }

@@ -1,10 +1,10 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import { CopyTradingSignalSourceConfigEditor } from "./copy-trading-signal-source-config-editor";
 import type { CopyTradingSignalSourceConfigRow } from "./copy-trading-signal-source-config";
 import { PercentInput } from "./prototype-form-fields";
-import { getStrategyTypeOptionClassName } from "./styles";
 import type { CopyTradingPrototypeTarget } from "./types";
 
 export function CopyTradingCreateBody({
@@ -88,14 +88,28 @@ export function StrategyTypeOptionButton({
   onSelect: () => void;
 }) {
   return (
-    <button
+    <Button
       aria-pressed={isSelected}
       className={getStrategyTypeOptionClassName(isDarkTheme, isSelected)}
       type="button"
+      variant="outline"
       onClick={onSelect}
     >
       <span className="block text-sm font-black">{title}</span>
       <span className={isDarkTheme ? "mt-2 block text-xs leading-5 text-slate-400" : "mt-2 block text-xs leading-5 text-slate-600"}>{description}</span>
-    </button>
+    </Button>
   );
+}
+
+function getStrategyTypeOptionClassName(isDarkTheme: boolean, isSelected: boolean): string {
+  const baseClassName = "h-auto flex-col items-start justify-start whitespace-normal rounded-2xl px-3 py-3 text-left";
+  if (isSelected) {
+    return isDarkTheme
+      ? `${baseClassName} border-sky-400/30 bg-sky-400/10 text-sky-100 shadow-[0_0_0_3px_rgba(56,189,248,0.10)] hover:bg-sky-400/10`
+      : `${baseClassName} border-[#B7E8FC] bg-[#EAF8FE] text-[#007DB8] shadow-[0_0_0_3px_rgba(22,175,245,0.10)] hover:bg-[#EAF8FE]`;
+  }
+
+  return isDarkTheme
+    ? `${baseClassName} border-white/[0.075] bg-white/[0.035] text-slate-200 hover:bg-white/[0.055]`
+    : `${baseClassName} border-[#E5EAF0] bg-white text-slate-900 hover:border-[#BFE7FB] hover:bg-[#F4FBFF]`;
 }

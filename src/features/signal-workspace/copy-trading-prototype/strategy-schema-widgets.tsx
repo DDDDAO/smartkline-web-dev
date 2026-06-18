@@ -1,5 +1,9 @@
 import type { FormContextType, RegistryWidgetsType, WidgetProps } from "@rjsf/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import type { WorkspaceCopy } from "@/i18n/workspace";
+import { cn } from "@/lib/utils";
 
 type StrategySchemaCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategySchema"];
 type RendererWidgetContext = FormContextType & { isDarkTheme?: boolean; strategySchemaCopy?: StrategySchemaCopy };
@@ -11,8 +15,8 @@ const JsonWidget = (props: WidgetProps) => {
   const isDarkTheme = Boolean((props.formContext as RendererWidgetContext | undefined)?.isDarkTheme);
   const value = typeof props.value === "string" ? props.value : JSON.stringify(props.value ?? null, null, 2);
   return (
-    <textarea
-      className={textareaClassName(isDarkTheme, "min-h-28 font-mono text-xs")}
+    <Textarea
+      className={getTextareaClassName(isDarkTheme, "min-h-28 font-mono text-xs")}
       disabled={props.disabled || props.readonly}
       placeholder={props.placeholder}
       value={value}
@@ -28,8 +32,8 @@ const StringListWidget = (props: WidgetProps) => {
   const rendererCopy = getStrategySchemaCopy(props);
   const value = Array.isArray(props.value) ? props.value.map(String).join("\n") : "";
   return (
-    <textarea
-      className={textareaClassName(isDarkTheme, "min-h-24 text-sm font-bold")}
+    <Textarea
+      className={getTextareaClassName(isDarkTheme, "min-h-24 text-sm font-bold")}
       disabled={props.disabled || props.readonly}
       placeholder={props.placeholder || rendererCopy.stringListPlaceholder}
       value={value}
@@ -42,8 +46,8 @@ const SymbolPickerWidget = (props: WidgetProps) => {
   const isDarkTheme = Boolean((props.formContext as RendererWidgetContext | undefined)?.isDarkTheme);
   const rendererCopy = getStrategySchemaCopy(props);
   return (
-    <input
-      className={inputClassName(isDarkTheme)}
+    <Input
+      className={getInputClassName(isDarkTheme)}
       disabled={props.disabled || props.readonly}
       placeholder={props.placeholder || rendererCopy.symbolPlaceholder}
       value={props.value ?? ""}
@@ -58,20 +62,17 @@ const PricePercentLadderWidget = (props: WidgetProps) => {
   const rows = Array.isArray(props.value) ? props.value.map(normalizePricePercentRow) : [];
   const disabled = Boolean(props.disabled || props.readonly);
   const emitRows = (nextRows: PricePercentRow[]) => props.onChange(nextRows.map((row) => ({ price: parseOptionalNumber(row.price), percent: parseOptionalNumber(row.percent) })));
-  const buttonClassName = isDarkTheme
-    ? "rounded-xl border border-white/[0.085] px-3 py-2 text-xs font-black text-slate-200 transition hover:bg-white/[0.055] disabled:opacity-45"
-    : "rounded-xl border border-slate-300 px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-45";
 
   return (
     <div className="space-y-2">
       {rows.map((row, index) => (
         <div key={`${index}-${row.price}-${row.percent}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
-          <input className={inputClassName(isDarkTheme)} disabled={disabled} inputMode="decimal" placeholder={rendererCopy.pricePlaceholder} value={row.price} onChange={(event) => emitRows(rows.map((item, itemIndex) => itemIndex === index ? { ...item, price: event.target.value } : item))} />
-          <input className={inputClassName(isDarkTheme)} disabled={disabled} inputMode="decimal" placeholder={rendererCopy.percentPlaceholder} value={row.percent} onChange={(event) => emitRows(rows.map((item, itemIndex) => itemIndex === index ? { ...item, percent: event.target.value } : item))} />
-          <button className={buttonClassName} disabled={disabled} type="button" onClick={() => emitRows(rows.filter((_, itemIndex) => itemIndex !== index))}>{rendererCopy.removeRow}</button>
+          <Input className={getInputClassName(isDarkTheme)} disabled={disabled} inputMode="decimal" placeholder={rendererCopy.pricePlaceholder} value={row.price} onChange={(event) => emitRows(rows.map((item, itemIndex) => itemIndex === index ? { ...item, price: event.target.value } : item))} />
+          <Input className={getInputClassName(isDarkTheme)} disabled={disabled} inputMode="decimal" placeholder={rendererCopy.percentPlaceholder} value={row.percent} onChange={(event) => emitRows(rows.map((item, itemIndex) => itemIndex === index ? { ...item, percent: event.target.value } : item))} />
+          <Button className={getOutlineButtonClassName(isDarkTheme)} disabled={disabled} size="sm" type="button" variant="outline" onClick={() => emitRows(rows.filter((_, itemIndex) => itemIndex !== index))}>{rendererCopy.removeRow}</Button>
         </div>
       ))}
-      <button className={buttonClassName} disabled={disabled} type="button" onClick={() => emitRows([...rows, { percent: "", price: "" }])}>{rendererCopy.addLadderRow}</button>
+      <Button className={getOutlineButtonClassName(isDarkTheme)} disabled={disabled} size="sm" type="button" variant="outline" onClick={() => emitRows([...rows, { percent: "", price: "" }])}>{rendererCopy.addLadderRow}</Button>
     </div>
   );
 };
@@ -101,16 +102,29 @@ function parseOptionalNumber(value: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function inputClassName(isDarkTheme: boolean): string {
-  return isDarkTheme
-    ? "h-10 w-full rounded-xl border border-white/[0.085] bg-[#0F131A] px-3 text-sm font-bold text-slate-100 outline-none placeholder:text-slate-600 focus:border-sky-400/45"
-    : "h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-950 outline-none placeholder:text-slate-400 focus:border-sky-400";
+function getInputClassName(isDarkTheme: boolean): string {
+  return cn(
+    "h-10 rounded-xl text-sm font-bold",
+    isDarkTheme
+      ? "border-white/[0.085] bg-[#0F131A] text-slate-100 placeholder:text-slate-600 focus-visible:border-sky-400/45 focus-visible:ring-sky-400/10"
+      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400 focus-visible:border-sky-400 focus-visible:ring-sky-400/10",
+  );
 }
 
-function textareaClassName(isDarkTheme: boolean, extra: string): string {
+function getTextareaClassName(isDarkTheme: boolean, extra: string): string {
+  return cn(
+    extra,
+    "rounded-2xl",
+    isDarkTheme
+      ? "border-white/[0.085] bg-[#0F131A] text-slate-100 placeholder:text-slate-600 focus-visible:border-sky-400/45 focus-visible:ring-sky-400/10"
+      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400 focus-visible:border-sky-400 focus-visible:ring-sky-400/10",
+  );
+}
+
+function getOutlineButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? `${extra} w-full rounded-2xl border border-white/[0.085] bg-[#0F131A] px-3 py-2 text-slate-100 outline-none placeholder:text-slate-600 focus:border-sky-400/45`
-    : `${extra} w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none placeholder:text-slate-400 focus:border-sky-400`;
+    ? "border-white/[0.085] bg-transparent text-slate-200 hover:bg-white/[0.055]"
+    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
 }
 
 function getStrategySchemaCopy(props: WidgetProps): StrategySchemaCopy {
