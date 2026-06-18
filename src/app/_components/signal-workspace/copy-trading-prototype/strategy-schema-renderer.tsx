@@ -6,6 +6,16 @@ import type { FieldTemplateProps, FormContextType, RJSFSchema, RegistryWidgetsTy
 import validator from "@rjsf/validator-ajv8";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
+import {
+  createStrategyDisplayUiSchema,
+  hasSchemaDisplayDescription,
+  hasSchemaDisplayLabel,
+  mergeUiSchemas,
+  propertySchemaForKey,
+  schemaAtPath,
+  withStrategyDisplayMetadata,
+  withoutStrategyDisplayMetadata,
+} from "./strategy-display-metadata";
 import { StrategySchemaReadonlyView } from "./strategy-schema-readonly-view";
 
 export type StrategySchemaRendererMode = "action" | "create" | "edit" | "readonly";
@@ -19,7 +29,6 @@ type UiField = JsonRecord & { path: string; label?: string; help?: string; widge
 
 const SUPPORTED_WIDGETS = new Set(["text", "textarea", "number", "integer", "switch", "select", "radio", "json", "array-table", "string-list", "percent-sum-table", "price-percent-ladder", "symbol-picker"]);
 const WIDGET_ALIASES: Record<string, string> = { integer: "updown", switch: "checkbox" };
-const DEFAULT_UI_SCHEMA: UiSchema = { "ui:submitButtonOptions": { norender: true } };
 
 export function StrategySchemaRenderer({
   copy,
@@ -46,6 +55,13 @@ export function StrategySchemaRenderer({
   const rendererCopy = copy.workspace.accountCenter.strategySchema;
   const errors = useMemo(() => collectRendererErrors(schema, uiSchema), [schema, uiSchema]);
   const errorKey = errors.join("\n");
+  const renderSchema = useMemo(() => schema ? withStrategyDisplayMetadata(schema, copy) : undefined, [copy, schema]);
+  const rjsfUiSchema = useMemo(() => toRjsfUiSchema({
+    copy,
+    formData,
+    schema,
+    uiSchema,
+  }), [copy, formData, schema, uiSchema]);
 
   useEffect(() => {
     onValidationStateChange?.({ canSubmit: errors.length === 0, errors });
@@ -93,10 +109,10 @@ export function StrategySchemaRenderer({
       noHtml5Validate
       omitExtraData
       readonly={readonly}
-      schema={schema as RJSFSchema}
+      schema={renderSchema as RJSFSchema}
       showErrorList={false}
       templates={{ FieldTemplate: StrategyFieldTemplate }}
-      uiSchema={toRjsfUiSchema(uiSchema, formData)}
+      uiSchema={rjsfUiSchema}
       validator={validator}
       widgets={STRATEGY_WIDGETS}
       onChange={(event) => onChange?.((event.formData ?? {}) as JsonRecord)}
@@ -141,6 +157,7 @@ const JsonWidget = (props: WidgetProps) => {
     <textarea
       className={textareaClassName(isDarkTheme, "min-h-28 font-mono text-xs")}
       disabled={props.disabled || props.readonly}
+      placeholder={props.placeholder}
       value={value}
       onChange={(event) => {
         try { props.onChange(JSON.parse(event.target.value)); } catch { props.onChange(event.target.value); }
@@ -157,7 +174,7 @@ const StringListWidget = (props: WidgetProps) => {
     <textarea
       className={textareaClassName(isDarkTheme, "min-h-24 text-sm font-bold")}
       disabled={props.disabled || props.readonly}
-      placeholder={rendererCopy.stringListPlaceholder}
+      placeholder={props.placeholder || rendererCopy.stringListPlaceholder}
       value={value}
       onChange={(event) => props.onChange(event.target.value.split("\n").map((item) => item.trim()).filter(Boolean))}
     />
@@ -171,7 +188,7 @@ const SymbolPickerWidget = (props: WidgetProps) => {
     <input
       className={inputClassName(isDarkTheme)}
       disabled={props.disabled || props.readonly}
-      placeholder={rendererCopy.symbolPlaceholder}
+      placeholder={props.placeholder || rendererCopy.symbolPlaceholder}
       value={props.value ?? ""}
       onChange={(event) => props.onChange(event.target.value)}
     />
@@ -268,10 +285,10 @@ export function validateStrategySchemaData({
 
   const validation = validator.validateFormData(
     formData,
-    schema as RJSFSchema,
+    withoutStrategyDisplayMetadata(schema) as RJSFSchema,
     undefined,
     undefined,
-    toRjsfUiSchema(uiSchema, formData),
+    toRjsfUiSchema({ formData, schema, uiSchema }),
   );
   return validation.errors
     .map((error) => error.stack || error.message || error.name)
@@ -302,12 +319,26 @@ function createDefaultValue(schema: unknown, isRequired: boolean): unknown {
   return undefined;
 }
 
-function toRjsfUiSchema(uiSchema: JsonRecord | undefined, formData: JsonRecord): UiSchema {
-  if (!uiSchema) return DEFAULT_UI_SCHEMA;
-  return { ...convertTradingFoxUiSchema(uiSchema, formData), "ui:submitButtonOptions": { norender: true } } as UiSchema;
+function toRjsfUiSchema({
+  copy,
+  formData,
+  schema,
+  uiSchema,
+}: {
+  copy?: WorkspaceCopy;
+  formData: JsonRecord;
+  schema?: JsonRecord;
+  uiSchema?: JsonRecord;
+}): UiSchema {
+  const converted = uiSchema ? convertTradingFoxUiSchema(uiSchema, formData, schema) : {};
+  const displayUiSchema = copy ? createStrategyDisplayUiSchema(schema, copy) : {};
+  return {
+    ...mergeUiSchemas(converted, displayUiSchema),
+    "ui:submitButtonOptions": { norender: true },
+  } as UiSchema;
 }
 
-function convertTradingFoxUiSchema(uiSchema: JsonRecord, formData: JsonRecord): JsonRecord {
+function convertTradingFoxUiSchema(uiSchema: JsonRecord, formData: JsonRecord, schema?: JsonRecord): JsonRecord {
   const converted: JsonRecord = {};
   for (const [key, value] of Object.entries(uiSchema)) {
     if (key === "sections" && Array.isArray(value)) {
@@ -316,27 +347,28 @@ function convertTradingFoxUiSchema(uiSchema: JsonRecord, formData: JsonRecord): 
         if (!isRecord(section) || !Array.isArray(section.fields)) continue;
         for (const field of section.fields.filter(isUiField).sort(compareUiFields)) {
           orderedPaths.push(field.path.split(".").filter(Boolean)[0] ?? "");
-          assignFieldUi(converted, field, formData);
+          assignFieldUi(converted, field, formData, schema);
         }
       }
       const uiOrder = Array.from(new Set(orderedPaths)).filter(Boolean);
       if (uiOrder.length > 0) converted["ui:order"] = [...uiOrder, "*"];
       continue;
     }
-    converted[key] = isRecord(value) ? convertTradingFoxUiSchema(value, formData) : value;
+    converted[key] = isRecord(value) ? convertTradingFoxUiSchema(value, formData, propertySchemaForKey(schema, key)) : value;
   }
   return converted;
 }
 
-function assignFieldUi(target: JsonRecord, field: UiField, formData: JsonRecord) {
+function assignFieldUi(target: JsonRecord, field: UiField, formData: JsonRecord, schema?: JsonRecord) {
   const parts = field.path.split(".").filter(Boolean);
   let current = target;
   for (const part of parts) {
     if (!isRecord(current[part])) current[part] = {};
     current = current[part] as JsonRecord;
   }
-  if (typeof field.label === "string") current["ui:title"] = field.label;
-  if (typeof field.help === "string") current["ui:description"] = field.help;
+  const fieldSchema = schema ? schemaAtPath(schema, field.path) : null;
+  if (typeof field.label === "string" && !hasSchemaDisplayLabel(fieldSchema)) current["ui:title"] = field.label;
+  if (typeof field.help === "string" && !hasSchemaDisplayDescription(fieldSchema)) current["ui:description"] = field.help;
   if (typeof field.widget === "string") current["ui:widget"] = WIDGET_ALIASES[field.widget] ?? field.widget;
   if (field.visibleWhen && !evaluateCondition(field.visibleWhen, formData)) current["ui:widget"] = "hidden";
   if (field.enabledWhen && !evaluateCondition(field.enabledWhen, formData)) current["ui:disabled"] = true;
@@ -365,7 +397,7 @@ function collectUiSchemaErrors(schema: JsonRecord, uiSchema: JsonRecord, path: s
       });
       continue;
     }
-    if (isRecord(value)) collectUiSchemaErrors(childSchemaForKey(schema, key) ?? schema, value, `${path}.${key}`, errors);
+    if (isRecord(value)) collectUiSchemaErrors(propertySchemaForKey(schema, key) ?? schema, value, `${path}.${key}`, errors);
   }
 }
 
@@ -395,11 +427,6 @@ function validateCondition(schema: JsonRecord, condition: unknown, path: string,
   if (operators.length !== 1) errors.push(`${path} must declare exactly one of eq, ne, in, or exists.`);
   if (Object.prototype.hasOwnProperty.call(condition, "in") && !Array.isArray(condition.in)) errors.push(`${path}.in must be an array.`);
   if (Object.prototype.hasOwnProperty.call(condition, "exists") && typeof condition.exists !== "boolean") errors.push(`${path}.exists must be a boolean.`);
-}
-
-function childSchemaForKey(schema: JsonRecord, key: string): JsonRecord | null {
-  const properties = isRecord(schema.properties) ? schema.properties : null;
-  return properties && isRecord(properties[key]) ? properties[key] : null;
 }
 
 function schemaPathExists(schema: JsonRecord, path: string): boolean {

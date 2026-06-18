@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { TradingFoxStrategyDefinitionSummary } from "@/app/_lib/tradingfox-control-plane";
+import {
+  strategyDefinitionDescription,
+  strategyDefinitionLabel,
+} from "./strategy-display-metadata";
 
 export function StrategyDefinitionSelect({
   copy,
@@ -30,11 +34,16 @@ export function StrategyDefinitionSelect({
     }
 
     return definitions.filter((definition) => {
-      return definition.name.toLowerCase().includes(normalizedQuery)
-        || definition.id.toLowerCase().includes(normalizedQuery)
-        || (definition.description ?? "").toLowerCase().includes(normalizedQuery);
+      const searchableText = [
+        definition.id,
+        definition.name,
+        definition.description,
+        strategyDefinitionLabel(definition, copy),
+        strategyDefinitionDescription(definition, copy),
+      ].join(" ").toLowerCase();
+      return searchableText.includes(normalizedQuery);
     });
-  }, [definitions, query]);
+  }, [copy, definitions, query]);
   const triggerClassName = isDarkTheme
     ? "mt-2 flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.085] bg-white/[0.04] px-3 py-2 text-left text-sm font-bold text-slate-100 outline-none transition hover:border-sky-300/25 hover:bg-white/[0.065] focus:border-sky-400/45 focus:ring-2 focus:ring-sky-400/10"
     : "mt-2 flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-[#D5E4EF] bg-white px-3 py-2 text-left text-sm font-bold text-slate-950 shadow-sm outline-none transition hover:border-[#BFE7FB] hover:bg-[#F8FAFC] focus:border-[#7DBEFF] focus:ring-2 focus:ring-[#16AFF5]/10";
@@ -149,11 +158,13 @@ function StrategyDefinitionOptionContent({
   isDarkTheme: boolean;
 }) {
   const strategyCreateCopy = copy.workspace.accountCenter.strategyCreate;
+  const label = strategyDefinitionLabel(definition, copy);
+  const description = strategyDefinitionDescription(definition, copy, definition.id);
   return (
     <span className="min-w-0 flex-1">
-      <span className="block truncate text-sm font-black">{definition.name || definition.id}</span>
+      <span className="block truncate text-sm font-black">{label}</span>
       <span className={isDarkTheme ? "mt-1 block line-clamp-2 text-xs leading-5 text-slate-400" : "mt-1 block line-clamp-2 text-xs leading-5 text-slate-600"}>
-        {definition.description || definition.id}
+        {description}
       </span>
       <span className="mt-2 flex flex-wrap gap-1.5">
         <MetaPill isDarkTheme={isDarkTheme}>{definition.id}</MetaPill>
