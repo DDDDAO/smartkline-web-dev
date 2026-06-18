@@ -310,6 +310,13 @@ export type TradingFoxStrategyDetail = {
   trader: TradingFoxTrader;
 };
 
+export type TradingFoxTraderActionResponse = {
+  actionId: string;
+  detail?: TradingFoxStrategyDetail;
+  result?: Record<string, unknown>;
+  runtimeStatus?: TradingFoxRuntimeStatus;
+};
+
 export type TradingFoxCopyStrategyCurveWindow = "24h" | "7d" | "30d" | "90d" | "180d";
 
 export type TradingFoxCopyStrategyDetailInput = {
@@ -381,8 +388,15 @@ export type SyncCopyStrategyPositionsInput = {
   ratioPercent?: unknown;
 };
 
+export type ExecuteTradingFoxTraderActionInput = {
+  payload?: unknown;
+};
+
 export type UpdateCopyStrategySettingsInput = {
+  config?: unknown;
+  configSchemaVersion?: unknown;
   stopLossPercent?: unknown;
+  strategyDefinitionId?: unknown;
   strategyName?: unknown;
   takeProfitPercent?: unknown;
 };

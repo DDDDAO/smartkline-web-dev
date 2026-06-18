@@ -6,8 +6,9 @@ import { TRADINGFOX_ACTION_SYNC_POSITIONS, TRADINGFOX_COPY_STRATEGY_DEFINITION_I
 import { settledTradingFoxSkipped, settleTradingFoxRequest, tradingFoxRequest, tradingFoxUserIdFromSession } from "./http";
 import { normalizePositiveInteger } from "./normalizers";
 import { applyTradingFoxOrderHistoryPage, enrichTradingFoxOrderHistorySignalSourcePrices, normalizeTradingFoxOrderHistoryPage } from "./order-history";
+import { validateTradingFoxStrategyConfig } from "./strategy-definitions";
 import { adaptTradingFoxStrategyCurve, normalizeTradingFoxStrategyCurveError, readTradingFoxStrategyCurvePayload, settleTradingFoxStrategyCurveRequest } from "./strategy-curve";
-import { createTradingFoxCopyStrategyConfig, ensureTradingFoxCopyStrategyConfigEnvelope, firstSignalSourceConfig, isCopyTradingTrader, mapTradingFoxStrategy, resolveCopyStrategyTakeProfitMargin, signalSourceConfigsFromCopyStrategyConfig, signalSourceIdFromConfig } from "./strategy-config";
+import { createTradingFoxCopyStrategyConfig, ensureTradingFoxCopyStrategyConfigEnvelope, isCopyTradingTrader, mapTradingFoxStrategy, resolveCopyStrategyTakeProfitMargin } from "./strategy-config";
 import { TradingFoxApiError } from "./types";
 import type {
   CreateCopyStrategyInput,
@@ -22,52 +23,17 @@ import type {
   TradingFoxRuntimeStatus,
   TradingFoxRuntimeStatusResponse,
   TradingFoxSignalSource,
-  TradingFoxStrategyDefinition,
-  TradingFoxStrategyDefinitionSummary,
   TradingFoxStrategyDetail,
   TradingFoxStrategyDetailSection,
   TradingFoxTrader,
-  UpdateCopyStrategySettingsInput,
 } from "./types";
-import { isRecord, normalizeOptionalText, normalizePositiveNumber, parsePositiveInteger, recordValue, requireText, stringValue } from "./value-utils";
+import { isRecord, normalizeOptionalText, normalizePositiveNumber, parsePositiveInteger, requireText, stringValue } from "./value-utils";
 
 type TradingFoxCopyStrategyContext = {
   accountInitialEquity: number | undefined;
   strategy: TradingFoxCopyStrategy;
   trader: TradingFoxTrader;
 };
-
-export async function listTradingFoxStrategyDefinitions(): Promise<TradingFoxStrategyDefinitionSummary[]> {
-  const response = await tradingFoxRequest<{ items: TradingFoxStrategyDefinitionSummary[] }>("/v1/strategy-definitions");
-  return response.items;
-}
-
-export async function getTradingFoxStrategyDefinition(
-  definitionId: string,
-): Promise<TradingFoxStrategyDefinition> {
-  const normalizedDefinitionId = requireText(definitionId, "strategyDefinitionId");
-  return tradingFoxRequest<TradingFoxStrategyDefinition>(
-    `/v1/strategy-definitions/${encodeURIComponent(normalizedDefinitionId)}`,
-  );
-}
-
-export async function validateTradingFoxStrategyConfig(input: {
-  config: Record<string, unknown>;
-  configSchemaVersion?: number;
-  strategyDefinitionId: string;
-}): Promise<{ ok: boolean }> {
-  const strategyDefinitionId = requireText(input.strategyDefinitionId, "strategyDefinitionId");
-  return tradingFoxRequest<{ ok: boolean }>(
-    `/v1/strategy-definitions/${encodeURIComponent(strategyDefinitionId)}/validate-config`,
-    {
-      body: JSON.stringify({
-        config: input.config,
-        configSchemaVersion: input.configSchemaVersion,
-      }),
-      method: "POST",
-    },
-  );
-}
 
 export async function createTradingFoxStrategy(
   session: TelegramAuthSession,
@@ -214,71 +180,6 @@ export async function updateTradingFoxCopyStrategyStatus(
       method: "POST",
     });
   }
-
-  return getTradingFoxAccount(session);
-}
-
-export async function updateTradingFoxCopyStrategySettings(
-  session: TelegramAuthSession,
-  strategyId: string,
-  input: UpdateCopyStrategySettingsInput,
-): Promise<TradingFoxAccountResponse> {
-  const userId = tradingFoxUserIdFromSession(session);
-  const traderId = parsePositiveInteger(strategyId, "strategyId");
-  const trader = await tradingFoxRequest<TradingFoxTrader>(`/v1/traders/${traderId}`);
-
-  if (trader.userId !== userId) {
-    throw new TradingFoxApiError("Strategy not found.", 404);
-  }
-
-  const strategyName = requireText(input.strategyName, "strategyName");
-  if (!isCopyTradingTrader(trader)) {
-    await tradingFoxRequest<{ trader?: TradingFoxTrader; runtimeStatus?: TradingFoxRuntimeStatus }>(
-      `/v1/traders/${traderId}`,
-      {
-        body: JSON.stringify({ name: strategyName }),
-        method: "PATCH",
-      },
-    );
-    return getTradingFoxAccount(session);
-  }
-
-  const connector = await getConnectorForUser(trader.exchangeConnectorId, userId);
-  const takeProfitPercent = normalizePositiveNumber(input.takeProfitPercent);
-  const stopLossPercent = normalizePositiveNumber(input.stopLossPercent);
-  if (takeProfitPercent === undefined) {
-    throw new TradingFoxApiError("takeProfitPercent must be greater than 0.", 400);
-  }
-  if (stopLossPercent === undefined) {
-    throw new TradingFoxApiError("stopLossPercent must be greater than 0.", 400);
-  }
-
-  const signalSourceConfig = firstSignalSourceConfig(trader.config);
-  const metadata = recordValue(trader.config.smartkline);
-  const signalSourceId = stringValue(metadata.signalSourceId) || signalSourceIdFromConfig(signalSourceConfig);
-  if (!signalSourceId) {
-    throw new TradingFoxApiError("Copy strategy signal source is missing; recreate the strategy.", 409);
-  }
-
-  const takeProfitMargin = await resolveCopyStrategyTakeProfitMargin(connector, takeProfitPercent);
-  await tradingFoxRequest<{ trader?: TradingFoxTrader; runtimeStatus?: TradingFoxRuntimeStatus }>(
-    `/v1/traders/${traderId}`,
-    {
-      body: JSON.stringify({
-        config: createTradingFoxCopyStrategyConfig({
-          signalSourceConfigs: signalSourceConfigsFromCopyStrategyConfig(trader.config),
-          signalSourceId,
-          startTime: stringValue(signalSourceConfig?.startTime) || trader.createdAt,
-          stopLossPercent,
-          takeProfitMargin,
-          takeProfitPercent,
-        }),
-        configSchemaVersion: 1,
-        name: strategyName,
-      }),
-      method: "PATCH",
-    },
-  );
 
   return getTradingFoxAccount(session);
 }

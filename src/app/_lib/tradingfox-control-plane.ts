@@ -9,18 +9,24 @@ export {
   getTradingFoxConnectorWhitelistIP,
   prepareTradingFoxHyperliquidAgentBinding,
 } from "./tradingfox-control-plane/connectors";
+export { executeTradingFoxTraderAction } from "./tradingfox-control-plane/trader-actions";
 export {
   createTradingFoxStrategy,
   createTradingFoxCopyStrategy,
   deleteTradingFoxCopyStrategy,
-  getTradingFoxStrategyDefinition,
-  getTradingFoxCopyStrategyDetail,
-  listTradingFoxStrategyDefinitions,
   syncTradingFoxCopyStrategyPositions,
-  updateTradingFoxCopyStrategySettings,
   updateTradingFoxCopyStrategyStatus,
-  validateTradingFoxStrategyConfig,
 } from "./tradingfox-control-plane/strategies";
+export {
+  getTradingFoxStrategyDefinition,
+  listTradingFoxStrategyDefinitions,
+  validateTradingFoxStrategyConfig,
+} from "./tradingfox-control-plane/strategy-definitions";
+export {
+  updateTradingFoxCopyStrategySettings,
+  updateTradingFoxTraderSettings,
+} from "./tradingfox-control-plane/strategy-settings";
+export { getTradingFoxCopyStrategyDetail } from "./tradingfox-control-plane/strategies";
 export { tradingFoxUserIdFromSession } from "./tradingfox-control-plane/http";
 export { TradingFoxApiError, TradingFoxConfigError } from "./tradingfox-control-plane/types";
 export type {
@@ -30,6 +36,7 @@ export type {
   CreateHyperliquidAgentBindingInput,
   CreateMockConnectorInput,
   CreateTradingFoxStrategyInput,
+  ExecuteTradingFoxTraderActionInput,
   SyncCopyStrategyPositionsInput,
   UpdateCopyStrategySettingsInput,
   TradingFoxActionDefinition,
@@ -58,4 +65,5 @@ export type {
   TradingFoxStrategyCurvePoint,
   TradingFoxStrategyDetail,
   TradingFoxTrader,
+  TradingFoxTraderActionResponse,
 } from "./tradingfox-control-plane/types";
