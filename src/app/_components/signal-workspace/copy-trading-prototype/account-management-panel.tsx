@@ -7,7 +7,7 @@ import type { TradingFoxAccountResponse } from "@/app/_lib/tradingfox-control-pl
 import { StrategyDetailView } from "./strategy-detail-view";
 import { TelegramUserAvatar, getTelegramUserDisplayName } from "./telegram-user-avatar";
 import type { AccountManagementTab, CopyTradingPrototypeTarget, PrototypeApiConnection, PrototypeConnectionSaveInput, PrototypeStrategy, PrototypeStrategyCreateInput, PrototypeStrategySettingsUpdateInput, PrototypeStrategyStatus } from "./types";
-import { getPrototypeStrategyType } from "./strategy-helpers";
+import { getStrategyDashboardPath } from "./strategy-presentation-registry";
 import { getAccountCenterTabButtonClassName, getPrimaryButtonClassName, getSoftButtonClassName } from "./styles";
 import { createSignalSourceTargetById, NotificationSettingsPlaceholder, ApiConnectionCard, StrategyCreateLayer } from "./copy-trading-prototype-helpers";
 import { ExchangeApiSetupLayer } from "./exchange-api-setup-layer";
@@ -95,8 +95,9 @@ export function AccountManagementPanel({
     },
   ];
   const openStrategyDetail = (strategy: PrototypeStrategy) => {
-    if (getPrototypeStrategyType(strategy) === "mario") {
-      window.location.assign("/mario-dashboard");
+    const dashboardPath = getStrategyDashboardPath(strategy);
+    if (dashboardPath) {
+      window.location.assign(dashboardPath);
       return;
     }
     setLocalSelectedStrategyId(strategy.id);

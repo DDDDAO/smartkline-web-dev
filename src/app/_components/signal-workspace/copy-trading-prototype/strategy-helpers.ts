@@ -1,17 +1,9 @@
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
 import type { PrototypeStrategy, PrototypeStrategyStatus, PrototypeStrategyType } from "./types";
+import { getStrategyPresentation } from "./strategy-presentation-registry";
 
 export function getPrototypeStrategyType(strategy: PrototypeStrategy): PrototypeStrategyType {
-  if (strategy.strategyType) {
-    return strategy.strategyType;
-  }
-  if (strategy.strategyDefinitionId === "MARIO_STRATEGY") {
-    return "mario";
-  }
-  if (strategy.strategyDefinitionId && strategy.strategyDefinitionId !== "COPY_TRADING") {
-    return "generic";
-  }
-  return "copyTrading";
+  return getStrategyPresentation(strategy).strategyType;
 }
 
 export function getStrategyStatusLabel(

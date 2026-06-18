@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { StrategyDetailView } from "./strategy-detail-view";
 import { TelegramUserAvatar, getTelegramUserDisplayName } from "./telegram-user-avatar";
 import type { AccountCenterPrototypeProps, PrototypeStrategy } from "./types";
-import { getPrototypeStrategyType } from "./strategy-helpers";
+import { getStrategyDashboardPath } from "./strategy-presentation-registry";
 import { getPrimaryButtonClassName, getSoftButtonClassName } from "./styles";
 import { createSignalSourceTargetById, ApiConnectionCard, StrategyCreateLayer } from "./copy-trading-prototype-helpers";
 import { ExchangeApiSetupLayer } from "./exchange-api-setup-layer";
@@ -47,8 +47,9 @@ export function AccountCenterPrototype({
     [availableSignalSources],
   );
   const openStrategyDetail = (strategy: PrototypeStrategy) => {
-    if (getPrototypeStrategyType(strategy) === "mario") {
-      window.location.assign("/mario-dashboard");
+    const dashboardPath = getStrategyDashboardPath(strategy);
+    if (dashboardPath) {
+      window.location.assign(dashboardPath);
       return;
     }
     setSelectedStrategyId(strategy.id);

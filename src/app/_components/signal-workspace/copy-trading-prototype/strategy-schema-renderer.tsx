@@ -252,6 +252,32 @@ export function createStrategyConfigSkeleton(schema?: JsonRecord): JsonRecord {
   return isRecord(value) ? value : {};
 }
 
+export function validateStrategySchemaData({
+  formData,
+  schema,
+  uiSchema,
+}: {
+  formData: JsonRecord;
+  schema?: JsonRecord;
+  uiSchema?: JsonRecord;
+}): string[] {
+  const rendererErrors = collectRendererErrors(schema, uiSchema);
+  if (rendererErrors.length > 0 || !schema || Object.keys(schema).length === 0 || isEmptyObjectSchema(schema)) {
+    return rendererErrors;
+  }
+
+  const validation = validator.validateFormData(
+    formData,
+    schema as RJSFSchema,
+    undefined,
+    undefined,
+    toRjsfUiSchema(uiSchema, formData),
+  );
+  return validation.errors
+    .map((error) => error.stack || error.message || error.name)
+    .filter((error): error is string => Boolean(error));
+}
+
 function createDefaultValue(schema: unknown, isRequired: boolean): unknown {
   if (!isRecord(schema)) return undefined;
   if (schema.default !== undefined) return JSON.parse(JSON.stringify(schema.default)) as unknown;
@@ -262,7 +288,13 @@ function createDefaultValue(schema: unknown, isRequired: boolean): unknown {
     for (const [key, childSchema] of Object.entries(properties)) {
       const childRequired = required.has(key);
       const childValue = createDefaultValue(childSchema, childRequired);
-      if (childRequired || childValue !== undefined) output[key] = childValue ?? {};
+      if (childValue !== undefined) {
+        output[key] = childValue;
+      } else if (childRequired && isRecord(childSchema) && childSchema.type === "object") {
+        output[key] = {};
+      } else if (childRequired && isRecord(childSchema) && childSchema.type === "array") {
+        output[key] = [];
+      }
     }
     return output;
   }

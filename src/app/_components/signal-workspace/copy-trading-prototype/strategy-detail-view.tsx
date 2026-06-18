@@ -13,10 +13,9 @@ import { StrategySettingsDialog } from "./strategy-settings-dialog";
 import { StrategyNotificationSettingsDialog } from "./strategy-notification-settings-dialog";
 import { StrategyDetailSummaryCard } from "./strategy-detail-summary-card";
 import { StrategyTradeHistorySection } from "./strategy-trade-history-section";
-import { StrategyDetailConfigSection } from "./strategy-detail-config-section";
+import { StrategyDetailActionsSection } from "./strategy-detail-actions-section";
 import { StrategyDetailPositionsSections } from "./strategy-detail-positions-sections";
-import { getAdjacentStrategyCurveWindows, getStrategyCurveQueryKey, mergeStrategyDetail, requestStrategyDetail, requestStrategyPositionSync, scheduleStrategyDetailTask } from "./strategy-detail-utils";
-import { getPrototypeStrategyType } from "./strategy-helpers";
+import { getAdjacentStrategyCurveWindows, getStrategyCurveQueryKey, mergeStrategyDetail, requestStrategyDetail, scheduleStrategyDetailTask } from "./strategy-detail-utils";
 import { getErrorPanelClassName, getModalSectionClassName } from "./styles";
 import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategySettingsUpdateInput, PrototypeStrategyStatus } from "./types";
 
@@ -52,10 +51,8 @@ export function StrategyDetailView({
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [shouldLoadTradeHistory, setShouldLoadTradeHistory] = useState(false);
-  const [syncRatioPercent, setSyncRatioPercent] = useState("100");
   const [syncError, setSyncError] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
-  const [isSyncingPositions, setIsSyncingPositions] = useState(false);
   const [isUpdatingLifecycle, setIsUpdatingLifecycle] = useState(false);
   const [isDeletingStrategy, setIsDeletingStrategy] = useState(false);
   const [tradeHistoryPageOffset, setTradeHistoryPageOffset] = useState(0);
@@ -265,10 +262,6 @@ export function StrategyDetailView({
   const loadedSections = detail?.loadedSections ?? [];
   const hasLoadedSection = (section: TradingFoxStrategyDetailSection) => loadedSections.includes(section);
   const liveStrategy = detail?.strategy ?? strategy;
-  const isStrategyRunning = liveStrategy.status === "running";
-  const isCopyTradingStrategy = getPrototypeStrategyType(liveStrategy) === "copyTrading";
-  const parsedSyncRatioPercent = Number(syncRatioPercent);
-  const canSyncPositions = isCopyTradingStrategy && Boolean(detail) && isStrategyRunning && Number.isFinite(parsedSyncRatioPercent) && parsedSyncRatioPercent > 0 && !isSyncingPositions;
   const orderItems = detail?.orderHistory?.items ?? [];
   const signalSourceOrderItems = detail?.orderHistory?.signalSourceOrders ?? [];
   const tradeLogItems = detail?.orderHistory?.tradeLogs ?? [];
@@ -297,7 +290,7 @@ export function StrategyDetailView({
     () => createCopyPositionMarkPricesBySymbol(detailPositions),
     [detailPositions],
   );
-  const shouldShowActionMessage = Boolean(detail && (syncMessage || syncError || liveStrategy.status === "paused" || liveStrategy.status === "stopped"));
+  const shouldShowActionMessage = Boolean(detail && (syncMessage || syncError));
   const positionsSectionLoaded = hasLoadedSection("positions");
   const signalSourcesSectionLoaded = hasLoadedSection("signalSources");
   const ordersSectionLoaded = hasLoadedSection("orders");
@@ -327,26 +320,6 @@ export function StrategyDetailView({
 
   const showNextTradeHistoryPage = () => {
     setTradeHistoryPageOffset((currentOffset) => currentOffset + TRADE_HISTORY_PAGE_SIZE);
-  };
-
-  const syncPositions = async () => {
-    if (!canSyncPositions) {
-      return;
-    }
-
-    setIsSyncingPositions(true);
-    setSyncError("");
-    setSyncMessage("");
-    try {
-      const nextDetail = await requestStrategyPositionSync(liveStrategy.id, parsedSyncRatioPercent);
-      setDetail(nextDetail);
-      setTradeHistoryPageOffset(0);
-      setSyncMessage(strategyCopy.syncPositionsSuccess);
-    } catch (syncPositionsError) {
-      setSyncError(getTradingFoxErrorMessage(syncPositionsError, copy));
-    } finally {
-      setIsSyncingPositions(false);
-    }
   };
 
   const updateLifecycle = async (status: PrototypeStrategyStatus) => {
@@ -393,16 +366,27 @@ export function StrategyDetailView({
     setSyncMessage(strategyCopy.settingsSaved);
   };
 
+  const refreshAfterStrategyAction = async (nextDetail?: TradingFoxStrategyDetail) => {
+    setSyncError("");
+    setSyncMessage("");
+    if (nextDetail) {
+      setDetail(nextDetail);
+      setTradeHistoryPageOffset(0);
+      return;
+    }
+    setDetail(await requestStrategyDetail(liveStrategy.id, {
+      orderLimit: TRADE_HISTORY_PAGE_SIZE,
+      orderOffset: tradeHistoryPageOffset,
+    }));
+  };
+
   return (
     <section className="space-y-4">
       <StrategyDetailSummaryCard
-        canSyncPositions={canSyncPositions}
         copy={copy}
         detail={detail}
-        error={error}
         isDarkTheme={isDarkTheme}
         isDeletingStrategy={isDeletingStrategy}
-        isSyncingPositions={isSyncingPositions}
         isUpdatingLifecycle={isUpdatingLifecycle}
         liveStrategy={liveStrategy}
         positionsMetricValue={positionsMetricValue}
@@ -411,14 +395,11 @@ export function StrategyDetailView({
         strategyCopy={strategyCopy}
         syncError={syncError}
         syncMessage={syncMessage}
-        syncRatioPercent={syncRatioPercent}
         traderOrdersMetricValue={traderOrdersMetricValue}
         onBack={onBack}
         onDelete={() => void deleteStrategy()}
         onEdit={() => setIsSettingsOpen(true)}
         onNotificationOpen={() => setIsNotificationSettingsOpen(true)}
-        onSync={syncPositions}
-        onSyncRatioChange={setSyncRatioPercent}
         onUpdateLifecycle={(status) => void updateLifecycle(status)}
       />
 
@@ -439,14 +420,13 @@ export function StrategyDetailView({
             onWindowChange={setActiveCurveWindow}
           />
 
-          <StrategyDetailConfigSection
+          <StrategyDetailActionsSection
             copy={copy}
             detail={detail}
             isDarkTheme={isDarkTheme}
-            signalSourceIdentityById={signalSourceIdentityById}
             strategyCopy={strategyCopy}
             strategyDefinition={strategyDefinition}
-            strategyDefinitionError={strategyDefinitionError}
+            onActionCompleted={refreshAfterStrategyAction}
           />
 
           <StrategyDetailPositionsSections
@@ -457,6 +437,7 @@ export function StrategyDetailView({
             positionsSectionLoaded={positionsSectionLoaded}
             signalSourcesSectionLoaded={signalSourcesSectionLoaded}
             strategyCopy={strategyCopy}
+            strategyDefinition={strategyDefinition}
           />
 
           <StrategyTradeHistorySection
@@ -494,9 +475,14 @@ export function StrategyDetailView({
       ) : null}
       {isSettingsOpen ? (
         <StrategySettingsDialog
+          key={`${liveStrategy.id}:${detail?.trader.configRevision ?? "loading"}`}
           copy={copy}
+          detail={detail}
           isDarkTheme={isDarkTheme}
+          signalSourceIdentityById={signalSourceIdentityById}
           strategy={liveStrategy}
+          strategyDefinition={strategyDefinition}
+          strategyDefinitionError={strategyDefinitionError}
           onClose={() => setIsSettingsOpen(false)}
           onSave={updateSettings}
         />

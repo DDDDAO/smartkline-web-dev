@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
+import type { SignalSourceIdentityById } from "./strategy-detail-shared";
+import { requestStrategyConfigValidation } from "./strategy-detail-utils";
 import { getPrototypeStrategyType } from "./strategy-helpers";
+import { StrategySettingsConfigEditor } from "./strategy-settings-config-editor";
+import { validateStrategySchemaData, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import {
   getIconButtonClassName,
   getInlineErrorClassName,
@@ -12,16 +17,26 @@ import {
 } from "./styles";
 import type { PrototypeStrategy, PrototypeStrategySettingsUpdateInput } from "./types";
 
+type JsonRecord = Record<string, unknown>;
+
 export function StrategySettingsDialog({
   copy,
+  detail,
   isDarkTheme,
+  signalSourceIdentityById,
   strategy,
+  strategyDefinition,
+  strategyDefinitionError = "",
   onClose,
   onSave,
 }: {
   copy: WorkspaceCopy;
+  detail?: TradingFoxStrategyDetail | null;
   isDarkTheme: boolean;
+  signalSourceIdentityById?: SignalSourceIdentityById;
   strategy: PrototypeStrategy;
+  strategyDefinition?: TradingFoxStrategyDefinition | null;
+  strategyDefinitionError?: string;
   onClose: () => void;
   onSave: (input: PrototypeStrategySettingsUpdateInput) => Promise<void> | void;
 }) {
@@ -30,22 +45,33 @@ export function StrategySettingsDialog({
   const strategyCreateCopy = accountCopy.strategyCreate;
   const copyTradingCopy = accountCopy.copyTrading;
   const isCopyStrategy = getPrototypeStrategyType(strategy) === "copyTrading";
+  const hasConfigEditor = detail !== undefined;
   const [strategyName, setStrategyName] = useState(strategy.traderName);
+  const [config, setConfig] = useState<JsonRecord>(() => cloneJsonRecord(detail?.trader.config));
   const [takeProfitPercent, setTakeProfitPercent] = useState(String(strategy.takeProfitPercent || 20));
   const [stopLossPercent, setStopLossPercent] = useState(String(strategy.stopLossPercent || 10));
+  const [rendererState, setRendererState] = useState<StrategySchemaRendererState>({ canSubmit: !hasConfigEditor, errors: [] });
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const normalizedStrategyName = strategyName.trim();
   const parsedTakeProfitPercent = Number(takeProfitPercent);
   const parsedStopLossPercent = Number(stopLossPercent);
+  const shouldShowLegacyRiskInputs = isCopyStrategy && !hasConfigEditor;
   const canSave = normalizedStrategyName.length > 0
     && !isSubmitting
-    && (!isCopyStrategy || (
+    && (!hasConfigEditor || rendererState.canSubmit)
+    && (!shouldShowLegacyRiskInputs || (
       Number.isFinite(parsedTakeProfitPercent)
       && Number.isFinite(parsedStopLossPercent)
       && parsedTakeProfitPercent > 0
       && parsedStopLossPercent > 0
     ));
+
+  const updateConfigBranch = (branch: "common" | "strategy", nextBranchConfig: JsonRecord) => {
+    setConfig((currentConfig) => ({ ...currentConfig, [branch]: nextBranchConfig }));
+    setValidationErrors([]);
+  };
 
   const saveSettings = async () => {
     if (!canSave) {
@@ -54,26 +80,61 @@ export function StrategySettingsDialog({
 
     setIsSubmitting(true);
     setSubmitError("");
+    setValidationErrors([]);
     try {
       if (!normalizedStrategyName) {
         throw new Error(strategyCopy.settingsNameRequired);
       }
-      if (isCopyStrategy && (!Number.isFinite(parsedTakeProfitPercent) || parsedTakeProfitPercent <= 0 || !Number.isFinite(parsedStopLossPercent) || parsedStopLossPercent <= 0)) {
+      if (shouldShowLegacyRiskInputs && (!Number.isFinite(parsedTakeProfitPercent) || parsedTakeProfitPercent <= 0 || !Number.isFinite(parsedStopLossPercent) || parsedStopLossPercent <= 0)) {
         throw new Error(strategyCopy.settingsPercentRequired);
       }
 
-      await onSave({
-        stopLossPercent: isCopyStrategy ? parsedStopLossPercent : strategy.stopLossPercent,
-        strategyId: strategy.id,
-        strategyName: normalizedStrategyName,
-        takeProfitPercent: isCopyStrategy ? parsedTakeProfitPercent : strategy.takeProfitPercent,
-      });
+      if (hasConfigEditor) {
+        await validateAndSaveConfig(normalizedStrategyName);
+      } else {
+        await onSave({
+          stopLossPercent: shouldShowLegacyRiskInputs ? parsedStopLossPercent : strategy.stopLossPercent,
+          strategyId: strategy.id,
+          strategyName: normalizedStrategyName,
+          takeProfitPercent: shouldShowLegacyRiskInputs ? parsedTakeProfitPercent : strategy.takeProfitPercent,
+        });
+      }
       onClose();
     } catch (error) {
       setSubmitError(getTradingFoxErrorMessage(error, copy));
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const validateAndSaveConfig = async (strategyNameValue: string) => {
+    if (!detail || !strategyDefinition) {
+      throw new Error(strategyDefinitionError || strategyCopy.settingsConfigUnavailable);
+    }
+    const localValidationErrors = validateStrategySchemaData({
+      formData: config,
+      schema: strategyDefinition.configSchema,
+      uiSchema: strategyDefinition.uiSchema,
+    });
+    if (localValidationErrors.length > 0) {
+      setValidationErrors(localValidationErrors);
+      throw new Error(strategyCopy.settingsValidationFailed);
+    }
+
+    await requestStrategyConfigValidation({
+      config,
+      configSchemaVersion: detail.trader.configSchemaVersion,
+      strategyDefinitionId: detail.trader.strategyDefinitionId,
+    });
+    await onSave({
+      config,
+      configSchemaVersion: detail.trader.configSchemaVersion,
+      stopLossPercent: strategy.stopLossPercent,
+      strategyDefinitionId: detail.trader.strategyDefinitionId,
+      strategyId: strategy.id,
+      strategyName: strategyNameValue,
+      takeProfitPercent: strategy.takeProfitPercent,
+    });
   };
 
   return (
@@ -87,17 +148,17 @@ export function StrategySettingsDialog({
       <section
         aria-label={strategyCopy.editSettingsTitle}
         aria-modal="true"
-        className="fixed inset-x-0 bottom-0 z-[130] max-h-[92dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(680px,calc(100dvh-1rem))] sm:max-w-[560px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
+        className="fixed inset-x-0 bottom-0 z-[130] max-h-[92dvh] overflow-hidden rounded-t-[30px] shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(760px,calc(100dvh-1rem))] sm:max-w-[760px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
         role="dialog"
       >
-        <div className={isDarkTheme ? "flex max-h-[92dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[min(680px,calc(100dvh-1rem))]" : "flex max-h-[92dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[min(680px,calc(100dvh-1rem))]"}>
+        <div className={isDarkTheme ? "flex max-h-[92dvh] flex-col border border-white/[0.085] bg-[#111820] text-slate-100 sm:max-h-[min(760px,calc(100dvh-1rem))]" : "flex max-h-[92dvh] flex-col border border-[#D5E4EF] bg-white text-slate-950 sm:max-h-[min(760px,calc(100dvh-1rem))]"}>
           <header className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>{strategyCopy.editSettingsEyebrow}</div>
                 <h2 className="mt-2 text-xl font-black tracking-tight">{strategyCopy.editSettingsTitle}</h2>
                 <p className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
-                  {isCopyStrategy ? strategyCopy.editSettingsDescription : strategyCopy.editMarioSettingsDescription}
+                  {hasConfigEditor ? strategyCopy.editSettingsDescription : strategyCopy.editLegacySettingsDescription}
                 </p>
               </div>
               <button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} type="button" onClick={onClose}>
@@ -116,7 +177,7 @@ export function StrategySettingsDialog({
               onChange={setStrategyName}
             />
 
-            {isCopyStrategy ? (
+            {shouldShowLegacyRiskInputs ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 <StrategySettingsPercentInput
                   fieldName="strategy-settings-take-profit"
@@ -137,6 +198,28 @@ export function StrategySettingsDialog({
               </div>
             ) : null}
 
+            {hasConfigEditor ? (
+              <StrategySettingsConfigEditor
+                config={config}
+                configSchemaVersion={detail?.trader.configSchemaVersion ?? 0}
+                copy={copy}
+                definition={strategyDefinition ?? null}
+                definitionError={strategyDefinitionError}
+                isDarkTheme={isDarkTheme}
+                signalSourceIdentityById={signalSourceIdentityById}
+                onBranchChange={updateConfigBranch}
+                onRendererStateChange={setRendererState}
+              />
+            ) : null}
+
+            {validationErrors.length > 0 ? (
+              <div className={getInlineErrorClassName(isDarkTheme)}>
+                <div className="font-black">{strategyCopy.settingsValidationTitle}</div>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5">
+                  {validationErrors.map((error) => <li key={error}>{error}</li>)}
+                </ul>
+              </div>
+            ) : null}
             {submitError ? <p className={getInlineErrorClassName(isDarkTheme)}>{submitError}</p> : null}
           </div>
 
@@ -214,4 +297,11 @@ function StrategySettingsPercentInput({
       </div>
     </label>
   );
+}
+
+function cloneJsonRecord(value: unknown): JsonRecord {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return JSON.parse(JSON.stringify(value)) as JsonRecord;
 }

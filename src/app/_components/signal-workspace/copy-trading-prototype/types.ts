@@ -77,7 +77,10 @@ export type PrototypeStrategyCreateInput = {
 export type PrototypeStrategyDefinitionSummary = TradingFoxStrategyDefinitionSummary;
 
 export type PrototypeStrategySettingsUpdateInput = {
+  config?: Record<string, unknown>;
+  configSchemaVersion?: number;
   stopLossPercent: number;
+  strategyDefinitionId?: string;
   strategyId: string;
   strategyName: string;
   takeProfitPercent: number;

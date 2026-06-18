@@ -345,16 +345,23 @@ export function useSignalWorkspaceTradingStrategyActions(
       );
 
       try {
+        const requestBody: Record<string, unknown> = {
+          strategyName,
+        };
+        if (input.config !== undefined) {
+          requestBody.config = input.config;
+          requestBody.configSchemaVersion = input.configSchemaVersion;
+          requestBody.strategyDefinitionId = input.strategyDefinitionId;
+        } else {
+          requestBody.stopLossPercent = input.stopLossPercent;
+          requestBody.takeProfitPercent = input.takeProfitPercent;
+        }
         const account = await requestTradingFoxAccount(
-          `/api/tradingfox/copy-strategies/${encodeURIComponent(
+          `/api/tradingfox/traders/${encodeURIComponent(
             input.strategyId,
           )}`,
           {
-            body: JSON.stringify({
-              stopLossPercent: input.stopLossPercent,
-              strategyName,
-              takeProfitPercent: input.takeProfitPercent,
-            }),
+            body: JSON.stringify(requestBody),
             method: "PATCH",
           },
         );

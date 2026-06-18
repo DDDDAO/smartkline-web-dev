@@ -9,15 +9,13 @@ import { CopyTradingCreateBody } from "./strategy-create-fields";
 import { PrototypeInput } from "./prototype-form-fields";
 import { DefinitionDrivenConfigForm, type JsonRecord } from "./strategy-definition-config-form";
 import { StrategyDefinitionSelect } from "./strategy-definition-select";
+import { COPY_TRADING_DEFINITION_ID, getStrategyPresentationForDefinitionId } from "./strategy-presentation-registry";
 import { createStrategyConfigSkeleton, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import type { CopyTradingPrototypeTarget, PrototypeApiConnection, PrototypeStrategy, PrototypeStrategyCreateInput, PrototypeStrategyType } from "./types";
 import { getIconButtonClassName, getInlineErrorClassName, getLabelClassName, getPrimaryButtonClassName, getSoftButtonClassName } from "./styles";
 import { formatDefaultCopyStrategyName } from "./target-utils";
 
 export { SignalSourceOptionContent, SignalSourceSelect, StrategyTypeOptionButton } from "./strategy-create-fields";
-
-const COPY_TRADING_DEFINITION_ID = "COPY_TRADING";
-const MARIO_DEFINITION_ID = "MARIO_STRATEGY";
 
 type StrategyDefinitionDetailsById = Record<string, TradingFoxStrategyDefinition | undefined>;
 export function StrategyCreateLayer({
@@ -160,7 +158,8 @@ export function StrategyCreateLayer({
   const selectedApiConnection = availableApiConnections.find((connection) => String(connection.id) === selectedConnectorId) ?? availableApiConnections[0] ?? null;
   const selectedTradingAccountId = selectedApiConnection ? String(selectedApiConnection.id) : "";
   const selectedDefinition = selectedDefinitionCacheKey ? definitionDetailsById[selectedDefinitionCacheKey] : undefined;
-  const strategyType = getStrategyTypeFromDefinitionId(selectedDefinitionId);
+  const strategyPresentation = getStrategyPresentationForDefinitionId(selectedDefinitionId);
+  const strategyType = strategyPresentation.strategyType;
   const selectedSignalSource = availableSignalSources.find((target) => target.trader.trader_id === selectedSignalSourceId) ?? availableSignalSources[0] ?? null;
   const defaultStrategyName = defaultNameForStrategy({
     selectedDefinition,
@@ -345,7 +344,7 @@ export function StrategyCreateLayer({
 
             {isDefinitionDetailLoading ? (
               <div className={getInfoPanelClassName(isDarkTheme)}>{strategyCreateCopy.definitionLoading}</div>
-            ) : selectedDefinition && strategyType === "copyTrading" ? (
+            ) : selectedDefinition && strategyPresentation.createPresentation === "copyTrading" ? (
               <CopyTradingCreateBody
                 accountCopy={accountCopy}
                 availableSignalSources={availableSignalSources}
@@ -358,7 +357,7 @@ export function StrategyCreateLayer({
                 onStopLossPercentChange={setStopLossPercent}
                 onTakeProfitPercentChange={setTakeProfitPercent}
               />
-            ) : selectedDefinition && strategyType === "mario" ? (
+            ) : selectedDefinition && strategyPresentation.createPresentation === "marioDashboardHint" ? (
               <div className={isDarkTheme ? "rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.07] px-3 py-3 text-xs leading-5 text-emerald-100/80" : "rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800"}>
                 {strategyCreateCopy.marioDashboardHint}
               </div>
@@ -397,16 +396,6 @@ function strategyDefinitionCacheKey(definition: Pick<TradingFoxStrategyDefinitio
 
 function preferredDefinitionId(definitions: readonly TradingFoxStrategyDefinitionSummary[]): string {
   return definitions.find((definition) => definition.id === COPY_TRADING_DEFINITION_ID)?.id ?? definitions[0]?.id ?? "";
-}
-
-function getStrategyTypeFromDefinitionId(definitionId: string): PrototypeStrategyType {
-  if (definitionId === COPY_TRADING_DEFINITION_ID) {
-    return "copyTrading";
-  }
-  if (definitionId === MARIO_DEFINITION_ID) {
-    return "mario";
-  }
-  return "generic";
 }
 
 function defaultNameForStrategy({

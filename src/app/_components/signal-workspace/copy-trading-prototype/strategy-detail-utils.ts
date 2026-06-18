@@ -1,4 +1,4 @@
-import type { TradingFoxStrategyDetail, TradingFoxStrategyDetailSection } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxStrategyDetail, TradingFoxStrategyDetailSection, TradingFoxTraderActionResponse } from "@/app/_lib/tradingfox-control-plane";
 import type { StrategyDetailCurveWindow } from "./strategy-detail-content";
 
 const STRATEGY_DETAIL_CURVE_WINDOWS: readonly StrategyDetailCurveWindow[] = ["24h", "7d", "30d", "90d"];
@@ -124,4 +124,45 @@ export async function requestStrategyPositionSync(strategyId: string, ratioPerce
     throw new Error("error" in payload && payload.error ? payload.error : `Position sync failed with status ${response.status}.`);
   }
   return payload as TradingFoxStrategyDetail;
+}
+
+export async function requestStrategyConfigValidation({
+  config,
+  configSchemaVersion,
+  strategyDefinitionId,
+}: {
+  config: Record<string, unknown>;
+  configSchemaVersion: number;
+  strategyDefinitionId: string;
+}): Promise<void> {
+  const response = await fetch(`/api/tradingfox/strategy-definitions/${encodeURIComponent(strategyDefinitionId)}/validate-config`, {
+    body: JSON.stringify({ config, configSchemaVersion }),
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  const payload = await response.json() as { error?: string; ok?: boolean };
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Strategy config validation failed with status ${response.status}.`);
+  }
+}
+
+export async function requestStrategyAction(
+  traderId: string,
+  actionId: string,
+  payload: Record<string, unknown>,
+): Promise<TradingFoxTraderActionResponse> {
+  const response = await fetch(`/api/tradingfox/traders/${encodeURIComponent(traderId)}/actions/${encodeURIComponent(actionId)}`, {
+    body: JSON.stringify({ payload }),
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  const responsePayload = await response.json() as TradingFoxTraderActionResponse | { error?: string };
+  if (!response.ok) {
+    throw new Error("error" in responsePayload && responsePayload.error ? responsePayload.error : `Strategy action failed with status ${response.status}.`);
+  }
+  return responsePayload as TradingFoxTraderActionResponse;
 }
