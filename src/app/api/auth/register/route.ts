@@ -1,5 +1,5 @@
 import { connection, NextRequest, NextResponse } from "next/server";
-import { parseSafeRedirectPath } from "@/app/_lib/auth/telegram-auth";
+import { parseSafeRedirectPath } from "@/lib/auth/telegram-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

@@ -1,8 +1,8 @@
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
-import type { PaperPositionRecord } from "@/app/_lib/paper-position";
-import type { MarketCandle } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { PaperPositionRecord } from "@/lib/paper-position";
+import type { MarketCandle } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 import type { ChartTheme } from "@/components/charts/kline-chart/types";
 
 const LIFECYCLE_BADGE_RADIUS = 14;

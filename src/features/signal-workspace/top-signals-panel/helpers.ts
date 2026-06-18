@@ -6,7 +6,7 @@ import type {
   CopyTradingPosition,
   CopyTradingRadarSnapshot,
   CopyTradingTrader,
-} from "@/app/_types/copy-trading";
+} from "@/types/copy-trading";
 
 export type PnlColorMode = PriceColorMode;
 export type TopSignalPerformanceWindow = "7d" | "30d" | "90d" | "180d";

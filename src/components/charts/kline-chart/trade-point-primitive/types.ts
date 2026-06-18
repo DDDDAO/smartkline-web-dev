@@ -1,7 +1,7 @@
 import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import type { ChartTheme } from "@/components/charts/kline-chart/types";
-import type { CopyTradingDirection, CopyTradingEventType } from "@/app/_types/copy-trading";
-import type { MarketCandle, MarketSymbol } from "@/app/_types/market";
+import type { CopyTradingDirection, CopyTradingEventType } from "@/types/copy-trading";
+import type { MarketCandle, MarketSymbol } from "@/types/market";
 
 export type DrawnTradePoint = {
   actionLabel?: string;

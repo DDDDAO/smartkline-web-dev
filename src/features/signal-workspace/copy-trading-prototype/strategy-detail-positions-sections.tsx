@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
+import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
 import {
   CopyPositionTable,
   PositionSummaryPanel,

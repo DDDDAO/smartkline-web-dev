@@ -1,7 +1,7 @@
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { MarketSymbol } from "@/app/_types/market";
-import type { PaperPositionRecord } from "@/app/_lib/paper-position";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { MarketSymbol } from "@/types/market";
+import type { PaperPositionRecord } from "@/lib/paper-position";
+import type { StructuredSignal } from "@/types/signal";
 
 export function getSignalCardClassName({
   isActive,

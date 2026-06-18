@@ -7,10 +7,10 @@ import {
   fetchCopyTradingRadarSnapshot,
   isActiveCopyTradingTrader,
   toCopyTradingMarketSymbol,
-} from "@/app/_lib/copy-trading-radar-api";
-import { fetchKolSignals, fetchKolSignalsAfter } from "@/app/_lib/kol-signal-api";
-import type { CopyTradingRadarSnapshot } from "@/app/_types/copy-trading";
-import type { StructuredSignal } from "@/app/_types/signal";
+} from "@/lib/copy-trading-radar-api";
+import { fetchKolSignals, fetchKolSignalsAfter } from "@/lib/kol-signal-api";
+import type { CopyTradingRadarSnapshot } from "@/types/copy-trading";
+import type { StructuredSignal } from "@/types/signal";
 import {
   dedupeStructuredSignalsByPosition,
   formatKolSignalSourceError,

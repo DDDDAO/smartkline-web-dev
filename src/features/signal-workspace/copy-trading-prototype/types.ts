@@ -1,7 +1,7 @@
-import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
+import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { TradingFoxAccountResponse, TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary } from "@/app/_lib/tradingfox-control-plane";
-import type { CopyTradingTrader } from "@/app/_types/copy-trading";
+import type { TradingFoxAccountResponse, TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary } from "@/lib/tradingfox-control-plane";
+import type { CopyTradingTrader } from "@/types/copy-trading";
 
 export type CopyTradingPrototypeTarget = {
   eventsCount: number;

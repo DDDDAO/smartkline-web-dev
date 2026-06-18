@@ -1,4 +1,4 @@
-import type { EquityEtfSignal } from "@/app/_types/copy-trading";
+import type { EquityEtfSignal } from "@/types/copy-trading";
 import {
   formatDisplayTime,
   formatEquityStatus,

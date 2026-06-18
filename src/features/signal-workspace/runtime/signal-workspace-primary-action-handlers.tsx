@@ -3,8 +3,8 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-import { type MarketSymbol } from "@/app/_types/market";
-import type { TradingFoxAccountResponse } from "@/app/_lib/tradingfox-control-plane";
+import { type MarketSymbol } from "@/types/market";
+import type { TradingFoxAccountResponse } from "@/lib/tradingfox-control-plane";
 import {
   createWorkspaceRouteUrl,
   mapTradingFoxConnectorToPrototypeConnection,

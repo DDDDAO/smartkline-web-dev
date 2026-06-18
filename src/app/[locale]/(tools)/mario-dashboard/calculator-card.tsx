@@ -1,5 +1,5 @@
 import { MarketSymbolSearchInput } from "@/components/market/market-symbol-search-input";
-import type { MarketSymbol } from "@/app/_types/market";
+import type { MarketSymbol } from "@/types/market";
 import {
   BUDGET_OPTIONS,
   PERCENT_A_OPTIONS,

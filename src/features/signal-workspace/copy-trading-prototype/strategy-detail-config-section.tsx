@@ -1,7 +1,7 @@
 "use client";
 
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import { StrategySchemaRenderer } from "./strategy-schema-renderer";
 import { getInlineErrorClassName, getModalSectionClassName } from "./styles";

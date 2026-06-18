@@ -7,7 +7,7 @@ import {
   resolveTelegramAuthConfig,
   TELEGRAM_OAUTH_COOKIE_NAME,
   TELEGRAM_OAUTH_MAX_AGE_SECONDS,
-} from "@/app/_lib/auth/telegram-auth";
+} from "@/lib/auth/telegram-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

@@ -1,13 +1,13 @@
 import {
   formatCopyTradingEventType,
   getCopyTradingRequiredEventTypes,
-} from "@/app/_lib/copy-trading-radar-api";
+} from "@/lib/copy-trading-radar-api";
 import type {
   CopyTradingEvent,
   CopyTradingEventType,
   CopyTradingPosition,
   CopyTradingTrader,
-} from "@/app/_types/copy-trading";
+} from "@/types/copy-trading";
 import { SourceAvatar } from "../card-ui";
 import { EmptyState } from "./copy-trading-radar-shell";
 import {

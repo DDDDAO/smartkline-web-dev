@@ -1,6 +1,6 @@
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { PaperPositionRecord } from "@/app/_lib/paper-position";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { PaperPositionRecord } from "@/lib/paper-position";
+import type { StructuredSignal } from "@/types/signal";
 
 export function PaperPositionSummary({
   copy,

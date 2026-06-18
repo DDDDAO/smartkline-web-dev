@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { isActiveCopyTradingTrader } from "@/app/_lib/copy-trading-radar-api";
+import { isActiveCopyTradingTrader } from "@/lib/copy-trading-radar-api";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { CopyTradingPrototypeTarget } from "../copy-trading-prototype";
 import type {
   CopyTradingPosition,
   CopyTradingRadarSnapshot,
   CopyTradingTrader,
-} from "@/app/_types/copy-trading";
+} from "@/types/copy-trading";
 import type { KolSignalSourceStatus } from "../types";
 import {
   createTopSignalSourceModels,

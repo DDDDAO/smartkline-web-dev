@@ -1,6 +1,6 @@
 import { MarketSymbolSearchInput } from "@/components/market/market-symbol-search-input";
 import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
-import type { MarketSymbol } from "@/app/_types/market";
+import type { MarketSymbol } from "@/types/market";
 
 export function SymbolSearchInput({
   isDarkTheme,

@@ -1,6 +1,6 @@
 import type { ISeriesApi, MouseEventParams, Time } from "lightweight-charts";
 import type { WorkspaceLanguage } from "@/i18n/workspace";
-import type { MarketCandle } from "@/app/_types/market";
+import type { MarketCandle } from "@/types/market";
 import { createChartPalette } from "./palette";
 import { KLINE_PRICE_FORMAT } from "./series-data";
 import type { ChartTheme, PriceColorMode } from "./types";

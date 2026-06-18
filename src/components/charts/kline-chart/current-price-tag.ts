@@ -1,5 +1,5 @@
 import type { ISeriesApi } from "lightweight-charts";
-import type { KlineInterval, MarketCandle } from "@/app/_types/market";
+import type { KlineInterval, MarketCandle } from "@/types/market";
 import type { KlineChartMetrics } from "./chart-metrics";
 import { KLINE_PRICE_FORMAT } from "./series-data";
 import type { PriceColorMode } from "./types";

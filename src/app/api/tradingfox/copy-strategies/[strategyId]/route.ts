@@ -5,7 +5,7 @@ import {
   updateTradingFoxCopyStrategySettings,
   updateTradingFoxCopyStrategyStatus,
   type UpdateCopyStrategySettingsInput,
-} from "@/app/_lib/tradingfox-control-plane";
+} from "@/lib/tradingfox-control-plane";
 import { requireTradingFoxSession, tradingFoxErrorResponse } from "../../_session";
 
 export const dynamic = "force-dynamic";

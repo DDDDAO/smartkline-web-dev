@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
-import type { TradingFoxPosition, TradingFoxStrategyCurve, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxPosition, TradingFoxStrategyCurve, TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
 import { PerformanceCurveChart, PerformanceCurveLoadingOverlay, PerformanceCurveWindowSelector, adaptTradingFoxStrategyCurvePoints, formatPerformanceCurveDate, formatPerformanceCurvePercent, getLatestPerformanceCurvePoint, getPerformanceCurveMetricValue, getPerformanceCurveToneClassName } from "@/components/charts/performance-curve";
 import { finiteNumberOrNull, formatDetailCurrency, formatDetailDate, formatSignedDetailCurrency, formatSignedPercent, formatSummaryLeverage, formatUnsignedPercent, getPnlClassName, getPositionSideBucket, positiveFiniteNumberOrNull } from "./formatters";
 import type { CopyPositionMarkPricesBySymbol, NormalizedSummaryPosition, PositionSummaryModel, PositionSummaryTotals, SignalSourcePosition, StrategyCopy, StrategyDetailCurveWindow } from "./strategy-detail-shared";

@@ -4,8 +4,8 @@ import { useRef, useState } from "react";
 import { useLocale } from "next-intl";
 
 import type { ChartTimeFocusRequest } from "@/components/charts/kline-chart/types";
-import type { TelegramAuthMeResponse } from "@/app/_lib/auth/telegram-auth";
-import { markets } from "@/app/_lib/demo-data";
+import type { TelegramAuthMeResponse } from "@/lib/auth/telegram-auth";
+import { markets } from "@/lib/demo-data";
 import {
   getWorkspaceCopy,
   getWorkspaceLanguageFromLocale,
@@ -14,10 +14,10 @@ import {
 import {
   createEmptyWorkspaceWatchlist,
   type WorkspaceWatchlist,
-} from "@/app/_lib/workspace-watchlist";
-import type { CopyTradingRadarSnapshot } from "@/app/_types/copy-trading";
-import type { KlineInterval, MarketSymbol } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+} from "@/lib/workspace-watchlist";
+import type { CopyTradingRadarSnapshot } from "@/types/copy-trading";
+import type { KlineInterval, MarketSymbol } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 import type { ChartTheme } from "@/components/charts/kline-chart";
 import type {
   CopyTradingPrototypeTarget,

@@ -1,10 +1,10 @@
 "use client";
 
 import type { RefObject } from "react";
-import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
+import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
-import type { KlineInterval } from "@/app/_types/market";
+import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
+import type { KlineInterval } from "@/types/market";
 import { RowsPaginationControls, TradeHistoryKlinePanel, TradeHistoryTable, type TradeHistoryRow } from "./strategy-detail-content";
 import { getInlineErrorClassName, getModalSectionClassName, getSoftButtonClassName } from "./styles";
 import type { PrototypeStrategy } from "./types";

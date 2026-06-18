@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE_NAME, TELEGRAM_OAUTH_COOKIE_NAME } from "@/app/_lib/auth/telegram-auth";
+import { SESSION_COOKIE_NAME, TELEGRAM_OAUTH_COOKIE_NAME } from "@/lib/auth/telegram-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

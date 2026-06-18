@@ -1,5 +1,5 @@
 import { connection, NextRequest, NextResponse } from "next/server";
-import { createTradingFoxCopyStrategy } from "@/app/_lib/tradingfox-control-plane";
+import { createTradingFoxCopyStrategy } from "@/lib/tradingfox-control-plane";
 import { requireTradingFoxSession, tradingFoxErrorResponse } from "../_session";
 
 export const dynamic = "force-dynamic";

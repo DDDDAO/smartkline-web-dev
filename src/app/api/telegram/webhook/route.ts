@@ -3,7 +3,7 @@ import {
   handleTelegramCommunityWebhook,
   TelegramCommunityConfigError,
   verifyTelegramWebhookSecret,
-} from "@/app/_lib/auth/telegram-community";
+} from "@/lib/auth/telegram-community";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

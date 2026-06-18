@@ -1,8 +1,8 @@
 ﻿import type { IChartApi } from "lightweight-charts";
 import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
-import { getResolvedKolAvatarUrl } from "@/app/_lib/kol-avatar";
-import type { MarketCandle } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+import { getResolvedKolAvatarUrl } from "@/lib/kol-avatar";
+import type { MarketCandle } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 import type { ChartTheme } from "@/components/charts/kline-chart/types";
 
 const RIGHT_PRICE_SCALE_RESERVED_WIDTH = 118;

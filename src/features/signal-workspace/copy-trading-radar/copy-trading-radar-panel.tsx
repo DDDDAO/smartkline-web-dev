@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 
-import { getCopyTradingRequiredEventTypes } from "@/app/_lib/copy-trading-radar-api";
+import { getCopyTradingRequiredEventTypes } from "@/lib/copy-trading-radar-api";
 import type {
   CopyTradingEvent,
   CopyTradingRadarSnapshot,
-} from "@/app/_types/copy-trading";
+} from "@/types/copy-trading";
 import type { KolSignalSourceStatus } from "../types";
 import {
   CopyTradingSourceNotice,

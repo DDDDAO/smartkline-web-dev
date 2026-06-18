@@ -3,7 +3,7 @@ import {
   normalizeBinanceFuturesSymbol,
   subscribeToBinanceAllMarketMiniTickers,
   type BinanceMiniTickerPriceSnapshot,
-} from "@/app/_lib/binance-market-data";
+} from "@/lib/binance-market-data";
 
 type BinanceMiniTickerPriceRecord = Record<string, number>;
 type BinanceMiniTickerPriceOptions = {

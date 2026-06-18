@@ -1,10 +1,10 @@
-import { isActiveCopyTradingTrader } from "@/app/_lib/copy-trading-radar-api";
+import { isActiveCopyTradingTrader } from "@/lib/copy-trading-radar-api";
 import type { WorkspaceCopy, WorkspaceLanguage } from "@/i18n/workspace";
 import type {
   TradingFoxAccountResponse,
   TradingFoxConnector,
-} from "@/app/_lib/tradingfox-control-plane";
-import type { CopyTradingRadarSnapshot } from "@/app/_types/copy-trading";
+} from "@/lib/tradingfox-control-plane";
+import type { CopyTradingRadarSnapshot } from "@/types/copy-trading";
 import type {
   CopyTradingPrototypeTarget,
   PrototypeApiConnection,

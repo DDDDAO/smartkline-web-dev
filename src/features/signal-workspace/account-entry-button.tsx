@@ -1,6 +1,6 @@
 "use client";
 
-import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
+import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 
 export function AccountEntryButton({

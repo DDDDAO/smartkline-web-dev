@@ -1,9 +1,9 @@
 "use client";
 
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { PaperPositionRecord } from "@/app/_lib/paper-position";
-import { createKolSourceWatchKey } from "@/app/_lib/workspace-watchlist";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { PaperPositionRecord } from "@/lib/paper-position";
+import { createKolSourceWatchKey } from "@/lib/workspace-watchlist";
+import type { StructuredSignal } from "@/types/signal";
 import { FavoriteStarButton, SourceAvatar, SymbolIcon } from "./card-ui";
 import {
   createKolFollowModels,

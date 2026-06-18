@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { MarketSymbol } from "@/app/_types/market";
+import type { MarketSymbol } from "@/types/market";
 
 type MarketSymbolSearchVariant = "mario" | "workspace";
 

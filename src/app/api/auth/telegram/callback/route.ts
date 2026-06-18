@@ -11,7 +11,7 @@ import {
   TELEGRAM_OAUTH_COOKIE_NAME,
   verifyOAuthStateToken,
   verifyTelegramIdToken,
-} from "@/app/_lib/auth/telegram-auth";
+} from "@/lib/auth/telegram-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

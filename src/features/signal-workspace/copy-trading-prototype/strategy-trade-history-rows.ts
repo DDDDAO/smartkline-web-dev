@@ -1,4 +1,4 @@
-import type { TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
 import { finiteNumberOrNull } from "./formatters";
 import type { CopyTradingPrototypeTarget, PrototypeStrategy } from "./types";
 import type { SignalSourceIdentityById, TradeHistoryRow, TradeHistorySourceIdentity, TradingFoxOrderItem, TradingFoxSignalSourceOrderItem, TradingFoxTradeLogItem } from "./strategy-detail-shared";

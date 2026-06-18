@@ -1,5 +1,5 @@
-import { createKolSourceWatchKey } from "@/app/_lib/workspace-watchlist";
-import type { StructuredSignal } from "@/app/_types/signal";
+import { createKolSourceWatchKey } from "@/lib/workspace-watchlist";
+import type { StructuredSignal } from "@/types/signal";
 import {
   EMPTY_STRUCTURED_SIGNALS,
   PAPER_POSITION_PRIORITY_SIGNAL_LIMIT,

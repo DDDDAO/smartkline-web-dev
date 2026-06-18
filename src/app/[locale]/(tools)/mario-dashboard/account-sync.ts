@@ -1,5 +1,5 @@
-import type { TelegramAuthMeResponse } from "@/app/_lib/auth/telegram-auth";
-import type { TradingFoxAccountResponse, TradingFoxConnector } from "@/app/_lib/tradingfox-control-plane";
+import type { TelegramAuthMeResponse } from "@/lib/auth/telegram-auth";
+import type { TradingFoxAccountResponse, TradingFoxConnector } from "@/lib/tradingfox-control-plane";
 import { getAppLocaleFromPathname, replacePathnameLocale, type AppLocale } from "@/i18n/locales";
 
 const ACCOUNT_MANAGEMENT_ROUTE = "/account";

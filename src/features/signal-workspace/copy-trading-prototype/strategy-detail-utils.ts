@@ -1,4 +1,4 @@
-import type { TradingFoxStrategyDetail, TradingFoxStrategyDetailSection, TradingFoxTraderActionResponse } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxStrategyDetail, TradingFoxStrategyDetailSection, TradingFoxTraderActionResponse } from "@/lib/tradingfox-control-plane";
 import type { StrategyDetailCurveWindow } from "./strategy-detail-content";
 
 const STRATEGY_DETAIL_CURVE_WINDOWS: readonly StrategyDetailCurveWindow[] = ["24h", "7d", "30d", "90d"];

@@ -1,6 +1,6 @@
-import { createStructuredSignalPositionKey } from "@/app/_lib/kol-signal-api";
+import { createStructuredSignalPositionKey } from "@/lib/kol-signal-api";
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { StructuredSignal } from "@/types/signal";
 import {
   MAX_VISIBLE_KOL_SIGNAL_HISTORY,
   type WorkspaceNotification,

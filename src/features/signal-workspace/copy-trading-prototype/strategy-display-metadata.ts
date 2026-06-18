@@ -4,7 +4,7 @@ import type {
   TradingFoxDisplayMetadata,
   TradingFoxLocalizedText,
   TradingFoxStrategyDefinitionSummary,
-} from "@/app/_lib/tradingfox-control-plane";
+} from "@/lib/tradingfox-control-plane";
 
 export type JsonRecord = Record<string, unknown>;
 

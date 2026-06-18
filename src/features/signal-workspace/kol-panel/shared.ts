@@ -1,6 +1,6 @@
-import type { PaperPositionRecord } from "@/app/_lib/paper-position";
-import type { MarketSymbol } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { PaperPositionRecord } from "@/lib/paper-position";
+import type { MarketSymbol } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 
 export const ALL_SYMBOL_FILTER = "__all_symbols__";
 export const ALL_DIRECTION_FILTER = "__all_directions__";

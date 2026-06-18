@@ -1,4 +1,4 @@
-import type { MarketSymbol } from "@/app/_types/market";
+import type { MarketSymbol } from "@/types/market";
 import {
   ACCOUNT_BALANCE,
   BUDGET_OPTIONS,

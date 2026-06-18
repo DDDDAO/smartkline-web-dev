@@ -1,7 +1,7 @@
 import dynamic from "next/dynamic";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { intervals } from "@/app/_lib/demo-data";
-import { createSignalAiSummary } from "@/app/_lib/signal-ai-summary";
+import { intervals } from "@/lib/demo-data";
+import { createSignalAiSummary } from "@/lib/signal-ai-summary";
 import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import {
   CHART_CANDLE_PAGE_LIMIT,
@@ -10,13 +10,13 @@ import {
   subscribeToBinanceKlines,
   upsertCandle,
   upsertCandles,
-} from "@/app/_lib/binance-market-data";
+} from "@/lib/binance-market-data";
 import type { KlineChartProps } from "@/components/charts/kline-chart";
 import type { ChartTheme, ChartTimeFocusRequest, KlineSignalBiasSummary, PriceColorMode } from "@/components/charts/kline-chart/types";
-import type { PaperPositionRecord } from "@/app/_lib/paper-position";
-import type { CopyTradingTradeMarker } from "@/app/_types/copy-trading";
-import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { PaperPositionRecord } from "@/lib/paper-position";
+import type { CopyTradingTradeMarker } from "@/types/copy-trading";
+import type { KlineInterval, MarketCandle, MarketSymbol } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 import { SymbolSearchInput } from "./symbol-search-input";
 
 const LATEST_CANDLE_BACKFILL_INTERVAL_MS = 60_000;

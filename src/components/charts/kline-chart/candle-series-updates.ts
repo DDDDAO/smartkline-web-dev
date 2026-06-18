@@ -1,5 +1,5 @@
 import type { ISeriesApi, Logical, LogicalRange } from "lightweight-charts";
-import type { MarketCandle } from "@/app/_types/market";
+import type { MarketCandle } from "@/types/market";
 import { toVolumeData } from "./series-data";
 import type { ChartTheme, PriceColorMode } from "./types";
 

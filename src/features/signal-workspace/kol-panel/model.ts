@@ -1,7 +1,7 @@
-import { createKolSourceWatchKey } from "@/app/_lib/workspace-watchlist";
+import { createKolSourceWatchKey } from "@/lib/workspace-watchlist";
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { PaperPositionRecord } from "@/app/_lib/paper-position";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { PaperPositionRecord } from "@/lib/paper-position";
+import type { StructuredSignal } from "@/types/signal";
 import { ALL_STATUS_FILTER, KOL_STATS_GROUP_LIMIT, KOL_STATS_SAMPLE_LIMIT, STATUS_FILTER_OPTIONS, type KolStatsGroupModel, type KolStatsMetricModel, type KolStatsModel, type KolStatsSummaryModel, type StatusFilterOption, type WatchedKolSourceModel } from "./shared";
 
 export function createUniqueOptions<T extends string>(values: readonly T[]): T[] {

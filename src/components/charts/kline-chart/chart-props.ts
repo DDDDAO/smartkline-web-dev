@@ -1,8 +1,8 @@
 import type { WorkspaceLanguage } from "@/i18n/workspace";
-import type { PaperPositionRecord } from "@/app/_lib/paper-position";
-import type { SignalAiSummary } from "@/app/_lib/signal-ai-summary";
-import type { KlineInterval, MarketCandle } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { PaperPositionRecord } from "@/lib/paper-position";
+import type { SignalAiSummary } from "@/lib/signal-ai-summary";
+import type { KlineInterval, MarketCandle } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 import type { ChartTheme, ChartTimeFocusRequest, KlineSignalBiasSummary, PriceColorMode } from "./types";
 import type { KlineTradePointMarker } from "./trade-point-primitive";
 

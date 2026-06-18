@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { EMPTY_COPY_TRADING_TRADE_MARKERS } from "../signal-workspace-helpers";
-import type { KlineInterval } from "@/app/_types/market";
+import type { KlineInterval } from "@/types/market";
 import { useSignalWorkspaceTradingActionHandlers } from "./signal-workspace-trading-action-handlers";
 import { type SignalWorkspaceState } from "./signal-workspace-state";
 import type { SignalWorkspacePrimaryActions } from "./signal-workspace-primary-actions";

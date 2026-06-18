@@ -1,5 +1,5 @@
-import type { MarketSymbol } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { MarketSymbol } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 
 export function formatMobileSignalTime(signal: StructuredSignal): string {
   return signal.created_at.replace("T", " ").slice(5, 16);

@@ -4,9 +4,9 @@ import {
   fetchHistoricalCandles,
   subscribeToBinanceKlines,
   upsertCandle,
-} from "@/app/_lib/binance-market-data";
-import type { KlineInterval, MarketCandle, MarketSymbol } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+} from "@/lib/binance-market-data";
+import type { KlineInterval, MarketCandle, MarketSymbol } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 
 const PAPER_POSITION_INTERVAL: KlineInterval = "1m";
 const PAPER_POSITION_MAX_CANDLE_PAGES = 15;

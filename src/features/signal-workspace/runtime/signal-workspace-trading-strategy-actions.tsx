@@ -2,8 +2,8 @@
 
 import { useCallback } from "react";
 
-import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
-import type { StructuredSignal } from "@/app/_types/signal";
+import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
+import type { StructuredSignal } from "@/types/signal";
 import type {
   PrototypeStrategyCreateInput,
   PrototypeStrategySettingsUpdateInput,

@@ -1,7 +1,7 @@
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { TradingFoxPosition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxPosition, TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
 import type { PerformanceCurveWindow } from "@/components/charts/performance-curve";
-import type { MarketSymbol } from "@/app/_types/market";
+import type { MarketSymbol } from "@/types/market";
 
 export type StrategyCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
 export type StrategyDetailCurveWindow = Extract<PerformanceCurveWindow, "24h" | "7d" | "30d" | "90d">;

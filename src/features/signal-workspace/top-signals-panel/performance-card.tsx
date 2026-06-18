@@ -10,7 +10,7 @@ import {
   getPerformanceCurveMetricValue,
   mergeReturnAndPnlCurvePoints,
 } from "@/components/charts/performance-curve";
-import type { CopyTradingTrader } from "@/app/_types/copy-trading";
+import type { CopyTradingTrader } from "@/types/copy-trading";
 import type {
   PnlColorMode,
   TopSignalPerformanceWindow,

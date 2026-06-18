@@ -1,4 +1,4 @@
-import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
+import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
 
 export function TelegramUserAvatar({
   isDarkTheme,

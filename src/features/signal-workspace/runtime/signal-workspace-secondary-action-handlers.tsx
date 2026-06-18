@@ -3,15 +3,15 @@
 import { useCallback } from "react";
 
 import { createSignalFocusRequestKey } from "@/components/charts/kline-chart";
-import { toCopyTradingMarketSymbol } from "@/app/_lib/copy-trading-radar-api";
-import { createKolSourceWatchKey } from "@/app/_lib/workspace-watchlist";
+import { toCopyTradingMarketSymbol } from "@/lib/copy-trading-radar-api";
+import { createKolSourceWatchKey } from "@/lib/workspace-watchlist";
 import type {
   CopyTradingEvent,
   CopyTradingPosition,
   CopyTradingTradeMarker,
-} from "@/app/_types/copy-trading";
-import type { MarketSymbol } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+} from "@/types/copy-trading";
+import type { MarketSymbol } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 import type { WorkspaceProductTab } from "../product-tabs";
 import type { TopSignalsWorkspacePanel } from "../signal-workspace-helpers";
 import type { SignalWorkspacePrimaryActions } from "./signal-workspace-primary-actions";

@@ -7,10 +7,10 @@ import {
   type ReactNode,
 } from "react";
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { PaperPositionRecord } from "@/app/_lib/paper-position";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { PaperPositionRecord } from "@/lib/paper-position";
+import type { StructuredSignal } from "@/types/signal";
 import type { KolSignalSourceStatus } from "../types";
-import { createKolSourceWatchKey } from "@/app/_lib/workspace-watchlist";
+import { createKolSourceWatchKey } from "@/lib/workspace-watchlist";
 import { ALL_DIRECTION_FILTER, ALL_KOL_FILTER, ALL_STATUS_FILTER, ALL_SYMBOL_FILTER, STATUS_FILTER_OPTIONS, type StatusFilterOption } from "./shared";
 import { createKolStatsSummary, createUniqueOptions, createWatchedKolSourceModels, getScrollContentTop, isStatusFilterOption, isStatusStatsFilter, matchesStatusFilter } from "./model";
 import { KolPanelFilters } from "./filters";

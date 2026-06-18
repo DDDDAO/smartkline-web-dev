@@ -1,8 +1,8 @@
 "use client";
 
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { PaperPositionRecord } from "@/app/_lib/paper-position";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { PaperPositionRecord } from "@/lib/paper-position";
+import type { StructuredSignal } from "@/types/signal";
 import { FavoriteStarButton, SignalField, SourceAvatar, SymbolIcon, TelegramSignalMessage } from "../card-ui";
 import { PaperPositionSummary, formatSignalPaperPositionStatus, getSignalDirectionBadgeClass, getSignalPaperPositionBadgeClass } from "../paper-position-summary";
 import { ChevronRightIcon, formatKolEntryText, formatSignalDisplayTime, formatSymbolLabel, formatTakeProfitText, getSignalCardBackClassName, getSignalCardClassName } from "./styles";

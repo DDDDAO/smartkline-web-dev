@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import type { ChartTheme } from "@/components/charts/kline-chart/types";
-import type { SignalAiHighlightTone, SignalAiSummary } from "@/app/_lib/signal-ai-summary";
+import type { SignalAiHighlightTone, SignalAiSummary } from "@/lib/signal-ai-summary";
 
 export function AiSignalSummaryOverlay({
   isCompactLayout = false,

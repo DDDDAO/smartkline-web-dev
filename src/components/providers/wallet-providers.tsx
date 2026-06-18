@@ -24,7 +24,7 @@ import { WagmiProvider, http } from "wagmi";
 import { arbitrum, base, bsc, mainnet, optimism, polygon } from "wagmi/chains";
 import { injected as injectedConnector } from "wagmi/connectors";
 import type { EIP1193Provider } from "viem";
-import { isWalletConnectConfigured, rainbowKitProjectId } from "@/app/_lib/wallet-connect";
+import { isWalletConnectConfigured, rainbowKitProjectId } from "@/lib/wallet-connect";
 
 type RainbowKitWalletFactory = WalletList[number]["wallets"][number];
 type BrowserWalletProvider = EIP1193Provider & {

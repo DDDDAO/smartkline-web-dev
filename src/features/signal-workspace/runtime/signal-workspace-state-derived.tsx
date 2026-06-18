@@ -6,11 +6,11 @@ import {
   applyCopyTradingLatestPrices,
   createCopyTradingTradeMarkers,
   isActiveCopyTradingTrader,
-} from "@/app/_lib/copy-trading-radar-api";
+} from "@/lib/copy-trading-radar-api";
 import {
   computePaperPositionRecord,
   type PaperPositionRecord,
-} from "@/app/_lib/paper-position";
+} from "@/lib/paper-position";
 import {
   createCopyTradingPrototypeTargets,
   createPrioritizedPaperPositionSignals,

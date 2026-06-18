@@ -7,7 +7,7 @@ import {
   type WorkspaceCopy,
   type WorkspaceLanguage,
 } from "@/i18n/workspace";
-import type { TradingFoxStrategyDefinitionSummary } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxStrategyDefinitionSummary } from "@/lib/tradingfox-control-plane";
 import {
   strategyDefinitionDescription,
   strategyDefinitionLabel,

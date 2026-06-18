@@ -1,4 +1,4 @@
-import type { CopyTradingDirection } from "@/app/_types/copy-trading";
+import type { CopyTradingDirection } from "@/types/copy-trading";
 
 import type { PnlColorMode } from "./helpers";
 

@@ -7,7 +7,7 @@ import type { SignalPriceRayPrimitive } from "./signal-price-ray-primitive";
 import type { KlineTradePointMarker, TradePointPrimitive } from "./trade-point-primitive";
 import { createTradeMarkerLookup, type TradeMarkerTooltipState } from "./trade-marker-tooltip";
 import type { ChartTheme, PriceColorMode } from "./types";
-import type { MarketCandle } from "@/app/_types/market";
+import type { MarketCandle } from "@/types/market";
 
 export function useKlineChartRefs(
   props: KlineChartProps,

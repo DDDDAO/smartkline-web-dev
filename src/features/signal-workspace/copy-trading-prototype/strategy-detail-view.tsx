@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
+import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
-import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail, TradingFoxStrategyDetailSection } from "@/app/_lib/tradingfox-control-plane";
-import type { KlineInterval } from "@/app/_types/market";
+import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
+import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail, TradingFoxStrategyDetailSection } from "@/lib/tradingfox-control-plane";
+import type { KlineInterval } from "@/types/market";
 import { TRADE_HISTORY_PAGE_SIZE } from "./constants";
 import { EMPTY_TRADING_FOX_POSITIONS, StrategyPerformanceCurvePanel, createCopyPositionMarkPricesBySymbol, createOpenEndedPageRangeLabel, createSignalSourceIdentityById, createTradeHistoryRows, filterTradeHistoryRowsByStrategyStart, type StrategyDetailCurveWindow, type TradeHistoryRow } from "./strategy-detail-content";
 import { StrategySettingsDialog } from "./strategy-settings-dialog";

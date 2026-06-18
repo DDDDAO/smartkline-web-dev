@@ -1,6 +1,6 @@
-import type { CopyTradingReturnCurvePoint } from "@/app/_types/copy-trading";
+import type { CopyTradingReturnCurvePoint } from "@/types/copy-trading";
 import type { PriceColorMode } from "@/components/charts/kline-chart/types";
-import type { TradingFoxStrategyCurve } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxStrategyCurve } from "@/lib/tradingfox-control-plane";
 import type { PerformanceCurveMetric, PerformanceCurvePoint } from "./types";
 
 const DEFAULT_ASSET = "USDT";

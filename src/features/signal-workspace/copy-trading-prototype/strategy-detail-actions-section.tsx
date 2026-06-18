@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { useLocale } from "next-intl";
-import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
+import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import {
   getWorkspaceLanguageFromLocale,
   type WorkspaceCopy,
   type WorkspaceLanguage,
 } from "@/i18n/workspace";
-import type { TradingFoxActionDefinition, TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
+import type { TradingFoxActionDefinition, TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
 import { createStrategyConfigSkeleton, StrategySchemaRenderer, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import { requestStrategyAction } from "./strategy-detail-utils";
 import {

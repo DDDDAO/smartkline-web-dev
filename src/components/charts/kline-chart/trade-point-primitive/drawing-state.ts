@@ -1,6 +1,6 @@
 import type { IChartApi } from "lightweight-charts";
 import type { ChartTheme } from "@/components/charts/kline-chart/types";
-import type { MarketCandle } from "@/app/_types/market";
+import type { MarketCandle } from "@/types/market";
 import { TradePointAvatarImageCache } from "./avatar-cache";
 import {
   TRADE_POINT_ACTIVE_MARKER_DIAMETER,

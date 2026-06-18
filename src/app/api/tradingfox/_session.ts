@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE_NAME, verifySessionToken, type TelegramAuthSession } from "@/app/_lib/auth/telegram-auth";
-import { TradingFoxApiError, TradingFoxConfigError } from "@/app/_lib/tradingfox-control-plane";
+import { SESSION_COOKIE_NAME, verifySessionToken, type TelegramAuthSession } from "@/lib/auth/telegram-auth";
+import { TradingFoxApiError, TradingFoxConfigError } from "@/lib/tradingfox-control-plane";
 
 export async function requireTradingFoxSession(request: NextRequest): Promise<TelegramAuthSession> {
   const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;

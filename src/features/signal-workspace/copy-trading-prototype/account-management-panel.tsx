@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
-import type { TradingFoxAccountResponse } from "@/app/_lib/tradingfox-control-plane";
+import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
+import type { TradingFoxAccountResponse } from "@/lib/tradingfox-control-plane";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import {
   TelegramUserAvatar,

@@ -2,17 +2,17 @@
 
 import { useEffect, useState } from "react";
 
-import { toCopyTradingMarketSymbol } from "@/app/_lib/copy-trading-radar-api";
+import { toCopyTradingMarketSymbol } from "@/lib/copy-trading-radar-api";
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { PaperPositionRecord } from "@/app/_lib/paper-position";
+import type { PaperPositionRecord } from "@/lib/paper-position";
 import type { KlineSignalBiasSummary } from "@/components/charts/kline-chart/types";
 import type {
   CopyTradingPosition,
   CopyTradingRadarSnapshot,
   CopyTradingTrader,
-} from "@/app/_types/copy-trading";
-import type { MarketSymbol } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+} from "@/types/copy-trading";
+import type { MarketSymbol } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 import { SourceAvatar, SymbolIcon } from "./card-ui";
 import type { CopyTradingPrototypeTarget } from "./copy-trading-prototype";
 import { KolPanel } from "./kol-panel";

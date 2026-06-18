@@ -1,8 +1,8 @@
 import type { IChartApi, IPriceLine, ISeriesApi } from "lightweight-charts";
 import type { WorkspaceLanguage } from "@/i18n/workspace";
-import type { PaperPositionRecord } from "@/app/_lib/paper-position";
-import type { MarketCandle } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { PaperPositionRecord } from "@/lib/paper-position";
+import type { MarketCandle } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 import type { KlineChartMetrics } from "./chart-metrics";
 import type { ChartTheme, PriceColorMode } from "./types";
 import type { SignalPriceRayPrimitive } from "./signal-price-ray-primitive";

@@ -2,9 +2,9 @@
 
 import dynamic from "next/dynamic";
 
-import type { TelegramAuthMeResponse } from "@/app/_lib/auth/telegram-auth";
-import type { CopyTradingTradeMarker } from "@/app/_types/copy-trading";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { TelegramAuthMeResponse } from "@/lib/auth/telegram-auth";
+import type { CopyTradingTradeMarker } from "@/types/copy-trading";
+import type { StructuredSignal } from "@/types/signal";
 import type { CopyTradingPrototypeTarget } from "./copy-trading-prototype";
 import type { WorkspaceProductTab } from "./product-tabs";
 export {

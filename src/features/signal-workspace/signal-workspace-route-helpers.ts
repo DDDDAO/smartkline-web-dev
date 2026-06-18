@@ -1,5 +1,5 @@
-import { toCopyTradingMarketSymbol } from "@/app/_lib/copy-trading-radar-api";
-import type { MarketSymbol } from "@/app/_types/market";
+import { toCopyTradingMarketSymbol } from "@/lib/copy-trading-radar-api";
+import type { MarketSymbol } from "@/types/market";
 import { getAppLocaleFromPathname, isAppLocale } from "@/i18n/locales";
 import type { WorkspaceProductTab } from "./product-tabs";
 import {

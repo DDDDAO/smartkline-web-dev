@@ -5,7 +5,7 @@ import type {
   CopyTradingPosition,
   CopyTradingRiskLevel,
   EquityEtfSignalStatus,
-} from "@/app/_types/copy-trading";
+} from "@/types/copy-trading";
 
 export const ALL_EVENT_FILTER = "全部事件";
 

@@ -2,15 +2,15 @@
 
 import { useEffect } from "react";
 
-import { markets } from "@/app/_lib/demo-data";
-import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
-import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
+import { markets } from "@/lib/demo-data";
+import { fetchUsdtPerpetualMarkets } from "@/lib/binance-market-data";
+import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import {
   createEmptyWorkspaceWatchlist,
   parseWorkspaceWatchlistValue,
   serializeWorkspaceWatchlist,
   WORKSPACE_WATCHLIST_STORAGE_KEY,
-} from "@/app/_lib/workspace-watchlist";
+} from "@/lib/workspace-watchlist";
 import { hasSeenOnboardingGuide } from "../onboarding-guide";
 import {
   NOTIFICATION_DISMISS_MS,

@@ -2,8 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { MarketSymbol } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { MarketSymbol } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 import { SymbolIcon } from "../card-ui";
 import { ALL_DIRECTION_FILTER, ALL_KOL_FILTER, ALL_STATUS_FILTER, ALL_SYMBOL_FILTER, type StatusFilterOption } from "./shared";
 import { formatSymbolLabel } from "./styles";

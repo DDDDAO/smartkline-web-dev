@@ -14,9 +14,9 @@ import {
   requestTradingFoxAccount,
   selectPrimaryConnector,
 } from "./account-sync";
-import type { TradingFoxConnector } from "@/app/_lib/tradingfox-control-plane";
-import { fetchUsdtPerpetualMarkets } from "@/app/_lib/binance-market-data";
-import type { MarketSymbol } from "@/app/_types/market";
+import type { TradingFoxConnector } from "@/lib/tradingfox-control-plane";
+import { fetchUsdtPerpetualMarkets } from "@/lib/binance-market-data";
+import type { MarketSymbol } from "@/types/market";
 import {
   ACCOUNT_BALANCE,
   FALLBACK_MARKET_SYMBOLS,

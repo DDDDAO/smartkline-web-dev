@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
 import type { WorkspaceCopy } from "@/i18n/workspace";
-import type { CopyTradingPosition } from "@/app/_types/copy-trading";
+import type { CopyTradingPosition } from "@/types/copy-trading";
 import { SignalField } from "../card-ui";
 import type {
   PnlColorMode,

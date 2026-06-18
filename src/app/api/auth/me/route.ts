@@ -4,8 +4,8 @@ import {
   createLoggedOutAuthMeResponse,
   SESSION_COOKIE_NAME,
   verifySessionToken,
-} from "@/app/_lib/auth/telegram-auth";
-import { getTelegramCommunityBindingForSession } from "@/app/_lib/auth/telegram-community";
+} from "@/lib/auth/telegram-auth";
+import { getTelegramCommunityBindingForSession } from "@/lib/auth/telegram-community";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

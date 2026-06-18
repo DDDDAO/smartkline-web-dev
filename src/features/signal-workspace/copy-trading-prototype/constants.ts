@@ -1,5 +1,5 @@
-import type { KlineInterval, MarketCandle } from "@/app/_types/market";
-import type { StructuredSignal } from "@/app/_types/signal";
+import type { KlineInterval, MarketCandle } from "@/types/market";
+import type { StructuredSignal } from "@/types/signal";
 import type { NotificationChannelKey } from "./types";
 
 const BINANCE_DEMO_API_MANAGEMENT_URL = "https://demo.binance.com/zh-CN/my/settings/api-management";

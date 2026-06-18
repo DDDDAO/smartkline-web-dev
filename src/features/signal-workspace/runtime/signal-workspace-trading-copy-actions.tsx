@@ -2,9 +2,9 @@
 
 import { useCallback } from "react";
 
-import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
-import type { TradingFoxAccountResponse } from "@/app/_lib/tradingfox-control-plane";
-import type { CopyTradingTrader } from "@/app/_types/copy-trading";
+import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
+import type { TradingFoxAccountResponse } from "@/lib/tradingfox-control-plane";
+import type { CopyTradingTrader } from "@/types/copy-trading";
 import type {
   CopyTradingPrototypeTarget,
   PrototypeConnectionSaveInput,

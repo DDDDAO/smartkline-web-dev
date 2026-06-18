@@ -1,4 +1,4 @@
-import type { MarketSymbol } from "@/app/_types/market";
+import type { MarketSymbol } from "@/types/market";
 import type { CalculatorForm, DashboardState, HistoryOrder, MockPosition, TakeProfitTargetConfig, TakeProfitTargetId } from "./types";
 
 export const STORAGE_KEY = "mario-dashboard:v1";

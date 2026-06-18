@@ -1,6 +1,6 @@
 import { connection, NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE_NAME, verifySessionToken } from "@/app/_lib/auth/telegram-auth";
-import { createTelegramCommunityInvite, TelegramBotApiError, TelegramCommunityConfigError } from "@/app/_lib/auth/telegram-community";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/telegram-auth";
+import { createTelegramCommunityInvite, TelegramBotApiError, TelegramCommunityConfigError } from "@/lib/auth/telegram-community";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
