@@ -2,29 +2,21 @@
 
 import type { WorkspaceCopy, WorkspaceLanguage } from "@/i18n/workspace";
 import { SourceAvatar } from "../card-ui";
-import { hasSchemaDisplayDescription, hasSchemaDisplayLabel, propertySchemaForKey, schemaAtPath, schemaDisplayDescription, schemaDisplayLabel, schemaOptionLabel } from "./strategy-display-metadata";
+import { propertySchemaForKey, schemaDisplayLabel, schemaOptionLabel } from "./strategy-display-metadata";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
+import { createReadonlySections, createVisibleReadonlySections } from "./strategy-schema-readonly-sections";
 import {
   booleanPillClassName,
-  compareUiFields,
-  compareUiSections,
   formatPercentValue,
   hasReadableField,
-  isReadonlyField,
   isRecord,
   isScalarValue,
-  isUiField,
-  isUiSection,
-  joinSectionTitle,
   labelForKey,
   numberValue,
   stringValue,
   type JsonRecord,
   type ReadonlyField,
   type StrategySchemaCopy,
-  type UiCondition,
-  type UiField,
-  type UiSection,
 } from "./strategy-schema-readonly-helpers";
 
 export function StrategySchemaReadonlyView({
@@ -45,10 +37,8 @@ export function StrategySchemaReadonlyView({
   uiSchema?: JsonRecord;
 }) {
   const rendererCopy = copy.workspace.accountCenter.strategySchema;
-  const sections = createReadonlySections(schema, uiSchema, formData, rendererCopy, copy, language);
-  const visibleSections = sections
-    .map((section) => ({ ...section, fields: section.fields.filter((field) => hasReadableField(field.value)) }))
-    .filter((section) => section.fields.length > 0);
+  const sections = createReadonlySections(schema, uiSchema, formData, rendererCopy, language);
+  const visibleSections = createVisibleReadonlySections(sections);
 
   if (visibleSections.length === 0) {
     return (
@@ -187,27 +177,51 @@ function ReadonlyArray({
     return <span className="text-xs font-bold text-slate-500">{rendererCopy.emptyList}</span>;
   }
   if (value.every(isScalarValue)) {
+    const entries = createReadonlyArrayEntries(value);
     return (
       <div className="flex flex-wrap gap-1.5 sm:justify-end">
-        {value.map((item, index) => {
+        {entries.map(({ item, key }) => {
           const label = schemaOptionLabel(itemSchema, item, language) ?? String(item);
           return (
-            <span key={`${index}-${String(item)}`} className={isDarkTheme ? "rounded-full bg-white/[0.055] px-2 py-1 text-xs font-black text-slate-300" : "rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-700"}>{label}</span>
+            <span key={key} className={isDarkTheme ? "rounded-full bg-white/[0.055] px-2 py-1 text-xs font-black text-slate-300" : "rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-700"}>{label}</span>
           );
         })}
       </div>
     );
   }
+  const entries = createReadonlyArrayEntries(value);
   return (
     <div className="space-y-2 text-left">
-      {value.map((item, index) => (
-        <div key={index} className={isDarkTheme ? "rounded-xl border border-white/[0.065] bg-white/[0.035] p-2" : "rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] p-2"}>
-          <div className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{rendererCopy.itemLabel(index + 1)}</div>
+      {entries.map(({ item, key, ordinal }) => (
+        <div key={key} className={isDarkTheme ? "rounded-xl border border-white/[0.065] bg-white/[0.035] p-2" : "rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] p-2"}>
+          <div className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{rendererCopy.itemLabel(ordinal)}</div>
           <ReadonlyValue copy={copy} isDarkTheme={isDarkTheme} language={language} schema={itemSchema} value={item} />
         </div>
       ))}
     </div>
   );
+}
+
+function createReadonlyArrayEntries(value: readonly unknown[]): Array<{ item: unknown; key: string; ordinal: number }> {
+  const seenCounts = new Map<string, number>();
+  return value.map((item, position) => {
+    const stableKey = createReadonlyArrayItemKey(item);
+    const occurrence = seenCounts.get(stableKey) ?? 0;
+    seenCounts.set(stableKey, occurrence + 1);
+    return {
+      item,
+      key: `${stableKey}:${occurrence}`,
+      ordinal: position + 1,
+    };
+  });
+}
+
+function createReadonlyArrayItemKey(item: unknown): string {
+  if (isScalarValue(item)) {
+    return `${typeof item}:${String(item)}`;
+  }
+
+  return JSON.stringify(item);
 }
 
 function SignalSourceConfigGrid({
@@ -222,9 +236,9 @@ function SignalSourceConfigGrid({
   value: unknown[];
 }) {
   const rendererCopy = copy.workspace.accountCenter.strategySchema;
-  const configs = value
-    .filter(isRecord)
-    .map((config) => createSignalSourceConfigViewModel(config, signalSourceIdentityById, rendererCopy));
+  const configs = value.flatMap((config) => (
+    isRecord(config) ? [createSignalSourceConfigViewModel(config, signalSourceIdentityById, rendererCopy)] : []
+  ));
 
   if (configs.length === 0) {
     return <div className="mt-2 text-xs font-bold text-slate-500">{rendererCopy.emptyList}</div>;
@@ -302,196 +316,4 @@ function ReadonlyObject({
       })}
     </dl>
   );
-}
-
-function createReadonlySections(
-  schema: JsonRecord,
-  uiSchema: JsonRecord | undefined,
-  formData: JsonRecord,
-  rendererCopy: StrategySchemaCopy,
-  copy: WorkspaceCopy,
-  language: WorkspaceLanguage,
-): UiSection[] {
-  const uiSections = Array.isArray(uiSchema?.sections) ? uiSchema.sections : null;
-  if (uiSections) {
-    return createSectionsFromUiSections(schema, uiSections, formData, rendererCopy, copy, language);
-  }
-
-  const branchSections = createBranchReadonlySections(schema, uiSchema, formData, rendererCopy, copy, language);
-  if (branchSections.length > 0) {
-    return branchSections;
-  }
-
-  const properties = isRecord(schema.properties) ? schema.properties : {};
-  return [{
-    fields: Object.entries(properties).map(([key, childSchema]) => ({
-      description: schemaDisplayDescription(childSchema, language),
-      label: schemaDisplayLabel(childSchema, language, labelForKey(rendererCopy, key)),
-      path: key,
-      schema: isRecord(childSchema) ? childSchema : undefined,
-      value: formData[key],
-    })),
-    title: schemaDisplayLabel(schema, language, rendererCopy.configurationFallbackTitle),
-  }];
-}
-
-function createSectionsFromUiSections(
-  schema: JsonRecord,
-  uiSections: unknown[],
-  formData: JsonRecord,
-  rendererCopy: StrategySchemaCopy,
-  copy: WorkspaceCopy,
-  language: WorkspaceLanguage,
-  titlePrefix = "",
-): UiSection[] {
-  return uiSections
-    .filter(isUiSection)
-    .sort(compareUiSections)
-    .map((section, index) => {
-      const sectionTitle = typeof section.title === "string" && section.title.trim()
-        ? section.title
-        : rendererCopy.sectionFallbackTitle(index + 1);
-      return {
-        description: typeof section.description === "string" ? section.description : undefined,
-        fields: section.fields
-          .filter(isUiField)
-          .sort(compareUiFields)
-          .map((field) => createReadonlyField(schema, field, formData, rendererCopy, language))
-          .filter(isReadonlyField),
-        title: titlePrefix ? `${titlePrefix} · ${sectionTitle}` : sectionTitle,
-      };
-    });
-}
-
-function createBranchReadonlySections(
-  schema: JsonRecord,
-  uiSchema: JsonRecord | undefined,
-  formData: JsonRecord,
-  rendererCopy: StrategySchemaCopy,
-  copy: WorkspaceCopy,
-  language: WorkspaceLanguage,
-): UiSection[] {
-  const properties = isRecord(schema.properties) ? schema.properties : {};
-  const branchSections: UiSection[] = [];
-  for (const [branchKey, branchSchema] of Object.entries(properties)) {
-    if (!isRecord(branchSchema) || !isRecord(branchSchema.properties)) {
-      continue;
-    }
-    const branchData = isRecord(formData[branchKey]) ? formData[branchKey] : {};
-    const branchUiSchema = isRecord(uiSchema?.[branchKey]) ? uiSchema[branchKey] : undefined;
-    const branchTitle = schemaDisplayLabel(branchSchema, language, labelForKey(rendererCopy, branchKey));
-    const branchUiSections = Array.isArray(branchUiSchema?.sections) ? branchUiSchema.sections : null;
-    if (branchUiSections) {
-      branchSections.push(...createSectionsFromUiSections(branchSchema, branchUiSections, branchData, rendererCopy, copy, language, branchTitle));
-      continue;
-    }
-    branchSections.push(...createSectionsFromObjectSchema(branchSchema, branchData, rendererCopy, copy, language, branchTitle));
-  }
-  return branchSections;
-}
-
-function createSectionsFromObjectSchema(
-  schema: JsonRecord,
-  formData: JsonRecord,
-  rendererCopy: StrategySchemaCopy,
-  copy: WorkspaceCopy,
-  language: WorkspaceLanguage,
-  titlePrefix = "",
-): UiSection[] {
-  const properties = isRecord(schema.properties) ? schema.properties : {};
-  const scalarFields: ReadonlyField[] = [];
-  const sections: UiSection[] = [];
-
-  for (const [key, childSchema] of Object.entries(properties)) {
-    const childRecord = isRecord(childSchema) ? childSchema : undefined;
-    const value = formData[key];
-    if (childRecord && isRecord(childRecord.properties)) {
-      const childFields = Object.entries(childRecord.properties).map(([fieldKey, fieldSchema]) => createSchemaField({
-        key: fieldKey,
-        language,
-        rendererCopy,
-        schema: fieldSchema,
-        value: isRecord(value) ? value[fieldKey] : undefined,
-      }));
-      sections.push({
-        description: schemaDisplayDescription(childRecord, language),
-        fields: childFields,
-        title: joinSectionTitle(titlePrefix, schemaDisplayLabel(childRecord, language, labelForKey(rendererCopy, key))),
-      });
-      continue;
-    }
-    scalarFields.push(createSchemaField({ key, language, rendererCopy, schema: childSchema, value }));
-  }
-
-  if (scalarFields.length > 0) {
-    sections.unshift({
-      fields: scalarFields,
-      title: titlePrefix || schemaDisplayLabel(schema, language, rendererCopy.configurationFallbackTitle),
-    });
-  }
-
-  return sections;
-}
-
-function createSchemaField({
-  key,
-  language,
-  rendererCopy,
-  schema,
-  value,
-}: {
-  key: string;
-  language: WorkspaceLanguage;
-  rendererCopy: StrategySchemaCopy;
-  schema: unknown;
-  value: unknown;
-}): ReadonlyField {
-  const schemaRecord = isRecord(schema) ? schema : undefined;
-  return {
-    description: schemaDisplayDescription(schemaRecord, language),
-    label: schemaDisplayLabel(schemaRecord, language, labelForKey(rendererCopy, key)),
-    path: key,
-    schema: schemaRecord,
-    value,
-  };
-}
-
-function createReadonlyField(
-  schema: JsonRecord,
-  field: UiField,
-  formData: JsonRecord,
-  rendererCopy: StrategySchemaCopy,
-  language: WorkspaceLanguage,
-): ReadonlyField | null {
-  if (field.visibleWhen && !evaluateCondition(field.visibleWhen, formData)) {
-    return null;
-  }
-  const fieldSchema = schemaAtPath(schema, field.path);
-  const fallbackKey = field.path.split(".").pop() ?? field.path;
-  return {
-    description: fieldSchema && hasSchemaDisplayDescription(fieldSchema) ? schemaDisplayDescription(fieldSchema, language) : typeof field.help === "string" ? field.help : schemaDisplayDescription(fieldSchema, language),
-    label: fieldSchema && hasSchemaDisplayLabel(fieldSchema) ? schemaDisplayLabel(fieldSchema, language, labelForKey(rendererCopy, fallbackKey)) : typeof field.label === "string" ? field.label : schemaDisplayLabel(fieldSchema, language, labelForKey(rendererCopy, fallbackKey)),
-    path: field.path,
-    schema: fieldSchema ?? undefined,
-    value: getValueAtPath(formData, field.path),
-  };
-}
-
-function getValueAtPath(data: JsonRecord, path: string): unknown {
-  let current: unknown = data;
-  for (const part of path.split(".").filter(Boolean)) {
-    if (!isRecord(current)) return undefined;
-    current = current[part];
-  }
-  return current;
-}
-
-function evaluateCondition(condition: UiCondition, formData: JsonRecord): boolean {
-  if (!condition.path) return true;
-  const value = getValueAtPath(formData, condition.path);
-  if (Object.prototype.hasOwnProperty.call(condition, "eq")) return value === condition.eq;
-  if (Object.prototype.hasOwnProperty.call(condition, "ne")) return value !== condition.ne;
-  if (Array.isArray(condition.in)) return condition.in.some((item) => item === value);
-  if (typeof condition.exists === "boolean") return hasReadableField(value) === condition.exists;
-  return true;
 }

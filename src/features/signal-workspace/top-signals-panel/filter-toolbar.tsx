@@ -107,6 +107,7 @@ export function TopSignalsSourceFilterBar({
           <div className="p-2">
             <input
               ref={searchInputRef}
+              aria-label={searchPlaceholder}
               className={searchClassName}
               placeholder={searchPlaceholder}
               value={query}

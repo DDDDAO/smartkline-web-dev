@@ -283,6 +283,7 @@ export const RealtimeKlinePanel = memo(function RealtimeKlinePanel({
                 <button
                   key={item}
                   className={item === interval ? "h-6 rounded-full bg-[#00A6F4] px-3 text-xs font-semibold text-white lg:h-8 lg:px-4 lg:text-sm" : isDarkTheme ? "h-6 rounded-full px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.08] hover:text-slate-100 lg:h-8 lg:px-4 lg:text-sm" : "h-6 rounded-full px-3 text-xs font-medium text-slate-500 hover:bg-white hover:text-slate-950 lg:h-8 lg:px-4 lg:text-sm"}
+                  type="button"
                   onClick={() => onIntervalChange(item)}
                 >
                   {item}

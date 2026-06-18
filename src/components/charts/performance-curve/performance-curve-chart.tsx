@@ -1,16 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo } from "react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import type { PriceColorMode } from "@/components/charts/kline-chart/types";
 import type {
   PerformanceCurveMetric,
@@ -65,6 +56,23 @@ const DEFAULT_VALUE_FORMATTERS: Required<PerformanceCurveValueFormatters> = {
 };
 const VALUE_AXIS_WIDTH = 56;
 
+const CartesianGrid = dynamic(() => import("recharts").then((module) => module.CartesianGrid), { ssr: false });
+const Line = dynamic(() => import("recharts").then((module) => module.Line), { ssr: false });
+const LineChart = dynamic(() => import("recharts").then((module) => module.LineChart), { ssr: false });
+const ReferenceLine = dynamic(() => import("recharts").then((module) => module.ReferenceLine), { ssr: false });
+const ResponsiveContainer = dynamic(() => import("recharts").then((module) => module.ResponsiveContainer), { ssr: false });
+const Tooltip = dynamic(() => import("recharts").then((module) => module.Tooltip), { ssr: false });
+const XAxis = dynamic(() => import("recharts").then((module) => module.XAxis), { ssr: false });
+const YAxis = dynamic(() => import("recharts").then((module) => module.YAxis), { ssr: false });
+const COMPACT_AXIS_NUMBER_FORMATTER = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 1,
+  notation: "compact",
+});
+const STANDARD_AXIS_NUMBER_FORMATTER = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 2,
+  notation: "standard",
+});
+
 export function PerformanceCurveChart({
   ariaLabel,
   className = "h-full w-full",
@@ -104,7 +112,7 @@ export function PerformanceCurveChart({
   }
 
   return (
-    <div aria-label={ariaLabel} className={className} role="img">
+    <figure aria-label={ariaLabel} className={`m-0 ${className}`}>
       <ResponsiveContainer height="100%" width="100%">
         <LineChart
           data={data}
@@ -174,7 +182,7 @@ export function PerformanceCurveChart({
           />
         </LineChart>
       </ResponsiveContainer>
-    </div>
+    </figure>
   );
 }
 
@@ -198,7 +206,7 @@ export function PerformanceCurveWindowSelector<WindowValue extends string>({
     : "inline-flex rounded-full border border-[#D5E4EF] bg-[#F8FAFC] p-0.5";
 
   return (
-    <div aria-label={ariaLabel} className={shellClassName} role="group">
+    <div aria-label={ariaLabel} className={shellClassName} role="toolbar">
       {windows.map((window) => {
         const isActive = window === activeWindow;
         const buttonClassName = isActive
@@ -340,10 +348,8 @@ function formatCompactAxisNumber(value: number): string {
   }
 
   const absValue = Math.abs(normalized);
-  const compactValue = new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: absValue >= 1_000 ? 1 : 2,
-    notation: absValue >= 1_000 ? "compact" : "standard",
-  }).format(absValue);
+  const formatter = absValue >= 1_000 ? COMPACT_AXIS_NUMBER_FORMATTER : STANDARD_AXIS_NUMBER_FORMATTER;
+  const compactValue = formatter.format(absValue);
 
   return `${normalized > 0 ? "+" : "-"}${compactValue}`;
 }
