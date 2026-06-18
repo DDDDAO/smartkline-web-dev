@@ -9,10 +9,12 @@ export function StrategyReturnCurveChart({
   isDarkTheme,
   pnlColorMode,
   points,
+  showValueAxis = true,
 }: {
   isDarkTheme: boolean;
   pnlColorMode: PnlColorMode;
   points: readonly StrategySquareReturnPoint[];
+  showValueAxis?: boolean;
 }) {
   const curvePoints = adaptValueCurvePoints(points, "roi");
   if (curvePoints.length === 0) {
@@ -27,6 +29,7 @@ export function StrategyReturnCurveChart({
       pnlColorMode={pnlColorMode}
       points={curvePoints}
       primaryMetric="roi"
+      showValueAxis={showValueAxis}
       tooltipMetrics={["roi"]}
     />
   );

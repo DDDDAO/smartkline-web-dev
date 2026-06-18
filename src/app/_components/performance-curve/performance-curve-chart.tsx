@@ -39,6 +39,7 @@ type PerformanceCurveChartProps = {
   pnlColorMode?: PriceColorMode;
   points: readonly PerformanceCurvePoint[];
   primaryMetric: PerformanceCurveMetric;
+  showValueAxis?: boolean;
   tooltipMetrics?: readonly PerformanceCurveMetric[];
   valueFormatters?: PerformanceCurveValueFormatters;
 };
@@ -60,6 +61,7 @@ const DEFAULT_VALUE_FORMATTERS: Required<PerformanceCurveValueFormatters> = {
   pnl: (value, point) => formatPerformanceCurveAssetAmount(value, point?.asset ?? point?.currency ?? undefined),
   roi: (value) => formatPerformanceCurvePercent(value),
 };
+const VALUE_AXIS_WIDTH = 56;
 
 export function PerformanceCurveChart({
   ariaLabel,
@@ -69,6 +71,7 @@ export function PerformanceCurveChart({
   pnlColorMode = "positiveGreen",
   points,
   primaryMetric,
+  showValueAxis = true,
   tooltipMetrics = [primaryMetric],
   valueFormatters,
 }: PerformanceCurveChartProps) {
@@ -86,6 +89,7 @@ export function PerformanceCurveChart({
   const strokeColor = getPerformanceCurveStrokeColor(isDarkTheme, latestValue, pnlColorMode);
   const gridColor = isDarkTheme ? "rgba(148,163,184,0.20)" : "rgba(148,163,184,0.28)";
   const cursorColor = isDarkTheme ? "rgba(125,211,252,0.44)" : "rgba(0,166,244,0.28)";
+  const axisColor = isDarkTheme ? "rgba(203,213,225,0.72)" : "rgba(71,85,105,0.78)";
   const mergedMetricLabels = { ...DEFAULT_METRIC_LABELS, ...metricLabels };
   const mergedValueFormatters = { ...DEFAULT_VALUE_FORMATTERS, ...valueFormatters };
   const shouldShowZeroLine = data.some((point) => (point.primaryValue ?? 0) < 0) && data.some((point) => (point.primaryValue ?? 0) > 0);
@@ -99,7 +103,7 @@ export function PerformanceCurveChart({
       <ResponsiveContainer height="100%" width="100%">
         <LineChart
           data={data}
-          margin={{ bottom: 4, left: 8, right: 8, top: 8 }}
+          margin={{ bottom: 4, left: 8, right: showValueAxis ? 0 : 8, top: 8 }}
         >
           <CartesianGrid stroke={gridColor} strokeDasharray="4 6" vertical={false} />
           <XAxis
@@ -109,13 +113,34 @@ export function PerformanceCurveChart({
             scale="time"
             type="number"
           />
-          <YAxis
-            allowDataOverflow={false}
-            dataKey="primaryValue"
-            domain={createPaddedDomain}
-            hide
-            type="number"
-          />
+          {showValueAxis ? (
+            <YAxis
+              allowDataOverflow={false}
+              axisLine={false}
+              dataKey="primaryValue"
+              domain={createPaddedDomain}
+              orientation="right"
+              tick={{
+                fill: axisColor,
+                fontSize: 10,
+                fontWeight: 800,
+              }}
+              tickCount={4}
+              tickFormatter={(value) => formatValueAxisTick(value, primaryMetric)}
+              tickLine={false}
+              tickMargin={4}
+              type="number"
+              width={VALUE_AXIS_WIDTH}
+            />
+          ) : (
+            <YAxis
+              allowDataOverflow={false}
+              dataKey="primaryValue"
+              domain={createPaddedDomain}
+              hide
+              type="number"
+            />
+          )}
           {shouldShowZeroLine ? (
             <ReferenceLine stroke={gridColor} strokeDasharray="4 4" y={0} />
           ) : null}
@@ -278,4 +303,42 @@ function createPaddedDomain([
 
   const padding = Math.max(0.01, (maxValue - minValue) * 0.08);
   return [minValue - padding, maxValue + padding];
+}
+
+function formatValueAxisTick(value: unknown, metric: PerformanceCurveMetric): string {
+  const numberValue = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return "";
+  }
+
+  return metric === "roi"
+    ? formatCompactAxisPercent(numberValue)
+    : formatCompactAxisNumber(numberValue);
+}
+
+function formatCompactAxisPercent(value: number): string {
+  const normalized = Math.abs(value) < 0.00005 ? 0 : value;
+  if (normalized === 0) {
+    return "0%";
+  }
+
+  const percent = normalized * 100;
+  const absPercent = Math.abs(percent);
+  const fractionDigits = absPercent >= 100 ? 0 : absPercent >= 10 ? 1 : 2;
+  return `${percent > 0 ? "+" : ""}${percent.toFixed(fractionDigits)}%`;
+}
+
+function formatCompactAxisNumber(value: number): string {
+  const normalized = Math.abs(value) < 0.0000005 ? 0 : value;
+  if (normalized === 0) {
+    return "0";
+  }
+
+  const absValue = Math.abs(normalized);
+  const compactValue = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: absValue >= 1_000 ? 1 : 2,
+    notation: absValue >= 1_000 ? "compact" : "standard",
+  }).format(absValue);
+
+  return `${normalized > 0 ? "+" : "-"}${compactValue}`;
 }

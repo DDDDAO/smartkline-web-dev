@@ -192,7 +192,12 @@ export function StrategyMarketplaceCard({
             </div>
           </div>
           <div className={curveClassName}>
-            <StrategyReturnCurveChart isDarkTheme={isDarkTheme} pnlColorMode={pnlColorMode} points={strategy.returnCurve} />
+            <StrategyReturnCurveChart
+              isDarkTheme={isDarkTheme}
+              pnlColorMode={pnlColorMode}
+              points={strategy.returnCurve}
+              showValueAxis={false}
+            />
           </div>
         </div>
 
