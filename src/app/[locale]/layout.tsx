@@ -9,23 +9,13 @@ import { GoogleTagManagerPageView } from "../_components/google-tag-manager-page
 import {
   getHtmlLanguage,
   getWorkspaceLanguageFromAppLocale,
-} from "../_lib/i18n";
+} from "@/i18n/workspace";
 import "@rainbow-me/rainbowkit/styles.css";
 import "../globals.css";
 import { APP_LOCALES, isAppLocale, type AppLocale } from "@/i18n/locales";
+import { getAppMessages, getSiteMetadata } from "@/i18n/messages";
 
 const GOOGLE_TAG_MANAGER_ID = "GTM-MVGXC53S";
-
-const SITE_METADATA: Record<AppLocale, Metadata> = {
-  en: {
-    title: "K-Line Intelligence Hub",
-    description: "KOL signal intelligence tool for Crypto trading communities",
-  },
-  zh: {
-    title: "K线情报局",
-    description: "面向 Crypto 交易社群的 KOL 信号情报工具",
-  },
-};
 
 type LocaleLayoutProps = Readonly<{
   children: ReactNode;
@@ -40,7 +30,7 @@ export async function generateMetadata({
   params,
 }: Pick<LocaleLayoutProps, "params">): Promise<Metadata> {
   const locale = await readLocaleParam(params);
-  return SITE_METADATA[locale];
+  return getSiteMetadata(locale);
 }
 
 export default async function RootLayout({
@@ -49,12 +39,13 @@ export default async function RootLayout({
 }: LocaleLayoutProps) {
   const locale = await readLocaleParam(params);
   const language = getWorkspaceLanguageFromAppLocale(locale);
+  const messages = getAppMessages(locale);
   setRequestLocale(locale);
 
   return (
     <html lang={getHtmlLanguage(language)} className="h-full antialiased">
       <body className="min-h-full flex flex-col">
-        <NextIntlClientProvider locale={locale} messages={{}}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
           <noscript>
             <iframe
               src={`https://www.googletagmanager.com/ns.html?id=${GOOGLE_TAG_MANAGER_ID}`}

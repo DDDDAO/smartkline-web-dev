@@ -262,6 +262,11 @@ export const enWorkspaceMain = {
       sourceCount: (count) => `${count} sources`,
       sourceSearchPlaceholder: "Search sources",
       status: "Status",
+      panelTabs: {
+        kol: "KOL Signals",
+        lead: "Lead Radar",
+      },
+      panelTabsAria: "Signal workspace panels",
       title: "Top Signals",
       totalLeverage: "Total Leverage",
       tradeCount: (count) => `${count} trades`,
@@ -293,6 +298,11 @@ export const enWorkspaceMain = {
       topSignals: {
         description: "All Signal Center source positions and trade points",
         label: "Top Signals",
+        stageLabel: "",
+      },
+      strategyManagement: {
+        description: "Create and operate copy-trading strategies",
+        label: "My Strategies",
         stageLabel: "",
       },
       strategySquare: {

@@ -1,4 +1,4 @@
-import type { WorkspaceCopy } from "../i18n";
+import type { WorkspaceCopy } from "../workspace";
 import { enWorkspaceAccountCenter } from "./en-workspace-account-center";
 import { enWorkspaceMain } from "./en-workspace-main";
 

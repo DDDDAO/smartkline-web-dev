@@ -259,6 +259,11 @@ export const zhWorkspaceMain = {
       sourceCount: (count: number) => `${count} 个信号源`,
       sourceSearchPlaceholder: "搜索信号源",
       status: "状态",
+      panelTabs: {
+        kol: "KOL 信号",
+        lead: "带单雷达",
+      },
+      panelTabsAria: "信号工作区面板",
       title: "顶级信号",
       totalLeverage: "总杠杆",
       tradeCount: (count: number) => `${count} 笔交易`,
@@ -290,6 +295,11 @@ export const zhWorkspaceMain = {
       topSignals: {
         description: "Signal Center 全部信号源仓位和交易点位",
         label: "顶级信号",
+        stageLabel: "",
+      },
+      strategyManagement: {
+        description: "创建和管理跟单策略",
+        label: "我的策略",
         stageLabel: "",
       },
       strategySquare: {
