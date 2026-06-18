@@ -5,7 +5,10 @@ import type { CopyTradingPrototypeTarget, PrototypeStrategy } from "./types";
 export function createSignalSourceTargetById(
   sources: readonly CopyTradingPrototypeTarget[],
 ): Map<string, CopyTradingPrototypeTarget> {
-  return new Map(sources.map((source) => [source.trader.trader_id, source]));
+  return new Map(sources.flatMap((source) => {
+    const sourceId = source.trader.trader_id.trim();
+    return sourceId ? [[sourceId, source] as const] : [];
+  }));
 }
 
 export function formatDefaultCopyStrategyName(

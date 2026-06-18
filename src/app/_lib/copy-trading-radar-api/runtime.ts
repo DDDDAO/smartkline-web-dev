@@ -159,7 +159,7 @@ function adaptSignalCenterTrader(
     trader_id: source.id,
     name: source.name || source.id,
     platform: source.signalType === SMART_MONEY_SIGNAL_TYPE ? DEFAULT_TRADER_PLATFORM : source.signalType || "Signal Center",
-    avatar: source.avatarUrl ?? createAvatarDataUrl(source.name || source.id, seed % 360),
+    avatar: getSignalCenterSourceAvatarUrl(source) ?? createAvatarDataUrl(source.name || source.id, seed % 360),
     followers: normalizedPerformance?.followers ?? 0,
     margin_balance: normalizedPerformance?.margin_balance ?? marginBalance,
     positions_synced_at: source.positionsSyncedTime ? normalizeTimestamp(source.positionsSyncedTime) : null,
@@ -172,6 +172,10 @@ function adaptSignalCenterTrader(
     risk_level: riskLevel,
     performance: normalizedPerformance,
   };
+}
+
+function getSignalCenterSourceAvatarUrl(source: SignalCenterSignalSource): string | null {
+  return readNonEmptyString(source.avatarUrl) ?? readNonEmptyString(source.avatar_url);
 }
 
 function adaptSignalCenterSourcePerformance(

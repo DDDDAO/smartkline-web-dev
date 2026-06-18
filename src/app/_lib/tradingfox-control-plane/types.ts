@@ -217,6 +217,10 @@ export type TradingFoxSignalSource = {
   signalSourceId: string;
   signalType?: string;
   name?: string;
+  avatar?: string | null;
+  avatarUrl?: string | null;
+  avatar_url?: string | null;
+  signalSourceAvatarUrl?: string | null;
   marginBalance: number;
   status?: string;
   marginPercent: number;

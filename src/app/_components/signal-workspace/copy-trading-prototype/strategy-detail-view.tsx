@@ -18,7 +18,7 @@ import { StrategyDetailPositionsSections } from "./strategy-detail-positions-sec
 import { getAdjacentStrategyCurveWindows, getStrategyCurveQueryKey, mergeStrategyDetail, requestStrategyDetail, requestStrategyPositionSync, scheduleStrategyDetailTask } from "./strategy-detail-utils";
 import { getPrototypeStrategyType } from "./strategy-helpers";
 import { getErrorPanelClassName, getModalSectionClassName } from "./styles";
-import type { PrototypeStrategy, PrototypeStrategySettingsUpdateInput, PrototypeStrategyStatus } from "./types";
+import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategySettingsUpdateInput, PrototypeStrategyStatus } from "./types";
 
 const STRATEGY_DETAIL_CURVE_WINDOWS: readonly StrategyDetailCurveWindow[] = ["24h", "7d", "30d", "90d"];
 const DEFAULT_STRATEGY_DETAIL_CURVE_WINDOW: StrategyDetailCurveWindow = "30d";
@@ -30,6 +30,7 @@ export function StrategyDetailView({
   isDarkTheme,
   strategy,
   telegramUser,
+  availableSignalSources = [],
   onBack,
   onStrategyDelete,
   onStrategySettingsUpdate,
@@ -39,6 +40,7 @@ export function StrategyDetailView({
   isDarkTheme: boolean;
   strategy: PrototypeStrategy;
   telegramUser: TelegramSessionUser | null;
+  availableSignalSources?: readonly CopyTradingPrototypeTarget[];
   onBack: () => void;
   onStrategyDelete: (strategyId: string) => Promise<void> | void;
   onStrategySettingsUpdate: (input: PrototypeStrategySettingsUpdateInput) => Promise<void> | void;
@@ -270,7 +272,11 @@ export function StrategyDetailView({
   const orderItems = detail?.orderHistory?.items ?? [];
   const signalSourceOrderItems = detail?.orderHistory?.signalSourceOrders ?? [];
   const tradeLogItems = detail?.orderHistory?.tradeLogs ?? [];
-  const signalSourceIdentityById = createSignalSourceIdentityById(hasLoadedSection("signalSources") ? detail?.signalSources ?? [] : [], liveStrategy);
+  const signalSourceIdentityById = createSignalSourceIdentityById(
+    hasLoadedSection("signalSources") ? detail?.signalSources ?? [] : [],
+    liveStrategy,
+    availableSignalSources,
+  );
   const tradeHistoryOffset = detail?.orderHistory?.offset ?? tradeHistoryPageOffset;
   const allTradeHistoryRows = filterTradeHistoryRowsByStrategyStart(createTradeHistoryRows({
     orders: orderItems,

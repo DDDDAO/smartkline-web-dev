@@ -1,13 +1,26 @@
 import type { TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
 import { finiteNumberOrNull } from "./formatters";
-import type { PrototypeStrategy } from "./types";
+import type { CopyTradingPrototypeTarget, PrototypeStrategy } from "./types";
 import type { SignalSourceIdentityById, TradeHistoryRow, TradeHistorySourceIdentity, TradingFoxOrderItem, TradingFoxSignalSourceOrderItem, TradingFoxTradeLogItem } from "./strategy-detail-shared";
 
 export function createSignalSourceIdentityById(
   signalSources: readonly TradingFoxStrategyDetail["signalSources"][number][],
   strategy: PrototypeStrategy,
+  availableSignalSources: readonly CopyTradingPrototypeTarget[] = [],
 ): SignalSourceIdentityById {
   const identities = new Map<string, TradeHistorySourceIdentity>();
+  for (const target of availableSignalSources) {
+    const sourceId = target.trader.trader_id.trim();
+    if (!sourceId) {
+      continue;
+    }
+    identities.set(sourceId, {
+      avatarUrl: target.trader.avatar || null,
+      id: sourceId,
+      name: target.trader.name || sourceId,
+    });
+  }
+
   const fallbackSignalSourceName = strategy.signalSourceName || strategy.traderId;
   const fallbackSignalSourceAvatarUrl = strategy.signalSourceAvatarUrl || strategy.avatarUrl || null;
   signalSources.forEach((source) => {
@@ -15,10 +28,11 @@ export function createSignalSourceIdentityById(
     if (!sourceId) {
       return;
     }
+    const existingIdentity = identities.get(sourceId);
     identities.set(sourceId, {
-      avatarUrl: null,
+      avatarUrl: resolvePreferredSignalSourceAvatarUrl(existingIdentity?.avatarUrl, getTradingFoxSignalSourceAvatarUrl(source)),
       id: sourceId,
-      name: source.name || fallbackSignalSourceName || sourceId,
+      name: existingIdentity?.name || source.name || fallbackSignalSourceName || sourceId,
     });
   });
 
@@ -26,13 +40,34 @@ export function createSignalSourceIdentityById(
   if (strategySignalSourceId) {
     const existingIdentity = identities.get(strategySignalSourceId);
     identities.set(strategySignalSourceId, {
-      avatarUrl: existingIdentity?.avatarUrl ?? fallbackSignalSourceAvatarUrl,
+      avatarUrl: resolvePreferredSignalSourceAvatarUrl(existingIdentity?.avatarUrl, fallbackSignalSourceAvatarUrl),
       id: strategySignalSourceId,
       name: existingIdentity?.name || fallbackSignalSourceName || strategySignalSourceId,
     });
   }
 
   return identities;
+}
+
+function getTradingFoxSignalSourceAvatarUrl(source: TradingFoxStrategyDetail["signalSources"][number]): string | null {
+  return source.avatarUrl || source.avatar_url || source.signalSourceAvatarUrl || source.avatar || null;
+}
+
+function resolvePreferredSignalSourceAvatarUrl(...candidates: Array<string | null | undefined>): string | null {
+  let generatedFallback: string | null = null;
+
+  for (const candidate of candidates) {
+    const avatarUrl = candidate?.trim();
+    if (!avatarUrl) {
+      continue;
+    }
+    if (!avatarUrl.startsWith("data:image/svg+xml")) {
+      return avatarUrl;
+    }
+    generatedFallback ??= avatarUrl;
+  }
+
+  return generatedFallback;
 }
 
 export function createTradeHistoryRows({

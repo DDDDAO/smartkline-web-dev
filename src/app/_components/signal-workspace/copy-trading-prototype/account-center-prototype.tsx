@@ -113,6 +113,7 @@ export function AccountCenterPrototype({
             <div className="kol-scroll-area min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
               {selectedStrategy ? (
                 <StrategyDetailView
+                  availableSignalSources={availableSignalSources}
                   copy={copy}
                   isDarkTheme={isDarkTheme}
                   strategy={selectedStrategy}

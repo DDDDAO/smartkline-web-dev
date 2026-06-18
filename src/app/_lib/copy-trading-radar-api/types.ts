@@ -24,6 +24,7 @@ export type SignalCenterSignalSource = {
   leaderPrivate: boolean;
   positionShow: boolean;
   avatarUrl?: string | null;
+  avatar_url?: string | null;
   url?: string | null;
   isSpot: boolean;
   private: boolean;

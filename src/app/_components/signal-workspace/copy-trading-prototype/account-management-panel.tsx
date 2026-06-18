@@ -144,6 +144,7 @@ export function AccountManagementPanel({
 
         {selectedStrategy ? (
           <StrategyDetailView
+            availableSignalSources={availableSignalSources}
             copy={copy}
             isDarkTheme={isDarkTheme}
             strategy={selectedStrategy}
