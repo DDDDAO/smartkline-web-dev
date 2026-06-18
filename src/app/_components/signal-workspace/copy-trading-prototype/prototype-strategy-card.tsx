@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import { SourceAvatar } from "../card-ui";
 import { StrategySettingsDialog } from "./strategy-settings-dialog";
 import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategySettingsUpdateInput, PrototypeStrategyStatus } from "./types";

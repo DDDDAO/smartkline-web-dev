@@ -6,14 +6,15 @@ import {
   CommunityConversionModal,
   CopyTradingPrototypeModalWithWallet,
   KolPanel,
-  KolFollowProductTab,
   MobileKolBottomSheet,
   MobileTopSignalsBottomSheet,
   OnboardingGuide,
   RealtimeKlinePanel,
   SidebarCollapseButton,
+  StrategyManagementPanel,
   StrategySquareProductTab,
   TopSignalsPanel,
+  TopSignalsWorkspaceTabs,
   WorkspaceTopNavigation,
 } from "./signal-workspace/signal-workspace-helpers";
 
@@ -39,6 +40,7 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
     isWorkspaceMotionVisible,
     marketOptions,
     activeTopSignalSourceId,
+    topSignalsPanel,
     topSignalPerformanceWindow,
     setTopSignalPerformanceWindow,
     topSignalSortKey,
@@ -76,6 +78,7 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
     handleTopSignalSourceFilterChange,
     handleTopSignalPositionSelect,
     handleTopSignalTradeMarkerSelect,
+    handleTopSignalsPanelChange,
     handleKolSourceWatchToggle,
     handleTopSignalSourceWatchToggle,
     handleCopyTradingRequest,
@@ -90,7 +93,6 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
     handlePrototypeStrategyDelete,
     handlePrototypeStrategySettingsUpdate,
     openCommunityConversion,
-    handleKolCommunityConversionOpen,
     isChartSplitProductTab,
     chartActiveSignal,
     chartActivePaperPosition,
@@ -104,10 +106,11 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
     workspaceBodyClassName,
     workspaceGridClassName,
     isCompactLayout,
-    isTopSignalsTab,
     isAccountManagementTab,
+    isStrategyManagementTab,
     isStrategySquareTab,
-    isIntelTab,
+    isTopSignalsKolPanel,
+    isTopSignalsLeadPanel,
     copy,
     isDarkTheme,
     topSignalsSignalBiasSummary,
@@ -160,7 +163,7 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
               <RealtimeKlinePanel
                 key={`${symbol}-${interval}`}
                 activePaperPosition={chartActivePaperPosition}
-                isActivePaperPositionReady={isIntelTab && isActiveChartPaperPositionReady}
+                isActivePaperPositionReady={isTopSignalsKolPanel && isActiveChartPaperPositionReady}
                 activeSignal={chartActiveSignal}
                 focusSignalRequestKey={chartFocusSignalRequestKey}
                 focusTimeRequest={chartFocusTime}
@@ -169,7 +172,7 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
                 isCompactLayout={isCompactLayout}
                 marketOptions={marketOptions}
                 priceColorMode={pnlColorMode}
-                signalBiasSummary={isTopSignalsTab ? topSignalsSignalBiasSummary : null}
+                signalBiasSummary={isTopSignalsLeadPanel ? topSignalsSignalBiasSummary : null}
                 symbol={symbol}
                 signals={chartSignals}
                 theme={theme}
@@ -179,8 +182,8 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
                 onSignalSelect={handleSignalSelect}
                 onFocusSignalRequestHandled={handleFocusSignalRequestHandled}
                 onFocusTimeRequestHandled={handleFocusTimeRequestHandled}
-                onMarketCandleUpdate={isIntelTab ? setLatestMarketCandleUpdate : undefined}
-                onTradeMarkerSelect={isTopSignalsTab ? handleTopSignalTradeMarkerSelect : undefined}
+                onMarketCandleUpdate={isTopSignalsKolPanel ? setLatestMarketCandleUpdate : undefined}
+                onTradeMarkerSelect={isTopSignalsLeadPanel ? handleTopSignalTradeMarkerSelect : undefined}
               />
             </div>
 
@@ -188,68 +191,74 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
               <div
                 className={`kol-panel-shell motion-fx-10-delay-2 motion-fx-10-reveal motion-fx-7-secondary-panel relative hidden min-h-0 min-w-0 flex-col gap-3 lg:flex ${isWorkspaceMotionVisible ? "is-visible" : ""} ${isRightPanelExiting ? "is-exiting" : ""}`}
               >
-                {isIntelTab ? (
-                  <KolPanel
-                    activeSignal={activeSignal}
-                    headerAction={
-                      <SidebarCollapseButton
-                        copy={copy}
-                        isCollapsed={isRightPanelCollapsed}
-                        isDarkTheme={isDarkTheme}
-                        panelLabel={copy.kol.title}
-                        variant="header"
-                        onToggle={toggleRightPanel}
-                      />
-                    }
-                    copy={copy}
-                    isDarkTheme={isDarkTheme}
-                    paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
-                    paperPositionsBySignalId={paperPositionsBySignalId}
-                    sourceStatus={kolSignalSourceStatus}
-                    signals={kolSignals}
-                    watchlistedSourceKeys={watchlistedKolSourceKeys}
-                    onFollowRequest={openCommunityConversion}
-                    onSourceWatchToggle={handleKolSourceWatchToggle}
-                    onSignalSelect={handleSignalSelect}
-                  />
-                ) : (
-                  <TopSignalsPanel
-                    activeSourceId={activeTopSignalSourceId}
-                    copy={copy}
-                    headerAction={
-                      <SidebarCollapseButton
-                        copy={copy}
-                        isCollapsed={isRightPanelCollapsed}
-                        isDarkTheme={isDarkTheme}
-                        panelLabel={copy.workspace.topSignals.title}
-                        variant="header"
-                        onToggle={toggleRightPanel}
-                      />
-                    }
-                    isDarkTheme={isDarkTheme}
-                    performanceWindow={topSignalPerformanceWindow}
-                    pnlColorMode={pnlColorMode}
-                    snapshot={topSignalsDisplaySnapshot}
-                    sortKey={topSignalSortKey}
-                    sourceFilterId={effectiveTopSignalsSourceFilterId}
-                    sourceStatus={topSignalsSourceStatus}
-                    watchlistedSourceIds={watchlistedTopSignalSourceIds}
-                    onPositionSelect={handleTopSignalPositionSelect}
-                    onSourceFilterChange={handleTopSignalSourceFilterChange}
-                    onSourceSelect={handleTopSignalSourceSelect}
-                    onSourceWatchToggle={handleTopSignalSourceWatchToggle}
-                    onCopyTradingRequest={handleCopyTradingRequest}
-                    onPerformanceWindowChange={setTopSignalPerformanceWindow}
-                    onSortKeyChange={setTopSignalSortKey}
-                  />
-                )}
+                <TopSignalsWorkspaceTabs
+                  activePanel={topSignalsPanel}
+                  copy={copy}
+                  isDarkTheme={isDarkTheme}
+                  onPanelChange={handleTopSignalsPanelChange}
+                />
+                {isTopSignalsKolPanel ? (
+                    <KolPanel
+                      activeSignal={activeSignal}
+                      headerAction={
+                        <SidebarCollapseButton
+                          copy={copy}
+                          isCollapsed={isRightPanelCollapsed}
+                          isDarkTheme={isDarkTheme}
+                          panelLabel={copy.kol.title}
+                          variant="header"
+                          onToggle={toggleRightPanel}
+                        />
+                      }
+                      copy={copy}
+                      isDarkTheme={isDarkTheme}
+                      paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
+                      paperPositionsBySignalId={paperPositionsBySignalId}
+                      sourceStatus={kolSignalSourceStatus}
+                      signals={kolSignals}
+                      watchlistedSourceKeys={watchlistedKolSourceKeys}
+                      onFollowRequest={openCommunityConversion}
+                      onSourceWatchToggle={handleKolSourceWatchToggle}
+                      onSignalSelect={handleSignalSelect}
+                    />
+                  ) : (
+                    <TopSignalsPanel
+                      activeSourceId={activeTopSignalSourceId}
+                      copy={copy}
+                      headerAction={
+                        <SidebarCollapseButton
+                          copy={copy}
+                          isCollapsed={isRightPanelCollapsed}
+                          isDarkTheme={isDarkTheme}
+                          panelLabel={copy.workspace.topSignals.title}
+                          variant="header"
+                          onToggle={toggleRightPanel}
+                        />
+                      }
+                      isDarkTheme={isDarkTheme}
+                      performanceWindow={topSignalPerformanceWindow}
+                      pnlColorMode={pnlColorMode}
+                      snapshot={topSignalsDisplaySnapshot}
+                      sortKey={topSignalSortKey}
+                      sourceFilterId={effectiveTopSignalsSourceFilterId}
+                      sourceStatus={topSignalsSourceStatus}
+                      watchlistedSourceIds={watchlistedTopSignalSourceIds}
+                      onPositionSelect={handleTopSignalPositionSelect}
+                      onSourceFilterChange={handleTopSignalSourceFilterChange}
+                      onSourceSelect={handleTopSignalSourceSelect}
+                      onSourceWatchToggle={handleTopSignalSourceWatchToggle}
+                      onCopyTradingRequest={handleCopyTradingRequest}
+                      onPerformanceWindowChange={setTopSignalPerformanceWindow}
+                      onSortKeyChange={setTopSignalSortKey}
+                    />
+                  )}
               </div>
             ) : (
               <SidebarCollapseButton
                 copy={copy}
                 isCollapsed={isRightPanelCollapsed}
                 isDarkTheme={isDarkTheme}
-                panelLabel={isTopSignalsTab ? copy.workspace.topSignals.title : copy.kol.title}
+                panelLabel={isTopSignalsKolPanel ? copy.kol.title : copy.workspace.topSignals.title}
                 variant="edge-tab"
                 onToggle={toggleRightPanel}
               />
@@ -257,16 +266,13 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
           </section>
         ) : isAccountManagementTab ? (
           <AccountManagementPanelWithWallet
-            activeStrategyId={activeAccountStrategyId}
             apiConnection={prototypeApiConnection}
             apiConnections={prototypeApiConnections}
-            availableSignalSources={copyTradingSignalSourceTargets}
             copy={copy}
             isApiSetupOpen={isApiSetupOpen}
             isAuthLoading={isAuthLoading || isTradingFoxLoading}
             isDarkTheme={isDarkTheme}
             telegramUser={authMe.telegramUser}
-            strategies={prototypeStrategyList}
             onApiSetupOpen={() => setIsApiSetupOpen(true)}
             onApiSetupOpenChange={handleApiSetupOpenChange}
             onConnectionDelete={handlePrototypeConnectionDelete}
@@ -274,6 +280,16 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
             onHyperliquidAgentBound={handleTradingFoxConnectorBound}
             onLogin={startTelegramLogin}
             onLogout={handleLogout}
+          />
+        ) : isStrategyManagementTab ? (
+          <StrategyManagementPanel
+            activeStrategyId={activeAccountStrategyId}
+            apiConnections={prototypeApiConnections}
+            availableSignalSources={copyTradingSignalSourceTargets}
+            copy={copy}
+            isDarkTheme={isDarkTheme}
+            strategies={prototypeStrategyList}
+            telegramUser={authMe.telegramUser}
             onStrategyCreate={handlePrototypeStrategyCreate}
             onStrategyDelete={handlePrototypeStrategyDelete}
             onStrategyRouteChange={handleAccountStrategyRouteChange}
@@ -288,20 +304,9 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
             pnlColorMode={pnlColorMode}
             onMockCopy={handleMockStrategyCopy}
           />
-        ) : (
-          <KolFollowProductTab
-            copy={copy}
-            isDarkTheme={isDarkTheme}
-            paperPositionsBySignalId={paperPositionsBySignalId}
-            signals={kolSignals}
-            watchlistedSourceKeys={watchlistedKolSourceKeys}
-            onCommunityConversionOpen={handleKolCommunityConversionOpen}
-            onKolSourceWatchToggle={handleKolSourceWatchToggle}
-            onSignalSelect={handleSignalSelect}
-          />
-        )}
+        ) : null}
       </div>
-      {isCompactLayout && isIntelTab ? (
+      {isCompactLayout && isTopSignalsKolPanel ? (
         <MobileKolBottomSheet
           activeSignal={activeSignal}
           copy={copy}
@@ -319,7 +324,7 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
           onSignalSelect={handleSignalSelect}
         />
       ) : null}
-      {isCompactLayout && isTopSignalsTab ? (
+      {isCompactLayout && isTopSignalsLeadPanel ? (
         <MobileTopSignalsBottomSheet
           activeSourceId={activeTopSignalSourceId}
           copy={copy}

@@ -1,5 +1,5 @@
 ﻿import type { IChartApi } from "lightweight-charts";
-import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import { getResolvedKolAvatarUrl } from "@/app/_lib/kol-avatar";
 import type { MarketCandle } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";

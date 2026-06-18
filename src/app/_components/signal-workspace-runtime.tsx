@@ -10,7 +10,7 @@ import { useSignalWorkspaceTradingActions, type SignalWorkspaceTradingActions } 
 export type SignalWorkspaceRuntime = ReturnType<typeof useSignalWorkspaceState> & SignalWorkspacePrimaryActions & SignalWorkspaceSecondaryActions & SignalWorkspaceTradingActions;
 
 export function useSignalWorkspaceRuntime({
-  initialProductTab = 'intel',
+  initialProductTab = 'strategySquare',
 }: SignalWorkspaceProps = {}) {
   const state = useSignalWorkspaceState({ initialProductTab });
   const primary = useSignalWorkspacePrimaryActions(state);

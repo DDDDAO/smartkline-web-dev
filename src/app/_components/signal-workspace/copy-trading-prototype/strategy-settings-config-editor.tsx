@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TradingFoxStrategyDefinition } from "@/app/_lib/tradingfox-control-plane";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import { StrategySchemaRenderer, type StrategySchemaRendererState } from "./strategy-schema-renderer";

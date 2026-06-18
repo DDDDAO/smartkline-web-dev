@@ -1,4 +1,4 @@
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { PrototypeStrategy, PrototypeStrategyStatus, PrototypeStrategyType } from "./types";
 import { getStrategyPresentation } from "./strategy-presentation-registry";
 

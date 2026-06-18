@@ -1,5 +1,5 @@
 import { MarketSymbolSearchInput } from "@/app/_components/market-symbol-search-input";
-import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import type { MarketSymbol } from "@/app/_types/market";
 
 export function SymbolSearchInput({

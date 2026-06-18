@@ -1,5 +1,5 @@
 import type { IChartApi, ISeriesApi, LineStyle, LineWidth } from "lightweight-charts";
-import type { WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { WorkspaceLanguage } from "@/i18n/workspace";
 import type { MarketCandle } from "@/app/_types/market";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { StructuredSignal } from "@/app/_types/signal";

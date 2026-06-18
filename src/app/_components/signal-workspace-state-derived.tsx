@@ -43,6 +43,7 @@ export function useSignalWorkspaceStateDerived(base: SignalWorkspaceStateBase) {
     signals,
     symbol,
     theme,
+    topSignalsPanel,
     topSignalsSnapshot,
     topSignalsSourceFilterId,
     watchlist,
@@ -52,13 +53,15 @@ export function useSignalWorkspaceStateDerived(base: SignalWorkspaceStateBase) {
     signals.find((signal) => signal.id === activeSignalId) ??
     signals[0] ??
     null;
-  const isIntelTab = activeProductTab === "intel";
-  const isKolFollowTab = activeProductTab === "kolFollow";
   const isTopSignalsTab = activeProductTab === "topSignals";
+  const isTopSignalsLeadPanel =
+    isTopSignalsTab && topSignalsPanel === "lead";
+  const isTopSignalsKolPanel = isTopSignalsTab && topSignalsPanel === "kol";
   const isStrategySquareTab = activeProductTab === "strategySquare";
+  const isStrategyManagementTab = activeProductTab === "strategyManagement";
   const isAccountManagementTab = activeProductTab === "accountManagement";
-  const shouldUsePaperPositions =
-    !isTopSignalsTab && !isStrategySquareTab && !isAccountManagementTab;
+  const isPrivateWorkspaceTab = isStrategyManagementTab || isAccountManagementTab;
+  const shouldUsePaperPositions = isTopSignalsKolPanel;
   const kolSignals = useMemo(() => sortSignalsForKolPanel(signals), [signals]);
   const watchlistedKolSourceKeys = useMemo(
     () => new Set(watchlist.kolSources.map((source) => source.key)),
@@ -67,14 +70,12 @@ export function useSignalWorkspaceStateDerived(base: SignalWorkspaceStateBase) {
   const paperPositionSignals = useMemo(
     () =>
       createPrioritizedPaperPositionSignals({
-        activeProductTab,
         activeSignal,
         signals: kolSignals,
         shouldUsePaperPositions,
         watchlistedKolSourceKeys,
       }),
     [
-      activeProductTab,
       activeSignal,
       kolSignals,
       shouldUsePaperPositions,
@@ -86,14 +87,14 @@ export function useSignalWorkspaceStateDerived(base: SignalWorkspaceStateBase) {
     [watchlist.topSignalSources],
   );
   const topSignalMiniTickerSymbols = useMemo(() => {
-    if (!isTopSignalsTab || !topSignalsSnapshot) {
+    if (!isTopSignalsLeadPanel || !topSignalsSnapshot) {
       return EMPTY_MARKET_SYMBOL_LIST;
     }
 
     return Array.from(
       new Set(topSignalsSnapshot.positions.map((position) => position.symbol)),
     );
-  }, [isTopSignalsTab, topSignalsSnapshot]);
+  }, [isTopSignalsLeadPanel, topSignalsSnapshot]);
   const { latestPricesBySymbol: topSignalMiniTickerPricesBySymbol } =
     useBinanceMiniTickerPrices(topSignalMiniTickerSymbols, {
       updateIntervalMs: TOP_SIGNAL_PRICE_UPDATE_INTERVAL_MS,
@@ -171,15 +172,15 @@ export function useSignalWorkspaceStateDerived(base: SignalWorkspaceStateBase) {
       ),
     [prototypeApiConnections],
   );
-  const shouldLoadMarketOptions = isIntelTab || isTopSignalsTab;
+  const shouldLoadMarketOptions = isTopSignalsTab;
   const shouldLoadKolSignals =
-    isProductTabHydrated && (isIntelTab || isKolFollowTab);
+    isProductTabHydrated && isTopSignalsKolPanel;
   const shouldLoadAccountSignalSources =
-    isAccountManagementTab &&
+    isPrivateWorkspaceTab &&
     hasConnectedPrototypeApiConnection &&
     topSignalsSnapshot === null;
   const shouldLoadTopSignalsSnapshot =
-    isTopSignalsTab || shouldLoadAccountSignalSources;
+    isTopSignalsLeadPanel || shouldLoadAccountSignalSources;
   const {
     candlesBySymbol: paperPositionCandlesBySymbol,
     errorsBySymbol: paperPositionErrorsBySymbol,
@@ -236,10 +237,10 @@ export function useSignalWorkspaceStateDerived(base: SignalWorkspaceStateBase) {
       )
     : false;
   const isDarkTheme = theme === "dark";
-  const pageHeightClassName = isAccountManagementTab
+  const pageHeightClassName = isPrivateWorkspaceTab
     ? "min-h-dvh overflow-y-auto"
     : "min-h-dvh overflow-y-auto lg:h-screen lg:overflow-hidden";
-  const workspaceBodyClassName = isAccountManagementTab
+  const workspaceBodyClassName = isPrivateWorkspaceTab
     ? "min-w-0 flex-1"
     : "min-w-0 flex-1 lg:min-h-0 lg:overflow-hidden";
   const pageClassName = isDarkTheme
@@ -258,9 +259,11 @@ export function useSignalWorkspaceStateDerived(base: SignalWorkspaceStateBase) {
     isAccountManagementTab,
     isActiveChartPaperPositionReady,
     isDarkTheme,
-    isIntelTab,
-    isKolFollowTab,
+    isPrivateWorkspaceTab,
+    isStrategyManagementTab,
     isStrategySquareTab,
+    isTopSignalsKolPanel,
+    isTopSignalsLeadPanel,
     isTopSignalsTab,
     kolSignals,
     marioStrategiesStorageKey,

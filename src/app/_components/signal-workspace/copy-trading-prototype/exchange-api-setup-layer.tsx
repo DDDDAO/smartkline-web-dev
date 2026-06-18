@@ -3,7 +3,7 @@
 import { useAccount, useDisconnect, useSignTypedData } from "wagmi";
 import { useEffect, useState } from "react";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TradingFoxAccountResponse } from "@/app/_lib/tradingfox-control-plane";
 import { EXCHANGES, MOCK_MARGIN_BALANCE_MAX, MOCK_MARGIN_BALANCE_PRESETS, type PrototypeExchange, type PrototypeExchangeId } from "./constants";
 import type { PrototypeConnectionSaveInput } from "./types";

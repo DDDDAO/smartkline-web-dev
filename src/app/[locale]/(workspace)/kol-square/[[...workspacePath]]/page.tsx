@@ -1,5 +1,8 @@
-import { SignalWorkspace } from "@/app/_components/signal-workspace";
+import {
+  redirectToTopSignalsKolPanel,
+  type LegacyKolRoutePageProps,
+} from "../../legacy-kol-route";
 
-export default function KolSquarePage() {
-  return <SignalWorkspace initialProductTab="kolFollow" />;
+export default async function KolSquarePage(props: LegacyKolRoutePageProps) {
+  await redirectToTopSignalsKolPanel(props);
 }

@@ -1,5 +1,5 @@
 import { isActiveCopyTradingTrader } from "@/app/_lib/copy-trading-radar-api";
-import type { WorkspaceCopy, WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { WorkspaceCopy, WorkspaceLanguage } from "@/i18n/workspace";
 import type {
   TradingFoxAccountResponse,
   TradingFoxConnector,

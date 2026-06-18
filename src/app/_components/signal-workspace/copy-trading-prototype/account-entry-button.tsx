@@ -1,6 +1,6 @@
 "use client";
 
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
 import { TelegramUserAvatar, getTelegramUserDisplayName } from "./telegram-user-avatar";
 

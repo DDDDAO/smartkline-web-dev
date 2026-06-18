@@ -113,7 +113,7 @@ function createSignalPriceRayDrawingState(input: {
   candles: readonly MarketCandle[];
   chart: SignalPriceRayChartApi | null;
   series: SignalPriceRaySeriesApi | null;
-  language: import("@/app/_lib/i18n").WorkspaceLanguage;
+  language: import("@/i18n/workspace").WorkspaceLanguage;
   paperPosition: PaperPositionRecord | null;
   signal: StructuredSignal | null;
   theme: ChartTheme;

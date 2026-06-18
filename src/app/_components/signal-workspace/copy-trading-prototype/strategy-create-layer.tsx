@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary } from "@/app/_lib/tradingfox-control-plane";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import { TradingAccountSelect } from "./account-connection-ui";
 import { CopyTradingCreateBody } from "./strategy-create-fields";
 import { PrototypeInput } from "./prototype-form-fields";

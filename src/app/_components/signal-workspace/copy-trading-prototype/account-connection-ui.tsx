@@ -3,7 +3,7 @@
 import Image from "next/image";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { useState } from "react";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import { EXCHANGES, type PrototypeExchange } from "./constants";
 import type { PrototypeApiConnection } from "./types";
 import { formatAccountBalance } from "./formatters";

@@ -62,7 +62,7 @@ export function useSignalWorkspacePrimaryActionLifecycle(
     rightPanelExitTimeoutRef,
     onboardingOpenTimeoutRef,
     hasEvaluatedAutoOnboardingRef,
-    isIntelTab,
+    isTopSignalsKolPanel,
     kolSignalSourceStatus,
     startOnboardingGuide,
     isWorkspaceMotionVisible,
@@ -78,7 +78,7 @@ export function useSignalWorkspacePrimaryActionLifecycle(
 
   useEffect(() => {
     copyRef.current = copy;
-  }, [copy]);
+  }, [copy, copyRef]);
 
   useEffect(() => {
     let isMounted = true;
@@ -165,9 +165,15 @@ export function useSignalWorkspacePrimaryActionLifecycle(
   }, [
     applyTradingFoxAccount,
     authMe.isLoggedIn,
+    copyRef,
     isAccountManagementTab,
     isAuthLoading,
     isTradingFoxAccountLoaded,
+    setIsTradingFoxAccountLoaded,
+    setIsTradingFoxLoading,
+    setPrototypeApiConnections,
+    setPrototypeStrategies,
+    setWorkspaceNotification,
   ]);
 
   useEffect(() => {
@@ -289,7 +295,7 @@ export function useSignalWorkspacePrimaryActionLifecycle(
 
   useEffect(() => {
     const handlePopState = () => {
-      applyWorkspaceRouteState(readWorkspaceRouteStateFromLocation(), "intel");
+      applyWorkspaceRouteState(readWorkspaceRouteStateFromLocation(), "topSignals");
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -302,19 +308,14 @@ export function useSignalWorkspacePrimaryActionLifecycle(
     });
 
     return () => window.cancelAnimationFrame(frameId);
-  }, []);
+  }, [setIsWorkspaceMotionVisible]);
 
   useEffect(() => {
     return () => {
-      if (rightPanelExitTimeoutRef.current !== null) {
-        window.clearTimeout(rightPanelExitTimeoutRef.current);
-      }
-
-      if (onboardingOpenTimeoutRef.current !== null) {
-        window.clearTimeout(onboardingOpenTimeoutRef.current);
-      }
+      clearWindowTimeoutRef(rightPanelExitTimeoutRef);
+      clearWindowTimeoutRef(onboardingOpenTimeoutRef);
     };
-  }, []);
+  }, [onboardingOpenTimeoutRef, rightPanelExitTimeoutRef]);
 
   useEffect(() => {
     if (!workspaceNotification) {
@@ -327,7 +328,7 @@ export function useSignalWorkspacePrimaryActionLifecycle(
 
   useEffect(() => {
     if (
-      !isIntelTab
+      !isTopSignalsKolPanel
       || hasEvaluatedAutoOnboardingRef.current
       || !isWorkspaceMotionVisible
       || kolSignalSourceStatus.isLoading
@@ -343,7 +344,7 @@ export function useSignalWorkspacePrimaryActionLifecycle(
     const timeoutId = window.setTimeout(startOnboardingGuide, 0);
     return () => window.clearTimeout(timeoutId);
   }, [
-    isIntelTab,
+    isTopSignalsKolPanel,
     hasEvaluatedAutoOnboardingRef,
     isWorkspaceMotionVisible,
     kolSignalSourceStatus.isLoading,
@@ -394,7 +395,7 @@ export function useSignalWorkspacePrimaryActionLifecycle(
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [marioStrategiesStorageKey]);
+  }, [marioStrategiesStorageKey, setIsMarioStrategiesHydrated, setPrototypeMarioStrategies]);
 
   useEffect(() => {
     if (!marioStrategiesStorageKey || !isMarioStrategiesHydrated) {
@@ -415,3 +416,10 @@ export function useSignalWorkspacePrimaryActionLifecycle(
 }
 
 export type SignalWorkspacePrimaryActionLifecycle = ReturnType<typeof useSignalWorkspacePrimaryActionLifecycle>;
+
+function clearWindowTimeoutRef(timeoutRef: { current: number | null }) {
+  if (timeoutRef.current !== null) {
+    window.clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+  }
+}

@@ -5,7 +5,7 @@ import { useLocale } from "next-intl";
 import Form from "@rjsf/core";
 import type { FieldTemplateProps, FormContextType, RJSFSchema, RegistryWidgetsType, UiSchema, WidgetProps } from "@rjsf/utils";
 import validator from "@rjsf/validator-ajv8";
-import { getWorkspaceLanguageFromLocale, type WorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import { getWorkspaceLanguageFromLocale, type WorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import {
   createStrategyDisplayUiSchema,

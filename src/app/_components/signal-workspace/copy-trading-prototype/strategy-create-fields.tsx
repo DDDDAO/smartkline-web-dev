@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import { SourceAvatar } from "../card-ui";
 import { PercentInput } from "./prototype-form-fields";
 import { getLabelClassName, getStrategyTypeOptionClassName } from "./styles";

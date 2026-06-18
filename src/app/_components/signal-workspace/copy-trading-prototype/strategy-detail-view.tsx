@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail, TradingFoxStrategyDetailSection } from "@/app/_lib/tradingfox-control-plane";
 import type { KlineInterval } from "@/app/_types/market";

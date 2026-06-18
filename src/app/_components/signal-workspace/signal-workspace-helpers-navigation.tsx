@@ -4,7 +4,7 @@ import Image from "next/image";
 import { flushSync } from "react-dom";
 
 import type { TelegramAuthMeResponse } from "@/app/_lib/auth/telegram-auth";
-import type { WorkspaceCopy, WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { WorkspaceCopy, WorkspaceLanguage } from "@/i18n/workspace";
 import { AccountEntryButton } from "./account-entry-button";
 import { WorkspaceProductTabs, type WorkspaceProductTab } from "./product-tabs";
 import {

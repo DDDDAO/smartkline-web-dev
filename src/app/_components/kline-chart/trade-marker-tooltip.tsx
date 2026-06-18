@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { WorkspaceLanguage } from "@/i18n/workspace";
 import type { ChartTheme } from "./types";
 import { KLINE_PRICE_FORMAT } from "./series-data";
 import type { KlineTradePointMarker } from "./trade-point-primitive";

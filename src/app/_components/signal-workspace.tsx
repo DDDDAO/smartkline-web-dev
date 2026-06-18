@@ -5,7 +5,7 @@ import { useSignalWorkspaceRuntime } from './signal-workspace-runtime';
 import { SignalWorkspaceView } from './signal-workspace-view';
 
 export function SignalWorkspace({
-  initialProductTab = "intel",
+  initialProductTab = "strategySquare",
 }: SignalWorkspaceProps = {}) {
   const runtime = useSignalWorkspaceRuntime({ initialProductTab });
   return <SignalWorkspaceView {...runtime} />;

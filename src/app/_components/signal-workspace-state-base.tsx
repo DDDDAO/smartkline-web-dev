@@ -10,7 +10,7 @@ import {
   getWorkspaceCopy,
   getWorkspaceLanguageFromLocale,
   type WorkspaceCopy,
-} from "@/app/_lib/i18n";
+} from "@/i18n/workspace";
 import {
   createEmptyWorkspaceWatchlist,
   type WorkspaceWatchlist,
@@ -33,16 +33,18 @@ import type { PaperPositionMarketCandleUpdate } from "./signal-workspace/use-pap
 import type {
   WorkspaceNotification,
   SignalWorkspaceProps,
+  TopSignalsWorkspacePanel,
 } from "./signal-workspace/signal-workspace-helpers";
 import {
   createEmptyPrototypeApiConnection,
+  DEFAULT_TOP_SIGNALS_WORKSPACE_PANEL,
   LOGGED_OUT_AUTH_ME,
   useCompactLayout,
 } from "./signal-workspace/signal-workspace-helpers";
 import type { KolSignalSourceStatus } from "./signal-workspace/types";
 
 export function useSignalWorkspaceStateBase({
-  initialProductTab = "intel",
+  initialProductTab = "strategySquare",
 }: SignalWorkspaceProps = {}) {
   const [symbol, setSymbol] = useState<MarketSymbol>("BTC/USDT:USDT");
   const [interval, setInterval] = useState<KlineInterval>("15m");
@@ -83,6 +85,9 @@ export function useSignalWorkspaceStateBase({
   const [activeTopSignalSourceId, setActiveTopSignalSourceId] = useState("");
   const [activeTopSignalTradeEventId, setActiveTopSignalTradeEventId] =
     useState("");
+  const [topSignalsPanel, setTopSignalsPanel] = useState<TopSignalsWorkspacePanel>(
+    DEFAULT_TOP_SIGNALS_WORKSPACE_PANEL,
+  );
   const [topSignalsSourceFilterId, setTopSignalsSourceFilterId] =
     useState("all");
   const [topSignalPerformanceWindow, setTopSignalPerformanceWindow] =
@@ -215,6 +220,7 @@ export function useSignalWorkspaceStateBase({
     setSymbol,
     setTheme,
     setTopSignalPerformanceWindow,
+    setTopSignalsPanel,
     setTopSignalSortKey,
     setTopSignalsSnapshot,
     setTopSignalsSourceFilterId,
@@ -225,6 +231,7 @@ export function useSignalWorkspaceStateBase({
     symbol,
     theme,
     topSignalPerformanceWindow,
+    topSignalsPanel,
     topSignalSortKey,
     topSignalsSnapshot,
     topSignalsSourceFilterId,

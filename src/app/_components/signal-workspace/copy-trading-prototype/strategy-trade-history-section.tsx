@@ -2,7 +2,7 @@
 
 import type { RefObject } from "react";
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
 import type { KlineInterval } from "@/app/_types/market";
 import { RowsPaginationControls, TradeHistoryKlinePanel, TradeHistoryTable, type TradeHistoryRow } from "./strategy-detail-content";

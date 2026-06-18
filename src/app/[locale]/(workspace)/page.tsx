@@ -1,5 +1,5 @@
-import { SignalWorkspace } from "@/app/_components/signal-workspace";
+import { WorkspaceRoutePage } from "./workspace-route-page";
 
-export default function Home() {
-  return <SignalWorkspace />;
+export default function WorkspaceHomePage() {
+  return <WorkspaceRoutePage />;
 }

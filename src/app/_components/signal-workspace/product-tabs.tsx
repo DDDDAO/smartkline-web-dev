@@ -1,25 +1,22 @@
 "use client";
 
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 
 export { CommunityConversionModal } from "./community-conversion-modal";
-export { KolFollowProductTab } from "./kol-follow-product-tab";
 
 export type WorkspaceProductTab =
-  | "intel"
-  | "kolFollow"
-  | "topSignals"
   | "strategySquare"
+  | "topSignals"
+  | "strategyManagement"
   | "accountManagement";
 
 export const WORKSPACE_PRODUCT_TAB_STORAGE_KEY =
   "smartkline:workspace-product-tab:v1";
 
 export const WORKSPACE_PRODUCT_TABS: readonly WorkspaceProductTab[] = [
-  "intel",
-  "kolFollow",
-  "topSignals",
   "strategySquare",
+  "topSignals",
+  "strategyManagement",
   "accountManagement",
 ];
 
@@ -72,9 +69,6 @@ export function WorkspaceProductTabs({
             key={tab}
             aria-current={isActive ? "page" : undefined}
             className={buttonClassName}
-            data-guide-target={
-              tab === "kolFollow" ? "workspace-kol-follow-tab" : undefined
-            }
             title={tabCopy.description}
             type="button"
             onClick={() => onTabChange(tab)}

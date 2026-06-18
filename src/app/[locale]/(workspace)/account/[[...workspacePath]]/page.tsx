@@ -1,5 +1,5 @@
-import { SignalWorkspace } from "@/app/_components/signal-workspace";
+import { WorkspaceRoutePage } from "../../workspace-route-page";
 
 export default function AccountPage() {
-  return <SignalWorkspace initialProductTab="accountManagement" />;
+  return <WorkspaceRoutePage initialProductTab="accountManagement" />;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import { NOTIFICATION_CHANNELS } from "./constants";
 import { getLabelClassName, getNotificationIconClassName, getNotificationUnavailableBadgeClassName, getPrimaryButtonClassName } from "./styles";
 

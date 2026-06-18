@@ -7,19 +7,24 @@ import type { CopyTradingTradeMarker } from "@/app/_types/copy-trading";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type { CopyTradingPrototypeTarget } from "./copy-trading-prototype";
 import type { WorkspaceProductTab } from "./product-tabs";
-
 export {
   type WorkspaceCopy,
   type WorkspaceLanguage,
-} from "@/app/_lib/i18n";
+} from "@/i18n/workspace";
 export {
   CommunityConversionModal,
   isWorkspaceProductTab,
-  KolFollowProductTab,
   WORKSPACE_PRODUCT_TAB_STORAGE_KEY,
   WorkspaceProductTabs,
   type WorkspaceProductTab,
 } from "./product-tabs";
+export {
+  DEFAULT_TOP_SIGNALS_WORKSPACE_PANEL,
+  isTopSignalsWorkspacePanel,
+  normalizeTopSignalsWorkspacePanel,
+  TopSignalsWorkspaceTabs,
+  type TopSignalsWorkspacePanel,
+} from "./top-signals-workspace-tabs";
 export { hasSeenOnboardingGuide, OnboardingGuide } from "./onboarding-guide";
 export { RealtimeKlinePanel } from "./realtime-kline-panel";
 export {
@@ -58,6 +63,13 @@ export const AccountManagementPanelWithWallet = dynamic(
   () =>
     import("./account-wallet-boundary").then(
       (module) => module.AccountManagementPanelWithWallet,
+    ),
+  { loading: () => null },
+);
+export const StrategyManagementPanel = dynamic(
+  () =>
+    import("./copy-trading-prototype/strategy-management-panel").then(
+      (module) => module.StrategyManagementPanel,
     ),
   { loading: () => null },
 );

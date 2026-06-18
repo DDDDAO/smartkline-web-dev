@@ -1,5 +1,5 @@
 import { LineStyle, type CreatePriceLineOptions, type HistogramData, type PriceFormat } from "lightweight-charts";
-import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { MarketCandle } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";

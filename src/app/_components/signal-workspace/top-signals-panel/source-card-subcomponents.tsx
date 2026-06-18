@@ -1,4 +1,4 @@
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { CopyTradingPosition } from "@/app/_types/copy-trading";
 import { FavoriteStarButton, SourceAvatar, SymbolIcon } from "../card-ui";
 import type { PnlColorMode, TopSignalSourceModel } from "./helpers";

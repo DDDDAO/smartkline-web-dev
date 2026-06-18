@@ -1,6 +1,6 @@
 import * as SelectPrimitive from "@radix-ui/react-select";
 
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { StrategySquareStoreTab } from "./strategy-square-data";
 import {
   createPaginationItems,

@@ -10,8 +10,9 @@ import type { SignalWorkspaceSecondaryActions } from "./signal-workspace-seconda
 
 export function useSignalWorkspaceTradingActions(context: SignalWorkspaceState & SignalWorkspacePrimaryActions & SignalWorkspaceSecondaryActions) {
   const {
-    isIntelTab,
     isTopSignalsTab,
+    isTopSignalsKolPanel,
+    isTopSignalsLeadPanel,
     activeSignal,
     activeChartPaperPosition,
     topSignalsTradeMarkers,
@@ -23,29 +24,31 @@ export function useSignalWorkspaceTradingActions(context: SignalWorkspaceState &
 
   const handlers = useSignalWorkspaceTradingActionHandlers(context);
 
-  const isChartSplitProductTab = isIntelTab || isTopSignalsTab;
-  const chartActiveSignal = isIntelTab ? activeSignal : null;
-  const chartActivePaperPosition = isIntelTab ? activeChartPaperPosition : null;
-  const chartSignals = isIntelTab ? context.signals : [];
+  const isChartSplitProductTab = isTopSignalsTab;
+  const chartActiveSignal = isTopSignalsKolPanel ? activeSignal : null;
+  const chartActivePaperPosition = isTopSignalsKolPanel
+    ? activeChartPaperPosition
+    : null;
+  const chartSignals = isTopSignalsKolPanel ? context.signals : [];
   const chartTopSignalsTradeMarkers = topSignalsTradeMarkers;
-  const chartTradeMarkers = isTopSignalsTab
+  const chartTradeMarkers = isTopSignalsLeadPanel
     ? chartTopSignalsTradeMarkers
     : EMPTY_COPY_TRADING_TRADE_MARKERS;
-  const chartFocusTime = isTopSignalsTab ? chartFocusTimeRequest : null;
+  const chartFocusTime = isTopSignalsLeadPanel ? chartFocusTimeRequest : null;
 
   const handleIntervalChange = useCallback((nextInterval: KlineInterval) => {
     setChartFocusSignalRequestKey(null);
     setChartFocusTimeRequest(null);
     setInterval(nextInterval);
-  }, []);
+  }, [setChartFocusSignalRequestKey, setChartFocusTimeRequest, setInterval]);
 
   const handleFocusSignalRequestHandled = useCallback(() => {
     setChartFocusSignalRequestKey(null);
-  }, []);
+  }, [setChartFocusSignalRequestKey]);
 
   const handleFocusTimeRequestHandled = useCallback(() => {
     setChartFocusTimeRequest(null);
-  }, []);
+  }, [setChartFocusTimeRequest]);
 
   return {
     ...handlers,

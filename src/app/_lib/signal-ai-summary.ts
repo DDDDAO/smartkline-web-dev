@@ -1,4 +1,4 @@
-import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import type { StructuredSignal } from "@/app/_types/signal";
 
 export type SignalAiHighlightTone = "long" | "short" | "disagreement" | "risk" | "target";

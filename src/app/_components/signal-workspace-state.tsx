@@ -11,7 +11,7 @@ import {
 } from "./signal-workspace-state-derived";
 
 export function useSignalWorkspaceState({
-  initialProductTab = "intel",
+  initialProductTab = "strategySquare",
 }: SignalWorkspaceProps = {}): SignalWorkspaceState {
   const base = useSignalWorkspaceStateBase({ initialProductTab });
   const derived = useSignalWorkspaceStateDerived(base);

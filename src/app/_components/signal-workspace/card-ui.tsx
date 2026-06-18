@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { getResolvedKolAvatarUrl } from "@/app/_lib/kol-avatar";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { StructuredSignal } from "@/app/_types/signal";
 
 export function SourceAvatar({

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { isActiveCopyTradingTrader } from "@/app/_lib/copy-trading-radar-api";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { CopyTradingPrototypeTarget } from "./copy-trading-prototype";
 import type {
   CopyTradingPosition,

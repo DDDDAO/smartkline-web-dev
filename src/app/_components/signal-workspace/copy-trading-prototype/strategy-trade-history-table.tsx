@@ -1,7 +1,7 @@
 "use client";
 
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
 import { SourceAvatar } from "../card-ui";
 import { TelegramUserAvatar } from "./telegram-user-avatar";

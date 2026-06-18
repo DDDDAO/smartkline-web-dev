@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type { KolSignalSourceStatus } from "./types";

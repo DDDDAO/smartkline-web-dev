@@ -1,4 +1,4 @@
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { PriceColorMode } from "@/app/_components/kline-chart/types";
 import type {
   CopyTradingDirection,

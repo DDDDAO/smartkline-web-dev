@@ -1,4 +1,4 @@
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import { SourceAvatar, SymbolIcon } from "../card-ui";
 import { getPaperPositionBadgeClass, formatSignalPaperPositionStatus, getSignalDirectionBadgeClass, getSignalPaperPositionBadgeClass } from "../paper-position-summary";
 import type { WatchedKolSourceModel } from "./shared";

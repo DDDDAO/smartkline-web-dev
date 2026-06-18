@@ -1,7 +1,7 @@
 "use client";
 
 import { getTradingFoxErrorMessage } from "@/app/_lib/tradingfox-errors";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
 import { SourceAvatar } from "../card-ui";
 import { formatDetailCurrency } from "./formatters";

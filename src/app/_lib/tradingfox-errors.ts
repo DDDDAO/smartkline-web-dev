@@ -1,4 +1,4 @@
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 
 const TRADINGFOX_FALLBACK_ERROR_MESSAGE = "TradingFox request failed.";
 

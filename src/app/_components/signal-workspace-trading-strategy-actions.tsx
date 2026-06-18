@@ -64,7 +64,7 @@ export function useSignalWorkspaceTradingStrategyActions(
         method: "POST",
       });
       applyTradingFoxAccount(account);
-      handleProductTabChange("accountManagement");
+      handleProductTabChange("strategyManagement");
     },
     [applyTradingFoxAccount, handleProductTabChange],
   );
@@ -127,7 +127,7 @@ export function useSignalWorkspaceTradingStrategyActions(
         method: "POST",
       });
       applyTradingFoxAccount(account);
-      handleProductTabChange("accountManagement");
+      handleProductTabChange("strategyManagement");
     },
     [applyTradingFoxAccount, handleProductTabChange],
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import type { WorkspaceCopy, WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { WorkspaceCopy, WorkspaceLanguage } from "@/i18n/workspace";
 import { SourceAvatar } from "../card-ui";
 import { hasSchemaDisplayDescription, hasSchemaDisplayLabel, propertySchemaForKey, schemaAtPath, schemaDisplayDescription, schemaDisplayLabel, schemaOptionLabel } from "./strategy-display-metadata";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";

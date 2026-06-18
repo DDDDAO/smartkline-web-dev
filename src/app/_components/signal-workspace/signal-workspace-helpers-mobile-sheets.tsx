@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { toCopyTradingMarketSymbol } from "@/app/_lib/copy-trading-radar-api";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { KlineSignalBiasSummary } from "@/app/_components/kline-chart/types";
 import type {

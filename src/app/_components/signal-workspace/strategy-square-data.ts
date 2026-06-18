@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-import type { WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { WorkspaceLanguage } from "@/i18n/workspace";
 
 export type StrategySquareType = "copyTrading" | "dca" | "grid" | "mario" | "snowball";
 export type StrategySquareRiskLevel = "high" | "low" | "medium";

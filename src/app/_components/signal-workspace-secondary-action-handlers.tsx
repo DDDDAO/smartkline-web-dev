@@ -13,6 +13,7 @@ import type {
 import type { MarketSymbol } from "@/app/_types/market";
 import type { StructuredSignal } from "@/app/_types/signal";
 import type { WorkspaceProductTab } from "./signal-workspace/product-tabs";
+import type { TopSignalsWorkspacePanel } from "./signal-workspace/signal-workspace-helpers";
 import type { SignalWorkspacePrimaryActions } from "./signal-workspace-primary-actions";
 import type { SignalWorkspaceState } from "./signal-workspace-state";
 
@@ -38,10 +39,12 @@ export function useSignalWorkspaceSecondaryActionHandlers(
     setIsRightPanelCollapsed,
     setIsRightPanelExiting,
     setSymbol,
+    setTopSignalsPanel,
     setTopSignalsSourceFilterId,
     setWatchlist,
     signals,
     startTelegramLogin,
+    topSignalsPanel,
     topSignalsActiveSourceIds,
     topSignalsEventsById,
     updateWorkspaceRouteUrl,
@@ -74,6 +77,8 @@ export function useSignalWorkspaceSecondaryActionHandlers(
       updateWorkspaceRouteUrl("replace", {
         signalId: signal.id,
         symbol: signal.symbol,
+        tab: "topSignals",
+        topSignalsPanel: "kol",
       });
     },
     [
@@ -117,7 +122,7 @@ export function useSignalWorkspaceSecondaryActionHandlers(
   const handleProductTabChange = useCallback(
     (nextTab: WorkspaceProductTab) => {
       setActiveProductTab(nextTab);
-      if (nextTab !== "accountManagement") {
+      if (nextTab !== "strategyManagement") {
         setActiveAccountStrategyId("");
       }
       if (nextTab !== "topSignals") {
@@ -125,7 +130,7 @@ export function useSignalWorkspaceSecondaryActionHandlers(
       }
       updateWorkspaceRouteUrl("push", {
         accountStrategyId:
-          nextTab === "accountManagement" ? activeAccountStrategyId : "",
+          nextTab === "strategyManagement" ? activeAccountStrategyId : "",
         tab: nextTab,
       });
     },
@@ -150,11 +155,11 @@ export function useSignalWorkspaceSecondaryActionHandlers(
   const handleAccountStrategyRouteChange = useCallback(
     (strategyId: string | null, mode: "push" | "replace" = "push") => {
       const nextStrategyId = strategyId ?? "";
-      setActiveProductTab("accountManagement");
+      setActiveProductTab("strategyManagement");
       setActiveAccountStrategyId(nextStrategyId);
       updateWorkspaceRouteUrl(mode, {
         accountStrategyId: nextStrategyId,
-        tab: "accountManagement",
+        tab: "strategyManagement",
       });
     },
     [setActiveAccountStrategyId, setActiveProductTab, updateWorkspaceRouteUrl],
@@ -169,6 +174,8 @@ export function useSignalWorkspaceSecondaryActionHandlers(
       updateWorkspaceRouteUrl("replace", {
         tab: "topSignals",
         topSignalSourceId: sourceId,
+        topSignalTradeEventId: "",
+        topSignalsPanel: "lead",
       });
     },
     [
@@ -192,6 +199,8 @@ export function useSignalWorkspaceSecondaryActionHandlers(
       updateWorkspaceRouteUrl("replace", {
         tab: "topSignals",
         topSignalSourceId: sourceId === "all" ? "" : sourceId,
+        topSignalTradeEventId: "",
+        topSignalsPanel: "lead",
       });
     },
     [
@@ -221,6 +230,8 @@ export function useSignalWorkspaceSecondaryActionHandlers(
         symbol: nextSymbol,
         tab: "topSignals",
         topSignalSourceId: position.trader_id,
+        topSignalTradeEventId: "",
+        topSignalsPanel: "lead",
       });
     },
     [
@@ -263,6 +274,8 @@ export function useSignalWorkspaceSecondaryActionHandlers(
         symbol: nextSymbol,
         tab: "topSignals",
         topSignalSourceId: event.trader_id,
+        topSignalTradeEventId: event.event_id,
+        topSignalsPanel: "lead",
       });
     },
     [
@@ -287,6 +300,42 @@ export function useSignalWorkspaceSecondaryActionHandlers(
       }
     },
     [handleTopSignalTradeSelect, topSignalsEventsById],
+  );
+
+  const handleTopSignalsPanelChange = useCallback(
+    (panel: TopSignalsWorkspacePanel) => {
+      if (panel === topSignalsPanel) {
+        return;
+      }
+
+      setTopSignalsPanel(panel);
+      pendingRouteTopSignalTradeEventIdRef.current = "";
+      if (panel === "kol") {
+        setActiveTopSignalTradeEventId("");
+        updateWorkspaceRouteUrl("replace", {
+          signalId: activeProductTab === "topSignals" ? undefined : "",
+          tab: "topSignals",
+          topSignalSourceId: "",
+          topSignalTradeEventId: "",
+          topSignalsPanel: "kol",
+        });
+        return;
+      }
+
+      updateWorkspaceRouteUrl("replace", {
+        tab: "topSignals",
+        topSignalTradeEventId: "",
+        topSignalsPanel: "lead",
+      });
+    },
+    [
+      activeProductTab,
+      pendingRouteTopSignalTradeEventIdRef,
+      setActiveTopSignalTradeEventId,
+      setTopSignalsPanel,
+      topSignalsPanel,
+      updateWorkspaceRouteUrl,
+    ],
   );
 
   const handleKolSourceWatchToggle = useCallback(
@@ -340,6 +389,7 @@ export function useSignalWorkspaceSecondaryActionHandlers(
     handleTopSignalSourceSelect,
     handleTopSignalTradeMarkerSelect,
     handleTopSignalTradeSelect,
+    handleTopSignalsPanelChange,
     toggleRightPanel,
   };
 }

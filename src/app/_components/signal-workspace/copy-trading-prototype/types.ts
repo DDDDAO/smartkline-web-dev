@@ -1,5 +1,5 @@
 import type { TelegramSessionUser } from "@/app/_lib/auth/telegram-auth";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TradingFoxAccountResponse, TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary } from "@/app/_lib/tradingfox-control-plane";
 import type { CopyTradingTrader } from "@/app/_types/copy-trading";
 
@@ -142,5 +142,5 @@ export type CopyTradingPrototypeModalProps = {
   }) => void;
 };
 
-export type AccountManagementTab = "api" | "notifications" | "strategies";
+export type AccountManagementTab = "api" | "notifications";
 export type NotificationChannelKey = "dingtalkWebhook" | "feishuWebhook" | "telegramBot" | "wecomWebhook";

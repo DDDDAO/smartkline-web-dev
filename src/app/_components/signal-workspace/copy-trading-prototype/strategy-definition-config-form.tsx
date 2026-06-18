@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import type { TradingFoxStrategyDefinition } from "@/app/_lib/tradingfox-control-plane";
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import { StrategySchemaRenderer, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 
 export type JsonRecord = Record<string, unknown>;

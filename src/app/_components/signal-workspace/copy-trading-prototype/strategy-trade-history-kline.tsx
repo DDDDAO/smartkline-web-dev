@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale } from "next-intl";
-import { getWorkspaceLanguageFromLocale, type WorkspaceCopy } from "@/app/_lib/i18n";
+import { getWorkspaceLanguageFromLocale, type WorkspaceCopy } from "@/i18n/workspace";
 import { intervals } from "@/app/_lib/demo-data";
 import { fetchHistoricalCandles, prependHistoricalCandles } from "@/app/_lib/binance-market-data";
 import { toCopyTradingMarketSymbol } from "@/app/_lib/copy-trading-radar-api";

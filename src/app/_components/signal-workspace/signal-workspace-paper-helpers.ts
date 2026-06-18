@@ -1,19 +1,16 @@
 import { createKolSourceWatchKey } from "@/app/_lib/workspace-watchlist";
 import type { StructuredSignal } from "@/app/_types/signal";
-import type { WorkspaceProductTab } from "./product-tabs";
 import {
   EMPTY_STRUCTURED_SIGNALS,
   PAPER_POSITION_PRIORITY_SIGNAL_LIMIT,
 } from "./signal-workspace-helpers-constants";
 
 export function createPrioritizedPaperPositionSignals({
-  activeProductTab,
   activeSignal,
   signals,
   shouldUsePaperPositions,
   watchlistedKolSourceKeys,
 }: {
-  activeProductTab: WorkspaceProductTab;
   activeSignal: StructuredSignal | null;
   signals: readonly StructuredSignal[];
   shouldUsePaperPositions: boolean;
@@ -21,10 +18,6 @@ export function createPrioritizedPaperPositionSignals({
 }): readonly StructuredSignal[] {
   if (!shouldUsePaperPositions) {
     return EMPTY_STRUCTURED_SIGNALS;
-  }
-
-  if (activeProductTab === "kolFollow") {
-    return signals.slice(0, PAPER_POSITION_PRIORITY_SIGNAL_LIMIT);
   }
 
   /**

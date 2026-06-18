@@ -2,13 +2,17 @@ import { toCopyTradingMarketSymbol } from "@/app/_lib/copy-trading-radar-api";
 import type { MarketSymbol } from "@/app/_types/market";
 import { getAppLocaleFromPathname, isAppLocale } from "@/i18n/locales";
 import type { WorkspaceProductTab } from "./product-tabs";
+import {
+  DEFAULT_TOP_SIGNALS_WORKSPACE_PANEL,
+  normalizeTopSignalsWorkspacePanel,
+  type TopSignalsWorkspacePanel,
+} from "./top-signals-workspace-tabs";
 
 const WORKSPACE_TAB_ROUTE_SEGMENTS: Readonly<
   Record<WorkspaceProductTab, string>
 > = {
   accountManagement: "account",
-  intel: "kol",
-  kolFollow: "kol-square",
+  strategyManagement: "strategies",
   strategySquare: "strategy-square",
   topSignals: "signal",
 };
@@ -20,6 +24,7 @@ export type WorkspaceRouteState = {
   tab: WorkspaceProductTab | null;
   topSignalSourceId: string;
   topSignalTradeEventId: string;
+  topSignalsPanel: TopSignalsWorkspacePanel;
 };
 
 export function createWorkspaceRouteUrl(input: {
@@ -29,22 +34,32 @@ export function createWorkspaceRouteUrl(input: {
   symbol: MarketSymbol;
   tab: WorkspaceProductTab;
   topSignalSourceId: string;
+  topSignalTradeEventId: string;
+  topSignalsPanel: TopSignalsWorkspacePanel;
 }): string {
   const routePrefix = getWorkspaceRoutePrefix(input.currentPathname);
   const tabSegment = WORKSPACE_TAB_ROUTE_SEGMENTS[input.tab];
   const symbolSegment = encodeMarketSymbolForRoute(input.symbol);
   const queryParams = new URLSearchParams();
 
-  if (input.tab === "intel" && input.activeSignalId) {
-    queryParams.set("signal", input.activeSignalId);
-  }
-
-  if (input.tab === "topSignals" && input.topSignalSourceId) {
-    queryParams.set("source", input.topSignalSourceId);
+  if (input.tab === "topSignals") {
+    if (input.topSignalsPanel === "kol") {
+      queryParams.set("panel", "kol");
+      if (input.activeSignalId) {
+        queryParams.set("signal", input.activeSignalId);
+      }
+    } else {
+      if (input.topSignalSourceId) {
+        queryParams.set("source", input.topSignalSourceId);
+      }
+      if (input.topSignalTradeEventId) {
+        queryParams.set("trade", input.topSignalTradeEventId);
+      }
+    }
   }
 
   const path =
-    input.tab === "accountManagement" && input.accountStrategyId
+    input.tab === "strategyManagement" && input.accountStrategyId
       ? `${routePrefix}/strategies/${encodeURIComponent(input.accountStrategyId)}`
       : shouldWorkspaceTabUseSymbolRoute(input.tab)
         ? `${routePrefix}/${tabSegment}/${encodeURIComponent(symbolSegment)}`
@@ -82,19 +97,30 @@ export function readWorkspaceRouteState(
     ? toCopyTradingMarketSymbol(safeDecodeRouteSegment(rawSymbolSegment))
     : null;
   const queryParams = new URLSearchParams(search);
+  const topSignalsPanel = tab === "topSignals"
+    ? normalizeTopSignalsWorkspacePanel(queryParams.get("panel"))
+    : DEFAULT_TOP_SIGNALS_WORKSPACE_PANEL;
 
   return {
     accountStrategyId:
-      tab === "accountManagement"
-        ? readAccountStrategyIdFromRouteSegments(segments, routeStartIndex)
+      tab === "strategyManagement"
+        ? readStrategyIdFromRouteSegments(segments, routeStartIndex)
         : "",
-    signalId: tab === "intel" ? (queryParams.get("signal")?.trim() ?? "") : "",
+    signalId:
+      tab === "topSignals" && topSignalsPanel === "kol"
+        ? (queryParams.get("signal")?.trim() ?? "")
+        : "",
     symbol,
     tab,
     topSignalSourceId:
-      tab === "topSignals" ? (queryParams.get("source")?.trim() ?? "") : "",
+      tab === "topSignals" && topSignalsPanel === "lead"
+        ? (queryParams.get("source")?.trim() ?? "")
+        : "",
     topSignalTradeEventId:
-      tab === "topSignals" ? (queryParams.get("trade")?.trim() ?? "") : "",
+      tab === "topSignals" && topSignalsPanel === "lead"
+        ? (queryParams.get("trade")?.trim() ?? "")
+        : "",
+    topSignalsPanel,
   };
 }
 
@@ -106,6 +132,7 @@ export function createEmptyWorkspaceRouteState(): WorkspaceRouteState {
     tab: null,
     topSignalSourceId: "",
     topSignalTradeEventId: "",
+    topSignalsPanel: DEFAULT_TOP_SIGNALS_WORKSPACE_PANEL,
   };
 }
 
@@ -113,9 +140,6 @@ export function workspaceTabFromRouteSegment(
   segment: string,
 ): WorkspaceProductTab | null {
   const normalizedSegment = segment.trim().toLowerCase();
-  if (normalizedSegment === "strategies") {
-    return "accountManagement";
-  }
 
   for (const [tab, routeSegment] of Object.entries(WORKSPACE_TAB_ROUTE_SEGMENTS)) {
     if (routeSegment === normalizedSegment) {
@@ -126,25 +150,20 @@ export function workspaceTabFromRouteSegment(
   return null;
 }
 
-export function readAccountStrategyIdFromRouteSegments(
+export function readStrategyIdFromRouteSegments(
   segments: readonly string[],
   routeStartIndex: number,
 ): string {
   const routeSegment = segments[routeStartIndex]?.trim().toLowerCase() ?? "";
   const rawStrategyId =
-    routeSegment === "strategies"
-      ? segments[routeStartIndex + 1]
-      : routeSegment === "account" &&
-          segments[routeStartIndex + 1]?.trim().toLowerCase() === "strategies"
-        ? segments[routeStartIndex + 2]
-        : "";
+    routeSegment === "strategies" ? segments[routeStartIndex + 1] : "";
   return safeDecodeRouteSegment(rawStrategyId ?? "").trim();
 }
 
 export function shouldWorkspaceTabUseSymbolRoute(
   tab: WorkspaceProductTab,
 ): boolean {
-  return tab === "intel" || tab === "kolFollow" || tab === "topSignals";
+  return tab === "topSignals";
 }
 
 export function getWorkspaceRoutePrefix(pathname: string): string {

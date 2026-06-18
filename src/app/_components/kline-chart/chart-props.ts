@@ -1,4 +1,4 @@
-import type { WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { WorkspaceLanguage } from "@/i18n/workspace";
 import type { PaperPositionRecord } from "@/app/_lib/paper-position";
 import type { SignalAiSummary } from "@/app/_lib/signal-ai-summary";
 import type { KlineInterval, MarketCandle } from "@/app/_types/market";

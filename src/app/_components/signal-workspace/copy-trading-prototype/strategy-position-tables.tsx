@@ -1,6 +1,6 @@
 "use client";
 
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TradingFoxPosition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
 import { formatDetailCurrency, formatDetailNumber, formatLeverage, formatPositionSide, formatSignedDetailCurrency, getPnlClassName, getSideClassName, numberOrZero } from "./formatters";
 import { getSignalSourcePositionMarkPrice, getSignalSourcePositionPnl } from "./strategy-position-summary";

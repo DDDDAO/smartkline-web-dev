@@ -1,4 +1,4 @@
-import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import type { ChartTheme, KlineSignalBiasSummary } from "./types";
 
 export function SignalBiasSummaryOverlay({

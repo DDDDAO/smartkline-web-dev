@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { WorkspaceCopy } from "@/app/_lib/i18n";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import { SourceAvatar, SymbolIcon } from "../card-ui";
 import type {
   TopSignalPerformanceWindow,

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import type { ChartTheme } from "@/app/_components/kline-chart/types";
 import type { SignalAiHighlightTone, SignalAiSummary } from "@/app/_lib/signal-ai-summary";
 

@@ -13,11 +13,12 @@ import {
   LOGGED_OUT_AUTH_ME,
 } from "./signal-workspace/signal-workspace-helpers";
 import type {
+  TopSignalsWorkspacePanel,
   WorkspaceProductTab,
   WorkspaceRouteState,
 } from "./signal-workspace/signal-workspace-helpers";
 import type { SignalWorkspaceState } from "./signal-workspace-state";
-import { getAppLocaleFromWorkspaceLanguage } from "@/app/_lib/i18n";
+import { getAppLocaleFromWorkspaceLanguage } from "@/i18n/workspace";
 import { replacePathnameLocale } from "@/i18n/locales";
 
 export function useSignalWorkspacePrimaryActionHandlers(
@@ -43,21 +44,25 @@ export function useSignalWorkspacePrimaryActionHandlers(
     setActiveTopSignalSourceId,
     setExplicitTopSignalSourceId,
     setActiveTopSignalTradeEventId,
+    setTopSignalsPanel,
     pendingRouteTopSignalTradeEventIdRef,
     setActiveAccountStrategyId,
     isProductTabHydrated,
     activeProductTab,
     explicitTopSignalSourceId,
     topSignalsSourceFilterId,
+    topSignalsPanel,
     activeAccountStrategyId,
     activeSignalId,
+    activeTopSignalTradeEventId,
     symbol,
     setSymbol,
     setIsCommunityConversionOpen,
   } = context;
 
   const startOnboardingGuide = useCallback(() => {
-    setActiveProductTab("intel");
+    setActiveProductTab("topSignals");
+    setTopSignalsPanel("kol");
     setIsRightPanelCollapsed(false);
     if (isCompactLayout) {
       setIsMobileKolSheetOpen(true);
@@ -74,6 +79,7 @@ export function useSignalWorkspacePrimaryActionHandlers(
     isCompactLayout,
     onboardingOpenTimeoutRef,
     setActiveProductTab,
+    setTopSignalsPanel,
     setIsMobileKolSheetOpen,
     setIsOnboardingOpen,
     setIsRightPanelCollapsed,
@@ -83,9 +89,10 @@ export function useSignalWorkspacePrimaryActionHandlers(
     openExternalTelegramUrl(TELEGRAM_DISCUSSION_GROUP_URL);
   }, []);
 
-  const startTelegramLogin = useCallback(() => {
-    const redirectPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.assign(`/api/auth/login?redirect=${encodeURIComponent(redirectPath)}`);
+  const startTelegramLogin = useCallback((redirectPath?: string) => {
+    const resolvedRedirectPath = redirectPath
+      ?? `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.assign(`/api/auth/login?redirect=${encodeURIComponent(resolvedRedirectPath)}`);
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -166,22 +173,28 @@ export function useSignalWorkspacePrimaryActionHandlers(
     }
 
     if (routeState.tab === "topSignals") {
-      setTopSignalsSourceFilterId(routeState.topSignalSourceId || "all");
-      setActiveTopSignalSourceId(routeState.topSignalSourceId);
-      setExplicitTopSignalSourceId(routeState.topSignalSourceId);
-      setActiveTopSignalTradeEventId(routeState.topSignalTradeEventId);
-      pendingRouteTopSignalTradeEventIdRef.current = routeState.topSignalTradeEventId;
+      setTopSignalsPanel(routeState.topSignalsPanel);
+      if (routeState.topSignalsPanel === "lead") {
+        setTopSignalsSourceFilterId(routeState.topSignalSourceId || "all");
+        setActiveTopSignalSourceId(routeState.topSignalSourceId);
+        setExplicitTopSignalSourceId(routeState.topSignalSourceId);
+        setActiveTopSignalTradeEventId(routeState.topSignalTradeEventId);
+        pendingRouteTopSignalTradeEventIdRef.current = routeState.topSignalTradeEventId;
+      } else {
+        pendingRouteTopSignalTradeEventIdRef.current = "";
+      }
     } else {
       pendingRouteTopSignalTradeEventIdRef.current = "";
     }
 
-    setActiveAccountStrategyId(routeState.tab === "accountManagement" ? routeState.accountStrategyId : "");
+    setActiveAccountStrategyId(routeState.tab === "strategyManagement" ? routeState.accountStrategyId : "");
   }, [
     pendingRouteTopSignalTradeEventIdRef,
     setActiveProductTab,
     setActiveTopSignalSourceId,
     setActiveTopSignalTradeEventId,
     setActiveAccountStrategyId,
+    setTopSignalsPanel,
     setActiveSignalId,
     setExplicitTopSignalSourceId,
     setTopSignalsSourceFilterId,
@@ -196,6 +209,8 @@ export function useSignalWorkspacePrimaryActionHandlers(
       symbol?: MarketSymbol;
       signalId?: string;
       topSignalSourceId?: string;
+      topSignalTradeEventId?: string;
+      topSignalsPanel?: TopSignalsWorkspacePanel;
     },
   ) => {
     if (!isProductTabHydrated) {
@@ -217,6 +232,13 @@ export function useSignalWorkspacePrimaryActionHandlers(
     )
       ? (overrides?.accountStrategyId ?? "")
       : activeAccountStrategyId;
+    const nextTopSignalsPanel = overrides?.topSignalsPanel ?? topSignalsPanel;
+    const nextTopSignalTradeEventId = Object.prototype.hasOwnProperty.call(
+      overrides ?? {},
+      "topSignalTradeEventId",
+    )
+      ? (overrides?.topSignalTradeEventId ?? "")
+      : activeTopSignalTradeEventId;
     const nextUrl = createWorkspaceRouteUrl({
       accountStrategyId: nextAccountStrategyId,
       activeSignalId: overrides?.signalId ?? activeSignalId,
@@ -224,6 +246,8 @@ export function useSignalWorkspacePrimaryActionHandlers(
       symbol: overrides?.symbol ?? symbol,
       tab: nextTab,
       topSignalSourceId: nextTopSignalSourceId,
+      topSignalTradeEventId: nextTopSignalTradeEventId,
+      topSignalsPanel: nextTopSignalsPanel,
     });
     const currentUrl = `${window.location.pathname}${window.location.search}`;
     if (currentUrl === nextUrl) {
@@ -235,9 +259,11 @@ export function useSignalWorkspacePrimaryActionHandlers(
     activeAccountStrategyId,
     activeProductTab,
     activeSignalId,
+    activeTopSignalTradeEventId,
     explicitTopSignalSourceId,
     isProductTabHydrated,
     symbol,
+    topSignalsPanel,
     topSignalsSourceFilterId,
   ]);
 

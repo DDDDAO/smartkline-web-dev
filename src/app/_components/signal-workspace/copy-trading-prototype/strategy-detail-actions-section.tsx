@@ -7,7 +7,7 @@ import {
   getWorkspaceLanguageFromLocale,
   type WorkspaceCopy,
   type WorkspaceLanguage,
-} from "@/app/_lib/i18n";
+} from "@/i18n/workspace";
 import type { TradingFoxActionDefinition, TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/app/_lib/tradingfox-control-plane";
 import { createStrategyConfigSkeleton, StrategySchemaRenderer, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import { requestStrategyAction } from "./strategy-detail-utils";

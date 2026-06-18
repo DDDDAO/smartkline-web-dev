@@ -2,7 +2,7 @@ import dynamic from "next/dynamic";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { intervals } from "@/app/_lib/demo-data";
 import { createSignalAiSummary } from "@/app/_lib/signal-ai-summary";
-import { getWorkspaceCopy, type WorkspaceLanguage } from "@/app/_lib/i18n";
+import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import {
   CHART_CANDLE_PAGE_LIMIT,
   fetchHistoricalCandles,

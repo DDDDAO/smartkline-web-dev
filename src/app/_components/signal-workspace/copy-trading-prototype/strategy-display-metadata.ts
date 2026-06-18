@@ -1,4 +1,4 @@
-import type { WorkspaceLanguage } from "@/app/_lib/i18n";
+import type { WorkspaceLanguage } from "@/i18n/workspace";
 import type {
   TradingFoxActionDefinition,
   TradingFoxDisplayMetadata,

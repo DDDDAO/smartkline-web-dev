@@ -6,7 +6,7 @@ import {
   getWorkspaceLanguageFromLocale,
   type WorkspaceCopy,
   type WorkspaceLanguage,
-} from "@/app/_lib/i18n";
+} from "@/i18n/workspace";
 import type { TradingFoxStrategyDefinitionSummary } from "@/app/_lib/tradingfox-control-plane";
 import {
   strategyDefinitionDescription,
