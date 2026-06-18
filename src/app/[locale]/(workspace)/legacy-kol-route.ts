@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 export type LegacyKolRoutePageProps = {
-  params: Promise<{ locale: string; workspacePath?: string[] }>;
+  params: Promise<{ locale: string; symbol?: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
@@ -9,7 +9,7 @@ export async function redirectToTopSignalsKolPanel({
   params,
   searchParams,
 }: LegacyKolRoutePageProps): Promise<never> {
-  const { locale, workspacePath = [] } = await params;
+  const { locale, symbol } = await params;
   const sourceSearchParams = (await searchParams) ?? {};
   const query = new URLSearchParams();
 
@@ -29,7 +29,7 @@ export async function redirectToTopSignalsKolPanel({
   }
 
   query.set("panel", "kol");
-  const symbolPath = workspacePath.map(encodeURIComponent).join("/");
-  const pathname = symbolPath ? `/${locale}/signal/${symbolPath}` : `/${locale}/signal`;
+  const symbolPath = symbol ? `/${encodeURIComponent(symbol)}` : "";
+  const pathname = `/${locale}/signal${symbolPath}`;
   redirect(`${pathname}?${query.toString()}`);
 }
