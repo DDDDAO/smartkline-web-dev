@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy, WorkspaceLanguage } from "@/i18n/workspace";
 import type { PnlColorMode } from "../top-signals-panel";
 import {
@@ -53,9 +54,9 @@ export function RecommendedStrategySection({
           <h2 className={isDarkTheme ? "text-lg font-black tracking-tight text-slate-50 sm:text-xl" : "text-lg font-black tracking-tight text-slate-950 sm:text-xl"}>{section.title}</h2>
           <p className={isDarkTheme ? "mt-1 text-xs font-medium text-slate-500" : "mt-1 text-xs font-medium text-slate-500"}>{section.description}</p>
         </div>
-        <button className={isDarkTheme ? "motion-fx-3-raw-button shrink-0 rounded-full bg-indigo-400/10 px-3 py-1.5 text-xs font-black text-indigo-200 transition hover:bg-indigo-400/15" : "motion-fx-3-raw-button shrink-0 rounded-full bg-[#EEF2FF] px-3 py-1.5 text-xs font-black text-[#4F46E5] transition hover:bg-[#E0E7FF]"} type="button" onClick={onMore}>
+        <Button className={isDarkTheme ? "motion-fx-3-raw-button shrink-0 rounded-full bg-indigo-400/10 px-3 py-1.5 text-xs font-black text-indigo-200 transition hover:bg-indigo-400/15" : "motion-fx-3-raw-button shrink-0 rounded-full bg-[#EEF2FF] px-3 py-1.5 text-xs font-black text-[#4F46E5] transition hover:bg-[#E0E7FF]"} type="button" variant="ghost" onClick={onMore}>
           {panelCopy.moreAction} ›
-        </button>
+        </Button>
       </div>
       <div className="grid justify-start gap-3" style={STRATEGY_CARD_GRID_STYLE}>
         {section.strategies.map((strategy, index) => (
@@ -119,7 +120,7 @@ export function StrategyMarketplaceCard({
   const cardClassName = `${cardLayoutClassName} ${isDarkTheme
     ? `${isGridCard ? "rounded-[18px] sm:rounded-[22px] xl:rounded-[26px]" : "rounded-[26px]"} group overflow-hidden border border-white/[0.075] bg-[#181A20] text-left transition hover:border-indigo-400/30 hover:bg-white/[0.055]`
     : `${isGridCard ? "rounded-[18px] sm:rounded-[22px] xl:rounded-[26px]" : "rounded-[26px]"} group overflow-hidden border border-[#E8E8EC] bg-white text-left shadow-sm transition hover:border-[#C7D2FE] hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]`}`;
-  const cardBodyClassName = isGridCard ? "block w-full p-1.5 text-left sm:p-2.5 xl:p-4" : "block w-full p-4 text-left";
+  const cardBodyClassName = isGridCard ? "block h-auto w-full whitespace-normal p-1.5 text-left sm:p-2.5 xl:p-4" : "block h-auto w-full whitespace-normal p-4 text-left";
   const headerClassName = isGridCard ? "flex min-w-0 flex-col items-start gap-1.5 sm:flex-row sm:gap-2 xl:gap-3" : "flex min-w-0 items-start gap-3";
   const badgeRowClassName = isGridCard ? "hidden flex-wrap items-center gap-1.5 md:flex" : "flex flex-wrap items-center gap-1.5";
   const titleClassName = isGridCard
@@ -166,7 +167,7 @@ export function StrategyMarketplaceCard({
 
   return (
     <article className={cardClassName}>
-      <button className={cardBodyClassName} type="button" onClick={() => onDetailsOpen(strategy.id)}>
+      <Button className={cardBodyClassName} type="button" variant="ghost" onClick={() => onDetailsOpen(strategy.id)}>
         <div className={headerClassName}>
           <StrategyIcon isDarkTheme={isDarkTheme} name={content.name} rank={rank} variant={variant} />
           <div className="min-w-0 flex-1">
@@ -206,25 +207,25 @@ export function StrategyMarketplaceCard({
           <CardMetricRow isDarkTheme={isDarkTheme} label={panelCopy.metrics.winRate} value={formatPercent(windowMetrics.winRate)} />
           <CardMetricRow isDarkTheme={isDarkTheme} label={panelCopy.metrics.runningDays} value={String(strategy.metrics.runningDays)} />
         </div>
-      </button>
+      </Button>
 
       <div className={footerClassName}>
-        <button className={getMockActionClassName(isDarkTheme, isGridCard ? "compact" : "default")} type="button" onClick={() => onDetailsOpen(strategy.id)}>
+        <Button className={getMockActionClassName(isDarkTheme, isGridCard ? "compact" : "default")} type="button" variant="ghost" onClick={() => onDetailsOpen(strategy.id)}>
           {isGridCard ? (
             <>
               <span className="hidden xl:inline">{panelCopy.viewDetailsAction}</span>
               <span className="xl:hidden">{panelCopy.compactDetailsAction}</span>
             </>
           ) : panelCopy.viewDetailsAction}
-        </button>
-        <button className={getFollowActionClassName(isDarkTheme, isGridCard ? "compact" : "default")} type="button" onClick={() => onCopy(strategy)}>
+        </Button>
+        <Button className={getFollowActionClassName(isDarkTheme, isGridCard ? "compact" : "default")} type="button" variant="default" onClick={() => onCopy(strategy)}>
           {isGridCard ? (
             <>
               <span className="hidden xl:inline">{copiedLabel}</span>
               <span className="xl:hidden">{compactCopiedLabel}</span>
             </>
           ) : copiedLabel}
-        </button>
+        </Button>
       </div>
     </article>
   );

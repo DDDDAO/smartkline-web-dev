@@ -1,5 +1,5 @@
-import * as SelectPrimitive from "@radix-ui/react-select";
-
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { StrategySquareStoreTab } from "./strategy-square-data";
 import {
@@ -27,15 +27,16 @@ export function StrategyStoreTabs({
       {tabs.map((tab) => {
         const isActive = activeTab === tab;
         return (
-          <button
+          <Button
             key={tab}
             aria-current={isActive ? "page" : undefined}
             className={getStoreTabButtonClassName(isDarkTheme, isActive)}
             type="button"
+            variant="ghost"
             onClick={() => onTabChange(tab)}
           >
             {tabCopy[tab]}
-          </button>
+          </Button>
         );
       })}
     </nav>
@@ -60,42 +61,34 @@ export function StrategyFilterSelect({
   return (
     <div className="grid gap-1.5">
       <span className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-400"}>{label}</span>
-      <SelectPrimitive.Root value={value} onValueChange={onChange}>
-        <SelectPrimitive.Trigger
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger
           className={isDarkTheme
-            ? "flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 text-left text-sm font-black text-slate-100 outline-none transition hover:bg-white/[0.055] focus:border-indigo-400/45 focus:ring-2 focus:ring-indigo-400/10"
-            : "flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-[#E8E8EC] bg-white px-3 text-left text-sm font-black text-slate-950 shadow-sm outline-none transition hover:bg-[#FAFAFA] focus:border-[#818CF8] focus:ring-2 focus:ring-[#6366F1]/10"}
+            ? "h-11 rounded-2xl border-white/[0.075] bg-white/[0.035] text-left text-sm font-black text-slate-100 hover:bg-white/[0.055] focus:ring-indigo-400/10"
+            : "h-11 rounded-2xl border-[#E8E8EC] bg-white text-left text-sm font-black text-slate-950 shadow-sm hover:bg-[#FAFAFA] focus:ring-[#6366F1]/10"}
         >
-          <SelectPrimitive.Value>{selectedOption?.label}</SelectPrimitive.Value>
-          <SelectPrimitive.Icon asChild>
-            <span aria-hidden="true" className={isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-400"}>⌄</span>
-          </SelectPrimitive.Icon>
-        </SelectPrimitive.Trigger>
-        <SelectPrimitive.Portal>
-          <SelectPrimitive.Content
-            className={isDarkTheme
-              ? "z-[130] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
-              : "z-[130] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#E8E8EC] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
-            position="popper"
-            sideOffset={8}
-          >
-            <SelectPrimitive.Viewport className="grid gap-1">
-              {options.map((option) => (
-                <SelectPrimitive.Item
-                  key={option.value}
-                  className={isDarkTheme
-                    ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm font-bold outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-indigo-400/10 data-[state=checked]:text-indigo-100"
-                    : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm font-bold outline-none transition data-[highlighted]:bg-[#FAFAFA] data-[state=checked]:bg-[#EEF2FF] data-[state=checked]:text-[#4F46E5]"}
-                  value={option.value}
-                >
-                  <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
-                  <SelectPrimitive.ItemIndicator className="text-xs font-black">✓</SelectPrimitive.ItemIndicator>
-                </SelectPrimitive.Item>
-              ))}
-            </SelectPrimitive.Viewport>
-          </SelectPrimitive.Content>
-        </SelectPrimitive.Portal>
-      </SelectPrimitive.Root>
+          <SelectValue>{selectedOption?.label}</SelectValue>
+        </SelectTrigger>
+        <SelectContent
+          className={isDarkTheme
+            ? "z-[130] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
+            : "z-[130] max-h-[300px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#E8E8EC] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
+          position="popper"
+          sideOffset={8}
+        >
+          {options.map((option) => (
+            <SelectItem
+              key={option.value}
+              className={isDarkTheme
+                ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm font-bold outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-indigo-400/10 data-[state=checked]:text-indigo-100"
+                : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm font-bold outline-none transition data-[highlighted]:bg-[#FAFAFA] data-[state=checked]:bg-[#EEF2FF] data-[state=checked]:text-[#4F46E5]"}
+              value={option.value}
+            >
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -137,16 +130,18 @@ export function StrategyPagination({
     <nav aria-label={panelCopy.pagination.ariaLabel} className={shellClassName}>
       <span className={pageSizeClassName}>{panelCopy.pagination.pageSizeLabel(pageSize)}</span>
       <div className={listClassName}>
-        <button
+        <Button
           aria-label={panelCopy.pagination.previous}
           className={arrowButtonClassName}
           disabled={!canGoPrevious}
+          size="sm"
           type="button"
+          variant="outline"
           onClick={() => onPageChange(currentPage - 1)}
         >
           ‹
           <span className="ml-1 hidden sm:inline">{panelCopy.pagination.previous}</span>
-        </button>
+        </Button>
         {pageItems.map((item, index) => {
           if (item === "ellipsis") {
             return (
@@ -158,28 +153,32 @@ export function StrategyPagination({
 
           const isActive = item === currentPage;
           return (
-            <button
+            <Button
               key={item}
               aria-current={isActive ? "page" : undefined}
               aria-label={panelCopy.pagination.pageLabel(item)}
               className={getPaginationPageButtonClassName(isDarkTheme, isActive)}
+              size="sm"
               type="button"
+              variant="ghost"
               onClick={() => onPageChange(item)}
             >
               {item}
-            </button>
+            </Button>
           );
         })}
-        <button
+        <Button
           aria-label={panelCopy.pagination.next}
           className={arrowButtonClassName}
           disabled={!canGoNext}
+          size="sm"
           type="button"
+          variant="outline"
           onClick={() => onPageChange(currentPage + 1)}
         >
           <span className="mr-1 hidden sm:inline">{panelCopy.pagination.next}</span>
           ›
-        </button>
+        </Button>
       </div>
     </nav>
   );

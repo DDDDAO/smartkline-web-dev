@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import type { KolSignalSourceStatus } from "../types";
 
 export function RadarMetric({ isDarkTheme, label, value }: { isDarkTheme: boolean; label: string; value: string }) {
@@ -16,7 +17,7 @@ export function RadarSectionButton({ isActive, isDarkTheme, label, onClick }: { 
       ? "rounded-lg px-3 py-2 text-xs font-bold text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
       : "rounded-lg px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-white hover:text-slate-950";
 
-  return <button className={className} type="button" onClick={onClick}>{label}</button>;
+  return <Button className={className} type="button" variant="ghost" onClick={onClick}>{label}</Button>;
 }
 
 export function CopyTradingSourceNotice({ isDarkTheme, sourceStatus }: { isDarkTheme: boolean; sourceStatus: KolSignalSourceStatus }) {

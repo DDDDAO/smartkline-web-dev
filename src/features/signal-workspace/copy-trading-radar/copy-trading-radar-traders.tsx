@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   formatCopyTradingEventType,
   getCopyTradingRequiredEventTypes,
@@ -144,57 +146,55 @@ export function TraderCard({
   onPinnedToggle: (traderId: string) => void;
   onTraderSelect: (traderId: string) => void;
 }) {
-  const cardClassName = getTraderCardClassName(isDarkTheme, isActive, trader.risk_level);
+  const cardClassName = `${getTraderCardClassName(isDarkTheme, isActive, trader.risk_level)} cursor-default`;
+  const selectButtonClassName = "h-auto min-w-0 flex-1 items-start justify-start whitespace-normal bg-transparent p-0 text-left hover:bg-transparent";
   const pnl = positions.reduce((sum, position) => sum + position.unrealized_pnl * position.position_size_ratio, 0);
 
   return (
-    <div
-      className={cardClassName}
-      role="button"
-      tabIndex={0}
-      onClick={() => onTraderSelect(trader.trader_id)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onTraderSelect(trader.trader_id);
-        }
-      }}
-    >
-      <div className="flex min-w-0 items-start gap-3 text-left">
-        <SourceAvatar isDarkTheme={isDarkTheme} name={trader.name} url={trader.avatar || null} />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <div className={isDarkTheme ? "truncate text-sm font-black text-slate-50" : "truncate text-sm font-black text-slate-950"}>{trader.name}</div>
-            <span className={getRiskBadgeClassName(isDarkTheme, trader.risk_level)}>{formatRiskLevel(trader.risk_level)}</span>
-          </div>
-          <div className={isDarkTheme ? "mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500" : "mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500"}>
-            <span>{trader.platform}</span>
-            <span>·</span>
-            <span>{formatSourceStatus(trader.status)}</span>
-            <span>·</span>
-            <span>保证金 {formatCurrency(trader.margin_balance)}</span>
-          </div>
-          <div className="mt-2 grid grid-cols-3 gap-1.5">
-            <MiniMetric isDarkTheme={isDarkTheme} label="浮盈亏率" value={formatSignedPercent(trader.monthly_return)} />
-            <MiniMetric isDarkTheme={isDarkTheme} label="胜率" value={formatPercent(trader.win_rate)} />
-            <MiniMetric isDarkTheme={isDarkTheme} label="仓位" value={String(positions.length)} />
-          </div>
-          <div className={isDarkTheme ? "mt-2 text-[11px] font-bold text-slate-400" : "mt-2 text-[11px] font-bold text-slate-600"}>
-            当前组合浮盈亏 {formatSignedPercent(pnl)}
-            {trader.positions_synced_at ? ` · 同步 ${formatDisplayTime(trader.positions_synced_at)}` : ""}
-          </div>
-        </div>
-        <button
-          className={isPinned ? getPinnedButtonClassName(isDarkTheme, true) : getPinnedButtonClassName(isDarkTheme, false)}
+    <div className={cardClassName}>
+      <div className="flex min-w-0 items-start gap-3">
+        <Button
+          className={selectButtonClassName}
           type="button"
+          variant="ghost"
+          onClick={() => onTraderSelect(trader.trader_id)}
+        >
+          <div className="flex min-w-0 flex-1 items-start gap-3 text-left">
+            <SourceAvatar isDarkTheme={isDarkTheme} name={trader.name} url={trader.avatar || null} />
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <div className={isDarkTheme ? "truncate text-sm font-black text-slate-50" : "truncate text-sm font-black text-slate-950"}>{trader.name}</div>
+                <span className={getRiskBadgeClassName(isDarkTheme, trader.risk_level)}>{formatRiskLevel(trader.risk_level)}</span>
+              </div>
+              <div className={isDarkTheme ? "mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500" : "mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500"}>
+                <span>{trader.platform}</span>
+                <span>·</span>
+                <span>{formatSourceStatus(trader.status)}</span>
+                <span>·</span>
+                <span>保证金 {formatCurrency(trader.margin_balance)}</span>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                <MiniMetric isDarkTheme={isDarkTheme} label="浮盈亏率" value={formatSignedPercent(trader.monthly_return)} />
+                <MiniMetric isDarkTheme={isDarkTheme} label="胜率" value={formatPercent(trader.win_rate)} />
+                <MiniMetric isDarkTheme={isDarkTheme} label="仓位" value={String(positions.length)} />
+              </div>
+              <div className={isDarkTheme ? "mt-2 text-[11px] font-bold text-slate-400" : "mt-2 text-[11px] font-bold text-slate-600"}>
+                当前组合浮盈亏 {formatSignedPercent(pnl)}
+                {trader.positions_synced_at ? ` · 同步 ${formatDisplayTime(trader.positions_synced_at)}` : ""}
+              </div>
+            </div>
+          </div>
+        </Button>
+        <Button
+          className={isPinned ? getPinnedButtonClassName(isDarkTheme, true) : getPinnedButtonClassName(isDarkTheme, false)}
+          size="sm"
+          type="button"
+          variant="ghost"
           aria-label={isPinned ? `取消重点关注 ${trader.name}` : `重点关注 ${trader.name}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onPinnedToggle(trader.trader_id);
-          }}
+          onClick={() => onPinnedToggle(trader.trader_id)}
         >
           {isPinned ? "★" : "☆"}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -231,6 +231,12 @@ export function TraderDetail({
   onSymbolSelect: (symbol: string) => void;
 }) {
   const sectionClassName = isDarkTheme ? "rounded-2xl border border-slate-800 bg-slate-950 p-3" : "rounded-2xl border border-slate-200 bg-white p-3";
+  const selectTriggerClassName = isDarkTheme
+    ? "h-8 w-[132px] rounded-xl border-slate-700 bg-slate-900 px-2 text-[11px] font-bold text-slate-200 focus:ring-cyan-400/10"
+    : "h-8 w-[132px] rounded-xl border-slate-200 bg-slate-50 px-2 text-[11px] font-bold text-slate-700 focus:ring-cyan-400/10";
+  const selectContentClassName = isDarkTheme
+    ? "z-[130] rounded-xl border border-slate-700 bg-slate-900 p-1 text-slate-200"
+    : "z-[130] rounded-xl border border-slate-200 bg-white p-1 text-slate-700";
 
   return (
     <section className={sectionClassName}>
@@ -239,16 +245,20 @@ export function TraderDetail({
           <div className={isDarkTheme ? "text-xs font-black text-slate-100" : "text-xs font-black text-slate-900"}>{selectedTrader.name} 当前在做什么</div>
           <p className={isDarkTheme ? "mt-1 text-[11px] leading-4 text-slate-500" : "mt-1 text-[11px] leading-4 text-slate-500"}>点击事件会切换图表币种，并定位到对应时间点。</p>
         </div>
-        <select
-          className={isDarkTheme ? "h-8 rounded-xl border border-slate-700 bg-slate-900 px-2 text-[11px] font-bold text-slate-200 outline-none" : "h-8 rounded-xl border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold text-slate-700 outline-none"}
+        <Select
           value={eventFilter}
-          onChange={(event) => onEventFilterChange(event.target.value)}
+          onValueChange={onEventFilterChange}
         >
-          <option value={ALL_EVENT_FILTER}>{ALL_EVENT_FILTER}</option>
-          {getCopyTradingRequiredEventTypes().map((eventType) => (
-            <option key={eventType} value={eventType}>{formatCopyTradingEventType(eventType)}</option>
-          ))}
-        </select>
+          <SelectTrigger className={selectTriggerClassName}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className={selectContentClassName} position="popper" sideOffset={8}>
+            <SelectItem className="rounded-lg text-[11px] font-bold" value={ALL_EVENT_FILTER}>{ALL_EVENT_FILTER}</SelectItem>
+            {getCopyTradingRequiredEventTypes().map((eventType) => (
+              <SelectItem key={eventType} className="rounded-lg text-[11px] font-bold" value={eventType}>{formatCopyTradingEventType(eventType)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="mt-3 grid gap-2">
@@ -273,13 +283,13 @@ export function TraderDetail({
 }
 
 export function PositionRow({ isDarkTheme, position, onSymbolSelect }: { isDarkTheme: boolean; position: CopyTradingPosition; onSymbolSelect: (symbol: string) => void }) {
-  const rowClassName = isDarkTheme ? "rounded-2xl border border-slate-800 bg-slate-900 p-3" : "rounded-2xl border border-slate-100 bg-slate-50 p-3";
+  const rowClassName = isDarkTheme ? "h-auto w-full flex-col items-stretch justify-start gap-0 whitespace-normal rounded-2xl border border-slate-800 bg-slate-900 p-3" : "h-auto w-full flex-col items-stretch justify-start gap-0 whitespace-normal rounded-2xl border border-slate-100 bg-slate-50 p-3";
   const directionClassName = position.direction === "long"
     ? isDarkTheme ? "rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-black text-emerald-300" : "rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700"
     : isDarkTheme ? "rounded-full bg-rose-500/15 px-2 py-1 text-[10px] font-black text-rose-300" : "rounded-full bg-rose-50 px-2 py-1 text-[10px] font-black text-rose-700";
 
   return (
-    <button className={rowClassName} type="button" onClick={() => onSymbolSelect(position.symbol)}>
+    <Button className={rowClassName} type="button" variant="ghost" onClick={() => onSymbolSelect(position.symbol)}>
       <div className="flex items-center justify-between gap-3 text-left">
         <div>
           <div className={isDarkTheme ? "text-sm font-black text-slate-50" : "text-sm font-black text-slate-950"}>{position.symbol}</div>
@@ -302,14 +312,14 @@ export function PositionRow({ isDarkTheme, position, onSymbolSelect }: { isDarkT
         {" · "}
         {formatDisplayTime(position.open_time)}
       </div>
-    </button>
+    </Button>
   );
 }
 
 export function EventRow({ event, isActive, isDarkTheme, onEventSelect }: { event: CopyTradingEvent; isActive: boolean; isDarkTheme: boolean; onEventSelect: (event: CopyTradingEvent) => void }) {
-  const rowClassName = getEventRowClassName(isDarkTheme, isActive, event.severity);
+  const rowClassName = `${getEventRowClassName(isDarkTheme, isActive, event.severity)} h-auto flex-col items-stretch justify-start gap-0 whitespace-normal`;
   return (
-    <button className={rowClassName} type="button" onClick={() => onEventSelect(event)}>
+    <Button className={rowClassName} type="button" variant="ghost" onClick={() => onEventSelect(event)}>
       <div className="flex items-start justify-between gap-3 text-left">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -324,6 +334,6 @@ export function EventRow({ event, isActive, isDarkTheme, onEventSelect }: { even
           <div className={getPnlTextClassName(isDarkTheme, event.pnl_after ?? 0)}>{event.pnl_after === null ? "--" : formatSignedPercent(event.pnl_after)}</div>
         </div>
       </div>
-    </button>
+    </Button>
   );
 }

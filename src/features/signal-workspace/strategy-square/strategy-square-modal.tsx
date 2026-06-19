@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy, WorkspaceLanguage } from "@/i18n/workspace";
 import type { PnlColorMode } from "../top-signals-panel";
 import type {
@@ -51,10 +52,11 @@ export function StrategyParameterModal({
 
   return (
     <>
-      <button
+      <Button
         aria-label={copy.common.close}
-        className={isDarkTheme ? "fixed inset-0 z-[100] bg-black/55 backdrop-blur-[4px]" : "fixed inset-0 z-[100] bg-slate-950/25 backdrop-blur-[4px]"}
+        className={isDarkTheme ? "fixed inset-0 z-[100] rounded-none bg-black/55 p-0 backdrop-blur-[4px]" : "fixed inset-0 z-[100] rounded-none bg-slate-950/25 p-0 backdrop-blur-[4px]"}
         type="button"
+        variant="ghost"
         onClick={onClose}
       />
       <aside
@@ -81,14 +83,16 @@ export function StrategyParameterModal({
                 </p>
               </div>
             </div>
-            <button
+            <Button
               aria-label={copy.common.close}
               className={isDarkTheme ? "grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50" : "grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E8E8EC] bg-white text-slate-500 transition hover:border-[#C7D2FE] hover:text-slate-900"}
+              size="icon"
               type="button"
+              variant="ghost"
               onClick={onClose}
             >
               <span aria-hidden="true" className="text-lg leading-none">×</span>
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -143,9 +147,9 @@ export function StrategyParameterModal({
         </div>
 
         <div className={isDarkTheme ? "border-t border-white/[0.075] p-4 sm:p-5" : "border-t border-[#E8E8EC] p-4 sm:p-5"}>
-          <button className={getFollowActionClassName(isDarkTheme)} type="button" onClick={() => onCopy(strategy)}>
+          <Button className={getFollowActionClassName(isDarkTheme)} type="button" variant="default" onClick={() => onCopy(strategy)}>
             {copiedStrategyId === strategy.id ? panelCopy.copiedAction : panelCopy.copyAction}
-          </button>
+          </Button>
         </div>
       </aside>
     </>
