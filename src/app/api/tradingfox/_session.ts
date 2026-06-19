@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE_NAME, verifySessionToken, type TelegramAuthSession } from "@/lib/auth/telegram-auth";
+import { BackendAuthProxyError, requireBackendAuthSession } from "@/lib/auth/backend-auth";
+import type { TelegramAuthSession } from "@/lib/auth/telegram-auth";
 import { TradingFoxApiError, TradingFoxConfigError } from "@/lib/tradingfox-control-plane";
 
 export async function requireTradingFoxSession(request: NextRequest): Promise<TelegramAuthSession> {
-  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-
-  if (!sessionToken) {
-    throw new TradingFoxApiError("Authentication required.", 401);
-  }
-
   try {
-    return await verifySessionToken(sessionToken);
-  } catch {
-    throw new TradingFoxApiError("Authentication required.", 401);
+    return await requireBackendAuthSession(request);
+  } catch (error) {
+    if (error instanceof BackendAuthProxyError && error.status === 401) {
+      throw new TradingFoxApiError("Authentication required.", 401);
+    }
+
+    throw new TradingFoxApiError("Authentication service unavailable.", 502);
   }
 }
 
