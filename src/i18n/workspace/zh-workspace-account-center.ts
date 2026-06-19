@@ -215,7 +215,6 @@ export const zhWorkspaceAccountCenter = {
         marioTitle: "Mario 策略",
         marioTypeChip: "Mario",
         modalDescription: "选择要创建的策略类型，并完成对应配置。",
-        modalEyebrow: "Strategy setup",
         modalTitle: "创建策略",
         noAvailableAccount: "当前没有可用交易账户，已有运行策略占用的账户不会重复展示。",
         signalSourceEmpty: "暂无可选信号源。进入顶级信号后会同步可用信号源列表。",

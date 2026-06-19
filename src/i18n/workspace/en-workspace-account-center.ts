@@ -218,7 +218,6 @@ export const enWorkspaceAccountCenter = {
         marioTitle: "Mario Strategy",
         marioTypeChip: "Mario",
         modalDescription: "Choose a strategy type and complete its required setup.",
-        modalEyebrow: "Strategy setup",
         modalTitle: "Create Strategy",
         noAvailableAccount: "No available trading account. Accounts used by running strategies are hidden.",
         signalSourceEmpty: "No signal source is available yet. Open Top Signals to sync the source list.",

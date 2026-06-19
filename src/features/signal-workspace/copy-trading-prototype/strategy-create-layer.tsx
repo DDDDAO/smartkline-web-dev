@@ -293,8 +293,7 @@ export function StrategyCreateLayer({
           <SheetHeader className={isDarkTheme ? "border-b border-white/[0.075]" : "border-b border-[#E8E8EC]"}>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-indigo-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#4F46E5]"}>{strategyCreateCopy.modalEyebrow}</div>
-                <SheetTitle id={dialogTitleId} className="mt-2 text-xl font-black tracking-tight">{strategyCreateCopy.modalTitle}</SheetTitle>
+                <SheetTitle id={dialogTitleId} className="text-xl font-black tracking-tight">{strategyCreateCopy.modalTitle}</SheetTitle>
                 <SheetDescription id={dialogDescriptionId} className={isDarkTheme ? "mt-2 text-sm leading-5 text-slate-400" : "mt-2 text-sm leading-5 text-slate-600"}>{strategyCreateCopy.modalDescription}</SheetDescription>
               </div>
               <Button aria-label={copy.common.close} className={getIconButtonClassName(isDarkTheme)} size="icon" type="button" variant="outline" onClick={onClose}>
