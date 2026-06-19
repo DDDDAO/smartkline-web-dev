@@ -221,13 +221,13 @@ export function StrategySettingsDialog({
         aria-label={strategyCopy.editSettingsTitle}
         className={isDarkTheme
           ? "max-h-[92dvh] overflow-hidden border-white/[0.085] bg-[#111820] p-0 text-slate-100 sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:w-[min(760px,calc(100vw-1.5rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[30px] sm:border"
-          : "max-h-[92dvh] overflow-hidden border-[#D5E4EF] bg-white p-0 text-slate-950 sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:w-[min(760px,calc(100vw-1.5rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[30px] sm:border"}
+          : "max-h-[92dvh] overflow-hidden border-[#E8E8EC] bg-white p-0 text-slate-950 sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:w-[min(760px,calc(100vw-1.5rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[30px] sm:border"}
         side="bottom"
       >
-        <SheetHeader className={isDarkTheme ? "border-b border-white/[0.075]" : "border-b border-[#E5EAF0]"}>
+        <SheetHeader className={isDarkTheme ? "border-b border-white/[0.075]" : "border-b border-[#E8E8EC]"}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>{strategyCopy.editSettingsEyebrow}</div>
+              <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-indigo-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#4F46E5]"}>{strategyCopy.editSettingsEyebrow}</div>
               <SheetTitle className="mt-2 text-xl font-black tracking-tight">{strategyCopy.editSettingsTitle}</SheetTitle>
               <SheetDescription className={isDarkTheme ? "mt-2 text-sm leading-6 text-slate-400" : "mt-2 text-sm leading-6 text-slate-600"}>
                 {hasConfigEditor ? strategyCopy.editSettingsDescription : strategyCopy.editLegacySettingsDescription}
@@ -235,7 +235,7 @@ export function StrategySettingsDialog({
             </div>
             <Button
               aria-label={copy.common.close}
-              className={isDarkTheme ? "rounded-full border-white/[0.075] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-slate-50" : "rounded-full border-[#E5EAF0] bg-white text-slate-500 hover:border-[#BFE7FB] hover:text-slate-900"}
+              className={isDarkTheme ? "rounded-full border-white/[0.075] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-slate-50" : "rounded-full border-[#E8E8EC] bg-white text-slate-500 hover:border-[#C7D2FE] hover:text-slate-900"}
               size="icon"
               type="button"
               variant="outline"
@@ -315,8 +315,8 @@ export function StrategySettingsDialog({
           {submitError ? <p className={getInlineErrorClassName(isDarkTheme)}>{submitError}</p> : null}
         </div>
 
-        <SheetFooter className={isDarkTheme ? "border-t border-white/[0.075]" : "border-t border-[#E5EAF0]"}>
-          <Button className={isDarkTheme ? "border-white/[0.075] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]" : "border-[#D5E4EF] bg-white text-slate-700 hover:bg-[#F8FAFC]"} type="button" variant="outline" onClick={onClose}>{copy.common.close}</Button>
+        <SheetFooter className={isDarkTheme ? "border-t border-white/[0.075]" : "border-t border-[#E8E8EC]"}>
+          <Button className={isDarkTheme ? "border-white/[0.075] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]" : "border-[#E8E8EC] bg-white text-slate-700 hover:bg-[#FAFAFA]"} type="button" variant="outline" onClick={onClose}>{copy.common.close}</Button>
           <Button disabled={!canSave} type="button" onClick={() => void saveSettings()}>
             {isSubmitting ? strategyCopy.savingSettings : strategyCopy.saveSettings}
           </Button>
@@ -345,7 +345,7 @@ function StrategySettingsTextInput({
     <div className="space-y-2">
       <Label className={isDarkTheme ? "text-[11px] uppercase tracking-[0.13em] text-slate-500" : "text-[11px] uppercase tracking-[0.13em] text-slate-400"} htmlFor={fieldName}>{label}</Label>
       <Input
-        className={isDarkTheme ? "h-12 rounded-2xl border-white/[0.075] bg-white/[0.035] text-slate-100 placeholder:text-slate-600" : "h-12 rounded-2xl border-[#D5E4EF] bg-white text-slate-950 placeholder:text-slate-400"}
+        className={isDarkTheme ? "h-12 rounded-2xl border-white/[0.075] bg-white/[0.035] text-slate-100 placeholder:text-slate-600" : "h-12 rounded-2xl border-[#E8E8EC] bg-white text-slate-950 placeholder:text-slate-400"}
         id={fieldName}
         name={fieldName}
         placeholder={placeholder}
@@ -376,7 +376,7 @@ function StrategySettingsPercentInput({
       <Label className={isDarkTheme ? "text-[11px] uppercase tracking-[0.13em] text-slate-500" : "text-[11px] uppercase tracking-[0.13em] text-slate-400"} htmlFor={fieldName}>{label}</Label>
       <div className="relative mt-2">
         <Input
-          className={isDarkTheme ? "h-12 rounded-2xl border-white/[0.075] bg-white/[0.035] pr-8 text-slate-100" : "h-12 rounded-2xl border-[#D5E4EF] bg-white pr-8 text-slate-950"}
+          className={isDarkTheme ? "h-12 rounded-2xl border-white/[0.075] bg-white/[0.035] pr-8 text-slate-100" : "h-12 rounded-2xl border-[#E8E8EC] bg-white pr-8 text-slate-950"}
           id={fieldName}
           inputMode="decimal"
           name={fieldName}

@@ -107,10 +107,10 @@ export function TopSignalSourceCard({
   const positionsCardClassName = expandPositionList
     ? isDarkTheme
       ? "mt-3 flex min-h-0 flex-1 flex-col rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
-      : "mt-3 flex min-h-0 flex-1 flex-col rounded-2xl border border-[#E5EAF0] bg-white p-3"
+      : "mt-3 flex min-h-0 flex-1 flex-col rounded-2xl border border-[#E8E8EC] bg-white p-3"
     : isDarkTheme
       ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
-      : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3";
+      : "mt-3 rounded-2xl border border-[#E8E8EC] bg-white p-3";
   const positionsBodyClassName = expandPositionList ? "mt-2 flex min-h-0 flex-1 flex-col gap-2" : "mt-2 grid gap-2";
   const positionPageSize = expandPositionList ? EXPANDED_POSITION_ROWS_PER_PAGE : COMPACT_POSITION_ROWS_PER_SOURCE_CARD;
   const safePositionPageOffset = expandPositionList
@@ -230,7 +230,7 @@ export function TopSignalSourceCard({
               <SignalField isDarkTheme={isDarkTheme} label={panelCopy.leaderMarginBalance} value={formatAssetAmount(performanceMarginBalance, performanceAsset)} />
             </div>
             {!performance ? (
-              <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-[11px] font-medium text-slate-500" : "mt-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-2 text-[11px] font-medium text-slate-500"}>
+              <div className={isDarkTheme ? "mt-2 rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-[11px] font-medium text-slate-500" : "mt-2 rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-2 text-[11px] font-medium text-slate-500"}>
                 {panelCopy.frontendSortFallbackHint}
               </div>
             ) : null}
@@ -306,12 +306,12 @@ export function TopSignalSourceCard({
                     ))}
                   </div>
                 ) : model.positions.length > 0 ? null : (
-                  <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-3 text-xs text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-white px-3 py-3 text-xs text-slate-500"}>
+                  <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-3 text-xs text-slate-400" : "rounded-2xl border border-[#E8E8EC] bg-white px-3 py-3 text-xs text-slate-500"}>
                     {panelCopy.noPositions}
                   </div>
                 )}
                 {shouldRenderBackRows && shouldShowCompactPositionNotice ? (
-                  <div className={isDarkTheme ? "rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-[11px] font-medium text-slate-500" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-2 text-[11px] font-medium text-slate-500"}>
+                  <div className={isDarkTheme ? "rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-[11px] font-medium text-slate-500" : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-2 text-[11px] font-medium text-slate-500"}>
                     {panelCopy.visiblePositionsNotice(visiblePositions.length, model.positions.length)}
                   </div>
                 ) : null}

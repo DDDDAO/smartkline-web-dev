@@ -19,7 +19,7 @@ export function CopyPositionTable({
     <div className="kol-scroll-area mt-3 overflow-x-auto">
       <table className="min-w-[860px] w-full border-collapse text-left text-sm">
         <thead>
-          <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#DDE8F0] text-xs font-black text-slate-500"}>
+          <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#E8E8EC] text-xs font-black text-slate-500"}>
             <th className="px-3 py-3">Symbol</th>
             <th className="px-3 py-3">{strategyCopy.positionSide}</th>
             <th className="px-3 py-3">{strategyCopy.notional}</th>
@@ -34,7 +34,7 @@ export function CopyPositionTable({
           {positions.map((position, index) => {
             const pnl = numberOrZero(position.unrealizedPnl);
             return (
-              <tr key={`${position.symbol}-${position.side}-${index}`} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0"}>
+              <tr key={`${position.symbol}-${position.side}-${index}`} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#E8E8EC] last:border-0"}>
                 <td className="px-3 py-4 font-black underline underline-offset-2">{position.symbol}</td>
                 <td className={`px-3 py-4 font-black ${getSideClassName(isDarkTheme, position.side)}`}>{formatPositionSide(position.side)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailCurrency(position.notional)}</td>
@@ -67,7 +67,7 @@ export function SignalSourcePositionTable({
     <div className="kol-scroll-area mt-3 overflow-x-auto">
       <table className="min-w-[760px] w-full border-collapse text-left text-sm">
         <thead>
-          <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#DDE8F0] text-xs font-black text-slate-500"}>
+          <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#E8E8EC] text-xs font-black text-slate-500"}>
             <th className="px-3 py-3">Symbol</th>
             <th className="px-3 py-3">{strategyCopy.positionSide}</th>
             <th className="px-3 py-3">{strategyCopy.positionSize}</th>
@@ -82,7 +82,7 @@ export function SignalSourcePositionTable({
             const markPrice = getSignalSourcePositionMarkPrice(position, copyPositionMarkPricesBySymbol);
             const pnl = getSignalSourcePositionPnl(position, copyPositionMarkPricesBySymbol);
             return (
-              <tr key={`${position.symbol}-${position.positionSide}-${index}`} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0"}>
+              <tr key={`${position.symbol}-${position.positionSide}-${index}`} className={isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#E8E8EC] last:border-0"}>
                 <td className="px-3 py-4 font-black underline underline-offset-2">{position.symbol}</td>
                 <td className={`px-3 py-4 font-black ${getSideClassName(isDarkTheme, position.positionSide)}`}>{formatPositionSide(position.positionSide)}</td>
                 <td className="px-3 py-4 font-semibold">{formatDetailNumber(position.positionSize)}</td>

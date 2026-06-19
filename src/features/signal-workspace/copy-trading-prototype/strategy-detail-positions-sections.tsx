@@ -51,15 +51,15 @@ export function StrategyDetailPositionsSections({
   }
 
   return (
-    <Card className={isDarkTheme ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[24px] border-[#E5EAF0] bg-white p-4 text-slate-950 shadow-sm"}>
+    <Card className={isDarkTheme ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[24px] border-[#E8E8EC] bg-white p-4 text-slate-950 shadow-sm"}>
       <Tabs value={activeTab} onValueChange={(value) => setSelectedTab(value as PositionTabId)}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-black">{strategyCopy.currentPositions}</h3>
-          <TabsList className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035]" : "rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC]"}>
+          <TabsList className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035]" : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA]"}>
             {tabs.map((tab) => (
               <TabsTrigger
                 key={tab.id}
-                className={isDarkTheme ? "rounded-xl data-[state=active]:bg-sky-400/16 data-[state=active]:text-sky-200 data-[state=inactive]:text-slate-500" : "rounded-xl data-[state=active]:bg-white data-[state=active]:text-[#008DCC] data-[state=inactive]:text-slate-500"}
+                className={isDarkTheme ? "rounded-xl data-[state=active]:bg-indigo-400/16 data-[state=active]:text-indigo-200 data-[state=inactive]:text-slate-500" : "rounded-xl data-[state=active]:bg-white data-[state=active]:text-[#4F46E5] data-[state=inactive]:text-slate-500"}
                 value={tab.id}
               >
                 {tab.label}
@@ -155,7 +155,7 @@ function SignalSourcePositionsPanel({
   return (
     <div className="mt-3 grid gap-2">
       {detail.signalSources.length > 0 ? detail.signalSources.map((source) => (
-        <div key={source.signalSourceId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#F8FAFC] p-3"}>
+        <div key={source.signalSourceId} className={isDarkTheme ? "rounded-2xl bg-white/[0.035] p-3" : "rounded-2xl bg-[#FAFAFA] p-3"}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="text-sm font-black">{source.name || source.signalSourceId}</div>
             <div className={isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-500"}>{strategyCopy.followSide}: {source.followSide || "both"}</div>

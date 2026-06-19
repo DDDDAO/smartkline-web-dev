@@ -96,7 +96,7 @@ export function FavoriteStarButton({
       : `grid ${sizeClassName} shrink-0 place-items-center rounded-full border border-amber-200 bg-amber-50 text-amber-500 transition hover:bg-amber-100`
     : isDarkTheme
       ? `grid ${sizeClassName} shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.035] text-slate-500 transition hover:border-amber-300/30 hover:bg-amber-300/10 hover:text-amber-200`
-      : `grid ${sizeClassName} shrink-0 place-items-center rounded-full border border-[#E5EAF0] bg-white text-slate-400 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-500`;
+      : `grid ${sizeClassName} shrink-0 place-items-center rounded-full border border-[#E8E8EC] bg-white text-slate-400 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-500`;
 
   return (
     <button
@@ -213,7 +213,7 @@ export function TelegramSignalMessage({
           <div className="whitespace-pre-wrap text-xs leading-5">{signal.raw_text}</div>
           <div className={traceMetaClassName}>
             <span>{copy.traceableSource}</span>
-            <span className="font-bold text-[#00A6F4]">{String.fromCharCode(0x2713, 0x2713)}</span>
+            <span className="font-bold text-[#6366F1]">{String.fromCharCode(0x2713, 0x2713)}</span>
           </div>
         </div>
       </div>
@@ -272,11 +272,11 @@ export function SignalField({
   const isValueTruncated = truncationState.value === value && truncationState.isValueTruncated;
   const fieldClassName = isDarkTheme
     ? "signal-field-card group relative rounded-2xl border border-white/[0.075] bg-white/[0.035] px-2 py-2"
-    : "signal-field-card group relative rounded-2xl border border-[#E5EAF0] bg-white px-2 py-2";
+    : "signal-field-card group relative rounded-2xl border border-[#E8E8EC] bg-white px-2 py-2";
   const defaultValueClassName = isDarkTheme ? "mt-1 truncate text-slate-200" : "mt-1 truncate text-slate-800";
   const tooltipClassName = isDarkTheme
     ? "motion-fx-9-tooltip signal-field-tooltip pointer-events-none invisible absolute left-0 top-0 min-h-full w-full rounded-2xl border border-white/[0.10] bg-[#181A20] px-2 py-2 text-xs leading-4 text-slate-100 opacity-0 shadow-[0_14px_36px_rgba(0,0,0,0.34)] group-hover:visible group-hover:opacity-100"
-    : "motion-fx-9-tooltip signal-field-tooltip pointer-events-none invisible absolute left-0 top-0 min-h-full w-full rounded-2xl border border-[#E5EAF0] bg-white px-2 py-2 text-xs leading-4 text-slate-800 opacity-0 shadow-[0_14px_36px_rgba(15,23,42,0.14)] group-hover:visible group-hover:opacity-100";
+    : "motion-fx-9-tooltip signal-field-tooltip pointer-events-none invisible absolute left-0 top-0 min-h-full w-full rounded-2xl border border-[#E8E8EC] bg-white px-2 py-2 text-xs leading-4 text-slate-800 opacity-0 shadow-[0_14px_36px_rgba(15,23,42,0.14)] group-hover:visible group-hover:opacity-100";
 
   const updateTruncationState = () => {
     const element = valueRef.current;

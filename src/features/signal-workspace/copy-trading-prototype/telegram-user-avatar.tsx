@@ -15,8 +15,8 @@ export function TelegramUserAvatar({
       ? "grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-cover bg-center text-xs font-black"
       : "grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-cover bg-center text-[10px] font-black sm:h-8 sm:w-8 sm:text-[11px]";
   const colorClassName = isDarkTheme
-    ? "bg-sky-400/15 text-sky-200"
-    : "bg-[#EAF8FE] text-[#008DCC]";
+    ? "bg-indigo-400/15 text-indigo-200"
+    : "bg-[#EEF2FF] text-[#4F46E5]";
   const avatarStyle = user?.avatarUrl ? { backgroundImage: `url("${user.avatarUrl}")` } : undefined;
 
   return (

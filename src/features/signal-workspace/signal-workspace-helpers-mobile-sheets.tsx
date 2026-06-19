@@ -89,7 +89,7 @@ export function MobileKolBottomSheet({
 }) {
   const closeButtonClassName = isDarkTheme
     ? "inline-flex h-9 items-center gap-1.5 rounded-full border border-white/[0.075] bg-white/[0.035] px-3 text-xs font-semibold text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50"
-    : "inline-flex h-9 items-center gap-1.5 rounded-full border border-[#BFE7FB] bg-[#F4FBFF] px-3 text-xs font-semibold text-slate-700 transition hover:border-[#A7DDF7] hover:bg-[#ECF8FE] hover:text-slate-900";
+    : "inline-flex h-9 items-center gap-1.5 rounded-full border border-[#C7D2FE] bg-[#F5F5FF] px-3 text-xs font-semibold text-slate-700 transition hover:border-[#A5B4FC] hover:bg-[#EEF2FF] hover:text-slate-900";
 
   if (!isCompactLayout) {
     return null;
@@ -222,7 +222,7 @@ export function MobileTopSignalsBottomSheet({
 }) {
   const closeButtonClassName = isDarkTheme
     ? "inline-flex h-9 items-center gap-1.5 rounded-full border border-white/[0.075] bg-white/[0.035] px-3 text-xs font-semibold text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50"
-    : "inline-flex h-9 items-center gap-1.5 rounded-full border border-[#BFE7FB] bg-[#F4FBFF] px-3 text-xs font-semibold text-slate-700 transition hover:border-[#A7DDF7] hover:bg-[#ECF8FE] hover:text-slate-900";
+    : "inline-flex h-9 items-center gap-1.5 rounded-full border border-[#C7D2FE] bg-[#F5F5FF] px-3 text-xs font-semibold text-slate-700 transition hover:border-[#A5B4FC] hover:bg-[#EEF2FF] hover:text-slate-900";
 
   if (!isCompactLayout) {
     return null;
@@ -324,10 +324,10 @@ export function MobileTopSignalsSheetHandle({
 }) {
   const buttonClassName = isDarkTheme
     ? "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-white/[0.085] bg-[#181A20]/96 px-3.5 py-3 text-left text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
-    : "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-[#D5E4EF] bg-white/96 px-3.5 py-3 text-left text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl";
+    : "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-[#E8E8EC] bg-white/96 px-3.5 py-3 text-left text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl";
   const eyebrowClassName = isDarkTheme
-    ? "text-[10px] font-bold uppercase tracking-[0.12em] text-sky-300"
-    : "text-[10px] font-bold uppercase tracking-[0.12em] text-[#008DCC]";
+    ? "text-[10px] font-bold uppercase tracking-[0.12em] text-indigo-300"
+    : "text-[10px] font-bold uppercase tracking-[0.12em] text-[#4F46E5]";
   const statusText = sourceStatus.isLoading
     ? copy.paper.loading
     : sourceStatus.error
@@ -342,8 +342,8 @@ export function MobileTopSignalsSheetHandle({
           aria-hidden="true"
           className={
             isDarkTheme
-              ? "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-sky-300"
-              : "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#EAF8FE] text-[#008DCC]"
+              ? "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-indigo-300"
+              : "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#EEF2FF] text-[#4F46E5]"
           }
         >
           S
@@ -385,10 +385,10 @@ export function MobileKolSheetHandle({
     : null;
   const buttonClassName = isDarkTheme
     ? "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-white/[0.085] bg-[#181A20]/96 px-3.5 py-3 text-left text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
-    : "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-[#D5E4EF] bg-white/96 px-3.5 py-3 text-left text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl";
+    : "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-[#E8E8EC] bg-white/96 px-3.5 py-3 text-left text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl";
   const eyebrowClassName = isDarkTheme
-    ? "text-[10px] font-bold uppercase tracking-[0.12em] text-sky-300"
-    : "text-[10px] font-bold uppercase tracking-[0.12em] text-[#008DCC]";
+    ? "text-[10px] font-bold uppercase tracking-[0.12em] text-indigo-300"
+    : "text-[10px] font-bold uppercase tracking-[0.12em] text-[#4F46E5]";
   const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
   const statusText = activeSignal
     ? formatSignalPaperPositionStatus(
@@ -417,8 +417,8 @@ export function MobileKolSheetHandle({
             aria-hidden="true"
             className={
               isDarkTheme
-                ? "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-sky-300"
-                : "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#EAF8FE] text-[#008DCC]"
+                ? "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-indigo-300"
+                : "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#EEF2FF] text-[#4F46E5]"
             }
           >
             K

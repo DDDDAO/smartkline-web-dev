@@ -31,7 +31,7 @@ export function ExchangeApiSetupLayer(props: ExchangeApiSetupLayerProps): JSX.El
         side="bottom"
       >
         <form
-          className={isDarkTheme ? "flex h-full flex-col border border-white/[0.085] bg-[#111820] text-slate-100" : "flex h-full flex-col border border-[#D5E4EF] bg-white text-slate-950"}
+          className={isDarkTheme ? "flex h-full flex-col border border-white/[0.085] bg-[#111820] text-slate-100" : "flex h-full flex-col border border-[#E8E8EC] bg-white text-slate-950"}
           onSubmit={(event) => event.preventDefault()}
         >
           <ExchangeApiSetupHeader accountCopy={controller.accountCopy} commonCopy={controller.commonCopy} isDarkTheme={isDarkTheme} onClose={onClose} />

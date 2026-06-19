@@ -105,11 +105,11 @@ function getStrategyTypeOptionClassName(isDarkTheme: boolean, isSelected: boolea
   const baseClassName = "h-auto flex-col items-start justify-start whitespace-normal rounded-2xl px-3 py-3 text-left";
   if (isSelected) {
     return isDarkTheme
-      ? `${baseClassName} border-sky-400/30 bg-sky-400/10 text-sky-100 shadow-[0_0_0_3px_rgba(56,189,248,0.10)] hover:bg-sky-400/10`
-      : `${baseClassName} border-[#B7E8FC] bg-[#EAF8FE] text-[#007DB8] shadow-[0_0_0_3px_rgba(22,175,245,0.10)] hover:bg-[#EAF8FE]`;
+      ? `${baseClassName} border-indigo-400/30 bg-indigo-400/10 text-indigo-100 shadow-[0_0_0_3px_rgba(99,102,241,0.10)] hover:bg-indigo-400/10`
+      : `${baseClassName} border-[#C7D2FE] bg-[#EEF2FF] text-[#4F46E5] shadow-[0_0_0_3px_rgba(99,102,241,0.10)] hover:bg-[#EEF2FF]`;
   }
 
   return isDarkTheme
     ? `${baseClassName} border-white/[0.075] bg-white/[0.035] text-slate-200 hover:bg-white/[0.055]`
-    : `${baseClassName} border-[#E5EAF0] bg-white text-slate-900 hover:border-[#BFE7FB] hover:bg-[#F4FBFF]`;
+    : `${baseClassName} border-[#E8E8EC] bg-white text-slate-900 hover:border-[#C7D2FE] hover:bg-[#F5F5FF]`;
 }

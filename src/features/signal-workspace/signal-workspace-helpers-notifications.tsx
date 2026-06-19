@@ -104,11 +104,11 @@ export function getWorkspaceNotificationTone(
   return {
     ...common,
     eyebrow: copy.workspace.browserNotification,
-    eyebrowClassName: isDarkTheme ? "text-[11px] font-bold text-sky-300" : "text-[11px] font-bold text-[#007DB8]",
-    headerClassName: isDarkTheme ? "border-b border-white/[0.075] bg-white/[0.035] px-4 py-2" : "border-b border-[#E5EAF0] bg-[#F8FAFC] px-4 py-2",
+    eyebrowClassName: isDarkTheme ? "text-[11px] font-bold text-indigo-300" : "text-[11px] font-bold text-[#4F46E5]",
+    headerClassName: isDarkTheme ? "border-b border-white/[0.075] bg-white/[0.035] px-4 py-2" : "border-b border-[#E8E8EC] bg-[#FAFAFA] px-4 py-2",
     icon: "🔔",
-    iconClassName: isDarkTheme ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-500/15 text-sky-300" : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-50 text-sky-600",
-    shellClassName: isDarkTheme ? "pointer-events-auto w-full overflow-hidden rounded-2xl border border-white/[0.075] bg-[#181A20]/96 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl" : "pointer-events-auto w-full overflow-hidden rounded-2xl border border-[#E5EAF0] bg-white/96 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-xl",
+    iconClassName: isDarkTheme ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-indigo-500/15 text-indigo-300" : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-indigo-50 text-indigo-600",
+    shellClassName: isDarkTheme ? "pointer-events-auto w-full overflow-hidden rounded-2xl border border-white/[0.075] bg-[#181A20]/96 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl" : "pointer-events-auto w-full overflow-hidden rounded-2xl border border-[#E8E8EC] bg-white/96 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-xl",
   };
 }
 

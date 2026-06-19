@@ -56,7 +56,7 @@ export function PrototypeStrategyCard({
 
   return (
     <>
-      <Card className={isDarkTheme ? "relative gap-0 rounded-2xl border-white/[0.075] bg-[#181A20] p-3 text-slate-100 shadow-none" : "relative gap-0 rounded-2xl border-[#E5EAF0] bg-[#F8FAFC] p-3 text-slate-950 shadow-none"}>
+      <Card className={isDarkTheme ? "relative gap-0 rounded-2xl border-white/[0.075] bg-[#181A20] p-3 text-slate-100 shadow-none" : "relative gap-0 rounded-2xl border-[#E8E8EC] bg-[#FAFAFA] p-3 text-slate-950 shadow-none"}>
         <Button
           className="h-auto w-full flex-col items-stretch justify-start whitespace-normal rounded-none p-0 text-left hover:bg-transparent"
           variant="ghost"
@@ -116,7 +116,7 @@ export function PrototypeStrategyCard({
 function getSoftButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "border-white/[0.075] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
-    : "border-[#D5E4EF] bg-white text-slate-700 hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+    : "border-[#E8E8EC] bg-white text-slate-700 hover:border-[#C7D2FE] hover:bg-[#F5F5FF] hover:text-slate-950";
 }
 
 function getDangerButtonClassName(isDarkTheme: boolean): string {
@@ -139,7 +139,7 @@ function getStrategyStatusBadgeClassName(isDarkTheme: boolean, status: Prototype
     return isDarkTheme ? "shrink-0 rounded-full border-0 bg-amber-400/15 px-2 py-0.5 text-[10px] font-black text-amber-300" : "shrink-0 rounded-full border-0 bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700";
   }
   if (status === "pending") {
-    return isDarkTheme ? "shrink-0 rounded-full border-0 bg-sky-400/15 px-2 py-0.5 text-[10px] font-black text-sky-300" : "shrink-0 rounded-full border-0 bg-sky-50 px-2 py-0.5 text-[10px] font-black text-sky-700";
+    return isDarkTheme ? "shrink-0 rounded-full border-0 bg-indigo-400/15 px-2 py-0.5 text-[10px] font-black text-indigo-300" : "shrink-0 rounded-full border-0 bg-indigo-50 px-2 py-0.5 text-[10px] font-black text-indigo-700";
   }
   if (status === "failed") {
     return isDarkTheme ? "shrink-0 rounded-full border-0 bg-rose-400/15 px-2 py-0.5 text-[10px] font-black text-rose-300" : "shrink-0 rounded-full border-0 bg-rose-50 px-2 py-0.5 text-[10px] font-black text-rose-700";

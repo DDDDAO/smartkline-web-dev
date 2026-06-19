@@ -286,14 +286,14 @@ export function StrategyCreateLayer({
         aria-labelledby={dialogTitleId}
         className={isDarkTheme
           ? "inset-x-0 bottom-0 max-h-[92dvh] overflow-hidden rounded-t-[28px] border-white/[0.085] bg-[#111820] p-0 text-slate-100 shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-4 sm:bottom-auto sm:top-6 sm:mx-auto sm:max-h-[calc(100dvh-3rem)] sm:max-w-[760px] sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"
-          : "inset-x-0 bottom-0 max-h-[92dvh] overflow-hidden rounded-t-[28px] border-[#D5E4EF] bg-white p-0 text-slate-950 shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-4 sm:bottom-auto sm:top-6 sm:mx-auto sm:max-h-[calc(100dvh-3rem)] sm:max-w-[760px] sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"}
+          : "inset-x-0 bottom-0 max-h-[92dvh] overflow-hidden rounded-t-[28px] border-[#E8E8EC] bg-white p-0 text-slate-950 shadow-[0_-24px_80px_rgba(15,23,42,0.24)] sm:inset-x-4 sm:bottom-auto sm:top-6 sm:mx-auto sm:max-h-[calc(100dvh-3rem)] sm:max-w-[760px] sm:rounded-[28px] sm:shadow-[0_28px_90px_rgba(15,23,42,0.24)]"}
         side="bottom"
       >
         <div className="flex min-h-0 flex-1 flex-col">
-          <SheetHeader className={isDarkTheme ? "border-b border-white/[0.075]" : "border-b border-[#E5EAF0]"}>
+          <SheetHeader className={isDarkTheme ? "border-b border-white/[0.075]" : "border-b border-[#E8E8EC]"}>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>{strategyCreateCopy.modalEyebrow}</div>
+                <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-indigo-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#4F46E5]"}>{strategyCreateCopy.modalEyebrow}</div>
                 <SheetTitle id={dialogTitleId} className="mt-2 text-xl font-black tracking-tight">{strategyCreateCopy.modalTitle}</SheetTitle>
                 <SheetDescription id={dialogDescriptionId} className={isDarkTheme ? "mt-2 text-sm leading-5 text-slate-400" : "mt-2 text-sm leading-5 text-slate-600"}>{strategyCreateCopy.modalDescription}</SheetDescription>
               </div>
@@ -396,7 +396,7 @@ export function StrategyCreateLayer({
             {submitError ? <p className={getInlineErrorClassName(isDarkTheme)}>{submitError}</p> : null}
           </div>
 
-          <SheetFooter className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex"}>
+          <SheetFooter className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex" : "grid grid-cols-2 gap-2 border-t border-[#E8E8EC] pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex"}>
             <Button className={getSoftButtonClassName(isDarkTheme)} type="button" variant="outline" onClick={onClose}>{copy.common.close}</Button>
             <Button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canCreate} type="button" onClick={() => void submitStrategy()}>
               {isSubmitting ? strategyCreateCopy.starting : strategyCreateCopy.start}
@@ -418,20 +418,20 @@ function preferredDefinitionId(definitions: readonly TradingFoxStrategyDefinitio
 
 function getPrimaryButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "h-10 rounded-2xl bg-sky-400 px-4 text-sm font-black text-slate-950 hover:bg-sky-300"
-    : "h-10 rounded-2xl bg-[#16AFF5] px-4 text-sm font-black text-white hover:bg-[#008DCC]";
+    ? "h-10 rounded-2xl bg-indigo-400 px-4 text-sm font-black text-slate-950 hover:bg-indigo-300"
+    : "h-10 rounded-2xl bg-[#6366F1] px-4 text-sm font-black text-white hover:bg-[#4F46E5]";
 }
 
 function getSoftButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "h-10 rounded-2xl border-white/[0.075] bg-white/[0.04] text-sm font-black text-slate-200 hover:bg-white/[0.08]"
-    : "h-10 rounded-2xl border-[#D5E4EF] bg-white text-sm font-black text-slate-700 hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+    : "h-10 rounded-2xl border-[#E8E8EC] bg-white text-sm font-black text-slate-700 hover:border-[#C7D2FE] hover:bg-[#F5F5FF] hover:text-slate-950";
 }
 
 function getIconButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "rounded-full border-white/[0.075] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-slate-50"
-    : "rounded-full border-[#E5EAF0] bg-white text-slate-500 hover:border-[#BFE7FB] hover:text-slate-900";
+    : "rounded-full border-[#E8E8EC] bg-white text-slate-500 hover:border-[#C7D2FE] hover:text-slate-900";
 }
 
 function getFormLabelClassName(isDarkTheme: boolean): string {
@@ -441,7 +441,7 @@ function getFormLabelClassName(isDarkTheme: boolean): string {
 function getInfoPanelClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "mt-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold text-slate-300"
-    : "mt-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold text-slate-700";
+    : "mt-2 rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-3 text-sm font-bold text-slate-700";
 }
 
 async function validateStrategyConfig({

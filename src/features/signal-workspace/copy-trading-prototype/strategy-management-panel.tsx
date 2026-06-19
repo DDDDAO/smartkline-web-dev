@@ -79,7 +79,7 @@ export function StrategyManagementPanel({
           />
         ) : (
           <>
-            <Card className={isDarkTheme ? "gap-0 rounded-[28px] border-white/[0.075] bg-white/[0.035] p-5 text-slate-100 shadow-none" : "gap-0 rounded-[28px] border-[#E5EAF0] bg-white p-5 text-slate-950 shadow-sm"}>
+            <Card className={isDarkTheme ? "gap-0 rounded-[28px] border-white/[0.075] bg-white/[0.035] p-5 text-slate-100 shadow-none" : "gap-0 rounded-[28px] border-[#E8E8EC] bg-white p-5 text-slate-950 shadow-sm"}>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h1 className="text-2xl font-black tracking-tight">{copy.workspace.productTabs.strategyManagement.label}</h1>
@@ -93,7 +93,7 @@ export function StrategyManagementPanel({
               </div>
             </Card>
 
-            <Card className={isDarkTheme ? "gap-0 rounded-[28px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[28px] border-[#E5EAF0] bg-white p-4 text-slate-950 shadow-sm"}>
+            <Card className={isDarkTheme ? "gap-0 rounded-[28px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[28px] border-[#E8E8EC] bg-white p-4 text-slate-950 shadow-sm"}>
               <div className="grid gap-3">
                 {strategies.length > 0 ? strategies.map((strategy) => (
                   <PrototypeStrategyCard
@@ -108,7 +108,7 @@ export function StrategyManagementPanel({
                     onStrategyStatusChange={onStrategyStatusChange}
                   />
                 )) : (
-                  <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-4 text-sm leading-5 text-slate-600"}>
+                  <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-4 text-sm leading-5 text-slate-400" : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-4 text-sm leading-5 text-slate-600"}>
                   {accountCopy.strategy.empty}
                 </div>
               )}
@@ -135,6 +135,6 @@ export function StrategyManagementPanel({
 
 function getPrimaryButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "rounded-2xl bg-sky-400 text-slate-950 hover:bg-sky-300"
-    : "rounded-2xl bg-[#16AFF5] text-white hover:bg-[#008DCC]";
+    ? "rounded-2xl bg-indigo-400 text-slate-950 hover:bg-indigo-300"
+    : "rounded-2xl bg-[#6366F1] text-white hover:bg-[#4F46E5]";
 }

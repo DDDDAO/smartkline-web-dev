@@ -20,7 +20,7 @@ export function NotificationSettingsPlaceholder({
   const notificationCopy = accountCopy.notifications;
 
   return (
-    <Card className={isDarkTheme ? "gap-0 rounded-[28px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[28px] border-[#E5EAF0] bg-white p-4 text-slate-950 shadow-sm"}>
+    <Card className={isDarkTheme ? "gap-0 rounded-[28px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[28px] border-[#E8E8EC] bg-white p-4 text-slate-950 shadow-sm"}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-base font-black">{notificationCopy.title}</h2>
@@ -60,13 +60,13 @@ export function NotificationChannelCard({
   const channelCopy = notificationCopy.channels[channel.key];
   const cardClassName = isDarkTheme
     ? "overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#111820]"
-    : "overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-white shadow-sm";
+    : "overflow-hidden rounded-[24px] border border-[#E8E8EC] bg-white shadow-sm";
   const mutedPanelClassName = isDarkTheme
     ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
-    : "rounded-2xl border border-[#E5EAF0] bg-[#FAFBFD] p-3";
+    : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] p-3";
   const inputClassName = isDarkTheme
     ? "mt-2 h-11 cursor-not-allowed rounded-xl border-white/[0.075] bg-white/[0.025] text-sm font-semibold text-slate-500 placeholder:text-slate-700"
-    : "mt-2 h-11 cursor-not-allowed rounded-xl border-[#E5EAF0] bg-[#F8FAFC] text-sm font-semibold text-slate-500 placeholder:text-slate-400";
+    : "mt-2 h-11 cursor-not-allowed rounded-xl border-[#E8E8EC] bg-[#FAFAFA] text-sm font-semibold text-slate-500 placeholder:text-slate-400";
 
   return (
     <Card className={`${cardClassName} gap-0 py-0`}>
@@ -158,8 +158,8 @@ export function NotificationChannelCard({
 
 function getPrimaryButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "rounded-2xl bg-sky-400 text-slate-950 hover:bg-sky-300"
-    : "rounded-2xl bg-[#16AFF5] text-white hover:bg-[#008DCC]";
+    ? "rounded-2xl bg-indigo-400 text-slate-950 hover:bg-indigo-300"
+    : "rounded-2xl bg-[#6366F1] text-white hover:bg-[#4F46E5]";
 }
 
 function getNotificationUnavailableBadgeClassName(isDarkTheme: boolean): string {
@@ -171,7 +171,7 @@ function getNotificationUnavailableBadgeClassName(isDarkTheme: boolean): string 
 function getNotificationIconClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/[0.075] bg-white/[0.035] text-base"
-    : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#E5EAF0] bg-[#FAFBFD] text-base";
+    : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] text-base";
 }
 
 function getLabelClassName(isDarkTheme: boolean): string {

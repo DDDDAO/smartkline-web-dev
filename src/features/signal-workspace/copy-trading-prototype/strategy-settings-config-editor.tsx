@@ -166,7 +166,7 @@ function SettingsConfigDisclosure({
 function getSettingsConfigSectionClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "gap-0 rounded-2xl border-white/[0.075] bg-white/[0.035] p-3 text-slate-100 shadow-none"
-    : "gap-0 rounded-2xl border-[#E5EAF0] bg-[#F8FAFC] p-3 text-slate-950 shadow-none";
+    : "gap-0 rounded-2xl border-[#E8E8EC] bg-[#FAFAFA] p-3 text-slate-950 shadow-none";
 }
 
 function schemaBranch(schema: JsonRecord | undefined, branch: "common" | "strategy"): JsonRecord | undefined {

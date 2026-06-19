@@ -25,13 +25,13 @@ export function getSignalCardClassName({
   if (isActive) {
     const activeClassName = isDarkTheme
       ? "border-white/[0.12] bg-white/[0.055] shadow-[0_5px_14px_rgba(0,0,0,0.14)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.18)]"
-      : "border-[#D8E0E8] bg-white shadow-[0_4px_12px_rgba(15,23,42,0.05)] hover:shadow-[0_5px_14px_rgba(15,23,42,0.07)]";
+      : "border-[#D4D4D8] bg-white shadow-[0_4px_12px_rgba(15,23,42,0.05)] hover:shadow-[0_5px_14px_rgba(15,23,42,0.07)]";
     return `${baseClassName} ${themeSurfaceClassName} ${activeClassName} ${statusVisualClassName}`;
   }
 
   const defaultClassName = isDarkTheme
     ? "border-white/[0.075] bg-white/[0.035] hover:border-white/[0.12] hover:shadow-[0_5px_14px_rgba(0,0,0,0.18)]"
-    : "border-[#E5EAF0] bg-white hover:border-[#D8E0E8] hover:shadow-[0_5px_14px_rgba(15,23,42,0.07)]";
+    : "border-[#E8E8EC] bg-white hover:border-[#D4D4D8] hover:shadow-[0_5px_14px_rgba(15,23,42,0.07)]";
   return `${baseClassName} ${themeSurfaceClassName} ${defaultClassName} ${statusVisualClassName}`;
 }
 
@@ -75,7 +75,7 @@ export function getSignalCardBackClassName(isDarkTheme: boolean): string {
   const baseClassName = "w-full rounded-[18px] border p-3.5";
   return isDarkTheme
     ? `${baseClassName} border-white/[0.075] bg-[#181A20]`
-    : `${baseClassName} border-[#E5EAF0] bg-white`;
+    : `${baseClassName} border-[#E8E8EC] bg-white`;
 }
 
 export function ChevronRightIcon() {

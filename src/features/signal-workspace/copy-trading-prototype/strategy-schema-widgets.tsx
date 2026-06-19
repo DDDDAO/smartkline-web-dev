@@ -106,8 +106,8 @@ function getInputClassName(isDarkTheme: boolean): string {
   return cn(
     "h-10 rounded-xl text-sm font-bold",
     isDarkTheme
-      ? "border-white/[0.085] bg-[#0F131A] text-slate-100 placeholder:text-slate-600 focus-visible:border-sky-400/45 focus-visible:ring-sky-400/10"
-      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400 focus-visible:border-sky-400 focus-visible:ring-sky-400/10",
+      ? "border-white/[0.085] bg-[#0F131A] text-slate-100 placeholder:text-slate-600 focus-visible:border-indigo-400/45 focus-visible:ring-indigo-400/10"
+      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400 focus-visible:border-indigo-400 focus-visible:ring-indigo-400/10",
   );
 }
 
@@ -116,8 +116,8 @@ function getTextareaClassName(isDarkTheme: boolean, extra: string): string {
     extra,
     "rounded-2xl",
     isDarkTheme
-      ? "border-white/[0.085] bg-[#0F131A] text-slate-100 placeholder:text-slate-600 focus-visible:border-sky-400/45 focus-visible:ring-sky-400/10"
-      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400 focus-visible:border-sky-400 focus-visible:ring-sky-400/10",
+      ? "border-white/[0.085] bg-[#0F131A] text-slate-100 placeholder:text-slate-600 focus-visible:border-indigo-400/45 focus-visible:ring-indigo-400/10"
+      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400 focus-visible:border-indigo-400 focus-visible:ring-indigo-400/10",
   );
 }
 

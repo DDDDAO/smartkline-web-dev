@@ -41,7 +41,7 @@ export function CopyTradingSignalSourceConfigEditor({
   const visibleRows = advancedEnabled ? rows : rows.slice(0, 1);
   const cardClassName = isDarkTheme
     ? "border-white/[0.075] bg-white/[0.035] text-slate-100"
-    : "border-[#E5EAF0] bg-[#F8FAFC] text-slate-950";
+    : "border-[#E8E8EC] bg-[#FAFAFA] text-slate-950";
   const canAddSource = availableSignalSources.length > 0 && rows.length < availableSignalSources.length;
 
   const setAdvancedEnabled = (nextValue: boolean) => {
@@ -61,20 +61,20 @@ export function CopyTradingSignalSourceConfigEditor({
               {strategyCreateCopy.copyTradingSignalSourcesDescription}
             </CardDescription>
           </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-full border border-sky-400/15 px-3 py-2">
+          <div className="flex shrink-0 items-center gap-2 rounded-full border border-indigo-400/15 px-3 py-2">
             <Switch
               checked={advancedEnabled}
               disabled={availableSignalSources.length === 0}
               onCheckedChange={setAdvancedEnabled}
             />
-            <span className={isDarkTheme ? "text-xs font-black text-sky-100" : "text-xs font-black text-sky-700"}>
+            <span className={isDarkTheme ? "text-xs font-black text-indigo-100" : "text-xs font-black text-indigo-700"}>
               {strategyCreateCopy.copyTradingAdvancedSources}
             </span>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3 px-3 pb-3">
-        <Separator className={isDarkTheme ? "bg-white/[0.075]" : "bg-[#E5EAF0]"} />
+        <Separator className={isDarkTheme ? "bg-white/[0.075]" : "bg-[#E8E8EC]"} />
         {availableSignalSources.length === 0 ? (
           <p className={isDarkTheme ? "rounded-xl bg-rose-300/[0.08] px-3 py-2 text-xs font-bold text-rose-100" : "rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700"}>
             {strategyCreateCopy.copyTradingNoAvailableSignalSource}
@@ -98,7 +98,7 @@ export function CopyTradingSignalSourceConfigEditor({
         </div>
         {advancedEnabled ? (
           <Button
-            className={isDarkTheme ? "border-white/[0.085] bg-white/[0.035] text-slate-100 hover:bg-white/[0.075]" : "border-[#D5E4EF] bg-white text-slate-700 hover:bg-slate-50"}
+            className={isDarkTheme ? "border-white/[0.085] bg-white/[0.035] text-slate-100 hover:bg-white/[0.075]" : "border-[#E8E8EC] bg-white text-slate-700 hover:bg-slate-50"}
             disabled={!canAddSource}
             size="sm"
             type="button"
@@ -151,7 +151,7 @@ function SignalSourceConfigRowEditor({
   });
   const rowClassName = isDarkTheme
     ? "rounded-2xl border border-white/[0.075] bg-[#0F131A]/70 p-3"
-    : "rounded-2xl border border-[#E5EAF0] bg-white p-3";
+    : "rounded-2xl border border-[#E8E8EC] bg-white p-3";
 
   return (
     <div className={rowClassName}>
@@ -174,10 +174,10 @@ function SignalSourceConfigRowEditor({
             value={row.signalSourceId}
             onValueChange={(value) => onRowsChange(updateCopyTradingSourceRow(rows, row.rowKey, { signalSourceId: value }, availableSignalSources))}
           >
-            <SelectTrigger className={isDarkTheme ? "h-12 border-white/[0.075] bg-white/[0.035] text-slate-100" : "h-12 border-[#D5E4EF] bg-white text-slate-950"}>
+            <SelectTrigger className={isDarkTheme ? "h-12 border-white/[0.075] bg-white/[0.035] text-slate-100" : "h-12 border-[#E8E8EC] bg-white text-slate-950"}>
               <SelectValue placeholder={strategyCreateCopy.signalSourceSelect} />
             </SelectTrigger>
-            <SelectContent className={isDarkTheme ? "border-white/[0.075] bg-[#111820] text-slate-100" : "border-[#D5E4EF] bg-white text-slate-950"}>
+            <SelectContent className={isDarkTheme ? "border-white/[0.075] bg-[#111820] text-slate-100" : "border-[#E8E8EC] bg-white text-slate-950"}>
               {sourceOptions.map((source) => (
                 <SelectItem key={source.trader.trader_id} value={source.trader.trader_id}>
                   <SignalSourceOptionLabel copy={copy} isDarkTheme={isDarkTheme} source={source} />
@@ -192,7 +192,7 @@ function SignalSourceConfigRowEditor({
           </Label>
           <div className="relative">
             <Input
-              className={isDarkTheme ? "h-12 border-white/[0.075] bg-white/[0.035] pr-8 text-slate-100" : "h-12 border-[#D5E4EF] bg-white pr-8 text-slate-950"}
+              className={isDarkTheme ? "h-12 border-white/[0.075] bg-white/[0.035] pr-8 text-slate-100" : "h-12 border-[#E8E8EC] bg-white pr-8 text-slate-950"}
               inputMode="decimal"
               value={row.marginPercent}
               onChange={(event) => onRowsChange(updateCopyTradingSourceRow(rows, row.rowKey, { marginPercent: event.target.value }, availableSignalSources))}

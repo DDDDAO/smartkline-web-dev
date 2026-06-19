@@ -60,7 +60,7 @@ export function StrategyTradeHistorySection({
 
   return (
     <section ref={sectionRef}>
-      <Card className={isDarkTheme ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[24px] border-[#E5EAF0] bg-white p-4 text-slate-950 shadow-sm"}>
+      <Card className={isDarkTheme ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[24px] border-[#E8E8EC] bg-white p-4 text-slate-950 shadow-sm"}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-black">{strategyCopy.tradeHistory}</h3>
@@ -129,5 +129,5 @@ export function StrategyTradeHistorySection({
 function getSoftButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "border-white/[0.075] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
-    : "border-[#D5E4EF] bg-white text-slate-700 hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+    : "border-[#E8E8EC] bg-white text-slate-700 hover:border-[#C7D2FE] hover:bg-[#F5F5FF] hover:text-slate-950";
 }

@@ -73,13 +73,13 @@ export function StrategySquareProductTab({
   const shellClassName = "h-full min-h-0 p-3 pb-28 lg:p-4 lg:pb-4";
   const panelClassName = isDarkTheme
     ? "flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#181A20]"
-    : "flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
+    : "flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#E8E8EC] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
   const heroClassName = isDarkTheme
     ? "relative overflow-hidden border-b border-white/[0.075] bg-[#181A20] p-4 sm:p-5"
-    : "relative overflow-hidden border-b border-[#E5EAF0] bg-white p-4 sm:p-5";
+    : "relative overflow-hidden border-b border-[#E8E8EC] bg-white p-4 sm:p-5";
   const scrollClassName = isDarkTheme
     ? "kol-scroll-area kol-scroll-area-dark min-h-0 flex-1 overflow-y-auto bg-[#12161D] p-3 sm:p-4"
-    : "kol-scroll-area min-h-0 flex-1 overflow-y-auto bg-[#FAFBFD] p-3 sm:p-4";
+    : "kol-scroll-area min-h-0 flex-1 overflow-y-auto bg-[#FAFAFA] p-3 sm:p-4";
 
   const handleCopy = (strategy: StrategySquareItem) => {
     const content = getStrategyContent(strategy, language);
@@ -106,8 +106,8 @@ export function StrategySquareProductTab({
     <section className={shellClassName}>
       <div className={panelClassName}>
         <div className={heroClassName}>
-          <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[#00A6F4]/20 blur-3xl" />
-          <div className="pointer-events-none absolute bottom-0 left-1/3 h-20 w-40 rounded-full bg-[#00A6F4]/10 blur-3xl" />
+          <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[#6366F1]/20 blur-3xl" />
+          <div className="pointer-events-none absolute bottom-0 left-1/3 h-20 w-40 rounded-full bg-[#6366F1]/10 blur-3xl" />
           <div className="relative flex flex-col items-start gap-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">

@@ -117,7 +117,7 @@ function StrategyActionCard({
   };
 
   return (
-    <Card className={isDarkTheme ? "gap-0 rounded-2xl border-white/[0.075] bg-white/[0.035] p-3 text-slate-100 shadow-none" : "gap-0 rounded-2xl border-[#E5EAF0] bg-[#F8FAFC] p-3 text-slate-950 shadow-none"}>
+    <Card className={isDarkTheme ? "gap-0 rounded-2xl border-white/[0.075] bg-white/[0.035] p-3 text-slate-100 shadow-none" : "gap-0 rounded-2xl border-[#E8E8EC] bg-[#FAFAFA] p-3 text-slate-950 shadow-none"}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h4 className="text-sm font-black">{label}</h4>
@@ -140,7 +140,7 @@ function StrategyActionCard({
             onValidationStateChange={(state: StrategySchemaRendererState) => setRendererErrors(state.errors)}
           />
         ) : (
-          <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#0F131A]/70 px-3 py-3 text-sm font-bold text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-white px-3 py-3 text-sm font-bold text-slate-600"}>
+          <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-[#0F131A]/70 px-3 py-3 text-sm font-bold text-slate-400" : "rounded-2xl border border-[#E8E8EC] bg-white px-3 py-3 text-sm font-bold text-slate-600"}>
             {strategyCopy.manualActionNoPayload}
           </div>
         )}
@@ -154,13 +154,13 @@ function StrategyActionCard({
 function getModalSectionClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none"
-    : "gap-0 rounded-[24px] border-[#E5EAF0] bg-white p-4 text-slate-950 shadow-sm";
+    : "gap-0 rounded-[24px] border-[#E8E8EC] bg-white p-4 text-slate-950 shadow-sm";
 }
 
 function getPrimaryButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "rounded-2xl bg-sky-400 text-slate-950 hover:bg-sky-300"
-    : "rounded-2xl bg-[#16AFF5] text-white hover:bg-[#008DCC]";
+    ? "rounded-2xl bg-indigo-400 text-slate-950 hover:bg-indigo-300"
+    : "rounded-2xl bg-[#6366F1] text-white hover:bg-[#4F46E5]";
 }
 
 function hasConfigurablePayload(schema: JsonRecord | undefined): boolean {

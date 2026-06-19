@@ -31,7 +31,7 @@ export function ApiConnectionCard({
   const isBinanceDemoConnection = isBinanceDemoConnectionPlatform(apiConnection.exchangePlatform);
 
   return (
-    <div className={isDarkTheme ? "rounded-3xl border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-3xl border border-[#E5EAF0] bg-white p-3 shadow-sm"}>
+    <div className={isDarkTheme ? "rounded-3xl border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-3xl border border-[#E8E8EC] bg-white p-3 shadow-sm"}>
       <div className="flex items-start gap-3">
         <AccountConnectionExchangeIcon
           exchange={exchange}
@@ -198,15 +198,15 @@ export function TradingAccountSelect({
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
         className={isDarkTheme
-          ? "mt-2 min-h-12 rounded-2xl border-white/[0.075] bg-white/[0.035] py-2 text-left text-sm font-bold text-slate-100 hover:bg-white/[0.055] focus:ring-sky-400/10 data-[placeholder]:text-slate-500 [&>span]:line-clamp-none"
-          : "mt-2 min-h-12 rounded-2xl border-[#D5E4EF] bg-white py-2 text-left text-sm font-bold text-slate-950 shadow-sm hover:bg-[#F8FAFC] focus:ring-[#16AFF5]/10 data-[placeholder]:text-slate-400 [&>span]:line-clamp-none"}
+          ? "mt-2 min-h-12 rounded-2xl border-white/[0.075] bg-white/[0.035] py-2 text-left text-sm font-bold text-slate-100 hover:bg-white/[0.055] focus:ring-indigo-400/10 data-[placeholder]:text-slate-500 [&>span]:line-clamp-none"
+          : "mt-2 min-h-12 rounded-2xl border-[#E8E8EC] bg-white py-2 text-left text-sm font-bold text-slate-950 shadow-sm hover:bg-[#FAFAFA] focus:ring-[#6366F1]/10 data-[placeholder]:text-slate-400 [&>span]:line-clamp-none"}
       >
         <TradingAccountOptionContent accountCopy={accountCopy} connection={selectedConnection} isDarkTheme={isDarkTheme} />
       </SelectTrigger>
       <SelectContent
         className={isDarkTheme
           ? "z-[130] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
-          : "z-[130] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
+          : "z-[130] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#E8E8EC] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
         position="popper"
         sideOffset={8}
       >
@@ -214,8 +214,8 @@ export function TradingAccountSelect({
           <SelectItem
             key={connection.id}
             className={isDarkTheme
-              ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-sky-400/10 data-[state=checked]:text-sky-100"
-              : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-[#F8FAFC] data-[state=checked]:bg-[#EAF8FE] data-[state=checked]:text-[#007DB8]"}
+              ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-indigo-400/10 data-[state=checked]:text-indigo-100"
+              : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition data-[highlighted]:bg-[#FAFAFA] data-[state=checked]:bg-[#EEF2FF] data-[state=checked]:text-[#4F46E5]"}
             value={String(connection.id)}
           >
             <TradingAccountOptionContent accountCopy={accountCopy} connection={connection} isDarkTheme={isDarkTheme} />
@@ -315,8 +315,8 @@ function getDangerButtonClassName(isDarkTheme: boolean): string {
 
 function getExchangeResourceLinkClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "h-9 min-w-[74px] rounded-xl border-white/[0.075] bg-white/[0.08] px-3 text-xs font-black text-slate-200 hover:border-sky-300/25 hover:bg-white/[0.12] hover:text-slate-50"
-    : "h-9 min-w-[74px] rounded-xl border-[#D5E4EF] bg-[#F8FAFC] px-3 text-xs font-black text-slate-700 shadow-sm hover:border-[#BFE7FB] hover:bg-white hover:text-slate-950";
+    ? "h-9 min-w-[74px] rounded-xl border-white/[0.075] bg-white/[0.08] px-3 text-xs font-black text-slate-200 hover:border-indigo-300/25 hover:bg-white/[0.12] hover:text-slate-50"
+    : "h-9 min-w-[74px] rounded-xl border-[#E8E8EC] bg-[#FAFAFA] px-3 text-xs font-black text-slate-700 shadow-sm hover:border-[#C7D2FE] hover:bg-white hover:text-slate-950";
 }
 
 function getSuccessBadgeClassName(isDarkTheme: boolean): string {
@@ -327,12 +327,12 @@ function getSuccessBadgeClassName(isDarkTheme: boolean): string {
 
 function getInfoBadgeClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "shrink-0 rounded-full border-0 bg-sky-300/15 px-2 py-0.5 text-[10px] font-black text-sky-100"
-    : "shrink-0 rounded-full border-0 bg-[#DDF5FF] px-2 py-0.5 text-[10px] font-black text-[#007DB8]";
+    ? "shrink-0 rounded-full border-0 bg-indigo-300/15 px-2 py-0.5 text-[10px] font-black text-indigo-100"
+    : "shrink-0 rounded-full border-0 bg-[#DDF5FF] px-2 py-0.5 text-[10px] font-black text-[#4F46E5]";
 }
 
 function getNeutralBadgeClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "shrink-0 rounded-full border-0 bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-slate-300"
-    : "shrink-0 rounded-full border-0 bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-black text-slate-600";
+    : "shrink-0 rounded-full border-0 bg-[#FAFAFA] px-2 py-0.5 text-[10px] font-black text-slate-600";
 }

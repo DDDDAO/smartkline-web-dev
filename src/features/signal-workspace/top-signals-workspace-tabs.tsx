@@ -39,17 +39,17 @@ export function TopSignalsWorkspaceTabs({
 }) {
   const shellClassName = isDarkTheme
     ? "grid grid-cols-2 gap-1 rounded-[18px] border border-white/[0.075] bg-white/[0.035] p-1"
-    : "grid grid-cols-2 gap-1 rounded-[18px] border border-[#D5E4EF] bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
+    : "grid grid-cols-2 gap-1 rounded-[18px] border border-[#E8E8EC] bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
 
   return (
     <nav aria-label={copy.workspace.topSignals.panelTabsAria} className={shellClassName}>
       {TOP_SIGNALS_WORKSPACE_PANELS.map((panel) => {
         const isActive = panel === activePanel;
         const buttonClassName = isActive
-          ? "motion-fx-1-nav-button flex h-9 items-center justify-center rounded-[14px] bg-[#00A6F4] px-3 text-xs font-black text-white transition sm:text-sm"
+          ? "motion-fx-1-nav-button flex h-9 items-center justify-center rounded-[14px] bg-[#6366F1] px-3 text-xs font-black text-white transition sm:text-sm"
           : isDarkTheme
-            ? "motion-fx-1-nav-button flex h-9 items-center justify-center rounded-[14px] px-3 text-xs font-bold text-slate-400 transition hover:bg-white/[0.08] hover:text-sky-200 sm:text-sm"
-            : "motion-fx-1-nav-button flex h-9 items-center justify-center rounded-[14px] px-3 text-xs font-bold text-slate-500 transition hover:bg-[#EAF8FE] hover:text-[#008DCC] sm:text-sm";
+            ? "motion-fx-1-nav-button flex h-9 items-center justify-center rounded-[14px] px-3 text-xs font-bold text-slate-400 transition hover:bg-white/[0.08] hover:text-indigo-200 sm:text-sm"
+            : "motion-fx-1-nav-button flex h-9 items-center justify-center rounded-[14px] px-3 text-xs font-bold text-slate-500 transition hover:bg-[#EEF2FF] hover:text-[#4F46E5] sm:text-sm";
 
         return (
           <button

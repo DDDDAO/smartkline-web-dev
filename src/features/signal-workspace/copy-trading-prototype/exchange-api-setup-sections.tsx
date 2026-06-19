@@ -103,10 +103,10 @@ type SelectedExchangeSummaryProps = {
 
 export function ExchangeApiSetupHeader({ accountCopy, commonCopy, isDarkTheme, onClose }: ExchangeApiSetupHeaderProps): JSX.Element {
   return (
-    <header className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E5EAF0] px-4 py-4 sm:px-5 sm:py-5"}>
+    <header className={isDarkTheme ? "border-b border-white/[0.075] px-4 py-4 sm:px-5 sm:py-5" : "border-b border-[#E8E8EC] px-4 py-4 sm:px-5 sm:py-5"}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-sky-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#008DCC]"}>
+          <div className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.16em] text-indigo-300" : "text-[11px] font-black uppercase tracking-[0.16em] text-[#4F46E5]"}>
             {accountCopy.apiSetup.selectExchange}
           </div>
           <SheetTitle className="mt-2 text-xl font-black tracking-tight">{accountCopy.apiSetup.title}</SheetTitle>
@@ -292,7 +292,7 @@ export function LiveExchangeCredentialsSection({
 
 export function ExchangeApiSetupFooter({ accountCopy, canSave, commonCopy, isDarkTheme, isHyperliquidExchange, isSavingManual, onClose, onSave }: ExchangeApiSetupFooterProps): JSX.Element {
   return (
-    <footer className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E5EAF0] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5"}>
+    <footer className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5" : "grid grid-cols-2 gap-2 border-t border-[#E8E8EC] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:px-5"}>
       <Button className={getSoftButtonClassName(isDarkTheme)} type="button" variant="outline" onClick={onClose}>{commonCopy.close}</Button>
       {!isHyperliquidExchange ? (
         <Button
@@ -422,5 +422,5 @@ function getExchangeSelectorClassName(isDarkTheme: boolean): string {
   const baseClassName = "flex min-h-0 flex-col overflow-hidden rounded-[24px] p-3 self-start";
   return isDarkTheme
     ? `${baseClassName} border border-white/[0.075] bg-white/[0.035]`
-    : `${baseClassName} border border-[#E5EAF0] bg-[#FAFBFD]`;
+    : `${baseClassName} border border-[#E8E8EC] bg-[#FAFBFD]`;
 }

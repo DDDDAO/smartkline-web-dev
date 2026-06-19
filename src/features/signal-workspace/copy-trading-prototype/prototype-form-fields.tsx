@@ -29,8 +29,8 @@ export function PercentInput({
           className={cn(
             "h-12 rounded-2xl pr-8 text-sm font-black",
             isDarkTheme
-              ? "border-white/[0.075] bg-white/[0.035] text-slate-100 focus-visible:border-sky-400/45 focus-visible:ring-sky-400/10"
-              : "border-[#D5E4EF] bg-white text-slate-950 focus-visible:border-[#7DBEFF] focus-visible:ring-[#16AFF5]/10",
+              ? "border-white/[0.075] bg-white/[0.035] text-slate-100 focus-visible:border-indigo-400/45 focus-visible:ring-indigo-400/10"
+              : "border-[#E8E8EC] bg-white text-slate-950 focus-visible:border-[#818CF8] focus-visible:ring-[#6366F1]/10",
           )}
           id={id}
           inputMode="decimal"
@@ -76,8 +76,8 @@ export function PrototypeInput({
         className={cn(
           "mt-2 h-12 rounded-2xl text-sm font-semibold",
           isDarkTheme
-            ? "border-white/[0.075] bg-white/[0.035] text-slate-100 placeholder:text-slate-600 focus-visible:border-sky-400/45 focus-visible:ring-sky-400/10"
-            : "border-[#D5E4EF] bg-white text-slate-950 placeholder:text-slate-400 focus-visible:border-[#7DBEFF] focus-visible:ring-[#16AFF5]/10",
+            ? "border-white/[0.075] bg-white/[0.035] text-slate-100 placeholder:text-slate-600 focus-visible:border-indigo-400/45 focus-visible:ring-indigo-400/10"
+            : "border-[#E8E8EC] bg-white text-slate-950 placeholder:text-slate-400 focus-visible:border-[#818CF8] focus-visible:ring-[#6366F1]/10",
         )}
         id={id}
         inputMode={inputMode}

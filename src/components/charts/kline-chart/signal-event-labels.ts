@@ -292,7 +292,7 @@ function createSignalAvatarButton(input: {
   avatar.style.backgroundImage = `url("${getResolvedKolAvatarUrl(signal.source_name, signal.source_avatar_url)}")`;
   avatar.style.backgroundPosition = "center";
   avatar.style.backgroundSize = "cover";
-  avatar.style.border = isActive ? "2px solid #00A6F4" : "2px solid rgba(255, 255, 255, 0.88)";
+  avatar.style.border = isActive ? "2px solid #6366F1" : "2px solid rgba(255, 255, 255, 0.88)";
   avatar.style.boxSizing = "border-box";
   avatar.style.boxShadow = isActive
     ? isDarkTheme ? "0 2px 5px rgba(0, 0, 0, 0.28)" : "0 2px 5px rgba(15, 23, 42, 0.14)"

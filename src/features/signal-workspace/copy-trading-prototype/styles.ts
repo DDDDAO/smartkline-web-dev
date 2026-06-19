@@ -2,26 +2,26 @@ import type { PrototypeStrategyStatus } from "./types";
 
 export function getPrimaryButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "inline-flex min-h-10 items-center justify-center rounded-2xl bg-sky-400 px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-45"
-    : "inline-flex min-h-10 items-center justify-center rounded-2xl bg-[#16AFF5] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#008DCC] disabled:cursor-not-allowed disabled:opacity-45";
+    ? "inline-flex min-h-10 items-center justify-center rounded-2xl bg-indigo-400 px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-indigo-300 disabled:cursor-not-allowed disabled:opacity-45"
+    : "inline-flex min-h-10 items-center justify-center rounded-2xl bg-[#6366F1] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#4F46E5] disabled:cursor-not-allowed disabled:opacity-45";
 }
 
 export function getExchangeResourceLinkClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "inline-flex h-9 min-w-[74px] items-center justify-center gap-1.5 rounded-xl border border-white/[0.075] bg-white/[0.08] px-3 text-xs font-black text-slate-200 transition hover:border-sky-300/25 hover:bg-white/[0.12] hover:text-slate-50"
-    : "inline-flex h-9 min-w-[74px] items-center justify-center gap-1.5 rounded-xl border border-[#D5E4EF] bg-[#F8FAFC] px-3 text-xs font-black text-slate-700 shadow-sm transition hover:border-[#BFE7FB] hover:bg-white hover:text-slate-950";
+    ? "inline-flex h-9 min-w-[74px] items-center justify-center gap-1.5 rounded-xl border border-white/[0.075] bg-white/[0.08] px-3 text-xs font-black text-slate-200 transition hover:border-indigo-300/25 hover:bg-white/[0.12] hover:text-slate-50"
+    : "inline-flex h-9 min-w-[74px] items-center justify-center gap-1.5 rounded-xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 text-xs font-black text-slate-700 shadow-sm transition hover:border-[#C7D2FE] hover:bg-white hover:text-slate-950";
 }
 
 export function getWhitelistCopyButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/[0.085] bg-white/[0.04] text-slate-300 transition hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
-    : "grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#D5E4EF] bg-white text-slate-500 shadow-sm transition hover:border-[#BFE7FB] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-45";
+    ? "grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/[0.085] bg-white/[0.04] text-slate-300 transition hover:border-indigo-300/25 hover:bg-white/[0.08] hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+    : "grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#E8E8EC] bg-white text-slate-500 shadow-sm transition hover:border-[#C7D2FE] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-45";
 }
 
 export function getModalSectionClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4"
-    : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm";
+    : "rounded-[24px] border border-[#E8E8EC] bg-white p-4 shadow-sm";
 }
 
 export function getErrorPanelClassName(isDarkTheme: boolean): string {
@@ -39,14 +39,14 @@ export function getInlineErrorClassName(isDarkTheme: boolean): string {
 export function getExchangeButtonClassName(isDarkTheme: boolean, enabled: boolean, isSelected: boolean): string {
   if (enabled && isSelected) {
     return isDarkTheme
-      ? "flex h-auto min-w-[220px] items-center justify-start gap-3 rounded-2xl lg:w-full border border-sky-400/30 bg-sky-400/10 px-3 py-3 text-left text-sky-100 shadow-[0_0_0_3px_rgba(56,189,248,0.10)]"
-      : "flex h-auto min-w-[220px] items-center justify-start gap-3 rounded-2xl lg:w-full border border-[#B7E8FC] bg-[#EAF8FE] px-3 py-3 text-left text-[#007DB8] shadow-[0_0_0_3px_rgba(22,175,245,0.10)]";
+      ? "flex h-auto min-w-[220px] items-center justify-start gap-3 rounded-2xl lg:w-full border border-indigo-400/30 bg-indigo-400/10 px-3 py-3 text-left text-indigo-100 shadow-[0_0_0_3px_rgba(99,102,241,0.10)]"
+      : "flex h-auto min-w-[220px] items-center justify-start gap-3 rounded-2xl lg:w-full border border-[#C7D2FE] bg-[#EEF2FF] px-3 py-3 text-left text-[#4F46E5] shadow-[0_0_0_3px_rgba(99,102,241,0.10)]";
   }
 
   if (enabled) {
     return isDarkTheme
       ? "flex h-auto min-w-[220px] items-center justify-start gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-300 transition hover:border-white/[0.075] hover:bg-white/[0.055]"
-      : "flex h-auto min-w-[220px] items-center justify-start gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-700 transition hover:border-[#E5EAF0] hover:bg-white";
+      : "flex h-auto min-w-[220px] items-center justify-start gap-3 rounded-2xl lg:w-full border border-transparent px-3 py-3 text-left text-slate-700 transition hover:border-[#E8E8EC] hover:bg-white";
   }
 
   return isDarkTheme
@@ -58,19 +58,19 @@ export function getAccountCenterTabButtonClassName(isDarkTheme: boolean, isActiv
   const baseClassName = "flex min-w-0 flex-col items-start rounded-2xl px-4 py-3 text-left transition";
   if (isActive) {
     return isDarkTheme
-      ? `${baseClassName} border border-sky-400/25 bg-sky-400/10 text-sky-100 shadow-[0_0_0_3px_rgba(56,189,248,0.08)]`
-      : `${baseClassName} border border-[#B7E8FC] bg-white text-[#007DB8] shadow-sm`;
+      ? `${baseClassName} border border-indigo-400/25 bg-indigo-400/10 text-indigo-100 shadow-[0_0_0_3px_rgba(56,189,248,0.08)]`
+      : `${baseClassName} border border-[#C7D2FE] bg-white text-[#4F46E5] shadow-sm`;
   }
 
   return isDarkTheme
     ? `${baseClassName} border border-transparent text-slate-400 hover:border-white/[0.075] hover:bg-white/[0.055] hover:text-slate-100`
-    : `${baseClassName} border border-transparent text-slate-500 hover:border-[#D5E4EF] hover:bg-white hover:text-slate-900`;
+    : `${baseClassName} border border-transparent text-slate-500 hover:border-[#E8E8EC] hover:bg-white hover:text-slate-900`;
 }
 
 export function getNotificationConfigureButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-white/[0.075] bg-white/[0.04] px-4 text-sm font-black text-slate-200 shadow-sm transition hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-slate-50"
-    : "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-[#D5E4EF] bg-white px-4 text-sm font-black text-slate-700 shadow-sm transition hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+    ? "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-white/[0.075] bg-white/[0.04] px-4 text-sm font-black text-slate-200 shadow-sm transition hover:border-indigo-300/25 hover:bg-white/[0.08] hover:text-slate-50"
+    : "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-[#E8E8EC] bg-white px-4 text-sm font-black text-slate-700 shadow-sm transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF] hover:text-slate-950";
 }
 
 export function getNotificationSaveButtonClassName(isDarkTheme: boolean): string {
@@ -88,19 +88,19 @@ export function getNotificationUnavailableBadgeClassName(isDarkTheme: boolean): 
 export function getNotificationModalIconClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/[0.075] bg-white/[0.035] text-slate-100"
-    : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#E5EAF0] bg-[#FAFBFD] text-slate-950";
+    : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] text-slate-950";
 }
 
 export function getNotificationIconClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/[0.075] bg-white/[0.035] text-base"
-    : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#E5EAF0] bg-[#FAFBFD] text-base";
+    : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] text-base";
 }
 
 export function getSoftButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-white/[0.075] bg-white/[0.04] px-3 text-xs font-black text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
-    : "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-[#D5E4EF] bg-white px-3 text-xs font-black text-slate-700 transition hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45";
+    : "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-[#E8E8EC] bg-white px-3 text-xs font-black text-slate-700 transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF] hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45";
 }
 
 export function getDangerButtonClassName(isDarkTheme: boolean): string {
@@ -112,7 +112,7 @@ export function getDangerButtonClassName(isDarkTheme: boolean): string {
 export function getIconButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50"
-    : "grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E5EAF0] bg-white text-slate-500 transition hover:border-[#BFE7FB] hover:text-slate-900";
+    : "grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E8E8EC] bg-white text-slate-500 transition hover:border-[#C7D2FE] hover:text-slate-900";
 }
 
 export function getLabelClassName(isDarkTheme: boolean): string {
@@ -122,13 +122,13 @@ export function getLabelClassName(isDarkTheme: boolean): string {
 export function getStrategyTypeOptionClassName(isDarkTheme: boolean, isSelected: boolean): string {
   if (isSelected) {
     return isDarkTheme
-      ? "rounded-2xl border border-sky-400/30 bg-sky-400/10 px-3 py-3 text-left text-sky-100 shadow-[0_0_0_3px_rgba(56,189,248,0.10)]"
-      : "rounded-2xl border border-[#B7E8FC] bg-[#EAF8FE] px-3 py-3 text-left text-[#007DB8] shadow-[0_0_0_3px_rgba(22,175,245,0.10)]";
+      ? "rounded-2xl border border-indigo-400/30 bg-indigo-400/10 px-3 py-3 text-left text-indigo-100 shadow-[0_0_0_3px_rgba(99,102,241,0.10)]"
+      : "rounded-2xl border border-[#C7D2FE] bg-[#EEF2FF] px-3 py-3 text-left text-[#4F46E5] shadow-[0_0_0_3px_rgba(99,102,241,0.10)]";
   }
 
   return isDarkTheme
     ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-left text-slate-200 transition hover:bg-white/[0.055]"
-    : "rounded-2xl border border-[#E5EAF0] bg-white px-3 py-3 text-left text-slate-900 transition hover:border-[#BFE7FB] hover:bg-[#F4FBFF]";
+    : "rounded-2xl border border-[#E8E8EC] bg-white px-3 py-3 text-left text-slate-900 transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF]";
 }
 
 export function getStrategyStatusClassName(isDarkTheme: boolean, status: PrototypeStrategyStatus): string {
@@ -139,7 +139,7 @@ export function getStrategyStatusClassName(isDarkTheme: boolean, status: Prototy
     return isDarkTheme ? "shrink-0 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-black text-amber-300" : "shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700";
   }
   if (status === "pending") {
-    return isDarkTheme ? "shrink-0 rounded-full bg-sky-400/15 px-2 py-0.5 text-[10px] font-black text-sky-300" : "shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-black text-sky-700";
+    return isDarkTheme ? "shrink-0 rounded-full bg-indigo-400/15 px-2 py-0.5 text-[10px] font-black text-indigo-300" : "shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-black text-indigo-700";
   }
   if (status === "failed") {
     return isDarkTheme ? "shrink-0 rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] font-black text-rose-300" : "shrink-0 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-black text-rose-700";

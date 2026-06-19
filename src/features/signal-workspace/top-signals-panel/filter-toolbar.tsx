@@ -48,16 +48,16 @@ export function TopSignalsSourceFilterBar({
   }, [models, query]);
   const shellClassName = isDarkTheme
     ? "relative rounded-[20px] border border-white/[0.075] bg-[#181A20] p-2"
-    : "relative rounded-[20px] border border-[#E5EAF0] bg-white p-2 shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
+    : "relative rounded-[20px] border border-[#E8E8EC] bg-white p-2 shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
   const triggerClassName = isDarkTheme
     ? "flex h-9 w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 text-left text-xs font-bold text-slate-200 transition hover:bg-white/[0.07]"
-    : "flex h-9 w-full items-center justify-between gap-3 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 text-left text-xs font-bold text-slate-700 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]";
+    : "flex h-9 w-full items-center justify-between gap-3 rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 text-left text-xs font-bold text-slate-700 transition hover:border-[#C7D2FE] hover:bg-[#EEF2FF]";
   const dropdownClassName = isDarkTheme
     ? "absolute left-2 right-2 top-[calc(100%-4px)] z-30 overflow-hidden rounded-2xl border border-white/[0.10] bg-[#181A20] shadow-[0_18px_46px_rgba(0,0,0,0.36)]"
-    : "absolute left-2 right-2 top-[calc(100%-4px)] z-30 overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white shadow-[0_18px_44px_rgba(15,23,42,0.14)]";
+    : "absolute left-2 right-2 top-[calc(100%-4px)] z-30 overflow-hidden rounded-2xl border border-[#E8E8EC] bg-white shadow-[0_18px_44px_rgba(15,23,42,0.14)]";
   const searchClassName = isDarkTheme
-    ? "h-9 w-full rounded-xl border border-white/[0.075] bg-[#0F131A] px-3 text-xs font-medium text-slate-100 outline-none placeholder:text-slate-600 focus:border-sky-400/40"
-    : "h-9 w-full rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#B7E8FC]";
+    ? "h-9 w-full rounded-xl border border-white/[0.075] bg-[#0F131A] px-3 text-xs font-medium text-slate-100 outline-none placeholder:text-slate-600 focus:border-indigo-400/40"
+    : "h-9 w-full rounded-xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#C7D2FE]";
 
   const chooseSource = (sourceId: string) => {
     onSourceChange(sourceId);
@@ -159,10 +159,10 @@ export function SourceFilterOption({
   onClick: () => void;
 }) {
   const className = isActive
-    ? "flex w-full items-center gap-2 rounded-xl bg-[#00A6F4] px-2.5 py-2 text-left text-xs font-black text-white"
+    ? "flex w-full items-center gap-2 rounded-xl bg-[#6366F1] px-2.5 py-2 text-left text-xs font-black text-white"
     : isDarkTheme
       ? "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-bold text-slate-300 transition hover:bg-white/[0.06]"
-      : "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition hover:bg-[#F4FBFF]";
+      : "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition hover:bg-[#F5F5FF]";
 
   return (
     <button className={className} type="button" onClick={onClick}>
@@ -197,13 +197,13 @@ export function TopSignalPerformanceToolbar({
   const panelCopy = copy.workspace.topSignals;
   const shellClassName = isDarkTheme
     ? "rounded-[20px] border border-white/[0.075] bg-[#181A20] p-3"
-    : "rounded-[20px] border border-[#E5EAF0] bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
+    : "rounded-[20px] border border-[#E8E8EC] bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
   const labelClassName = isDarkTheme
     ? "text-[10px] font-black uppercase tracking-[0.12em] text-slate-500"
     : "text-[10px] font-black uppercase tracking-[0.12em] text-slate-400";
   const selectClassName = isDarkTheme
-    ? "h-9 rounded-2xl border border-white/[0.075] bg-[#0F131A] px-3 text-xs font-bold text-slate-100 outline-none transition focus:border-sky-400/45"
-    : "h-9 rounded-2xl border border-[#D5E4EF] bg-[#F8FAFC] px-3 text-xs font-bold text-slate-800 outline-none transition focus:border-[#7DD7FA]";
+    ? "h-9 rounded-2xl border border-white/[0.075] bg-[#0F131A] px-3 text-xs font-bold text-slate-100 outline-none transition focus:border-indigo-400/45"
+    : "h-9 rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 text-xs font-bold text-slate-800 outline-none transition focus:border-[#818CF8]";
 
   return (
     <section className={shellClassName}>
@@ -214,10 +214,10 @@ export function TopSignalPerformanceToolbar({
             {TOP_SIGNAL_PERFORMANCE_WINDOWS.map((window) => {
               const isActive = window === performanceWindow;
               const buttonClassName = isActive
-                ? "rounded-2xl bg-[#00A6F4] px-2.5 py-2 text-xs font-black text-white shadow-[0_10px_22px_rgba(0,166,244,0.20)]"
+                ? "rounded-2xl bg-[#6366F1] px-2.5 py-2 text-xs font-black text-white shadow-[0_10px_22px_rgba(99,102,241,0.20)]"
                 : isDarkTheme
                   ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-2.5 py-2 text-xs font-bold text-slate-300 transition hover:bg-white/[0.065]"
-                  : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-2.5 py-2 text-xs font-bold text-slate-600 transition hover:border-[#B7E8FC] hover:bg-[#F4FBFF]";
+                  : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-2.5 py-2 text-xs font-bold text-slate-600 transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF]";
               return (
                 <button
                   key={window}
@@ -296,7 +296,7 @@ export function SourceAvatarMini({
         style={url ? { backgroundImage: `url("${url}")` } : undefined}
       >
         {!url ? (
-          <span className="grid h-full w-full place-items-center bg-[#00A6F4] text-[10px] font-black text-white">
+          <span className="grid h-full w-full place-items-center bg-[#6366F1] text-[10px] font-black text-white">
             {name.trim().slice(0, 1).toUpperCase() || "S"}
           </span>
         ) : null}
@@ -318,10 +318,10 @@ export function WatchedTopSignalSources({
 }) {
   const shellClassName = isDarkTheme
     ? "rounded-[20px] border border-white/[0.075] bg-[#181A20] p-3"
-    : "rounded-[20px] border border-[#E5EAF0] bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
+    : "rounded-[20px] border border-[#E8E8EC] bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
   const cardClassName = isDarkTheme
-    ? "min-w-0 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-left transition hover:border-sky-500/30 hover:bg-white/[0.065]"
-    : "min-w-0 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-2 text-left transition hover:border-[#B7E8FC] hover:bg-[#F4FBFF]";
+    ? "min-w-0 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-left transition hover:border-indigo-500/30 hover:bg-white/[0.065]"
+    : "min-w-0 rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-2 text-left transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF]";
 
   return (
     <section className={shellClassName}>

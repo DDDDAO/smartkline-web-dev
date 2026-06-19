@@ -44,14 +44,14 @@ export function HyperliquidAgentWalletPanel({
   );
 
   return (
-    <section className={isDarkTheme ? "rounded-[24px] border border-sky-300/20 bg-sky-300/[0.07] p-3 sm:p-4" : "rounded-[24px] border border-[#BFE7FB] bg-[#F1FBFF] p-3 sm:p-4"}>
+    <section className={isDarkTheme ? "rounded-[24px] border border-indigo-300/20 bg-indigo-300/[0.07] p-3 sm:p-4" : "rounded-[24px] border border-[#C7D2FE] bg-[#EEF2FF] p-3 sm:p-4"}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className={isDarkTheme ? "rounded-full bg-sky-300/15 px-2.5 py-1 text-[11px] font-black text-sky-100" : "rounded-full bg-[#DDF5FF] px-2.5 py-1 text-[11px] font-black text-[#007DB8]"}>
+            <span className={isDarkTheme ? "rounded-full bg-indigo-300/15 px-2.5 py-1 text-[11px] font-black text-indigo-100" : "rounded-full bg-[#DDF5FF] px-2.5 py-1 text-[11px] font-black text-[#4F46E5]"}>
               {accountCopy.apiSetup.recommendedBadge}
             </span>
-            <span className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.14em] text-sky-200/70" : "text-[11px] font-black uppercase tracking-[0.14em] text-[#007DB8]/70"}>
+            <span className={isDarkTheme ? "text-[11px] font-black uppercase tracking-[0.14em] text-indigo-200/70" : "text-[11px] font-black uppercase tracking-[0.14em] text-[#4F46E5]/70"}>
               {accountCopy.apiSetup.hyperliquidAgentMode}
             </span>
           </div>
@@ -96,12 +96,12 @@ export function HyperliquidAgentWalletPanel({
         {accountCopy.apiSetup.hyperliquidAgentSteps.map((step, index) => (
           <div
             key={step}
-            className={isDarkTheme ? "rounded-2xl border border-sky-200/10 bg-[#0F141B]/70 px-3 py-2.5" : "rounded-2xl border border-[#BFE7FB] bg-white/80 px-3 py-2.5"}
+            className={isDarkTheme ? "rounded-2xl border border-indigo-200/10 bg-[#0F141B]/70 px-3 py-2.5" : "rounded-2xl border border-[#C7D2FE] bg-white/80 px-3 py-2.5"}
           >
-            <div className={isDarkTheme ? "text-[10px] font-black uppercase tracking-[0.14em] text-sky-200/60" : "text-[10px] font-black uppercase tracking-[0.14em] text-[#007DB8]/60"}>
+            <div className={isDarkTheme ? "text-[10px] font-black uppercase tracking-[0.14em] text-indigo-200/60" : "text-[10px] font-black uppercase tracking-[0.14em] text-[#4F46E5]/60"}>
               {String(index + 1).padStart(2, "0")}
             </div>
-            <div className={isDarkTheme ? "mt-1 text-xs font-black text-sky-50" : "mt-1 text-xs font-black text-slate-900"}>
+            <div className={isDarkTheme ? "mt-1 text-xs font-black text-indigo-50" : "mt-1 text-xs font-black text-slate-900"}>
               {step}
             </div>
           </div>
@@ -119,7 +119,7 @@ export function HyperliquidAgentWalletPanel({
           <span className={isDarkTheme ? "text-amber-100/80" : "text-amber-800/80"}>{accountCopy.apiSetup.hyperliquidCurrentBalance}</span>
           <span className={isDarkTheme ? "rounded-full bg-[#0F141B]/70 px-2.5 py-1 text-amber-100" : "rounded-full bg-white px-2.5 py-1 text-amber-800"}>5 USDC</span>
           <a
-            className={isDarkTheme ? "text-sky-200 underline decoration-sky-200/40 underline-offset-4 hover:text-sky-100" : "text-[#007DB8] underline decoration-[#007DB8]/35 underline-offset-4 hover:text-[#005F8C]"}
+            className={isDarkTheme ? "text-indigo-200 underline decoration-indigo-200/40 underline-offset-4 hover:text-indigo-100" : "text-[#4F46E5] underline decoration-[#4F46E5]/35 underline-offset-4 hover:text-[#005F8C]"}
             href={HYPERLIQUID_DEPOSIT_URL}
             rel="noreferrer"
             target="_blank"
@@ -130,7 +130,7 @@ export function HyperliquidAgentWalletPanel({
       </div>
 
       {agentWalletAddress ? (
-        <div className={isDarkTheme ? "mt-3 break-all rounded-2xl border border-sky-200/10 bg-[#0F141B]/70 px-3 py-2 font-mono text-xs font-black text-sky-100" : "mt-3 break-all rounded-2xl border border-[#BFE7FB] bg-white/80 px-3 py-2 font-mono text-xs font-black text-[#007DB8]"}>
+        <div className={isDarkTheme ? "mt-3 break-all rounded-2xl border border-indigo-200/10 bg-[#0F141B]/70 px-3 py-2 font-mono text-xs font-black text-indigo-100" : "mt-3 break-all rounded-2xl border border-[#C7D2FE] bg-white/80 px-3 py-2 font-mono text-xs font-black text-[#4F46E5]"}>
           {agentWalletAddress}
         </div>
       ) : null}
@@ -168,7 +168,7 @@ export function WhitelistIpCopyPanel({
     <section className={getModalSectionClassName(isDarkTheme)}>
       <div className={getLabelClassName(isDarkTheme)}>{accountCopy.apiSetup.whitelistIp}</div>
       <div className="mt-2 flex items-stretch gap-2">
-        <div className={isDarkTheme ? "flex min-h-11 min-w-0 flex-1 items-center break-all rounded-[18px] border border-white/[0.085] bg-[#0F141B] px-3 font-mono text-sm font-black tracking-[0.045em] text-slate-100" : "flex min-h-11 min-w-0 flex-1 items-center break-all rounded-[18px] border border-[#D5E4EF] bg-[#F8FAFC] px-3 font-mono text-sm font-black tracking-[0.045em] text-slate-900"}>
+        <div className={isDarkTheme ? "flex min-h-11 min-w-0 flex-1 items-center break-all rounded-[18px] border border-white/[0.085] bg-[#0F141B] px-3 font-mono text-sm font-black tracking-[0.045em] text-slate-100" : "flex min-h-11 min-w-0 flex-1 items-center break-all rounded-[18px] border border-[#E8E8EC] bg-[#FAFAFA] px-3 font-mono text-sm font-black tracking-[0.045em] text-slate-900"}>
           {isLoading ? accountCopy.apiSetup.whitelistIpLoading : (whitelistIp || accountCopy.apiSetup.whitelistIpUnavailable)}
         </div>
         <Button
@@ -201,20 +201,20 @@ export type TradingFoxWhitelistIPAssignment = {
 
 function getPrimaryButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "rounded-2xl bg-sky-400 text-slate-950 hover:bg-sky-300"
-    : "rounded-2xl bg-[#16AFF5] text-white hover:bg-[#008DCC]";
+    ? "rounded-2xl bg-indigo-400 text-slate-950 hover:bg-indigo-300"
+    : "rounded-2xl bg-[#6366F1] text-white hover:bg-[#4F46E5]";
 }
 
 function getSoftButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "rounded-2xl border-white/[0.075] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
-    : "rounded-2xl border-[#D5E4EF] bg-white text-slate-700 hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+    : "rounded-2xl border-[#E8E8EC] bg-white text-slate-700 hover:border-[#C7D2FE] hover:bg-[#F5F5FF] hover:text-slate-950";
 }
 
 function getWhitelistCopyButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "h-11 w-11 rounded-full border-white/[0.085] bg-white/[0.04] text-slate-300 hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-slate-50"
-    : "h-11 w-11 rounded-full border-[#D5E4EF] bg-white text-slate-500 shadow-sm hover:border-[#BFE7FB] hover:text-slate-900";
+    ? "h-11 w-11 rounded-full border-white/[0.085] bg-white/[0.04] text-slate-300 hover:border-indigo-300/25 hover:bg-white/[0.08] hover:text-slate-50"
+    : "h-11 w-11 rounded-full border-[#E8E8EC] bg-white text-slate-500 shadow-sm hover:border-[#C7D2FE] hover:text-slate-900";
 }
 
 export async function requestTradingFoxConnectorWhitelistIP(exchangePlatform: string): Promise<TradingFoxWhitelistIPAssignment> {

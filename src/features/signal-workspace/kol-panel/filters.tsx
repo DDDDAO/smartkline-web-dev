@@ -41,7 +41,7 @@ export function KolPanelFilters({
 }) {
   const containerClassName = isDarkTheme
     ? "bg-[#12161D] px-3 pb-2 pt-3"
-    : "bg-[#FAFBFD] px-3 pb-2 pt-3";
+    : "bg-[#FAFAFA] px-3 pb-2 pt-3";
   const [openFilter, setOpenFilter] = useState<
     "kol" | "direction" | "status" | "symbol" | null
   >(null);
@@ -150,16 +150,16 @@ export function FilterDropdown<T extends string>({
   onChange: (value: string) => void;
 }) {
   const buttonClassName = isDarkTheme
-    ? "inline-flex h-7 w-full min-w-0 items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-2 text-xs font-medium text-slate-200 outline-none transition hover:border-sky-500/40 hover:bg-white/[0.08] focus-visible:border-[#00A6F4]"
-    : "inline-flex h-7 w-full min-w-0 items-center gap-1 rounded-full border border-[#E5EAF0] bg-white px-2 text-xs font-medium text-slate-700 outline-none transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE] focus-visible:border-[#00A6F4]";
+    ? "inline-flex h-7 w-full min-w-0 items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-2 text-xs font-medium text-slate-200 outline-none transition hover:border-indigo-500/40 hover:bg-white/[0.08] focus-visible:border-[#6366F1]"
+    : "inline-flex h-7 w-full min-w-0 items-center gap-1 rounded-full border border-[#E8E8EC] bg-white px-2 text-xs font-medium text-slate-700 outline-none transition hover:border-[#C7D2FE] hover:bg-[#EEF2FF] focus-visible:border-[#6366F1]";
   const menuClassName = isDarkTheme
     ? "motion-fx-9-surface absolute left-0 top-9 z-50 min-w-[150px] max-w-[260px] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#181A20] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.28)]"
-    : "motion-fx-9-surface absolute left-0 top-9 z-50 min-w-[150px] max-w-[260px] overflow-hidden rounded-2xl border border-[#E5EAF0] bg-white p-1.5 shadow-[0_18px_48px_rgba(15,23,42,0.12)]";
+    : "motion-fx-9-surface absolute left-0 top-9 z-50 min-w-[150px] max-w-[260px] overflow-hidden rounded-2xl border border-[#E8E8EC] bg-white p-1.5 shadow-[0_18px_48px_rgba(15,23,42,0.12)]";
   const optionClassName = (isSelected: boolean) =>
     isSelected
       ? isDarkTheme
-        ? "flex h-8 w-full items-center gap-2 rounded-xl bg-[#00A6F4]/15 px-2 text-left text-[11px] font-semibold text-sky-200"
-        : "flex h-8 w-full items-center gap-2 rounded-xl bg-[#EAF8FE] px-2 text-left text-[11px] font-semibold text-[#007DB8]"
+        ? "flex h-8 w-full items-center gap-2 rounded-xl bg-[#6366F1]/15 px-2 text-left text-[11px] font-semibold text-indigo-200"
+        : "flex h-8 w-full items-center gap-2 rounded-xl bg-[#EEF2FF] px-2 text-left text-[11px] font-semibold text-[#4F46E5]"
       : isDarkTheme
         ? "flex h-8 w-full items-center gap-2 rounded-xl px-2 text-left text-[11px] font-medium text-slate-300 transition hover:bg-white/[0.08]"
         : "flex h-8 w-full items-center gap-2 rounded-xl px-2 text-left text-[11px] font-medium text-slate-600 transition hover:bg-slate-50";
@@ -262,7 +262,7 @@ export function DirectionFilterDot({
 export function StatusFilterDot({ status }: { status: StatusFilterOption }) {
   const colorClassName =
     status === "entered"
-      ? "bg-[#16AFF5]"
+      ? "bg-[#6366F1]"
       : status === "not-entered"
         ? "bg-[#FFD978]"
         : status === "stop-loss"

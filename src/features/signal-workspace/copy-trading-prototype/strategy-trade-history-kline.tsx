@@ -171,8 +171,8 @@ export function TradeHistoryKlinePanel({
   }, [canLoadOlderHistory, candles, chartKey, interval, isLoadingOlderHistory, symbol]);
 
   return (
-    <div className={isDarkTheme ? "mt-3 overflow-hidden rounded-3xl border border-white/[0.075] bg-[#181A20]" : "mt-3 overflow-hidden rounded-3xl border border-[#DDE8F0] bg-white"}>
-      <div className={isDarkTheme ? "flex flex-col gap-3 border-b border-white/[0.075] bg-white/[0.035] px-4 py-3 sm:flex-row sm:items-center sm:justify-between" : "flex flex-col gap-3 border-b border-[#E5EAF0] bg-[#F8FAFC] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"}>
+    <div className={isDarkTheme ? "mt-3 overflow-hidden rounded-3xl border border-white/[0.075] bg-[#181A20]" : "mt-3 overflow-hidden rounded-3xl border border-[#E8E8EC] bg-white"}>
+      <div className={isDarkTheme ? "flex flex-col gap-3 border-b border-white/[0.075] bg-white/[0.035] px-4 py-3 sm:flex-row sm:items-center sm:justify-between" : "flex flex-col gap-3 border-b border-[#E8E8EC] bg-[#FAFAFA] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"}>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <TradeHistoryKlineSymbolSelect
@@ -187,11 +187,11 @@ export function TradeHistoryKlinePanel({
             {symbol} · {formatDetailDate(anchorRow.timestamp)}
           </div>
         </div>
-        <div className={isDarkTheme ? "inline-flex w-max items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5" : "inline-flex w-max items-center gap-1 rounded-full border border-[#E5EAF0] bg-white p-0.5"}>
+        <div className={isDarkTheme ? "inline-flex w-max items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5" : "inline-flex w-max items-center gap-1 rounded-full border border-[#E8E8EC] bg-white p-0.5"}>
           {intervals.map((item) => (
             <Button
               key={item}
-              className={item === interval ? "h-8 rounded-full bg-[#00A6F4] px-3 text-xs font-bold text-white hover:bg-[#00A6F4]" : isDarkTheme ? "h-8 rounded-full px-3 text-xs font-bold text-slate-400 hover:bg-white/[0.08] hover:text-slate-100" : "h-8 rounded-full px-3 text-xs font-bold text-slate-500 hover:bg-[#F1F7FB] hover:text-slate-950"}
+              className={item === interval ? "h-8 rounded-full bg-[#6366F1] px-3 text-xs font-bold text-white hover:bg-[#6366F1]" : isDarkTheme ? "h-8 rounded-full px-3 text-xs font-bold text-slate-400 hover:bg-white/[0.08] hover:text-slate-100" : "h-8 rounded-full px-3 text-xs font-bold text-slate-500 hover:bg-[#FAFAFA] hover:text-slate-950"}
               size="sm"
               type="button"
               variant="ghost"
@@ -257,11 +257,11 @@ function TradeHistoryKlineSymbolSelect({
     symbol: value,
   };
   const triggerClassName = isDarkTheme
-    ? "inline-flex h-8 min-w-28 items-center justify-between gap-2 rounded-full border border-white/[0.075] bg-white/[0.055] px-3 text-xs font-black text-slate-100 outline-none transition hover:bg-white/[0.08] focus:border-sky-400/45 focus:ring-2 focus:ring-sky-400/10"
-    : "inline-flex h-8 min-w-28 items-center justify-between gap-2 rounded-full border border-[#D5E4EF] bg-white px-3 text-xs font-black text-slate-950 shadow-sm outline-none transition hover:bg-[#F8FAFC] focus:border-[#7DBEFF] focus:ring-2 focus:ring-[#16AFF5]/10";
+    ? "inline-flex h-8 min-w-28 items-center justify-between gap-2 rounded-full border border-white/[0.075] bg-white/[0.055] px-3 text-xs font-black text-slate-100 outline-none transition hover:bg-white/[0.08] focus:border-indigo-400/45 focus:ring-2 focus:ring-indigo-400/10"
+    : "inline-flex h-8 min-w-28 items-center justify-between gap-2 rounded-full border border-[#E8E8EC] bg-white px-3 text-xs font-black text-slate-950 shadow-sm outline-none transition hover:bg-[#FAFAFA] focus:border-[#818CF8] focus:ring-2 focus:ring-[#6366F1]/10";
   const pillClassName = isDarkTheme
     ? "inline-flex h-8 min-w-28 items-center rounded-full border border-white/[0.075] bg-white/[0.055] px-3 text-xs font-black text-slate-100"
-    : "inline-flex h-8 min-w-28 items-center rounded-full border border-[#D5E4EF] bg-white px-3 text-xs font-black text-slate-950 shadow-sm";
+    : "inline-flex h-8 min-w-28 items-center rounded-full border border-[#E8E8EC] bg-white px-3 text-xs font-black text-slate-950 shadow-sm";
 
   if (options.length <= 1) {
     return <span className={pillClassName}>{selectedOption.label}</span>;
@@ -275,7 +275,7 @@ function TradeHistoryKlineSymbolSelect({
       <SelectContent
         className={isDarkTheme
           ? "z-[140] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
-          : "z-[140] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#D5E4EF] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
+          : "z-[140] max-h-[260px] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border border-[#E8E8EC] bg-white p-1 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.14)]"}
         position="popper"
         sideOffset={8}
       >
@@ -283,8 +283,8 @@ function TradeHistoryKlineSymbolSelect({
           <SelectItem
             key={option.symbol}
             className={isDarkTheme
-              ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-sky-400/10 data-[state=checked]:text-sky-100"
-              : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold outline-none transition data-[highlighted]:bg-[#F8FAFC] data-[state=checked]:bg-[#EAF8FE] data-[state=checked]:text-[#007DB8]"}
+              ? "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold outline-none transition data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-indigo-400/10 data-[state=checked]:text-indigo-100"
+              : "flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold outline-none transition data-[highlighted]:bg-[#FAFAFA] data-[state=checked]:bg-[#EEF2FF] data-[state=checked]:text-[#4F46E5]"}
             value={option.symbol}
           >
             <span className="flex w-full items-center justify-between gap-3">

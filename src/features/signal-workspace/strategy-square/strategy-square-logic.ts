@@ -286,8 +286,8 @@ export function getStoreTabButtonClassName(isDarkTheme: boolean, isActive: boole
   const baseClassName = "motion-fx-1-nav-button flex h-10 min-w-0 items-center justify-center rounded-xl px-3 text-sm font-black transition";
   if (isActive) {
     return isDarkTheme
-      ? `${baseClassName} bg-[#00A6F4] text-white shadow-[0_10px_24px_rgba(0,166,244,0.24)]`
-      : `${baseClassName} bg-white text-[#008DCC] shadow-sm`;
+      ? `${baseClassName} bg-[#6366F1] text-white shadow-[0_10px_24px_rgba(99,102,241,0.24)]`
+      : `${baseClassName} bg-white text-[#4F46E5] shadow-sm`;
   }
 
   return `${baseClassName} ${isDarkTheme ? "text-slate-500 hover:bg-white/[0.05] hover:text-slate-200" : "text-slate-500 hover:bg-white hover:text-slate-900"}`;
@@ -297,26 +297,26 @@ export function getPaginationPageButtonClassName(isDarkTheme: boolean, isActive:
   const baseClassName = "motion-fx-3-raw-button grid h-9 min-w-9 place-items-center rounded-xl px-3 text-xs font-black transition";
   if (isActive) {
     return isDarkTheme
-      ? `${baseClassName} bg-[#00A6F4] text-white shadow-[0_10px_24px_rgba(0,166,244,0.2)]`
-      : `${baseClassName} bg-[#00A6F4] text-white shadow-sm shadow-sky-500/20`;
+      ? `${baseClassName} bg-[#6366F1] text-white shadow-[0_10px_24px_rgba(99,102,241,0.2)]`
+      : `${baseClassName} bg-[#6366F1] text-white shadow-sm shadow-indigo-500/20`;
   }
 
   return isDarkTheme
-    ? `${baseClassName} border border-white/[0.075] bg-white/[0.035] text-slate-300 hover:border-sky-400/25 hover:bg-sky-400/10 hover:text-sky-100`
-    : `${baseClassName} border border-[#E5EAF0] bg-white text-slate-600 shadow-sm hover:border-[#B7E8FC] hover:bg-[#EAF8FE] hover:text-[#008DCC]`;
+    ? `${baseClassName} border border-white/[0.075] bg-white/[0.035] text-slate-300 hover:border-indigo-400/25 hover:bg-indigo-400/10 hover:text-indigo-100`
+    : `${baseClassName} border border-[#E8E8EC] bg-white text-slate-600 shadow-sm hover:border-[#C7D2FE] hover:bg-[#EEF2FF] hover:text-[#4F46E5]`;
 }
 
 export function getMockBadgeClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "rounded-md bg-sky-400/15 px-2 py-0.5 text-[10px] font-black text-sky-200"
-    : "rounded-md bg-[#EAF8FE] px-2 py-0.5 text-[10px] font-black text-[#008DCC]";
+    ? "rounded-md bg-indigo-400/15 px-2 py-0.5 text-[10px] font-black text-indigo-200"
+    : "rounded-md bg-[#EEF2FF] px-2 py-0.5 text-[10px] font-black text-[#4F46E5]";
 }
 
 export function getTypeBadgeClassName(isDarkTheme: boolean, strategyType: StrategySquareType): string {
   const toneClassName = strategyType === "mario"
     ? isDarkTheme ? "bg-violet-400/15 text-violet-200" : "bg-violet-50 text-violet-700"
     : strategyType === "copyTrading"
-      ? isDarkTheme ? "bg-sky-400/15 text-sky-200" : "bg-[#EAF8FE] text-[#008DCC]"
+      ? isDarkTheme ? "bg-indigo-400/15 text-indigo-200" : "bg-[#EEF2FF] text-[#4F46E5]"
       : strategyType === "snowball"
         ? isDarkTheme ? "bg-amber-400/15 text-amber-200" : "bg-amber-50 text-amber-700"
         : isDarkTheme ? "bg-emerald-400/15 text-emerald-200" : "bg-emerald-50 text-emerald-700";
@@ -333,13 +333,13 @@ export function getRiskBadgeClassName(isDarkTheme: boolean, riskLevel: StrategyS
     return isDarkTheme ? "rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold text-amber-200" : "rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700";
   }
 
-  return isDarkTheme ? "rounded-full bg-sky-400/15 px-2 py-0.5 text-[10px] font-bold text-sky-200" : "rounded-full bg-[#EAF8FE] px-2 py-0.5 text-[10px] font-bold text-[#008DCC]";
+  return isDarkTheme ? "rounded-full bg-indigo-400/15 px-2 py-0.5 text-[10px] font-bold text-indigo-200" : "rounded-full bg-[#EEF2FF] px-2 py-0.5 text-[10px] font-bold text-[#4F46E5]";
 }
 
 export function getRankBadgeClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "absolute -bottom-1 -right-1 rounded-full border border-[#181A20] bg-[#00A6F4] px-1 py-0.5 text-[8px] font-black text-white sm:px-1.5 sm:text-[10px]"
-    : "absolute -bottom-1 -right-1 rounded-full border border-white bg-[#00A6F4] px-1 py-0.5 text-[8px] font-black text-white sm:px-1.5 sm:text-[10px]";
+    ? "absolute -bottom-1 -right-1 rounded-full border border-[#181A20] bg-[#6366F1] px-1 py-0.5 text-[8px] font-black text-white sm:px-1.5 sm:text-[10px]"
+    : "absolute -bottom-1 -right-1 rounded-full border border-white bg-[#6366F1] px-1 py-0.5 text-[8px] font-black text-white sm:px-1.5 sm:text-[10px]";
 }
 
 export function getSoftBadgeClassName(isDarkTheme: boolean): string {
@@ -357,25 +357,25 @@ export function getTagClassName(isDarkTheme: boolean): string {
 export function getMockActionClassName(isDarkTheme: boolean, density: "compact" | "default" = "default"): string {
   if (density === "compact") {
     return isDarkTheme
-      ? "motion-fx-3-raw-button inline-flex h-8 w-full items-center justify-center rounded-lg bg-sky-400/15 px-1 text-[10px] font-black text-sky-100 transition hover:bg-sky-400/20 sm:h-9 sm:rounded-xl sm:text-xs xl:h-10 xl:px-3 xl:text-sm"
-      : "motion-fx-3-raw-button inline-flex h-8 w-full items-center justify-center rounded-lg bg-[#EAF8FE] px-1 text-[10px] font-black text-[#008DCC] transition hover:bg-[#D8F1FD] sm:h-9 sm:rounded-xl sm:text-xs xl:h-10 xl:px-3 xl:text-sm";
+      ? "motion-fx-3-raw-button inline-flex h-8 w-full items-center justify-center rounded-lg bg-indigo-400/15 px-1 text-[10px] font-black text-indigo-100 transition hover:bg-indigo-400/20 sm:h-9 sm:rounded-xl sm:text-xs xl:h-10 xl:px-3 xl:text-sm"
+      : "motion-fx-3-raw-button inline-flex h-8 w-full items-center justify-center rounded-lg bg-[#EEF2FF] px-1 text-[10px] font-black text-[#4F46E5] transition hover:bg-[#E0E7FF] sm:h-9 sm:rounded-xl sm:text-xs xl:h-10 xl:px-3 xl:text-sm";
   }
 
   return isDarkTheme
-    ? "motion-fx-3-raw-button inline-flex h-10 items-center justify-center rounded-xl bg-sky-400/15 px-3 text-sm font-black text-sky-100 transition hover:bg-sky-400/20"
-    : "motion-fx-3-raw-button inline-flex h-10 items-center justify-center rounded-xl bg-[#EAF8FE] px-3 text-sm font-black text-[#008DCC] transition hover:bg-[#D8F1FD]";
+    ? "motion-fx-3-raw-button inline-flex h-10 items-center justify-center rounded-xl bg-indigo-400/15 px-3 text-sm font-black text-indigo-100 transition hover:bg-indigo-400/20"
+    : "motion-fx-3-raw-button inline-flex h-10 items-center justify-center rounded-xl bg-[#EEF2FF] px-3 text-sm font-black text-[#4F46E5] transition hover:bg-[#E0E7FF]";
 }
 
 export function getFollowActionClassName(isDarkTheme: boolean, density: "compact" | "default" = "default"): string {
   if (density === "compact") {
     return isDarkTheme
-      ? "motion-fx-3-raw-button inline-flex h-8 w-full items-center justify-center rounded-lg bg-[#00A6F4] px-1 text-[10px] font-black text-white transition hover:bg-[#008DCC] sm:h-9 sm:rounded-xl sm:text-xs xl:h-10 xl:px-4 xl:text-sm"
-      : "motion-fx-3-raw-button inline-flex h-8 w-full items-center justify-center rounded-lg bg-[#00A6F4] px-1 text-[10px] font-black text-white shadow-sm shadow-sky-500/20 transition hover:bg-[#008DCC] sm:h-9 sm:rounded-xl sm:text-xs xl:h-10 xl:px-4 xl:text-sm";
+      ? "motion-fx-3-raw-button inline-flex h-8 w-full items-center justify-center rounded-lg bg-[#6366F1] px-1 text-[10px] font-black text-white transition hover:bg-[#4F46E5] sm:h-9 sm:rounded-xl sm:text-xs xl:h-10 xl:px-4 xl:text-sm"
+      : "motion-fx-3-raw-button inline-flex h-8 w-full items-center justify-center rounded-lg bg-[#6366F1] px-1 text-[10px] font-black text-white shadow-sm shadow-indigo-500/20 transition hover:bg-[#4F46E5] sm:h-9 sm:rounded-xl sm:text-xs xl:h-10 xl:px-4 xl:text-sm";
   }
 
   return isDarkTheme
-    ? "motion-fx-3-raw-button inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#00A6F4] px-4 text-sm font-black text-white transition hover:bg-[#008DCC]"
-    : "motion-fx-3-raw-button inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#00A6F4] px-4 text-sm font-black text-white shadow-sm shadow-sky-500/20 transition hover:bg-[#008DCC]";
+    ? "motion-fx-3-raw-button inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#6366F1] px-4 text-sm font-black text-white transition hover:bg-[#4F46E5]"
+    : "motion-fx-3-raw-button inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#6366F1] px-4 text-sm font-black text-white shadow-sm shadow-indigo-500/20 transition hover:bg-[#4F46E5]";
 }
 
 export function getPnlTextClassName(isDarkTheme: boolean, value: number | null, pnlColorMode: PnlColorMode, prefixClassName: string): string {

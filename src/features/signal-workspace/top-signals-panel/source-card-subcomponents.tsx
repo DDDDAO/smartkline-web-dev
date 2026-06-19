@@ -40,8 +40,8 @@ export function RowsPaginationControls({
   onPrevious: () => void;
 }) {
   const buttonClassName = isDarkTheme
-    ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-[11px] font-bold text-sky-200 transition hover:border-sky-400/25 hover:bg-sky-400/10 disabled:cursor-not-allowed disabled:opacity-45"
-    : "rounded-2xl border border-[#B7E8FC] bg-white px-3 py-2 text-[11px] font-bold text-[#008DCC] transition hover:bg-[#EAF8FE] disabled:cursor-not-allowed disabled:opacity-45";
+    ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-[11px] font-bold text-indigo-200 transition hover:border-indigo-400/25 hover:bg-indigo-400/10 disabled:cursor-not-allowed disabled:opacity-45"
+    : "rounded-2xl border border-[#C7D2FE] bg-white px-3 py-2 text-[11px] font-bold text-[#4F46E5] transition hover:bg-[#EEF2FF] disabled:cursor-not-allowed disabled:opacity-45";
   const rangeClassName = isDarkTheme
     ? "text-center text-[10px] font-semibold text-slate-500"
     : "text-center text-[10px] font-semibold text-slate-400";
@@ -81,8 +81,8 @@ export function SourceHeader({
   const panelCopy = copy.workspace.topSignals;
   const profileUrl = getSafeExternalUrl(model.trader.source_url);
   const actionButtonClassName = isDarkTheme
-    ? "motion-fx-3-raw-button inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full border border-sky-400/20 bg-sky-400/10 px-3 text-[11px] font-bold text-sky-200 transition hover:bg-sky-400/15"
-    : "motion-fx-3-raw-button inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full border border-[#B7E8FC] bg-[#EAF8FE] px-3 text-[11px] font-bold text-[#008DCC] transition hover:bg-[#DDF4FF]";
+    ? "motion-fx-3-raw-button inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full border border-indigo-400/20 bg-indigo-400/10 px-3 text-[11px] font-bold text-indigo-200 transition hover:bg-indigo-400/15"
+    : "motion-fx-3-raw-button inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full border border-[#C7D2FE] bg-[#EEF2FF] px-3 text-[11px] font-bold text-[#4F46E5] transition hover:bg-[#EEF2FF]";
   const traderNameClassName = isDarkTheme
     ? "min-w-0 truncate text-sm font-black leading-none text-slate-50"
     : "min-w-0 truncate text-sm font-black leading-none text-slate-950";
@@ -95,7 +95,7 @@ export function SourceHeader({
       <div className="col-start-2 row-start-1 flex min-w-0 items-center">
         {profileUrl ? (
           <a
-            className={`${traderNameClassName} motion-fx-3-raw-button rounded-md outline-none transition hover:text-sky-400 focus-visible:ring-2 focus-visible:ring-sky-400/50`}
+            className={`${traderNameClassName} motion-fx-3-raw-button rounded-md outline-none transition hover:text-indigo-400 focus-visible:ring-2 focus-visible:ring-indigo-400/50`}
             href={profileUrl}
             rel="noopener noreferrer"
             target="_blank"
@@ -150,8 +150,8 @@ export function TopSignalCopyTradingAction({
 }) {
   const panelCopy = copy.workspace.topSignals;
   const buttonClassName = isDarkTheme
-    ? "motion-fx-3-raw-button mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-sky-400/20 bg-sky-400/10 px-3 py-3 text-left text-sky-100 transition hover:border-sky-300/30 hover:bg-sky-400/15"
-    : "motion-fx-3-raw-button mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-[#B7E8FC] bg-[#EAF8FE] px-3 py-3 text-left text-[#007DB8] transition hover:border-[#93D6F7] hover:bg-[#DDF4FF]";
+    ? "motion-fx-3-raw-button mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-indigo-400/20 bg-indigo-400/10 px-3 py-3 text-left text-indigo-100 transition hover:border-indigo-300/30 hover:bg-indigo-400/15"
+    : "motion-fx-3-raw-button mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-[#C7D2FE] bg-[#EEF2FF] px-3 py-3 text-left text-[#4F46E5] transition hover:border-[#A5B4FC] hover:bg-[#EEF2FF]";
 
   return (
     <button
@@ -165,9 +165,9 @@ export function TopSignalCopyTradingAction({
     >
       <span className="min-w-0">
         <span className="block text-sm font-black">{panelCopy.copyTradingCta}</span>
-        <span className={isDarkTheme ? "mt-0.5 block text-[11px] font-bold text-sky-200/70" : "mt-0.5 block text-[11px] font-bold text-[#008DCC]/70"}>{panelCopy.copyTradingMeta}</span>
+        <span className={isDarkTheme ? "mt-0.5 block text-[11px] font-bold text-indigo-200/70" : "mt-0.5 block text-[11px] font-bold text-[#4F46E5]/70"}>{panelCopy.copyTradingMeta}</span>
       </span>
-      <span aria-hidden="true" className={isDarkTheme ? "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sky-300/15 text-base font-black text-sky-200" : "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-base font-black text-[#008DCC]"}>
+      <span aria-hidden="true" className={isDarkTheme ? "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-indigo-300/15 text-base font-black text-indigo-200" : "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-base font-black text-[#4F46E5]"}>
         →
       </span>
     </button>
@@ -191,8 +191,8 @@ export function PositionRow({
   const unrealizedPnlAmount = calculatePositionUnrealizedPnlAmount(position);
   const pnlToneValue = unrealizedPnlAmount ?? position.unrealized_pnl;
   const rowClassName = isDarkTheme
-    ? "block min-h-[74px] w-full min-w-0 appearance-none overflow-hidden rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-2 text-left transition hover:border-sky-500/30 hover:bg-white/[0.055]"
-    : "block min-h-[74px] w-full min-w-0 appearance-none overflow-hidden rounded-2xl border border-[#E5EAF0] bg-white px-3 py-2 text-left transition hover:border-[#B7E8FC] hover:bg-[#F4FBFF]";
+    ? "block min-h-[74px] w-full min-w-0 appearance-none overflow-hidden rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-2 text-left transition hover:border-indigo-500/30 hover:bg-white/[0.055]"
+    : "block min-h-[74px] w-full min-w-0 appearance-none overflow-hidden rounded-2xl border border-[#E8E8EC] bg-white px-3 py-2 text-left transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF]";
 
   return (
     <button

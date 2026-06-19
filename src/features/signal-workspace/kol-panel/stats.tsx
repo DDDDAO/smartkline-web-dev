@@ -10,10 +10,10 @@ export function KolStatsSummaryPanel({
 }) {
   const containerClassName = isDarkTheme
     ? "bg-[#12161D] px-3 pb-2"
-    : "bg-[#FAFBFD] px-3 pb-2";
+    : "bg-[#FAFAFA] px-3 pb-2";
   const panelClassName = isDarkTheme
     ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2.5"
-    : "rounded-2xl border border-[#E5EAF0] bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.025)]";
+    : "rounded-2xl border border-[#E8E8EC] bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.025)]";
   const titleClassName = isDarkTheme
     ? "min-w-0 truncate text-[11px] font-semibold text-slate-200"
     : "min-w-0 truncate text-[11px] font-semibold text-slate-700";

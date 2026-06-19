@@ -57,7 +57,7 @@ export function TradeMarkerTooltip({
   const avatarStyle = marker.avatarUrl ? { backgroundImage: `url("${marker.avatarUrl}")` } : undefined;
   const shellClassName = isDarkTheme
     ? "pointer-events-none absolute z-50 w-[264px] rounded-2xl border border-white/[0.10] bg-[#181A20]/96 p-3 text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
-    : "pointer-events-none absolute z-50 w-[264px] rounded-2xl border border-[#D5E4EF] bg-white/96 p-3 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.16)] backdrop-blur-xl";
+    : "pointer-events-none absolute z-50 w-[264px] rounded-2xl border border-[#E8E8EC] bg-white/96 p-3 text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.16)] backdrop-blur-xl";
   const mutedClassName = isDarkTheme ? "text-slate-400" : "text-slate-500";
 
   return (
@@ -163,7 +163,7 @@ function getTradeMarkerInitial(marker: KlineTradePointMarker): string {
 
 function getTradeMarkerTooltipAvatarClassName(isDarkTheme: boolean, side: "buy" | "sell"): string {
   const sideClassName = side === "buy" ? "border-emerald-400" : "border-rose-400";
-  const themeClassName = isDarkTheme ? "bg-slate-800 text-slate-50" : "bg-sky-100 text-sky-700";
+  const themeClassName = isDarkTheme ? "bg-slate-800 text-slate-50" : "bg-indigo-100 text-indigo-700";
   return `grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border-2 ${sideClassName} ${themeClassName} text-xs font-black`;
 }
 
@@ -182,7 +182,7 @@ function getTradeMarkerTooltipSideClassName(isDarkTheme: boolean, side: "buy" | 
 function getTradeMarkerTooltipActionClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-200"
-    : "rounded-full border border-[#E5EAF0] bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-bold text-slate-700";
+    : "rounded-full border border-[#E8E8EC] bg-[#FAFAFA] px-2 py-0.5 text-[10px] font-bold text-slate-700";
 }
 
 function getTradeMarkerTooltipDirectionClassName(isDarkTheme: boolean, direction: "long" | "short" | undefined): string {

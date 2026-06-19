@@ -185,7 +185,7 @@ function getHoveredCandleValueColor(change: number, theme: ChartTheme, priceColo
     return createChartPalette(theme, priceColorMode).down;
   }
 
-  return theme === "dark" ? "#CBD5E1" : "#334155";
+  return theme === "dark" ? "#D4D4D8" : "#334155";
 }
 
 function formatKlineOhlcValue(value: number): string {

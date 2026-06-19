@@ -30,7 +30,7 @@ export function StrategySourceSummary({
   }
 
   return (
-    <div className={isDarkTheme ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3"}>
+    <div className={isDarkTheme ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "mt-3 rounded-2xl border border-[#E8E8EC] bg-white p-3"}>
       <div className={isDarkTheme ? "text-[10px] font-black uppercase tracking-[0.14em] text-slate-500" : "text-[10px] font-black uppercase tracking-[0.14em] text-slate-400"}>
         {title}
       </div>
@@ -56,13 +56,13 @@ function StrategySourceChip({
   const meta = [source.platform, source.id].filter(Boolean).join(" · ");
   const ratio = source.marginPercent === null ? "" : `${source.marginPercent}%`;
   return (
-    <div className={isDarkTheme ? "flex min-w-0 items-center gap-2 rounded-2xl border border-white/[0.075] bg-[#0F131A]/70 px-3 py-2" : "flex min-w-0 items-center gap-2 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-2"}>
+    <div className={isDarkTheme ? "flex min-w-0 items-center gap-2 rounded-2xl border border-white/[0.075] bg-[#0F131A]/70 px-3 py-2" : "flex min-w-0 items-center gap-2 rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-2"}>
       <SourceAvatar isDarkTheme={isDarkTheme} name={source.name} url={source.avatarUrl} />
       <span className="min-w-0">
         <span className={isDarkTheme ? "block truncate text-sm font-black text-slate-100" : "block truncate text-sm font-black text-slate-950"}>{source.name}</span>
         {meta ? <span className="block truncate text-xs font-bold text-slate-500">{meta}</span> : null}
       </span>
-      {ratio ? <span className={isDarkTheme ? "shrink-0 rounded-full bg-sky-400/15 px-2 py-0.5 text-xs font-black text-sky-200" : "shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-black text-sky-700"}>{ratio}</span> : null}
+      {ratio ? <span className={isDarkTheme ? "shrink-0 rounded-full bg-indigo-400/15 px-2 py-0.5 text-xs font-black text-indigo-200" : "shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-black text-indigo-700"}>{ratio}</span> : null}
     </div>
   );
 }

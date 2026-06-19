@@ -220,8 +220,8 @@ export function KolPanel({
             ? "flex h-full min-h-0 flex-col overflow-hidden rounded-t-[28px] border border-b-0 border-white/[0.085] bg-[#181A20] shadow-[0_-18px_54px_rgba(0,0,0,0.38)]"
             : "flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#181A20]"
           : isMobileSheet
-            ? "flex h-full min-h-0 flex-col overflow-hidden rounded-t-[28px] border border-b-0 border-[#D5E4EF] bg-white shadow-[0_-18px_54px_rgba(15,23,42,0.16)]"
-            : "flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-[#E5EAF0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]"
+            ? "flex h-full min-h-0 flex-col overflow-hidden rounded-t-[28px] border border-b-0 border-[#E8E8EC] bg-white shadow-[0_-18px_54px_rgba(15,23,42,0.16)]"
+            : "flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-[#E8E8EC] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]"
       }
     >
       {isMobileSheet ? (
@@ -238,7 +238,7 @@ export function KolPanel({
         className={
           isDarkTheme
             ? "flex min-h-[48px] items-center justify-between gap-3 border-b border-white/[0.075] bg-white/[0.055] px-4 py-2 sm:px-5 lg:py-1.5"
-            : "flex min-h-[48px] items-center justify-between gap-3 border-b border-[#E5EAF0] bg-white px-4 py-2 sm:px-5 lg:py-1.5"
+            : "flex min-h-[48px] items-center justify-between gap-3 border-b border-[#E8E8EC] bg-white px-4 py-2 sm:px-5 lg:py-1.5"
         }
       >
         <div className="min-w-0">
@@ -281,7 +281,7 @@ export function KolPanel({
         className={
           isDarkTheme
             ? "kol-scroll-area kol-scroll-area-dark mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#12161D] pb-3 pl-3 pr-1 pt-2"
-            : "kol-scroll-area mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#FAFBFD] pb-3 pl-3 pr-1 pt-2"
+            : "kol-scroll-area mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#FAFAFA] pb-3 pl-3 pr-1 pt-2"
         }
       >
         {sourceStatus.isLoading && signals.length === 0 ? (

@@ -63,7 +63,7 @@ export function StrategyDetailSummaryCard({
   onUpdateLifecycle: (status: PrototypeStrategyStatus) => void;
 }) {
   return (
-    <Card className={isDarkTheme ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[24px] border-[#E5EAF0] bg-white p-4 text-slate-950 shadow-sm"}>
+    <Card className={isDarkTheme ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[24px] border-[#E8E8EC] bg-white p-4 text-slate-950 shadow-sm"}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button className={getSoftButtonClassName(isDarkTheme)} size="sm" type="button" variant="outline" onClick={onBack}>← {strategyCopy.back}</Button>
         <Button className={getNotificationButtonClassName(isDarkTheme)} type="button" variant="outline" onClick={onNotificationOpen}>
@@ -108,7 +108,7 @@ export function StrategyDetailSummaryCard({
           {syncError ? <p className={getInlineErrorClassName(isDarkTheme)}>{syncError}</p> : null}
         </div>
       ) : null}
-      <div className={isDarkTheme ? "mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/[0.075] pt-4 lg:flex-nowrap" : "mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-[#E5EAF0] pt-4 lg:flex-nowrap"}>
+      <div className={isDarkTheme ? "mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/[0.075] pt-4 lg:flex-nowrap" : "mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-[#E8E8EC] pt-4 lg:flex-nowrap"}>
         <Button className={getSoftButtonClassName(isDarkTheme)} size="sm" type="button" variant="outline" onClick={onEdit}>{strategyCopy.edit}</Button>
         {shouldShowCopyTradingPositionSync ? (
           <Button className={getSoftButtonClassName(isDarkTheme)} disabled={isSyncingPositions} size="sm" type="button" variant="outline" onClick={onSyncCopyTradingPositions}>
@@ -128,20 +128,20 @@ export function StrategyDetailSummaryCard({
 
 function getPrimaryButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "bg-sky-400 text-slate-950 hover:bg-sky-300"
-    : "bg-[#16AFF5] text-white hover:bg-[#008DCC]";
+    ? "bg-indigo-400 text-slate-950 hover:bg-indigo-300"
+    : "bg-[#6366F1] text-white hover:bg-[#4F46E5]";
 }
 
 function getSoftButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "border-white/[0.075] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
-    : "border-[#D5E4EF] bg-white text-slate-700 hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+    : "border-[#E8E8EC] bg-white text-slate-700 hover:border-[#C7D2FE] hover:bg-[#F5F5FF] hover:text-slate-950";
 }
 
 function getNotificationButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "min-h-10 rounded-2xl border-white/[0.075] bg-white/[0.04] text-sm font-black text-slate-200 hover:border-sky-300/25 hover:bg-white/[0.08] hover:text-slate-50"
-    : "min-h-10 rounded-2xl border-[#D5E4EF] bg-white text-sm font-black text-slate-700 hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+    ? "min-h-10 rounded-2xl border-white/[0.075] bg-white/[0.04] text-sm font-black text-slate-200 hover:border-indigo-300/25 hover:bg-white/[0.08] hover:text-slate-50"
+    : "min-h-10 rounded-2xl border-[#E8E8EC] bg-white text-sm font-black text-slate-700 hover:border-[#C7D2FE] hover:bg-[#F5F5FF] hover:text-slate-950";
 }
 
 function getDangerButtonClassName(isDarkTheme: boolean): string {
@@ -158,7 +158,7 @@ function getStrategyStatusBadgeClassName(isDarkTheme: boolean, status: Prototype
     return isDarkTheme ? "shrink-0 rounded-full border-0 bg-amber-400/15 px-2 py-0.5 text-[10px] font-black text-amber-300" : "shrink-0 rounded-full border-0 bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700";
   }
   if (status === "pending") {
-    return isDarkTheme ? "shrink-0 rounded-full border-0 bg-sky-400/15 px-2 py-0.5 text-[10px] font-black text-sky-300" : "shrink-0 rounded-full border-0 bg-sky-50 px-2 py-0.5 text-[10px] font-black text-sky-700";
+    return isDarkTheme ? "shrink-0 rounded-full border-0 bg-indigo-400/15 px-2 py-0.5 text-[10px] font-black text-indigo-300" : "shrink-0 rounded-full border-0 bg-indigo-50 px-2 py-0.5 text-[10px] font-black text-indigo-700";
   }
   if (status === "failed") {
     return isDarkTheme ? "shrink-0 rounded-full border-0 bg-rose-400/15 px-2 py-0.5 text-[10px] font-black text-rose-300" : "shrink-0 rounded-full border-0 bg-rose-50 px-2 py-0.5 text-[10px] font-black text-rose-700";

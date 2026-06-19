@@ -30,7 +30,7 @@ export function TradeHistoryTable({
     <div className="kol-scroll-area mt-3 overflow-x-auto">
       <table className="min-w-[1080px] w-full border-collapse text-left text-sm">
         <thead>
-          <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#DDE8F0] text-xs font-black text-slate-500"}>
+          <tr className={isDarkTheme ? "border-b border-white/[0.075] text-xs font-black text-slate-500" : "border-b border-[#E8E8EC] text-xs font-black text-slate-500"}>
             <th className="px-3 py-3">{strategyCopy.orderTime}</th>
             <th className="px-3 py-3">{strategyCopy.orderSource}</th>
             <th className="px-3 py-3">{strategyCopy.orderPair}</th>
@@ -53,7 +53,7 @@ export function TradeHistoryTable({
                 </td>
                 <td className="px-3 py-4 font-black">
                   <Button
-                    className={isActiveKlineRow ? "h-auto rounded-full bg-sky-400/15 px-2 py-1 text-sky-400 hover:bg-sky-400/15" : "h-auto rounded-full px-2 py-1 underline underline-offset-2 hover:bg-sky-400/10 hover:text-sky-400"}
+                    className={isActiveKlineRow ? "h-auto rounded-full bg-indigo-400/15 px-2 py-1 text-indigo-400 hover:bg-indigo-400/15" : "h-auto rounded-full px-2 py-1 underline underline-offset-2 hover:bg-indigo-400/10 hover:text-indigo-400"}
                     size="sm"
                     type="button"
                     variant="ghost"
@@ -93,7 +93,7 @@ function TradeHistorySourceCell({
         {telegramUser ? (
           <TelegramUserAvatar isDarkTheme={isDarkTheme} size="table" user={telegramUser} />
         ) : (
-          <span className={isDarkTheme ? "grid h-8 w-8 place-items-center rounded-full bg-sky-400/15 text-xs font-black text-sky-200" : "grid h-8 w-8 place-items-center rounded-full bg-[#EAF8FE] text-xs font-black text-[#008DCC]"}>
+          <span className={isDarkTheme ? "grid h-8 w-8 place-items-center rounded-full bg-indigo-400/15 text-xs font-black text-indigo-200" : "grid h-8 w-8 place-items-center rounded-full bg-[#EEF2FF] text-xs font-black text-[#4F46E5]"}>
             {strategyCopy.orderSourceMe}
           </span>
         )}
@@ -137,20 +137,20 @@ function getTradeHistoryRowClassName(isDarkTheme: boolean, kind: TradeHistoryRow
   if (kind === "signalSource") {
     if (isActive) {
       return isDarkTheme
-        ? "border-b border-sky-400/20 bg-sky-400/[0.08] shadow-[inset_3px_0_0_rgba(56,189,248,0.75)] last:border-0"
-        : "border-b border-[#B7E8FC] bg-[#EAF8FE] shadow-[inset_3px_0_0_#00A6F4] last:border-0";
+        ? "border-b border-indigo-400/20 bg-indigo-400/[0.08] shadow-[inset_3px_0_0_rgba(56,189,248,0.75)] last:border-0"
+        : "border-b border-[#C7D2FE] bg-[#EEF2FF] shadow-[inset_3px_0_0_#6366F1] last:border-0";
     }
     return isDarkTheme
       ? "border-b border-white/[0.06] bg-white/[0.025] shadow-[inset_3px_0_0_rgba(148,163,184,0.35)] last:border-0"
-      : "border-b border-[#DDE8F0] bg-[#F8FAFC] shadow-[inset_3px_0_0_#CBD5E1] last:border-0";
+      : "border-b border-[#E8E8EC] bg-[#FAFAFA] shadow-[inset_3px_0_0_#D4D4D8] last:border-0";
   }
 
   if (isActive) {
     return isDarkTheme
-      ? "border-b border-sky-400/20 bg-sky-400/[0.08] last:border-0"
-      : "border-b border-[#B7E8FC] bg-[#EAF8FE] last:border-0";
+      ? "border-b border-indigo-400/20 bg-indigo-400/[0.08] last:border-0"
+      : "border-b border-[#C7D2FE] bg-[#EEF2FF] last:border-0";
   }
-  return isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#DDE8F0] last:border-0";
+  return isDarkTheme ? "border-b border-white/[0.06] last:border-0" : "border-b border-[#E8E8EC] last:border-0";
 }
 
 export function RowsPaginationControls({
@@ -173,8 +173,8 @@ export function RowsPaginationControls({
   onPrevious: () => void;
 }) {
   const buttonClassName = isDarkTheme
-    ? "rounded-2xl border-white/[0.075] bg-white/[0.035] px-3 py-2 text-[11px] font-bold text-sky-200 hover:border-sky-400/25 hover:bg-sky-400/10"
-    : "rounded-2xl border-[#B7E8FC] bg-white px-3 py-2 text-[11px] font-bold text-[#008DCC] hover:bg-[#EAF8FE]";
+    ? "rounded-2xl border-white/[0.075] bg-white/[0.035] px-3 py-2 text-[11px] font-bold text-indigo-200 hover:border-indigo-400/25 hover:bg-indigo-400/10"
+    : "rounded-2xl border-[#C7D2FE] bg-white px-3 py-2 text-[11px] font-bold text-[#4F46E5] hover:bg-[#EEF2FF]";
   const rangeClassName = isDarkTheme
     ? "text-center text-[10px] font-semibold text-slate-500"
     : "text-center text-[10px] font-semibold text-slate-400";

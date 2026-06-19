@@ -58,10 +58,10 @@ export function WorkspaceTopNavigation({
 }) {
   const headerClassName = isDarkTheme
     ? "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-white/[0.075] bg-[#0B0E11]/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap lg:gap-6"
-    : "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-[#E5EAF0] bg-white/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap lg:gap-6";
+    : "relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-[#E8E8EC] bg-white/95 px-3 py-2 backdrop-blur-xl sm:px-5 lg:flex-nowrap lg:gap-6";
   const actionRailClassName = isDarkTheme
     ? "relative flex shrink-0 items-center justify-end gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-1 sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0"
-    : "relative flex shrink-0 items-center justify-end gap-1 rounded-full border border-[#E5EAF0] bg-[#F8FAFC] p-1 shadow-sm sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none";
+    : "relative flex shrink-0 items-center justify-end gap-1 rounded-full border border-[#E8E8EC] bg-[#FAFAFA] p-1 shadow-sm sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none";
 
   return (
     <header className={headerClassName}>
@@ -189,8 +189,8 @@ export function TelegramCommunityButton({
   onCommunityOpen: () => void;
 }) {
   const className = isDarkTheme
-    ? "group motion-fx-1-nav-button flex h-10 items-center gap-2 overflow-visible rounded-full border border-sky-300/24 bg-[#00A6F4] px-3 text-sm font-semibold text-white transition-none hover:bg-[#00A6F4] hover:shadow-none active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-    : "group motion-fx-1-nav-button flex h-10 items-center gap-2 overflow-visible rounded-full border border-[#00A6F4]/20 bg-[#00A6F4] px-3 text-sm font-semibold text-white transition-none hover:bg-[#00A6F4] hover:shadow-none active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#229ED9]";
+    ? "group motion-fx-1-nav-button flex h-10 items-center gap-2 overflow-visible rounded-full border border-indigo-300/24 bg-[#6366F1] px-3 text-sm font-semibold text-white transition-none hover:bg-[#6366F1] hover:shadow-none active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300"
+    : "group motion-fx-1-nav-button flex h-10 items-center gap-2 overflow-visible rounded-full border border-[#6366F1]/20 bg-[#6366F1] px-3 text-sm font-semibold text-white transition-none hover:bg-[#6366F1] hover:shadow-none active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6366F1]";
   const slugClassName = "max-w-0 overflow-hidden whitespace-nowrap text-xs font-normal text-white/86 opacity-0 transition-[max-width,opacity,margin] duration-200 ease-out group-hover:ml-1 group-hover:max-w-28 group-hover:opacity-100 group-focus-visible:ml-1 group-focus-visible:max-w-28 group-focus-visible:opacity-100";
 
   return (
@@ -220,8 +220,8 @@ export function GuideIconButton({
   onGuideOpen: () => void;
 }) {
   const className = isDarkTheme
-    ? "group motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/[0.075] bg-white/[0.035] px-0 text-sm font-medium text-slate-300 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:h-10 sm:w-10 sm:hover:w-[104px] sm:hover:border-white/[0.11] sm:hover:bg-white/[0.08] sm:hover:px-3 sm:hover:text-slate-50 sm:focus-visible:w-[104px] sm:focus-visible:px-3"
-    : "group motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#E5EAF0] bg-white px-0 text-sm font-medium text-slate-500 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#229ED9] sm:h-10 sm:w-10 sm:hover:w-[104px] sm:hover:border-[#B7E8FC] sm:hover:bg-[#EAF8FE]/70 sm:hover:px-3 sm:hover:text-slate-950 sm:focus-visible:w-[104px] sm:focus-visible:px-3";
+    ? "group motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/[0.075] bg-white/[0.035] px-0 text-sm font-medium text-slate-300 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 sm:h-10 sm:w-10 sm:hover:w-[104px] sm:hover:border-white/[0.11] sm:hover:bg-white/[0.08] sm:hover:px-3 sm:hover:text-slate-50 sm:focus-visible:w-[104px] sm:focus-visible:px-3"
+    : "group motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#E8E8EC] bg-white px-0 text-sm font-medium text-slate-500 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6366F1] sm:h-10 sm:w-10 sm:hover:w-[104px] sm:hover:border-[#C7D2FE] sm:hover:bg-[#EEF2FF]/70 sm:hover:px-3 sm:hover:text-slate-950 sm:focus-visible:w-[104px] sm:focus-visible:px-3";
 
   return (
     <button
@@ -252,7 +252,7 @@ export function LanguageToggleButton({
 }) {
   const className = isDarkTheme
     ? "motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/[0.075] bg-white/[0.035] text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50 sm:h-10 sm:w-10"
-    : "motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#E5EAF0] bg-white text-slate-600 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:text-[#007DB8] sm:h-10 sm:w-10";
+    : "motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#E8E8EC] bg-white text-slate-600 transition hover:border-[#C7D2FE] hover:bg-[#EEF2FF]/70 hover:text-[#4F46E5] sm:h-10 sm:w-10";
 
   return (
     <button
@@ -280,7 +280,7 @@ export function AnimatedThemeToggler({
 }) {
   const className = isDarkTheme
     ? `motion-fx-1-nav-button ${isCollapsed ? "grid h-8 w-8 place-items-center sm:h-10 sm:w-10" : "flex h-10 w-full items-center gap-3 px-2.5"} rounded-full border border-white/[0.075] bg-white/[0.035] text-sm font-medium text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50`
-    : `motion-fx-1-nav-button ${isCollapsed ? "grid h-8 w-8 place-items-center sm:h-10 sm:w-10" : "flex h-10 w-full items-center gap-3 px-2.5"} rounded-full border border-[#E5EAF0] bg-white text-sm font-medium text-slate-500 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:text-slate-950`;
+    : `motion-fx-1-nav-button ${isCollapsed ? "grid h-8 w-8 place-items-center sm:h-10 sm:w-10" : "flex h-10 w-full items-center gap-3 px-2.5"} rounded-full border border-[#E8E8EC] bg-white text-sm font-medium text-slate-500 transition hover:border-[#C7D2FE] hover:bg-[#EEF2FF]/70 hover:text-slate-950`;
 
   return (
     <button
@@ -364,7 +364,7 @@ export function PnlColorModeToggleButton({
 }) {
   const className = isDarkTheme
     ? "motion-fx-1-nav-button grid h-8 w-8 place-items-center rounded-full border border-white/[0.075] bg-white/[0.035] text-xs font-black text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50 sm:h-10 sm:w-10"
-    : "motion-fx-1-nav-button grid h-8 w-8 place-items-center rounded-full border border-[#E5EAF0] bg-white text-xs font-black text-slate-500 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE]/70 hover:text-slate-950 sm:h-10 sm:w-10";
+    : "motion-fx-1-nav-button grid h-8 w-8 place-items-center rounded-full border border-[#E8E8EC] bg-white text-xs font-black text-slate-500 transition hover:border-[#C7D2FE] hover:bg-[#EEF2FF]/70 hover:text-slate-950 sm:h-10 sm:w-10";
   const title = pnlColorMode === "positiveGreen"
     ? copy.workspace.pnlColorSwitchToPositiveRed
     : copy.workspace.pnlColorSwitchToPositiveGreen;
@@ -410,7 +410,7 @@ export function SidebarCollapseButton({
   if (variant === "edge-tab") {
     const className = isDarkTheme
       ? "kol-edge-tab group fixed right-0 top-1/2 z-[60] hidden h-14 w-8 -translate-y-1/2 overflow-hidden rounded-l-2xl border border-r-0 border-white/[0.075] bg-[#181A20]/96 text-slate-200 backdrop-blur-xl transition-[width,transform,background-color,border-color,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:w-[116px] hover:-translate-x-0.5 hover:border-white/[0.12] hover:bg-white/[0.06] hover:text-slate-50 active:scale-[0.98] lg:flex"
-      : "kol-edge-tab group fixed right-0 top-1/2 z-[60] hidden h-14 w-8 -translate-y-1/2 overflow-hidden rounded-l-2xl border border-r-0 border-[#BFE7FB] bg-[#F4FBFF] text-slate-700 backdrop-blur-xl transition-[width,transform,background-color,border-color,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:w-[116px] hover:-translate-x-0.5 hover:border-[#A7DDF7] hover:bg-[#ECF8FE] hover:text-slate-900 active:scale-[0.98] lg:flex";
+      : "kol-edge-tab group fixed right-0 top-1/2 z-[60] hidden h-14 w-8 -translate-y-1/2 overflow-hidden rounded-l-2xl border border-r-0 border-[#C7D2FE] bg-[#F5F5FF] text-slate-700 backdrop-blur-xl transition-[width,transform,background-color,border-color,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:w-[116px] hover:-translate-x-0.5 hover:border-[#A5B4FC] hover:bg-[#EEF2FF] hover:text-slate-900 active:scale-[0.98] lg:flex";
 
     return (
       <button
@@ -431,7 +431,7 @@ export function SidebarCollapseButton({
 
   const className = isDarkTheme
     ? "group hidden h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/[0.075] bg-white/[0.035] px-0 text-slate-300 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out hover:w-[74px] hover:border-white/[0.11] hover:bg-white/[0.08] hover:px-3 hover:text-slate-50 active:scale-[0.98] focus-visible:w-[74px] focus-visible:px-3 lg:flex"
-    : "group hidden h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[#BFE7FB] bg-[#F4FBFF] px-0 text-slate-700 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out hover:w-[74px] hover:border-[#A7DDF7] hover:bg-[#ECF8FE] hover:px-3 hover:text-slate-900 active:scale-[0.98] focus-visible:w-[74px] focus-visible:px-3 lg:flex";
+    : "group hidden h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[#C7D2FE] bg-[#F5F5FF] px-0 text-slate-700 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out hover:w-[74px] hover:border-[#A5B4FC] hover:bg-[#EEF2FF] hover:px-3 hover:text-slate-900 active:scale-[0.98] focus-visible:w-[74px] focus-visible:px-3 lg:flex";
 
   return (
     <button

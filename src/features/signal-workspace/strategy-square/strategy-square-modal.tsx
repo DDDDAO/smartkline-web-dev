@@ -47,7 +47,7 @@ export function StrategyParameterModal({
   const windowMetrics = getWindowAdjustedMetrics(strategy, window);
   const dialogClassName = isDarkTheme
     ? "fixed inset-x-3 bottom-3 top-auto z-[110] flex max-h-[92dvh] flex-col overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#0F141B] text-slate-100 shadow-[0_24px_70px_rgba(0,0,0,0.48)] sm:inset-x-1/2 sm:bottom-auto sm:top-1/2 sm:w-[min(760px,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2"
-    : "fixed inset-x-3 bottom-3 top-auto z-[110] flex max-h-[92dvh] flex-col overflow-hidden rounded-[28px] border border-[#E5EAF0] bg-white text-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.22)] sm:inset-x-1/2 sm:bottom-auto sm:top-1/2 sm:w-[min(760px,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2";
+    : "fixed inset-x-3 bottom-3 top-auto z-[110] flex max-h-[92dvh] flex-col overflow-hidden rounded-[28px] border border-[#E8E8EC] bg-white text-slate-950 shadow-[0_24px_70px_rgba(15,23,42,0.22)] sm:inset-x-1/2 sm:bottom-auto sm:top-1/2 sm:w-[min(760px,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2";
 
   return (
     <>
@@ -63,7 +63,7 @@ export function StrategyParameterModal({
         className={dialogClassName}
         role="dialog"
       >
-        <div className={isDarkTheme ? "border-b border-white/[0.075] p-4 sm:p-5" : "border-b border-[#E5EAF0] p-4 sm:p-5"}>
+        <div className={isDarkTheme ? "border-b border-white/[0.075] p-4 sm:p-5" : "border-b border-[#E8E8EC] p-4 sm:p-5"}>
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 items-start gap-3">
               <StrategyIcon isDarkTheme={isDarkTheme} name={content.name} />
@@ -83,7 +83,7 @@ export function StrategyParameterModal({
             </div>
             <button
               aria-label={copy.common.close}
-              className={isDarkTheme ? "grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50" : "grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E5EAF0] bg-white text-slate-500 transition hover:border-[#BFE7FB] hover:text-slate-900"}
+              className={isDarkTheme ? "grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08] hover:text-slate-50" : "grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E8E8EC] bg-white text-slate-500 transition hover:border-[#C7D2FE] hover:text-slate-900"}
               type="button"
               onClick={onClose}
             >
@@ -92,10 +92,10 @@ export function StrategyParameterModal({
           </div>
         </div>
 
-        <div className={isDarkTheme ? "kol-scroll-area kol-scroll-area-dark min-h-0 flex-1 overflow-y-auto bg-[#12161D] p-4 sm:p-5" : "kol-scroll-area min-h-0 flex-1 overflow-y-auto bg-[#FAFBFD] p-4 sm:p-5"}>
+        <div className={isDarkTheme ? "kol-scroll-area kol-scroll-area-dark min-h-0 flex-1 overflow-y-auto bg-[#12161D] p-4 sm:p-5" : "kol-scroll-area min-h-0 flex-1 overflow-y-auto bg-[#FAFAFA] p-4 sm:p-5"}>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
             <div className="grid gap-4">
-              <section className={isDarkTheme ? "rounded-3xl border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-3xl border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
+              <section className={isDarkTheme ? "rounded-3xl border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-3xl border border-[#E8E8EC] bg-white p-4 shadow-sm"}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className={isDarkTheme ? "text-sm font-black text-slate-100" : "text-sm font-black text-slate-950"}>{panelCopy.parameterDialogTitle}</h3>
@@ -108,11 +108,11 @@ export function StrategyParameterModal({
                 </div>
               </section>
 
-              <section className={isDarkTheme ? "rounded-3xl border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-3xl border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
+              <section className={isDarkTheme ? "rounded-3xl border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-3xl border border-[#E8E8EC] bg-white p-4 shadow-sm"}>
                 <h3 className={isDarkTheme ? "text-sm font-black text-slate-100" : "text-sm font-black text-slate-950"}>{panelCopy.copyConfigTitle}</h3>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {content.configLines.map((line) => (
-                    <div key={line} className={isDarkTheme ? "rounded-2xl border border-white/[0.06] bg-[#181A20] px-3 py-3 text-xs font-medium text-slate-300" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-xs font-medium text-slate-600"}>
+                    <div key={line} className={isDarkTheme ? "rounded-2xl border border-white/[0.06] bg-[#181A20] px-3 py-3 text-xs font-medium text-slate-300" : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-3 text-xs font-medium text-slate-600"}>
                       {line}
                     </div>
                   ))}
@@ -129,20 +129,20 @@ export function StrategyParameterModal({
                 <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.metrics.tradeCount} value={String(windowMetrics.tradeCount)} />
                 <StrategyMetric isDarkTheme={isDarkTheme} label={panelCopy.metrics.minimumCapital} value={formatCurrencyNumber(strategy.metrics.minimumCapital)} />
               </div>
-              <section className={isDarkTheme ? "rounded-3xl border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-3xl border border-[#E5EAF0] bg-white p-4 shadow-sm"}>
+              <section className={isDarkTheme ? "rounded-3xl border border-white/[0.075] bg-white/[0.035] p-4" : "rounded-3xl border border-[#E8E8EC] bg-white p-4 shadow-sm"}>
                 <h3 className={isDarkTheme ? "text-xs font-black text-slate-100" : "text-xs font-black text-slate-950"}>{panelCopy.parameterTagsTitle}</h3>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {content.tags.map((tag) => <span key={tag} className={getTagClassName(isDarkTheme)}>{tag}</span>)}
                 </div>
               </section>
-              <div className={isDarkTheme ? "rounded-2xl border border-sky-300/20 bg-sky-300/10 p-3 text-xs leading-5 text-sky-100" : "rounded-2xl border border-[#BFE7FB] bg-[#EAF8FE] p-3 text-xs leading-5 text-[#006F9F]"}>
+              <div className={isDarkTheme ? "rounded-2xl border border-indigo-300/20 bg-indigo-300/10 p-3 text-xs leading-5 text-indigo-100" : "rounded-2xl border border-[#C7D2FE] bg-[#EEF2FF] p-3 text-xs leading-5 text-[#006F9F]"}>
                 {panelCopy.mockNotice}
               </div>
             </div>
           </div>
         </div>
 
-        <div className={isDarkTheme ? "border-t border-white/[0.075] p-4 sm:p-5" : "border-t border-[#E5EAF0] p-4 sm:p-5"}>
+        <div className={isDarkTheme ? "border-t border-white/[0.075] p-4 sm:p-5" : "border-t border-[#E8E8EC] p-4 sm:p-5"}>
           <button className={getFollowActionClassName(isDarkTheme)} type="button" onClick={() => onCopy(strategy)}>
             {copiedStrategyId === strategy.id ? panelCopy.copiedAction : panelCopy.copyAction}
           </button>
@@ -164,7 +164,7 @@ export function StrategyMetric({
   valueClassName?: string;
 }) {
   return (
-    <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
+    <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] p-3"}>
       <div className={isDarkTheme ? "truncate text-[10px] font-bold text-slate-500" : "truncate text-[10px] font-bold text-slate-400"}>{label}</div>
       <div className={valueClassName ?? (isDarkTheme ? "mt-1 truncate text-sm font-black text-slate-100" : "mt-1 truncate text-sm font-black text-slate-950")}>{value}</div>
     </div>

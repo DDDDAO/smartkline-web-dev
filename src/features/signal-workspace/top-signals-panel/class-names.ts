@@ -11,13 +11,13 @@ export function getTopSignalCardClassName(isDarkTheme: boolean, isActive: boolea
   if (isActive) {
     const activeThemeClassName = isDarkTheme
       ? "border-white/[0.12] bg-white/[0.055] shadow-[0_5px_14px_rgba(0,0,0,0.14)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.18)]"
-      : "border-[#D8E0E8] bg-white shadow-[0_4px_12px_rgba(15,23,42,0.05)] hover:shadow-[0_5px_14px_rgba(15,23,42,0.07)]";
+      : "border-[#D4D4D8] bg-white shadow-[0_4px_12px_rgba(15,23,42,0.05)] hover:shadow-[0_5px_14px_rgba(15,23,42,0.07)]";
     return `${baseClassName} ${surfaceClassName} ${activeThemeClassName} signal-card-left-status ${toneClassName}${activeClassName}`;
   }
 
   const defaultThemeClassName = isDarkTheme
     ? "border-white/[0.075] bg-white/[0.035] hover:border-white/[0.12] hover:shadow-[0_5px_14px_rgba(0,0,0,0.18)]"
-    : "border-[#E5EAF0] bg-white hover:border-[#D8E0E8] hover:shadow-[0_5px_14px_rgba(15,23,42,0.07)]";
+    : "border-[#E8E8EC] bg-white hover:border-[#D4D4D8] hover:shadow-[0_5px_14px_rgba(15,23,42,0.07)]";
 
   return `${baseClassName} ${surfaceClassName} ${defaultThemeClassName} signal-card-left-status ${toneClassName}${activeClassName}`;
 }
@@ -26,7 +26,7 @@ export function getTopSignalCardBackClassName(isDarkTheme: boolean): string {
   const surfaceClassName = isDarkTheme ? "signal-card-surface-dark" : "signal-card-surface-light";
   const themeClassName = isDarkTheme
     ? "w-full rounded-[18px] border border-white/[0.075] bg-[#181A20] p-3.5"
-    : "w-full rounded-[18px] border border-[#E5EAF0] bg-white p-3.5";
+    : "w-full rounded-[18px] border border-[#E8E8EC] bg-white p-3.5";
 
   return `${themeClassName} signal-card-left-status ${surfaceClassName} signal-card-left-live`;
 }
@@ -37,7 +37,7 @@ export function getTopSignalStateCardClassName(isDarkTheme: boolean, tone: "load
   const baseClassName = "signal-card-left-status relative w-full overflow-hidden rounded-[18px] border p-3.5 text-left";
   const themeClassName = isDarkTheme
     ? "border-white/[0.075] bg-white/[0.035]"
-    : "border-[#E5EAF0] bg-white";
+    : "border-[#E8E8EC] bg-white";
 
   return `${baseClassName} ${surfaceClassName} ${themeClassName} ${toneClassName}`;
 }
@@ -48,7 +48,7 @@ export function getStatusBadgeClassName(isDarkTheme: boolean, tone: "live" | "lo
   }
 
   if (tone === "loading") {
-    return isDarkTheme ? "rounded-full bg-sky-400/15 px-2 py-0.5 text-[10px] font-bold text-sky-200" : "rounded-full bg-[#EAF8FE] px-2 py-0.5 text-[10px] font-bold text-[#008DCC]";
+    return isDarkTheme ? "rounded-full bg-indigo-400/15 px-2 py-0.5 text-[10px] font-bold text-indigo-200" : "rounded-full bg-[#EEF2FF] px-2 py-0.5 text-[10px] font-bold text-[#4F46E5]";
   }
 
   return isDarkTheme ? "rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-bold text-emerald-200" : "rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700";

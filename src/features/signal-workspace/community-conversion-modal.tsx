@@ -17,7 +17,7 @@ export function CommunityConversionModal({
 }) {
   const modalClassName = isDarkTheme
     ? "w-[min(560px,92vw)] rounded-[28px] border border-white/[0.08] bg-[#181A20] p-6 text-slate-100 shadow-[0_24px_72px_rgba(0,0,0,0.42)]"
-    : "w-[min(560px,92vw)] rounded-[28px] border border-[#E5EAF0] bg-white p-6 text-slate-950 shadow-[0_22px_64px_rgba(15,23,42,0.16)]";
+    : "w-[min(560px,92vw)] rounded-[28px] border border-[#E8E8EC] bg-white p-6 text-slate-950 shadow-[0_22px_64px_rgba(15,23,42,0.16)]";
 
   return (
     <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/42 p-4 backdrop-blur-[6px]">
@@ -53,10 +53,10 @@ export function CommunityConversionModal({
               className={
                 isDarkTheme
                   ? "flex items-center gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-4 py-3"
-                  : "flex items-center gap-3 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-4 py-3"
+                  : "flex items-center gap-3 rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-4 py-3"
               }
             >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#EAF8FE] text-base font-bold text-[#00A6F4]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#EEF2FF] text-base font-bold text-[#6366F1]">
                 {index + 1}
               </span>
               <span

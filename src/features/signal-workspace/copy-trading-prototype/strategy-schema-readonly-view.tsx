@@ -42,7 +42,7 @@ export function StrategySchemaReadonlyView({
 
   if (visibleSections.length === 0) {
     return (
-      <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold text-slate-600"}>
+      <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold text-slate-400" : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-3 text-sm font-bold text-slate-600"}>
         {rendererCopy.noAdditionalConfig}
       </div>
     );
@@ -51,7 +51,7 @@ export function StrategySchemaReadonlyView({
   return (
     <div className="space-y-3">
       {visibleSections.map((section) => (
-        <section key={section.title} className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] p-3"}>
+        <section key={section.title} className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] p-3"}>
           <div className="flex items-start justify-between gap-3">
             <div>
               <h4 className="text-sm font-black">{section.title}</h4>
@@ -94,7 +94,7 @@ function ReadonlyFieldCard({
 }) {
   if (field.path.split(".").pop() === "signalSourceConfigs" && Array.isArray(field.value)) {
     return (
-      <div className={isDarkTheme ? "rounded-xl border border-white/[0.065] bg-[#0F131A]/70 px-3 py-3" : "rounded-xl border border-[#E5EAF0] bg-white px-3 py-3"}>
+      <div className={isDarkTheme ? "rounded-xl border border-white/[0.065] bg-[#0F131A]/70 px-3 py-3" : "rounded-xl border border-[#E8E8EC] bg-white px-3 py-3"}>
         <div className={isDarkTheme ? "text-xs font-black text-slate-200" : "text-xs font-black text-slate-800"}>{field.label}</div>
         {field.description ? <div className={isDarkTheme ? "mt-1 text-[11px] leading-4 text-slate-500" : "mt-1 text-[11px] leading-4 text-slate-500"}>{field.description}</div> : null}
         <SignalSourceConfigGrid
@@ -108,7 +108,7 @@ function ReadonlyFieldCard({
   }
 
   return (
-    <div className={isDarkTheme ? "rounded-xl border border-white/[0.065] bg-[#0F131A]/70 px-3 py-2" : "rounded-xl border border-[#E5EAF0] bg-white px-3 py-2"}>
+    <div className={isDarkTheme ? "rounded-xl border border-white/[0.065] bg-[#0F131A]/70 px-3 py-2" : "rounded-xl border border-[#E8E8EC] bg-white px-3 py-2"}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 sm:max-w-[42%]">
           <div className={isDarkTheme ? "text-xs font-black text-slate-200" : "text-xs font-black text-slate-800"}>{field.label}</div>
@@ -193,7 +193,7 @@ function ReadonlyArray({
   return (
     <div className="space-y-2 text-left">
       {entries.map(({ item, key, ordinal }) => (
-        <div key={key} className={isDarkTheme ? "rounded-xl border border-white/[0.065] bg-white/[0.035] p-2" : "rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] p-2"}>
+        <div key={key} className={isDarkTheme ? "rounded-xl border border-white/[0.065] bg-white/[0.035] p-2" : "rounded-xl border border-[#E8E8EC] bg-[#FAFAFA] p-2"}>
           <div className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{rendererCopy.itemLabel(ordinal)}</div>
           <ReadonlyValue copy={copy} isDarkTheme={isDarkTheme} language={language} schema={itemSchema} value={item} />
         </div>
@@ -251,7 +251,7 @@ function SignalSourceConfigGrid({
           key={`${config.name}-${index}`}
           className={isDarkTheme
             ? "flex min-w-0 items-center gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.04] px-3 py-3"
-            : "flex min-w-0 items-center gap-3 rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3"}
+            : "flex min-w-0 items-center gap-3 rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-3"}
         >
           <SourceAvatar isDarkTheme={isDarkTheme} name={config.name} url={config.avatarUrl} />
           <div className="min-w-0 flex-1">
@@ -259,7 +259,7 @@ function SignalSourceConfigGrid({
               {config.name}
             </div>
           </div>
-          <span className={isDarkTheme ? "shrink-0 rounded-full bg-sky-400/15 px-2.5 py-1 text-xs font-black text-sky-200" : "shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-black text-sky-700"}>
+          <span className={isDarkTheme ? "shrink-0 rounded-full bg-indigo-400/15 px-2.5 py-1 text-xs font-black text-indigo-200" : "shrink-0 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-black text-indigo-700"}>
             {config.ratio}
           </span>
         </div>

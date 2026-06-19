@@ -21,7 +21,7 @@ export function AccountEntryButton({
   const accountCopy = copy.workspace.accountCenter;
   const className = isDarkTheme
     ? "group h-8 w-8 rounded-full border-white/[0.075] bg-white/[0.035] p-0 text-left text-slate-200 hover:bg-white/[0.08] hover:text-slate-50 sm:h-10 sm:w-auto sm:justify-start sm:py-1 sm:pl-1 sm:pr-3"
-    : "group h-8 w-8 rounded-full border-[#D5E4EF] bg-white p-0 text-left text-slate-700 shadow-sm hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950 sm:h-10 sm:w-auto sm:justify-start sm:py-1 sm:pl-1 sm:pr-3";
+    : "group h-8 w-8 rounded-full border-[#E8E8EC] bg-white p-0 text-left text-slate-700 shadow-sm hover:border-[#C7D2FE] hover:bg-[#F5F5FF] hover:text-slate-950 sm:h-10 sm:w-auto sm:justify-start sm:py-1 sm:pl-1 sm:pr-3";
 
   return (
     <Button aria-label={accountCopy.drawer.openAccount} className={className} type="button" variant="outline" onClick={onOpen}>

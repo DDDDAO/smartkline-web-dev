@@ -23,10 +23,10 @@ export function StrategyNotificationSettingsDialog({
   const strategyCopy = copy.workspace.accountCenter.strategy;
   const emptyPanelClassName = isDarkTheme
     ? "rounded-2xl border border-dashed border-white/[0.09] bg-white/[0.02] px-4 py-5 text-sm font-bold text-slate-500"
-    : "rounded-2xl border border-dashed border-[#E5EAF0] bg-[#FAFBFD] px-4 py-5 text-sm font-bold text-slate-500";
+    : "rounded-2xl border border-dashed border-[#E8E8EC] bg-[#FAFAFA] px-4 py-5 text-sm font-bold text-slate-500";
   const eventCardClassName = isDarkTheme
     ? "flex min-h-[72px] items-start gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.025] p-3 opacity-70"
-    : "flex min-h-[72px] items-start gap-3 rounded-2xl border border-[#E5EAF0] bg-[#FAFBFD] p-3 opacity-75";
+    : "flex min-h-[72px] items-start gap-3 rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] p-3 opacity-75";
 
   return (
     <Sheet open onOpenChange={(open) => {
@@ -38,11 +38,11 @@ export function StrategyNotificationSettingsDialog({
         aria-label={strategyCopy.notificationSettingsTitle}
         className={isDarkTheme
           ? "inset-x-0 bottom-0 h-[92dvh] overflow-hidden rounded-t-[30px] border-white/[0.085] bg-[#111820] p-0 text-slate-100 shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:h-[min(820px,calc(100dvh-1rem))] sm:max-w-[980px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"
-          : "inset-x-0 bottom-0 h-[92dvh] overflow-hidden rounded-t-[30px] border-[#D5E4EF] bg-white p-0 text-slate-950 shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:h-[min(820px,calc(100dvh-1rem))] sm:max-w-[980px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"}
+          : "inset-x-0 bottom-0 h-[92dvh] overflow-hidden rounded-t-[30px] border-[#E8E8EC] bg-white p-0 text-slate-950 shadow-[0_-26px_88px_rgba(15,23,42,0.26)] sm:inset-x-3 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:h-[min(820px,calc(100dvh-1rem))] sm:max-w-[980px] sm:-translate-y-1/2 sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.26)]"}
         side="bottom"
       >
         <div className="flex min-h-0 flex-1 flex-col">
-          <SheetHeader className={isDarkTheme ? "border-b border-white/[0.075]" : "border-b border-[#E5EAF0]"}>
+          <SheetHeader className={isDarkTheme ? "border-b border-white/[0.075]" : "border-b border-[#E8E8EC]"}>
             <div className="flex items-start justify-between gap-4">
               <div className="flex min-w-0 items-start gap-3">
                 <span className={getNotificationModalIconClassName(isDarkTheme)}>
@@ -100,7 +100,7 @@ export function StrategyNotificationSettingsDialog({
 
                   return (
                     <div key={event.key} className={eventCardClassName}>
-                      <Checkbox checked={false} className={isDarkTheme ? "mt-0.5 border-white/[0.12] bg-white/[0.02]" : "mt-0.5 border-[#D5E4EF] bg-white"} disabled />
+                      <Checkbox checked={false} className={isDarkTheme ? "mt-0.5 border-white/[0.12] bg-white/[0.02]" : "mt-0.5 border-[#E8E8EC] bg-white"} disabled />
                       <div className="min-w-0">
                         <div className={isDarkTheme ? "text-sm font-black text-slate-300" : "text-sm font-black text-slate-700"}>
                           {eventCopy}
@@ -134,7 +134,7 @@ export function StrategyNotificationSettingsDialog({
             </Card>
           </div>
 
-          <SheetFooter className={isDarkTheme ? "flex-col gap-3 border-t border-white/[0.075] pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between" : "flex-col gap-3 border-t border-[#E5EAF0] pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between"}>
+          <SheetFooter className={isDarkTheme ? "flex-col gap-3 border-t border-white/[0.075] pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between" : "flex-col gap-3 border-t border-[#E8E8EC] pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between"}>
             <p className={isDarkTheme ? "text-sm leading-6 text-slate-500" : "text-sm leading-6 text-slate-500"}>
               {strategyCopy.notificationFooterHint}
             </p>
@@ -152,13 +152,13 @@ export function StrategyNotificationSettingsDialog({
 function getModalSectionClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none"
-    : "gap-0 rounded-[24px] border-[#E5EAF0] bg-white p-4 text-slate-950 shadow-sm";
+    : "gap-0 rounded-[24px] border-[#E8E8EC] bg-white p-4 text-slate-950 shadow-sm";
 }
 
 function getIconButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "rounded-full border-white/[0.075] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-slate-50"
-    : "rounded-full border-[#E5EAF0] bg-white text-slate-500 hover:border-[#BFE7FB] hover:text-slate-900";
+    : "rounded-full border-[#E8E8EC] bg-white text-slate-500 hover:border-[#C7D2FE] hover:text-slate-900";
 }
 
 function getNotificationSaveButtonClassName(isDarkTheme: boolean): string {
@@ -176,11 +176,11 @@ function getNotificationUnavailableBadgeClassName(isDarkTheme: boolean): string 
 function getNotificationModalIconClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/[0.075] bg-white/[0.035] text-slate-100"
-    : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#E5EAF0] bg-[#FAFBFD] text-slate-950";
+    : "grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] text-slate-950";
 }
 
 function getSoftButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
     ? "rounded-2xl border-white/[0.075] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"
-    : "rounded-2xl border-[#D5E4EF] bg-white text-slate-700 hover:border-[#BFE7FB] hover:bg-[#F4FBFF] hover:text-slate-950";
+    : "rounded-2xl border-[#E8E8EC] bg-white text-slate-700 hover:border-[#C7D2FE] hover:bg-[#F5F5FF] hover:text-slate-950";
 }
