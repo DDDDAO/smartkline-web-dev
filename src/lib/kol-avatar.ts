@@ -1,3 +1,9 @@
+const BINANCE_SQUARE_DEFAULT_AVATAR_HOSTNAME = "bin.bnbstatic.com";
+const BINANCE_SQUARE_DEFAULT_AVATAR_PATHNAME = "/static/content/static-sources/square-default-avatar.png";
+// Binance uses this URL as a missing-avatar placeholder. Serve our checked-in
+// copy so the UI is not blocked by third-party static-host loading.
+const LOCAL_BINANCE_SQUARE_DEFAULT_AVATAR_URL = "/avatars/binance-square-default-avatar.png";
+
 export function getKolAvatarInitials(name: string): string {
   return name.trim().slice(0, 2).toUpperCase() || "K";
 }
@@ -23,12 +29,23 @@ function normalizeKolAvatarUrl(url: string | null | undefined): string | null {
 
   try {
     const parsedUrl = new URL(trimmedUrl);
-    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:"
-      ? parsedUrl.toString()
-      : null;
+    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+      return null;
+    }
+
+    if (isBinanceSquareDefaultAvatarUrl(parsedUrl)) {
+      return LOCAL_BINANCE_SQUARE_DEFAULT_AVATAR_URL;
+    }
+
+    return parsedUrl.toString();
   } catch {
     return null;
   }
+}
+
+function isBinanceSquareDefaultAvatarUrl(url: URL): boolean {
+  return url.hostname === BINANCE_SQUARE_DEFAULT_AVATAR_HOSTNAME
+    && url.pathname === BINANCE_SQUARE_DEFAULT_AVATAR_PATHNAME;
 }
 
 function createGeneratedKolAvatarUrl(name: string): string {
