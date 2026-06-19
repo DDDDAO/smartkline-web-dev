@@ -52,7 +52,7 @@ export function MarioStrategyCalculatorCard({
   onTakeProfitTargetChange: (targetId: MarioTakeProfitTargetId, updates: Partial<MarioTakeProfitTargetConfig>) => void;
 }) {
   return (
-    <MarioSectionCard description={copy.budgetHint} icon={<LayersIcon />} isDarkTheme={isDarkTheme} title="坐标定位/持仓计算">
+    <MarioSectionCard description={copy.budgetHint} icon={<LayersIcon />} isDarkTheme={isDarkTheme} title={copy.calculatorTitle}>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <Field label={copy.symbol}>
           <MarketSymbolSearchInput

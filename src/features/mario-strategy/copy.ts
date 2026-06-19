@@ -5,6 +5,7 @@ export type MarioStrategyConsoleCopy = {
   availableQuantity: string;
   budget: string;
   budgetHint: string;
+  calculatorTitle: string;
   cancelAll: string;
   cancelLong: string;
   cancelPlan: string;
@@ -49,6 +50,7 @@ export const MARIO_STRATEGY_CONSOLE_COPY = {
     availableQuantity: "可开数量",
     budget: "预算",
     budgetHint: "按账户权益计算本次风险预算，不覆盖上方账户概况。",
+    calculatorTitle: "坐标定位/持仓计算",
     cancelAll: "全部取消",
     cancelLong: "取消多单",
     cancelPlan: "取消计划",
@@ -91,6 +93,7 @@ export const MARIO_STRATEGY_CONSOLE_COPY = {
     availableQuantity: "Quantity",
     budget: "Budget",
     budgetHint: "Risk budget is calculated from account equity and does not replace the summary above.",
+    calculatorTitle: "Coordinate / Position Sizing",
     cancelAll: "Cancel all",
     cancelLong: "Cancel longs",
     cancelPlan: "Cancel plan",
