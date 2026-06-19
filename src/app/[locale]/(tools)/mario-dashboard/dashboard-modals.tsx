@@ -1,4 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { COUNTDOWN_URGENT_MS } from "./constants";
 import type { ThemeClasses } from "./theme";
 import type { BulkAction, Calculation, CalculatorForm, Countdown, TradeDirection } from "./types";
@@ -105,16 +107,16 @@ export function DashboardModals({
               return (
                 <div key={countdown.id} className={`countdown-modal-item${isUrgent ? " urgent" : ""}`}>
                   <span className="countdown-modal-time">{formatCountdown(remaining)}</span>
-                  <button className="countdown-modal-delete" type="button" onClick={() => onDeleteCountdown(countdown.id)}>删除</button>
+                  <Button className="countdown-modal-delete" size="sm" type="button" variant="destructive" onClick={() => onDeleteCountdown(countdown.id)}>删除</Button>
                 </div>
               );
             }) : <div className="countdown-modal-empty">暂无倒计时</div>}
           </div>
           <div className="countdown-modal-add">
             <div className="input-row">
-              <input aria-label="倒计时天数" inputMode="numeric" maxLength={2} placeholder="天" value={countdownInput.days} onChange={(event) => setCountdownInput((current) => ({ ...current, days: sanitizeIntegerInput(event.target.value) }))} />
-              <input aria-label="倒计时小时" inputMode="numeric" maxLength={2} placeholder="时" value={countdownInput.hours} onChange={(event) => setCountdownInput((current) => ({ ...current, hours: sanitizeIntegerInput(event.target.value) }))} />
-              <input aria-label="倒计时分钟" inputMode="numeric" maxLength={2} placeholder="分" value={countdownInput.minutes} onChange={(event) => setCountdownInput((current) => ({ ...current, minutes: sanitizeIntegerInput(event.target.value) }))} />
+              <Input aria-label="倒计时天数" inputMode="numeric" maxLength={2} placeholder="天" value={countdownInput.days} onChange={(event) => setCountdownInput((current) => ({ ...current, days: sanitizeIntegerInput(event.target.value) }))} />
+              <Input aria-label="倒计时小时" inputMode="numeric" maxLength={2} placeholder="时" value={countdownInput.hours} onChange={(event) => setCountdownInput((current) => ({ ...current, hours: sanitizeIntegerInput(event.target.value) }))} />
+              <Input aria-label="倒计时分钟" inputMode="numeric" maxLength={2} placeholder="分" value={countdownInput.minutes} onChange={(event) => setCountdownInput((current) => ({ ...current, minutes: sanitizeIntegerInput(event.target.value) }))} />
             </div>
           </div>
           <ModalActions

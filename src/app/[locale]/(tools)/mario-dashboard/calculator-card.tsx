@@ -1,4 +1,6 @@
 import { MarketSymbolSearchInput } from "@/components/market/market-symbol-search-input";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { MarketSymbol } from "@/types/market";
 import {
   BUDGET_OPTIONS,
@@ -18,6 +20,10 @@ import {
   toTakeProfitClosePercent,
   toUsdtPerpetualMarketSymbol,
 } from "./utils";
+
+const marioSelectTriggerClassName = "h-[var(--input-height)] rounded-md border-[color:var(--border)] bg-[var(--input-bg)] px-2 text-xs font-medium text-[color:var(--text)] shadow-none focus:ring-0 focus:ring-offset-0";
+const marioSelectContentClassName = "z-[180] rounded-md border-[color:var(--border)] bg-[var(--card-bg)] text-[color:var(--text)]";
+const marioTakeProfitSelectTriggerClassName = "h-[30px] rounded-md border-[color:var(--border)] bg-[var(--input-bg)] px-2 text-[11px] font-medium text-[color:var(--text)] shadow-none focus:ring-0 focus:ring-offset-0";
 
 type CalculatorCardProps = {
   calculation: Calculation;
@@ -76,7 +82,7 @@ export function CalculatorCard({
         </FormRow>
 
         <FormRow label="止损位" theme={theme}>
-          <input
+          <Input
             aria-label="止损位"
             id="stopLoss"
             inputMode="decimal"
@@ -87,7 +93,7 @@ export function CalculatorCard({
         </FormRow>
 
         <FormRow label="开仓点A" theme={theme}>
-          <input
+          <Input
             aria-label="开仓点A"
             id="entryA"
             inputMode="decimal"
@@ -96,13 +102,16 @@ export function CalculatorCard({
             onChange={(event) => onUpdateFormField("entryA", sanitizeDecimalInput(event.target.value))}
           />
           {calculation.entryAWarning ? <span className="warning">{calculation.entryAWarning}</span> : null}
-          <select
-            id="percentA"
-            value={form.percentA}
-            onChange={(event) => onUpdateEntryAPercent(event.target.value)}
-          >
-            {PERCENT_A_OPTIONS.map((percent) => <option key={percent} value={percent}>{percent}%</option>)}
-          </select>
+          <Select value={String(form.percentA)} onValueChange={onUpdateEntryAPercent}>
+            <SelectTrigger className={marioSelectTriggerClassName} id="percentA">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className={marioSelectContentClassName} position="popper" sideOffset={4}>
+              {PERCENT_A_OPTIONS.map((percent) => (
+                <SelectItem key={percent} value={String(percent)}>{percent}%</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FormRow>
 
         <FormRow label="可开数量" theme={theme}>
@@ -110,7 +119,7 @@ export function CalculatorCard({
         </FormRow>
 
         <FormRow label="开仓点B" theme={theme}>
-          <input
+          <Input
             aria-label="开仓点B"
             id="entryB"
             disabled={calculation.entryBDisabled}
@@ -152,14 +161,20 @@ export function CalculatorCard({
               return (
                 <div key={target.id} className="take-profit-target-row">
                   <span className="take-profit-target-name">TP{index + 1}</span>
-                  <select
-                    aria-label={`TP${index + 1} 盈亏比`}
-                    value={target.ratio}
-                    onChange={(event) => onUpdateTakeProfitTarget(target.id, { ratio: toRewardRiskRatio(event.target.value) })}
+                  <Select
+                    value={String(target.ratio)}
+                    onValueChange={(value) => onUpdateTakeProfitTarget(target.id, { ratio: toRewardRiskRatio(value) })}
                   >
-                    {RATIO_OPTIONS.map((ratio) => <option key={ratio} value={ratio}>1:{ratio}</option>)}
-                  </select>
-                  <input
+                    <SelectTrigger aria-label={`TP${index + 1} 盈亏比`} className={marioTakeProfitSelectTriggerClassName}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className={marioSelectContentClassName} position="popper" sideOffset={4}>
+                      {RATIO_OPTIONS.map((ratio) => (
+                        <SelectItem key={ratio} value={String(ratio)}>1:{ratio}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
                     aria-label={`TP${index + 1} 平仓比例`}
                     inputMode="numeric"
                     maxLength={3}

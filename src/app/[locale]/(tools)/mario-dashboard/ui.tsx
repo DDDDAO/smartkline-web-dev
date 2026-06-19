@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { getSegmentButtonClassName } from "./utils";
 import type { ThemeClasses } from "./theme";
 import type { SegmentTone, TradeDirection } from "./types";
@@ -49,14 +50,15 @@ export function SegmentedButtons<TValue extends number>({ getLabel, getTone, onC
       {options.map((option) => {
         const isActive = option === value;
         return (
-          <button
+          <Button
             key={option}
             className={getSegmentButtonClassName(isActive, getTone(option))}
             type="button"
+            variant="ghost"
             onClick={() => onChange(option)}
           >
             {getLabel(option)}
-          </button>
+          </Button>
         );
       })}
     </div>
@@ -65,14 +67,15 @@ export function SegmentedButtons<TValue extends number>({ getLabel, getTone, onC
 
 export function ActionButton({ children, disabled, onClick, tone }: { children: ReactNode; disabled?: boolean; onClick: () => void; tone: TradeDirection }) {
   return (
-    <button
+    <Button
       className={`action-btn ${tone}`}
       disabled={disabled}
       type="button"
+      variant="default"
       onClick={onClick}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -112,8 +115,8 @@ export function ModalActions({ cancelLabel, confirmLabel, onCancel, onConfirm }:
 }) {
   return (
     <div className="modal-actions">
-      <button className="modal-cancel" type="button" onClick={onCancel}>{cancelLabel}</button>
-      <button className="modal-confirm" type="button" onClick={onConfirm}>{confirmLabel}</button>
+      <Button className="modal-cancel" type="button" variant="outline" onClick={onCancel}>{cancelLabel}</Button>
+      <Button className="modal-confirm" type="button" variant="default" onClick={onConfirm}>{confirmLabel}</Button>
     </div>
   );
 }
@@ -129,8 +132,8 @@ export function InfoRow({ label, value }: { label: string; theme: ThemeClasses; 
 
 export function IconButton({ children, label, onClick }: { children: ReactNode; label: string; onClick: () => void; theme: ThemeClasses }) {
   return (
-    <button aria-label={label} className="icon-btn" title={label} type="button" onClick={onClick}>
+    <Button aria-label={label} className="icon-btn" size="icon" title={label} type="button" variant="ghost" onClick={onClick}>
       {children}
-    </button>
+    </Button>
   );
 }

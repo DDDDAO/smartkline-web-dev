@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import type { Countdown } from "./types";
 import { ClockIcon, MoonIcon, SunIcon } from "./icons";
 import type { ThemeClasses } from "./theme";
@@ -52,10 +53,10 @@ export function DashboardHeader({
         <IconButton label="切换主题" theme={theme} onClick={onToggleTheme}>
           {isDarkMode ? <MoonIcon /> : <SunIcon />}
         </IconButton>
-        <button className="api-switch-btn" title={apiKeyStatus.title} type="button" onClick={onSwitchApiKey}>
+        <Button className="api-switch-btn" title={apiKeyStatus.title} type="button" variant="outline" onClick={onSwitchApiKey}>
           <span>切换 API Key</span>
           <span className={`api-switch-status ${apiKeyStatus.tone}`}>{apiKeyStatus.label}</span>
-        </button>
+        </Button>
       </div>
     </header>
   );

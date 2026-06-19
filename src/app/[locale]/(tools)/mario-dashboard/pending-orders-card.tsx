@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { DocumentIcon } from "./icons";
 import type { ThemeClasses } from "./theme";
 import type { BulkActionType, PendingOrder, TradeDirection } from "./types";
@@ -57,7 +58,7 @@ function PendingOrderTable({ countTone, emptyLabel, onCancelOrder, orders, theme
               <TableCell theme={theme}>{formatTakeProfitTargetSummary(order.takeProfitTargets)}</TableCell>
               <TableCell theme={theme}>{formatPrice(order.stopLoss)}</TableCell>
               <TableCell theme={theme}>
-                <button className="cancel-btn" type="button" onClick={() => onCancelOrder(order.id)}>取消</button>
+                <Button className="cancel-btn" size="sm" type="button" variant="destructive" onClick={() => onCancelOrder(order.id)}>取消</Button>
               </TableCell>
             </tr>
           ))}
