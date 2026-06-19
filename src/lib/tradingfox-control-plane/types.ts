@@ -259,6 +259,8 @@ export type TradingFoxOrderHistory = {
     price: string;
     contractAmount: string;
     leverage: number;
+    reduceOnly?: boolean;
+    isClosePosition?: boolean;
     isMock: boolean;
     timestamp: string;
     message?: string;

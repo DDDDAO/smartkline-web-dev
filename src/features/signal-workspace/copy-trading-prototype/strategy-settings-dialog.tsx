@@ -12,10 +12,8 @@ import {
   type WorkspaceCopy,
 } from "@/i18n/workspace";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
-import { CopyTradingSignalSourceConfigEditor } from "./copy-trading-signal-source-config-editor";
 import {
   createAvailableSourceById,
-  createCopyTradingConfigWithSourceRows,
   createCopyTradingSourceRowsFromConfig,
   updateCopyTradingSourceRow,
   validateCopyTradingSourceRows,
@@ -23,7 +21,7 @@ import {
 } from "./copy-trading-signal-source-config";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import { requestStrategyConfigValidation } from "./strategy-detail-utils";
-import { getPrototypeStrategyType } from "./strategy-helpers";
+import { getStrategyPresentation } from "./strategy-presentation-registry";
 import { StrategySettingsConfigEditor } from "./strategy-settings-config-editor";
 import { validateStrategySchemaData, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import { getInlineErrorClassName } from "./styles";
@@ -59,7 +57,8 @@ export function StrategySettingsDialog({
   const strategyCreateCopy = accountCopy.strategyCreate;
   const copyTradingCopy = accountCopy.copyTrading;
   const language = getWorkspaceLanguageFromLocale(useLocale());
-  const isCopyStrategy = getPrototypeStrategyType(strategy) === "copyTrading";
+  const strategyPresentation = getStrategyPresentation(strategy);
+  const isCopyStrategy = strategyPresentation.strategyType === "copyTrading";
   const hasConfigEditor = detail !== undefined;
   const [strategyName, setStrategyName] = useState(strategy.traderName);
   const [config, setConfig] = useState<JsonRecord>(() => cloneJsonRecord(detail?.trader.config));
@@ -79,19 +78,42 @@ export function StrategySettingsDialog({
   const parsedTakeProfitPercent = Number(takeProfitPercent);
   const parsedStopLossPercent = Number(stopLossPercent);
   const shouldShowLegacyRiskInputs = isCopyStrategy && !hasConfigEditor;
-  const shouldShowCopyTradingSourceEditor = isCopyStrategy && hasConfigEditor;
-  const hiddenStrategyPaths = shouldShowCopyTradingSourceEditor ? ["signalSourceConfigs"] : [];
-  const hiddenConfigPaths = shouldShowCopyTradingSourceEditor ? ["strategy.signalSourceConfigs"] : [];
-  const copyTradingSignalSourceErrors = useMemo(() => shouldShowCopyTradingSourceEditor ? validateCopyTradingSourceRows({
+  const hasPresentationConfigEditor = hasConfigEditor && detail !== null;
+  const shouldUseCopyTradingSettingsState = isCopyStrategy && hasPresentationConfigEditor;
+  const copyTradingSignalSourceErrors = useMemo(() => shouldUseCopyTradingSettingsState ? validateCopyTradingSourceRows({
     advancedEnabled: copyTradingAdvancedSourcesEnabled,
     availableSignalSources,
     copy,
     rows: copyTradingSignalSourceRows,
-  }) : [], [availableSignalSources, copy, copyTradingAdvancedSourcesEnabled, copyTradingSignalSourceRows, shouldShowCopyTradingSourceEditor]);
+  }) : [], [availableSignalSources, copy, copyTradingAdvancedSourcesEnabled, copyTradingSignalSourceRows, shouldUseCopyTradingSettingsState]);
+  const settingsPresentationContext = hasPresentationConfigEditor && detail ? {
+    availableSignalSources,
+    config,
+    copy,
+    copyTrading: {
+      advancedSourcesEnabled: copyTradingAdvancedSourcesEnabled,
+      signalSourceErrors: copyTradingSignalSourceErrors,
+      signalSourceRows: copyTradingSignalSourceRows,
+      onAdvancedSourcesEnabledChange: setCopyTradingAdvancedSourcesEnabled,
+      onSignalSourceRowsChange: setCopyTradingSignalSourceRows,
+    },
+    detail,
+    isDarkTheme,
+    signalSourceIdentityById,
+  } : null;
+  const hiddenStrategyPaths = settingsPresentationContext
+    ? strategyPresentation.settings.getHiddenStrategyPaths(settingsPresentationContext)
+    : [];
+  const hiddenConfigPaths = settingsPresentationContext
+    ? strategyPresentation.settings.getHiddenConfigPaths(settingsPresentationContext)
+    : [];
+  const presentationValidationErrors = settingsPresentationContext
+    ? strategyPresentation.settings.getValidationErrors(settingsPresentationContext)
+    : [];
   const canSave = normalizedStrategyName.length > 0
     && !isSubmitting
     && (!hasConfigEditor || rendererState.canSubmit)
-    && copyTradingSignalSourceErrors.length === 0
+    && presentationValidationErrors.length === 0
     && (!shouldShowLegacyRiskInputs || (
       Number.isFinite(parsedTakeProfitPercent)
       && Number.isFinite(parsedStopLossPercent)
@@ -100,7 +122,7 @@ export function StrategySettingsDialog({
     ));
 
   useEffect(() => {
-    if (!shouldShowCopyTradingSourceEditor) {
+    if (!shouldUseCopyTradingSettingsState) {
       return;
     }
     let isMounted = true;
@@ -127,7 +149,7 @@ export function StrategySettingsDialog({
     return () => {
       isMounted = false;
     };
-  }, [availableSignalSources, detail?.trader.config, shouldShowCopyTradingSourceEditor]);
+  }, [availableSignalSources, detail?.trader.config, shouldUseCopyTradingSettingsState]);
 
   const updateConfigBranch = (branch: "common" | "strategy", nextBranchConfig: JsonRecord) => {
     setConfig((currentConfig) => ({ ...currentConfig, [branch]: nextBranchConfig }));
@@ -172,15 +194,12 @@ export function StrategySettingsDialog({
     if (!detail || !strategyDefinition) {
       throw new Error(strategyDefinitionError || strategyCopy.settingsConfigUnavailable);
     }
-    const configToSave = shouldShowCopyTradingSourceEditor
-      ? createCopyTradingConfigWithSourceRows({
-        advancedEnabled: copyTradingAdvancedSourcesEnabled,
-        baseConfig: config,
-        rows: copyTradingSignalSourceRows,
-      })
-      : config;
-    if (copyTradingSignalSourceErrors.length > 0) {
-      setValidationErrors(copyTradingSignalSourceErrors);
+    if (!settingsPresentationContext) {
+      throw new Error(strategyCopy.settingsConfigUnavailable);
+    }
+    const configToSave = strategyPresentation.settings.buildConfig(settingsPresentationContext);
+    if (presentationValidationErrors.length > 0) {
+      setValidationErrors([...presentationValidationErrors]);
       throw new Error(strategyCopy.settingsValidationFailed);
     }
     const localValidationErrors = validateStrategySchemaData({
@@ -287,18 +306,9 @@ export function StrategySettingsDialog({
               hiddenStrategyPaths={hiddenStrategyPaths}
               isDarkTheme={isDarkTheme}
               signalSourceIdentityById={signalSourceIdentityById}
-              strategyControls={shouldShowCopyTradingSourceEditor ? (
-                <CopyTradingSignalSourceConfigEditor
-                  advancedEnabled={copyTradingAdvancedSourcesEnabled}
-                  availableSignalSources={availableSignalSources}
-                  copy={copy}
-                  errors={copyTradingSignalSourceErrors}
-                  isDarkTheme={isDarkTheme}
-                  rows={copyTradingSignalSourceRows}
-                  onAdvancedEnabledChange={setCopyTradingAdvancedSourcesEnabled}
-                  onRowsChange={setCopyTradingSignalSourceRows}
-                />
-              ) : null}
+              strategyControls={settingsPresentationContext
+                ? strategyPresentation.settings.renderControls(settingsPresentationContext)
+                : null}
               onBranchChange={updateConfigBranch}
               onRendererStateChange={setRendererState}
             />

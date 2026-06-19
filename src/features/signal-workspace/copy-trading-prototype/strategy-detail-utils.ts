@@ -1,5 +1,6 @@
-import type { TradingFoxStrategyDetail, TradingFoxStrategyDetailSection, TradingFoxTraderActionResponse } from "@/lib/tradingfox-control-plane";
+import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail, TradingFoxStrategyDetailSection, TradingFoxTraderActionResponse } from "@/lib/tradingfox-control-plane";
 import type { StrategyDetailCurveWindow } from "./strategy-detail-content";
+import { TRADE_HISTORY_PAGE_SIZE } from "./constants";
 
 const STRATEGY_DETAIL_CURVE_WINDOWS: readonly StrategyDetailCurveWindow[] = ["24h", "7d", "30d", "90d"];
 
@@ -111,6 +112,14 @@ export async function requestStrategyDetail(
   return payload as TradingFoxStrategyDetail;
 }
 
+export function requestMarioStrategyDetailRefresh(strategyId: string): Promise<TradingFoxStrategyDetail> {
+  return requestStrategyDetail(strategyId, {
+    orderLimit: TRADE_HISTORY_PAGE_SIZE,
+    orderOffset: 0,
+    sections: ["account", "positions", "orders"],
+  });
+}
+
 export async function requestStrategyPositionSync(strategyId: string, ratioPercent: number): Promise<TradingFoxStrategyDetail> {
   const response = await fetch(`/api/tradingfox/copy-strategies/${encodeURIComponent(strategyId)}/sync-positions`, {
     body: JSON.stringify({ ratioPercent }),
@@ -165,4 +174,16 @@ export async function requestStrategyAction(
     throw new Error("error" in responsePayload && responsePayload.error ? responsePayload.error : `Strategy action failed with status ${response.status}.`);
   }
   return responsePayload as TradingFoxTraderActionResponse;
+}
+
+export async function requestStrategyDefinition(strategyDefinitionId: string): Promise<TradingFoxStrategyDefinition> {
+  const response = await fetch(`/api/tradingfox/strategy-definitions/${encodeURIComponent(strategyDefinitionId)}`, {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  const payload = await response.json().catch(() => null) as TradingFoxStrategyDefinition | { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload && "error" in payload && payload.error ? payload.error : `Strategy definition failed with status ${response.status}.`);
+  }
+  return payload as TradingFoxStrategyDefinition;
 }
