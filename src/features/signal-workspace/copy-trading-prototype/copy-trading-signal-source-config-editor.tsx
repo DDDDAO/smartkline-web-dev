@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import { SourceAvatar } from "../card-ui";
 import {
-  addCopyTradingSourceRow,
+  addCopyTradingSourceRowsByIds,
   createDefaultCopyTradingSourceRows,
   removeCopyTradingSourceRow,
   updateCopyTradingSourceRow,
@@ -42,7 +44,6 @@ export function CopyTradingSignalSourceConfigEditor({
   const cardClassName = isDarkTheme
     ? "border-white/[0.075] bg-white/[0.035] text-slate-100"
     : "border-[#E8E8EC] bg-[#FAFAFA] text-slate-950";
-  const canAddSource = availableSignalSources.length > 0 && rows.length < availableSignalSources.length;
 
   const setAdvancedEnabled = (nextValue: boolean) => {
     onAdvancedEnabledChange(nextValue);
@@ -80,6 +81,15 @@ export function CopyTradingSignalSourceConfigEditor({
             {strategyCreateCopy.copyTradingNoAvailableSignalSource}
           </p>
         ) : null}
+        {advancedEnabled ? (
+          <SignalSourceSearchPicker
+            availableSignalSources={availableSignalSources}
+            copy={copy}
+            isDarkTheme={isDarkTheme}
+            rows={rows}
+            onSelect={(sourceIds) => onRowsChange(addCopyTradingSourceRowsByIds(rows, availableSignalSources, sourceIds))}
+          />
+        ) : null}
         <div className="grid gap-2">
           {visibleRows.map((row, index) => (
             <SignalSourceConfigRowEditor
@@ -96,22 +106,11 @@ export function CopyTradingSignalSourceConfigEditor({
             />
           ))}
         </div>
-        {advancedEnabled ? (
-          <Button
-            className={isDarkTheme ? "border-white/[0.085] bg-white/[0.035] text-slate-100 hover:bg-white/[0.075]" : "border-[#E8E8EC] bg-white text-slate-700 hover:bg-slate-50"}
-            disabled={!canAddSource}
-            size="sm"
-            type="button"
-            variant="outline"
-            onClick={() => onRowsChange(addCopyTradingSourceRow(rows, availableSignalSources))}
-          >
-            {strategyCreateCopy.copyTradingAddSignalSource}
-          </Button>
-        ) : (
+        {!advancedEnabled ? (
           <p className={isDarkTheme ? "text-xs leading-5 text-slate-500" : "text-xs leading-5 text-slate-500"}>
             {strategyCreateCopy.copyTradingSingleSourceHint}
           </p>
-        )}
+        ) : null}
         {errors.length > 0 ? (
           <ul className={isDarkTheme ? "list-disc space-y-1 rounded-xl bg-rose-300/[0.08] px-5 py-2 text-xs font-bold text-rose-100" : "list-disc space-y-1 rounded-xl bg-rose-50 px-5 py-2 text-xs font-bold text-rose-700"}>
             {errors.map((error) => <li key={error}>{error}</li>)}
@@ -119,6 +118,103 @@ export function CopyTradingSignalSourceConfigEditor({
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function SignalSourceSearchPicker({
+  availableSignalSources,
+  copy,
+  isDarkTheme,
+  rows,
+  onSelect,
+}: {
+  availableSignalSources: readonly CopyTradingPrototypeTarget[];
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  rows: readonly CopyTradingSignalSourceConfigRow[];
+  onSelect: (sourceIds: readonly string[]) => void;
+}) {
+  const strategyCreateCopy = copy.workspace.accountCenter.strategyCreate;
+  const [query, setQuery] = useState("");
+  const selectedIds = useMemo(() => new Set(rows.map((row) => row.signalSourceId).filter(Boolean)), [rows]);
+  const selectableSources = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return availableSignalSources
+      .filter((source) => !selectedIds.has(source.trader.trader_id))
+      .filter((source) => {
+        if (!normalizedQuery) {
+          return true;
+        }
+        return [source.trader.name, source.trader.trader_id, source.trader.platform]
+          .some((value) => value.toLowerCase().includes(normalizedQuery));
+      })
+      .slice(0, 8);
+  }, [availableSignalSources, query, selectedIds]);
+  const hasUnselectedSource = availableSignalSources.some((source) => !selectedIds.has(source.trader.trader_id));
+  const pickerClassName = isDarkTheme
+    ? "rounded-2xl border border-white/[0.075] bg-[#0F131A]/70 p-3"
+    : "rounded-2xl border border-[#E8E8EC] bg-white p-3";
+  const optionClassName = isDarkTheme
+    ? "flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-slate-100 transition-colors hover:bg-white/[0.075]"
+    : "flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-2 text-slate-950 transition-colors hover:bg-[#F5F5FF]";
+  const checkboxClassName = isDarkTheme
+    ? "border-white/[0.16] bg-white/[0.035] data-[state=checked]:border-indigo-300 data-[state=checked]:bg-indigo-400 data-[state=checked]:text-slate-950"
+    : "border-[#D7D7E0] bg-white data-[state=checked]:border-[#4F46E5] data-[state=checked]:bg-[#4F46E5] data-[state=checked]:text-white";
+  const mutedClassName = isDarkTheme ? "text-xs font-bold text-slate-500" : "text-xs font-bold text-slate-500";
+
+  const selectSource = (sourceId: string) => {
+    onSelect([sourceId]);
+    setQuery("");
+  };
+
+  return (
+    <div className={pickerClassName}>
+      <div className="space-y-2">
+        <Label className={isDarkTheme ? "text-[11px] uppercase tracking-[0.13em] text-slate-500" : "text-[11px] uppercase tracking-[0.13em] text-slate-400"}>
+          {strategyCreateCopy.copyTradingAddSignalSource}
+        </Label>
+        <Input
+          className={isDarkTheme ? "h-11 rounded-2xl border-white/[0.075] bg-white/[0.035] text-slate-100 placeholder:text-slate-600" : "h-11 rounded-2xl border-[#E8E8EC] bg-white text-slate-950 placeholder:text-slate-400"}
+          disabled={!hasUnselectedSource}
+          placeholder={strategyCreateCopy.signalSourceSearchPlaceholder}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && selectableSources[0]) {
+              event.preventDefault();
+              selectSource(selectableSources[0].trader.trader_id);
+            }
+          }}
+        />
+      </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        {hasUnselectedSource ? (
+          selectableSources.length > 0 ? selectableSources.map((source) => (
+            <Label
+              key={source.trader.trader_id}
+              className={optionClassName}
+              htmlFor={`copy-trading-source-picker-${source.trader.trader_id}`}
+            >
+              <Checkbox
+                checked={false}
+                className={checkboxClassName}
+                id={`copy-trading-source-picker-${source.trader.trader_id}`}
+                onCheckedChange={(checked) => {
+                  if (checked === true) {
+                    selectSource(source.trader.trader_id);
+                  }
+                }}
+              />
+              <SignalSourceOptionLabel copy={copy} isDarkTheme={isDarkTheme} source={source} />
+            </Label>
+          )) : (
+            <div className={mutedClassName}>{strategyCreateCopy.signalSourceNoMatches}</div>
+          )
+        ) : (
+          <div className={mutedClassName}>{strategyCreateCopy.copyTradingSignalSourceCount(rows.length)}</div>
+        )}
+      </div>
+    </div>
   );
 }
 
