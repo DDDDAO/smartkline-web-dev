@@ -139,16 +139,26 @@ export function updateCopyTradingSourceRow(
   });
 }
 
-export function addCopyTradingSourceRow(
+export function addCopyTradingSourceRowsByIds(
   rows: readonly CopyTradingSignalSourceConfigRow[],
   availableSignalSources: readonly CopyTradingPrototypeTarget[],
+  sourceIds: readonly string[],
 ): CopyTradingSignalSourceConfigRow[] {
+  const sourceById = createAvailableSourceById(availableSignalSources);
   const selectedIds = new Set(rows.map((row) => row.signalSourceId).filter(Boolean));
-  const nextSource = availableSignalSources.find((source) => !selectedIds.has(source.trader.trader_id)) ?? availableSignalSources[0] ?? null;
-  if (!nextSource) {
-    return [...rows];
-  }
-  return [...rows, createRow(nextSource.trader.trader_id, "100", nextSource, `new:${Date.now()}:${rows.length}`)];
+  const nextRows = [...rows];
+  sourceIds.forEach((sourceId, index) => {
+    if (!sourceId || selectedIds.has(sourceId)) {
+      return;
+    }
+    const source = sourceById.get(sourceId) ?? null;
+    if (!source) {
+      return;
+    }
+    selectedIds.add(sourceId);
+    nextRows.push(createRow(sourceId, "100", source, `new:${Date.now()}:${rows.length + index}:${sourceId}`));
+  });
+  return nextRows;
 }
 
 export function removeCopyTradingSourceRow(rows: readonly CopyTradingSignalSourceConfigRow[], rowKey: string): CopyTradingSignalSourceConfigRow[] {

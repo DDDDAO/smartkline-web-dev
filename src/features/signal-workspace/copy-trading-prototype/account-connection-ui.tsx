@@ -198,8 +198,8 @@ export function TradingAccountSelect({
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
         className={isDarkTheme
-          ? "mt-2 min-h-12 rounded-2xl border-white/[0.075] bg-white/[0.035] py-2 text-left text-sm font-bold text-slate-100 hover:bg-white/[0.055] focus:ring-indigo-400/10 data-[placeholder]:text-slate-500 [&>span]:line-clamp-none"
-          : "mt-2 min-h-12 rounded-2xl border-[#E8E8EC] bg-white py-2 text-left text-sm font-bold text-slate-950 shadow-sm hover:bg-[#FAFAFA] focus:ring-[#6366F1]/10 data-[placeholder]:text-slate-400 [&>span]:line-clamp-none"}
+          ? "mt-2 h-auto min-h-16 rounded-2xl border-white/[0.075] bg-white/[0.035] py-2 text-left text-sm font-bold text-slate-100 hover:bg-white/[0.055] focus:ring-indigo-400/10 data-[placeholder]:text-slate-500 [&>span]:line-clamp-none"
+          : "mt-2 h-auto min-h-16 rounded-2xl border-[#E8E8EC] bg-white py-2 text-left text-sm font-bold text-slate-950 shadow-sm hover:bg-[#FAFAFA] focus:ring-[#6366F1]/10 data-[placeholder]:text-slate-400 [&>span]:line-clamp-none"}
       >
         <TradingAccountOptionContent accountCopy={accountCopy} connection={selectedConnection} isDarkTheme={isDarkTheme} />
       </SelectTrigger>
@@ -237,30 +237,27 @@ export function TradingAccountOptionContent({
 }) {
   const exchangeLabel = getConnectionExchangeLabel(accountCopy, connection);
   const isBinanceDemoConnection = isBinanceDemoConnectionPlatform(connection.exchangePlatform);
+  const badges = [
+    connection.isMock ? { className: getSuccessBadgeClassName(isDarkTheme), label: accountCopy.api.mockBadge } : null,
+    isBinanceDemoConnection ? { className: getSuccessBadgeClassName(isDarkTheme), label: accountCopy.apiSetup.demoBadge } : null,
+    connection.recommended ? { className: getInfoBadgeClassName(isDarkTheme), label: accountCopy.apiSetup.recommendedBadge } : null,
+  ].filter((badge): badge is { className: string; label: string } => badge !== null);
 
   return (
-    <span className="flex min-w-0 flex-1 items-center gap-2">
+    <span className="flex min-w-0 flex-1 items-start gap-2">
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-black">{connection.accountName}</span>
         <span className={isDarkTheme ? "mt-0.5 block truncate text-xs font-semibold text-slate-500" : "mt-0.5 block truncate text-xs font-semibold text-slate-500"}>
           {exchangeLabel} · {formatAccountBalance(connection.accountBalance)}
         </span>
+        {badges.length > 0 ? (
+          <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+            {badges.map((badge) => (
+              <Badge key={badge.label} className={badge.className}>{badge.label}</Badge>
+            ))}
+          </span>
+        ) : null}
       </span>
-      {connection.isMock ? (
-        <Badge className={getSuccessBadgeClassName(isDarkTheme)}>
-          {accountCopy.api.mockBadge}
-        </Badge>
-      ) : null}
-      {isBinanceDemoConnection ? (
-        <Badge className={getSuccessBadgeClassName(isDarkTheme)}>
-          {accountCopy.apiSetup.demoBadge}
-        </Badge>
-      ) : null}
-      {connection.recommended ? (
-        <Badge className={getInfoBadgeClassName(isDarkTheme)}>
-          {accountCopy.apiSetup.recommendedBadge}
-        </Badge>
-      ) : null}
     </span>
   );
 }
