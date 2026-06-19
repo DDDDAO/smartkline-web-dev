@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
-import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail, TradingFoxStrategyDetailSection } from "@/lib/tradingfox-control-plane";
+import type { TradingFoxStrategyDetail, TradingFoxStrategyDetailSection } from "@/lib/tradingfox-control-plane";
 import type { KlineInterval } from "@/types/market";
 import { TRADE_HISTORY_PAGE_SIZE } from "./constants";
 import { EMPTY_TRADING_FOX_POSITIONS, StrategyPerformanceCurvePanel, createCopyPositionMarkPricesBySymbol, createOpenEndedPageRangeLabel, createSignalSourceIdentityById, createTradeHistoryRows, filterTradeHistoryRowsByStrategyStart, type StrategyDetailCurveWindow, type TradeHistoryRow } from "./strategy-detail-content";
@@ -15,7 +15,8 @@ import { StrategyPositionSyncDialog } from "./strategy-position-sync-dialog";
 import { StrategyDetailSummaryCard } from "./strategy-detail-summary-card";
 import { StrategyTradeHistorySection } from "./strategy-trade-history-section";
 import { StrategyDetailPositionsSections } from "./strategy-detail-positions-sections";
-import { getAdjacentStrategyCurveWindows, getStrategyCurveQueryKey, mergeStrategyDetail, requestStrategyDetail, requestStrategyPositionSync, scheduleStrategyDetailTask } from "./strategy-detail-utils";
+import { MarioStrategyConsole } from "@/features/mario-strategy/console";
+import { getAdjacentStrategyCurveWindows, getStrategyCurveQueryKey, mergeStrategyDetail, requestMarioStrategyDetailRefresh, requestStrategyDefinition, requestStrategyDetail, requestStrategyPositionSync, scheduleStrategyDetailTask } from "./strategy-detail-utils";
 import { getPrototypeStrategyType } from "./strategy-helpers";
 import { getErrorPanelClassName, getModalSectionClassName } from "./styles";
 import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategySettingsUpdateInput, PrototypeStrategyStatus } from "./types";
@@ -103,6 +104,9 @@ export function StrategyDetailView({
 
   const detailStrategyId = detail?.strategy.id ?? "";
   const strategyDefinitionId = detail?.trader.strategyDefinitionId || strategy.strategyDefinitionId || "";
+  const liveStrategy = detail?.strategy ?? strategy;
+  const strategyType = getPrototypeStrategyType(liveStrategy);
+  const isMarioStrategy = strategyType === "mario" || strategyDefinitionId.toUpperCase() === "MARIO_STRATEGY";
 
   const {
     data: strategyDefinitionData,
@@ -199,6 +203,13 @@ export function StrategyDetailView({
   }, [detailStrategyId, shouldLoadTradeHistory]);
 
   useEffect(() => {
+    if (!detailStrategyId || !isMarioStrategy) {
+      return;
+    }
+    return scheduleStrategyDetailTask(() => setShouldLoadTradeHistory(true));
+  }, [detailStrategyId, isMarioStrategy]);
+
+  useEffect(() => {
     if (!detailStrategyId || !shouldLoadTradeHistory) {
       return;
     }
@@ -230,7 +241,6 @@ export function StrategyDetailView({
 
   const loadedSections = detail?.loadedSections ?? [];
   const hasLoadedSection = (section: TradingFoxStrategyDetailSection) => loadedSections.includes(section);
-  const liveStrategy = detail?.strategy ?? strategy;
   const orderItems = detail?.orderHistory?.items ?? [];
   const signalSourceOrderItems = detail?.orderHistory?.signalSourceOrders ?? [];
   const tradeLogItems = detail?.orderHistory?.tradeLogs ?? [];
@@ -268,7 +278,7 @@ export function StrategyDetailView({
   const positionsMetricValue = positionsSectionLoaded ? String(detail?.positions.length ?? 0) : "—";
   const signalSourcesMetricValue = signalSourcesSectionLoaded ? String(detail?.signalSources.length ?? 0) : "—";
   const traderOrdersMetricValue = ordersSectionLoaded ? String(orderItems.length) : "—";
-  const shouldShowCopyTradingPositionSync = Boolean(detail && getPrototypeStrategyType(liveStrategy) === "copyTrading" && liveStrategy.status === "running");
+  const shouldShowCopyTradingPositionSync = Boolean(detail && strategyType === "copyTrading" && liveStrategy.status === "running");
   const strategyDefinition = strategyDefinitionData ?? null;
   const strategyDefinitionError = strategyDefinitionQueryError
     ? getTradingFoxErrorMessage(strategyDefinitionQueryError, copy)
@@ -340,6 +350,12 @@ export function StrategyDetailView({
     setSyncMessage(strategyCopy.settingsSaved);
   };
 
+  const refreshMarioStrategyDetail = async () => {
+    setTradeHistoryPageOffset(0);
+    const nextDetail = await requestMarioStrategyDetailRefresh(liveStrategy.id);
+    setDetail((currentDetail) => mergeStrategyDetail(currentDetail, nextDetail));
+  };
+
   const syncCopyTradingPositions = async (ratioPercent: number) => {
     if (!detail || !shouldShowCopyTradingPositionSync) {
       return;
@@ -407,6 +423,8 @@ export function StrategyDetailView({
             onWindowChange={setActiveCurveWindow}
           />
 
+          {isMarioStrategy ? <MarioStrategyConsole detail={detail} isDarkTheme={isDarkTheme} ordersSectionLoaded={ordersSectionLoaded} workspaceCopy={copy} onRefresh={refreshMarioStrategyDetail} /> : null}
+
           <StrategyDetailPositionsSections
             copy={copy}
             copyPositionMarkPricesBySymbol={copyPositionMarkPricesBySymbol}
@@ -441,7 +459,6 @@ export function StrategyDetailView({
             onRowKlineOpen={openTradeKline}
             onToggleKline={toggleTradeKline}
           />
-
         </>
       ) : null}
       {isPositionSyncOpen ? (
@@ -478,17 +495,4 @@ export function StrategyDetailView({
       ) : null}
     </section>
   );
-}
-
-async function requestStrategyDefinition(strategyDefinitionId: string): Promise<TradingFoxStrategyDefinition> {
-  const response = await fetch(`/api/tradingfox/strategy-definitions/${encodeURIComponent(strategyDefinitionId)}`, {
-    cache: "no-store",
-    credentials: "same-origin",
-  });
-  if (!response.ok) {
-    const payload = await response.json().catch(() => null) as { error?: string } | null;
-    throw new Error(payload?.error || `Strategy definition failed with status ${response.status}.`);
-  }
-
-  return response.json() as Promise<TradingFoxStrategyDefinition>;
 }

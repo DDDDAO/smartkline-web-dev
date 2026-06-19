@@ -28,8 +28,7 @@ const STRATEGY_PRESENTATION_BY_DEFINITION_ID: Record<string, StrategyPresentatio
   },
   [MARIO_DEFINITION_ID]: {
     createPresentation: "marioDashboardHint",
-    dashboardRouteSegment: "mario-dashboard",
-    detailPresentation: "dashboard",
+    detailPresentation: "generic",
     strategyType: "mario",
   },
 };
