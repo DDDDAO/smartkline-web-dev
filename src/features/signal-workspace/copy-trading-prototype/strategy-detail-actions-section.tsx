@@ -24,6 +24,7 @@ type JsonRecord = Record<string, unknown>;
 export function StrategyDetailActionsSection({
   copy,
   detail,
+  hiddenActionIds = [],
   isDarkTheme,
   strategyCopy,
   strategyDefinition,
@@ -31,12 +32,15 @@ export function StrategyDetailActionsSection({
 }: {
   copy: WorkspaceCopy;
   detail: TradingFoxStrategyDetail;
+  hiddenActionIds?: readonly string[];
   isDarkTheme: boolean;
   strategyCopy: WorkspaceCopy["workspace"]["accountCenter"]["strategy"];
   strategyDefinition: TradingFoxStrategyDefinition | null;
   onActionCompleted: (detail?: TradingFoxStrategyDetail) => Promise<void> | void;
 }) {
-  const actionDefinitions = strategyDefinition?.capabilities.actionDefinitions ?? [];
+  const hiddenActionIdSet = new Set(hiddenActionIds);
+  const actionDefinitions = (strategyDefinition?.capabilities.actionDefinitions ?? [])
+    .filter((action) => !hiddenActionIdSet.has(action.id));
   const language = getWorkspaceLanguageFromLocale(useLocale());
   if (actionDefinitions.length === 0) {
     return null;

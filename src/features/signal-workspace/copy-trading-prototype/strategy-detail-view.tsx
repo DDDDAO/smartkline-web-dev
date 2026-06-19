@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
@@ -8,16 +7,14 @@ import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
 import type { TradingFoxStrategyDetail, TradingFoxStrategyDetailSection } from "@/lib/tradingfox-control-plane";
 import type { KlineInterval } from "@/types/market";
 import { TRADE_HISTORY_PAGE_SIZE } from "./constants";
-import { EMPTY_TRADING_FOX_POSITIONS, StrategyPerformanceCurvePanel, createCopyPositionMarkPricesBySymbol, createOpenEndedPageRangeLabel, createSignalSourceIdentityById, createTradeHistoryRows, filterTradeHistoryRowsByStrategyStart, type StrategyDetailCurveWindow, type TradeHistoryRow } from "./strategy-detail-content";
+import { EMPTY_TRADING_FOX_POSITIONS, createCopyPositionMarkPricesBySymbol, createOpenEndedPageRangeLabel, createSignalSourceIdentityById, createTradeHistoryRows, filterTradeHistoryRowsByStrategyStart, type StrategyDetailCurveWindow, type TradeHistoryRow } from "./strategy-detail-content";
 import { StrategySettingsDialog } from "./strategy-settings-dialog";
 import { StrategyNotificationSettingsDialog } from "./strategy-notification-settings-dialog";
 import { StrategyPositionSyncDialog } from "./strategy-position-sync-dialog";
 import { StrategyDetailSummaryCard } from "./strategy-detail-summary-card";
-import { StrategyTradeHistorySection } from "./strategy-trade-history-section";
-import { StrategyDetailPositionsSections } from "./strategy-detail-positions-sections";
-import { MarioStrategyConsole } from "@/features/mario-strategy/console";
+import { StrategyDetailLoadedSections } from "./strategy-detail-loaded-sections";
 import { getAdjacentStrategyCurveWindows, getStrategyCurveQueryKey, mergeStrategyDetail, requestMarioStrategyDetailRefresh, requestStrategyDefinition, requestStrategyDetail, requestStrategyPositionSync, scheduleStrategyDetailTask } from "./strategy-detail-utils";
-import { getPrototypeStrategyType } from "./strategy-helpers";
+import { getStrategyPresentationModule } from "./strategy-presentation-registry";
 import { getErrorPanelClassName, getModalSectionClassName } from "./styles";
 import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategySettingsUpdateInput, PrototypeStrategyStatus } from "./types";
 const STRATEGY_DETAIL_CURVE_WINDOWS: readonly StrategyDetailCurveWindow[] = ["24h", "7d", "30d", "90d"];
@@ -96,7 +93,6 @@ export function StrategyDetailView({
       }
     };
     void loadSummary();
-
     return () => {
       isMounted = false;
     };
@@ -105,8 +101,6 @@ export function StrategyDetailView({
   const detailStrategyId = detail?.strategy.id ?? "";
   const strategyDefinitionId = detail?.trader.strategyDefinitionId || strategy.strategyDefinitionId || "";
   const liveStrategy = detail?.strategy ?? strategy;
-  const strategyType = getPrototypeStrategyType(liveStrategy);
-  const isMarioStrategy = strategyType === "mario" || strategyDefinitionId.toUpperCase() === "MARIO_STRATEGY";
 
   const {
     data: strategyDefinitionData,
@@ -117,6 +111,13 @@ export function StrategyDetailView({
     queryKey: ["tradingfox", "strategy-definition", strategyDefinitionId],
     refetchOnMount: "always",
   });
+  const strategyDefinition = strategyDefinitionData ?? null;
+  const strategyPresentation = getStrategyPresentationModule({
+    definition: strategyDefinition,
+    definitionId: strategyDefinitionId,
+    strategy: liveStrategy,
+  });
+  const strategyType = strategyPresentation.strategyType;
 
   const {
     data: curveQueryData,
@@ -203,11 +204,11 @@ export function StrategyDetailView({
   }, [detailStrategyId, shouldLoadTradeHistory]);
 
   useEffect(() => {
-    if (!detailStrategyId || !isMarioStrategy) {
+    if (!detailStrategyId || !strategyPresentation.detail.preloadTradeHistory) {
       return;
     }
     return scheduleStrategyDetailTask(() => setShouldLoadTradeHistory(true));
-  }, [detailStrategyId, isMarioStrategy]);
+  }, [detailStrategyId, strategyPresentation.detail.preloadTradeHistory]);
 
   useEffect(() => {
     if (!detailStrategyId || !shouldLoadTradeHistory) {
@@ -279,7 +280,6 @@ export function StrategyDetailView({
   const signalSourcesMetricValue = signalSourcesSectionLoaded ? String(detail?.signalSources.length ?? 0) : "—";
   const traderOrdersMetricValue = ordersSectionLoaded ? String(orderItems.length) : "—";
   const shouldShowCopyTradingPositionSync = Boolean(detail && strategyType === "copyTrading" && liveStrategy.status === "running");
-  const strategyDefinition = strategyDefinitionData ?? null;
   const strategyDefinitionError = strategyDefinitionQueryError
     ? getTradingFoxErrorMessage(strategyDefinitionQueryError, copy)
     : "";
@@ -356,6 +356,18 @@ export function StrategyDetailView({
     setDetail((currentDetail) => mergeStrategyDetail(currentDetail, nextDetail));
   };
 
+  const completeStrategyAction = async (nextDetail?: TradingFoxStrategyDetail) => {
+    if (nextDetail) {
+      setDetail((currentDetail) => mergeStrategyDetail(currentDetail, nextDetail));
+      return;
+    }
+    const refreshedDetail = await requestStrategyDetail(liveStrategy.id, {
+      orderLimit: TRADE_HISTORY_PAGE_SIZE,
+      orderOffset: tradeHistoryPageOffset,
+    });
+    setDetail((currentDetail) => mergeStrategyDetail(currentDetail, refreshedDetail));
+  };
+
   const syncCopyTradingPositions = async (ratioPercent: number) => {
     if (!detail || !shouldShowCopyTradingPositionSync) {
       return;
@@ -411,55 +423,44 @@ export function StrategyDetailView({
       ) : error ? (
         <div className={getErrorPanelClassName(isDarkTheme)}>{error}</div>
       ) : detail ? (
-        <>
-          <StrategyPerformanceCurvePanel
-            activeWindow={activeCurveWindow}
-            curve={curveDetail?.strategyCurve ?? null}
-            curveError={curveErrorMessage}
-            curveWindows={STRATEGY_DETAIL_CURVE_WINDOWS}
-            isCurveLoading={isCurveFetching}
-            isDarkTheme={isDarkTheme}
-            strategyCopy={strategyCopy}
-            onWindowChange={setActiveCurveWindow}
-          />
-
-          {isMarioStrategy ? <MarioStrategyConsole detail={detail} isDarkTheme={isDarkTheme} ordersSectionLoaded={ordersSectionLoaded} workspaceCopy={copy} onRefresh={refreshMarioStrategyDetail} /> : null}
-
-          <StrategyDetailPositionsSections
-            copy={copy}
-            copyPositionMarkPricesBySymbol={copyPositionMarkPricesBySymbol}
-            detail={detail}
-            isDarkTheme={isDarkTheme}
-            positionsSectionLoaded={positionsSectionLoaded}
-            signalSourcesSectionLoaded={signalSourcesSectionLoaded}
-            strategyCopy={strategyCopy}
-            strategyDefinition={strategyDefinition}
-          />
-
-          <StrategyTradeHistorySection
-            allTradeHistoryRows={allTradeHistoryRows}
-            canGoNext={hasNextTradeHistoryPage}
-            canGoPrevious={hasPreviousTradeHistoryPage}
-            copy={copy}
-            error={detail.orderHistoryError}
-            interval={tradeKlineInterval}
-            isDarkTheme={isDarkTheme}
-            isKlineOpen={isTradeKlineOpen}
-            isLoaded={ordersSectionLoaded}
-            rangeLabel={tradeHistoryRangeLabel}
-            rows={visibleTradeHistoryRows}
-            sectionRef={tradeHistorySectionRef}
-            selectedRow={selectedTradeKlineRow}
-            strategy={liveStrategy}
-            strategyCopy={strategyCopy}
-            telegramUser={telegramUser}
-            onIntervalChange={setTradeKlineInterval}
-            onNextPage={showNextTradeHistoryPage}
-            onPreviousPage={showPreviousTradeHistoryPage}
-            onRowKlineOpen={openTradeKline}
-            onToggleKline={toggleTradeKline}
-          />
-        </>
+        <StrategyDetailLoadedSections
+          activeCurveWindow={activeCurveWindow}
+          allTradeHistoryRows={allTradeHistoryRows}
+          canGoNext={hasNextTradeHistoryPage}
+          canGoPrevious={hasPreviousTradeHistoryPage}
+          copy={copy}
+          copyPositionMarkPricesBySymbol={copyPositionMarkPricesBySymbol}
+          curve={curveDetail?.strategyCurve ?? null}
+          curveError={curveErrorMessage}
+          curveWindows={STRATEGY_DETAIL_CURVE_WINDOWS}
+          detail={detail}
+          interval={tradeKlineInterval}
+          isCurveLoading={isCurveFetching}
+          isDarkTheme={isDarkTheme}
+          isKlineOpen={isTradeKlineOpen}
+          ordersSectionLoaded={ordersSectionLoaded}
+          positionsSectionLoaded={positionsSectionLoaded}
+          rangeLabel={tradeHistoryRangeLabel}
+          rows={visibleTradeHistoryRows}
+          sectionRef={tradeHistorySectionRef}
+          selectedRow={selectedTradeKlineRow}
+          signalSourceIdentityById={signalSourceIdentityById}
+          signalSourcesSectionLoaded={signalSourcesSectionLoaded}
+          strategy={liveStrategy}
+          strategyCopy={strategyCopy}
+          strategyDefinition={strategyDefinition}
+          strategyDefinitionError={strategyDefinitionError}
+          strategyPresentation={strategyPresentation}
+          telegramUser={telegramUser}
+          onActionCompleted={completeStrategyAction}
+          onIntervalChange={setTradeKlineInterval}
+          onMarioRefresh={refreshMarioStrategyDetail}
+          onNextPage={showNextTradeHistoryPage}
+          onPreviousPage={showPreviousTradeHistoryPage}
+          onRowKlineOpen={openTradeKline}
+          onToggleKline={toggleTradeKline}
+          onWindowChange={setActiveCurveWindow}
+        />
       ) : null}
       {isPositionSyncOpen ? (
         <StrategyPositionSyncDialog

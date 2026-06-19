@@ -8,17 +8,15 @@ import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDefinitionSummary } from "@/lib/tradingfox-control-plane";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import { TradingAccountSelect } from "./account-connection-ui";
-import { CopyTradingCreateBody } from "./strategy-create-fields";
 import {
   createAvailableSourceById,
-  createCopyTradingConfigWithSourceRows,
   createDefaultCopyTradingSourceRows,
   updateCopyTradingSourceRow,
   validateCopyTradingSourceRows,
   type CopyTradingSignalSourceConfigRow,
 } from "./copy-trading-signal-source-config";
 import { PrototypeInput } from "./prototype-form-fields";
-import { DefinitionDrivenConfigForm, type JsonRecord } from "./strategy-definition-config-form";
+import type { JsonRecord } from "./strategy-definition-config-form";
 import { StrategyDefinitionSelect } from "./strategy-definition-select";
 import { COPY_TRADING_DEFINITION_ID, getStrategyPresentationForDefinitionId } from "./strategy-presentation-registry";
 import { createStrategyConfigSkeleton, type StrategySchemaRendererState } from "./strategy-schema-renderer";
@@ -200,23 +198,57 @@ export function StrategyCreateLayer({
     copy,
     rows: copyTradingSignalSourceRows,
   }), [availableSignalSources, copy, copyTradingAdvancedSourcesEnabled, copyTradingSignalSourceRows]);
-  const hasValidCopyTradingInputs = strategyType !== "copyTrading" || (
-    copyTradingSignalSourceErrors.length === 0
-    && Number.isFinite(parsedTakeProfit)
-    && Number.isFinite(parsedStopLoss)
-    && parsedTakeProfit > 0
-    && parsedStopLoss > 0
-  );
+  const updateRendererState = (state: StrategySchemaRendererState) => {
+    setRendererErrors((currentErrors) => {
+      const currentKey = currentErrors.join("\n");
+      const nextKey = state.errors.join("\n");
+      return currentKey === nextKey ? currentErrors : state.errors;
+    });
+  };
+
+  const updateConfigBranch = (branch: "common" | "strategy", nextBranchConfig: JsonRecord) => {
+    setGenericConfig((currentConfig) => ({
+      ...currentConfig,
+      [branch]: nextBranchConfig,
+    }));
+  };
+
+  const createPresentationContext = selectedDefinition ? {
+    accountCopy,
+    copy,
+    copyTrading: {
+      advancedSourcesEnabled: copyTradingAdvancedSourcesEnabled,
+      availableSignalSources,
+      parsedStopLossPercent: parsedStopLoss,
+      parsedTakeProfitPercent: parsedTakeProfit,
+      signalSourceErrors: copyTradingSignalSourceErrors,
+      signalSourceRows: copyTradingSignalSourceRows,
+      stopLossPercent,
+      takeProfitPercent,
+      onAdvancedSourcesEnabledChange: setCopyTradingAdvancedSourcesEnabled,
+      onSignalSourceRowsChange: setCopyTradingSignalSourceRows,
+      onStopLossPercentChange: setStopLossPercent,
+      onTakeProfitPercentChange: setTakeProfitPercent,
+    },
+    definition: selectedDefinition,
+    genericConfig,
+    isDarkTheme,
+    rendererErrors,
+    onConfigBranchChange: updateConfigBranch,
+    onRendererStateChange: updateRendererState,
+  } : null;
+  const createValidationErrors = createPresentationContext
+    ? strategyPresentation.create.getValidationErrors(createPresentationContext)
+    : [];
   const canCreate = selectedApiConnection !== null
     && selectedDefinition !== undefined
     && !isSubmitting
     && !isDefinitionDetailLoading
     && normalizedStrategyName.length > 0
-    && hasValidCopyTradingInputs
-    && (strategyType !== "generic" || rendererErrors.length === 0);
+    && createValidationErrors.length === 0;
 
   const submitStrategy = async () => {
-    if (!canCreate || !selectedApiConnection || !selectedDefinition) {
+    if (!canCreate || !selectedApiConnection || !selectedDefinition || !createPresentationContext) {
       return;
     }
 
@@ -227,15 +259,7 @@ export function StrategyCreateLayer({
         throw new Error(strategyCreateCopy.strategyNameRequired);
       }
 
-      const config = strategyType === "copyTrading"
-        ? createCopyTradingConfigWithSourceRows({
-          advancedEnabled: copyTradingAdvancedSourcesEnabled,
-          baseConfig: genericConfig,
-          rows: copyTradingSignalSourceRows,
-          stopLossPercent: parsedStopLoss,
-          takeProfitPercent: parsedTakeProfit,
-        })
-        : genericConfig;
+      const config = strategyPresentation.create.buildConfig(createPresentationContext);
       await validateStrategyConfig({
         config,
         configSchemaVersion: selectedDefinition.configSchemaVersion,
@@ -258,21 +282,6 @@ export function StrategyCreateLayer({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const updateRendererState = (state: StrategySchemaRendererState) => {
-    setRendererErrors((currentErrors) => {
-      const currentKey = currentErrors.join("\n");
-      const nextKey = state.errors.join("\n");
-      return currentKey === nextKey ? currentErrors : state.errors;
-    });
-  };
-
-  const updateConfigBranch = (branch: "common" | "strategy", nextBranchConfig: JsonRecord) => {
-    setGenericConfig((currentConfig) => ({
-      ...currentConfig,
-      [branch]: nextBranchConfig,
-    }));
   };
 
   return (
@@ -358,35 +367,8 @@ export function StrategyCreateLayer({
 
             {isDefinitionDetailLoading ? (
               <div className={getInfoPanelClassName(isDarkTheme)}>{strategyCreateCopy.definitionLoading}</div>
-            ) : selectedDefinition && strategyPresentation.createPresentation === "copyTrading" ? (
-              <CopyTradingCreateBody
-                accountCopy={accountCopy}
-                advancedSourcesEnabled={copyTradingAdvancedSourcesEnabled}
-                availableSignalSources={availableSignalSources}
-                copy={copy}
-                isDarkTheme={isDarkTheme}
-                signalSourceErrors={copyTradingSignalSourceErrors}
-                signalSourceRows={copyTradingSignalSourceRows}
-                stopLossPercent={stopLossPercent}
-                takeProfitPercent={takeProfitPercent}
-                onAdvancedSourcesEnabledChange={setCopyTradingAdvancedSourcesEnabled}
-                onSignalSourceRowsChange={setCopyTradingSignalSourceRows}
-                onStopLossPercentChange={setStopLossPercent}
-                onTakeProfitPercentChange={setTakeProfitPercent}
-              />
-            ) : selectedDefinition && strategyPresentation.createPresentation === "marioDashboardHint" ? (
-              <div className={isDarkTheme ? "rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.07] px-3 py-3 text-xs leading-5 text-emerald-100/80" : "rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800"}>
-                {strategyCreateCopy.marioDashboardHint}
-              </div>
-            ) : selectedDefinition ? (
-              <DefinitionDrivenConfigForm
-                config={genericConfig}
-                copy={copy}
-                definition={selectedDefinition}
-                isDarkTheme={isDarkTheme}
-                onBranchChange={updateConfigBranch}
-                onRendererStateChange={updateRendererState}
-              />
+            ) : createPresentationContext ? (
+              strategyPresentation.create.renderBody(createPresentationContext)
             ) : selectedSummary ? (
               <div className={getInfoPanelClassName(isDarkTheme)}>{strategyCreateCopy.definitionLoading}</div>
             ) : null}

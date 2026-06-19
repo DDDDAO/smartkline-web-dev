@@ -11,7 +11,7 @@ import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import type { MarketSymbol } from "@/types/market";
 import { createMarioOpenPositionPayload } from "./action-payload";
 import { calculateMarioPosition, createMarioTakeProfitTemplate, createPrioritizedMarioMarketSymbols, formatMarioNumber, formatMarioPrice, toMarioEntryAPercent } from "./calculator";
-import { MARIO_DEFAULT_TAKE_PROFIT_TARGETS, MARIO_FALLBACK_MARKET_SYMBOLS, MARIO_INITIAL_BUDGET, MARIO_INITIAL_FORM, MARIO_INITIAL_RATIO } from "./constants";
+import { MARIO_DEFAULT_TAKE_PROFIT_TARGETS, MARIO_FALLBACK_MARKET_SYMBOLS, MARIO_INITIAL_BUDGET, MARIO_INITIAL_FORM, MARIO_INITIAL_RATIO, MARIO_STRATEGY_ACTION_IDS } from "./constants";
 import { getMarioStrategyConsoleCopy } from "./copy";
 import { MarioStrategyCalculatorCard } from "./calculator-card";
 import { MarioMiniMetric } from "./mini-metric";
@@ -19,12 +19,6 @@ import { MarioStrategyPendingOrdersCard, type MarioCancelAction } from "./pendin
 import { getMarioCardClassName } from "./section-card";
 import type { MarioBudgetPercent, MarioCalculatorForm, MarioRewardRiskRatio, MarioTakeProfitTargetConfig, MarioTakeProfitTargetId, MarioTradeDirection } from "./types";
 import { requestStrategyAction } from "../signal-workspace/copy-trading-prototype/strategy-detail-utils";
-
-const MARIO_ACTION_OPEN_POSITION = "open_position";
-const MARIO_ACTION_CANCEL_PLAN = "cancel_plan";
-const MARIO_ACTION_CANCEL_LONG = "cancel_long";
-const MARIO_ACTION_CANCEL_SHORT = "cancel_short";
-const MARIO_ACTION_CANCEL_ALL = "cancel_all";
 
 export function MarioStrategyConsole({
   detail,
@@ -104,7 +98,7 @@ export function MarioStrategyConsole({
     setActionError("");
     setActionMessage("");
     try {
-      await requestStrategyAction(String(detail.trader.id), MARIO_ACTION_OPEN_POSITION, createMarioOpenPositionPayload({ calculation, direction: openDirection, ratio, symbol: form.symbol }));
+      await requestStrategyAction(String(detail.trader.id), MARIO_STRATEGY_ACTION_IDS.openPosition, createMarioOpenPositionPayload({ calculation, direction: openDirection, ratio, symbol: form.symbol }));
       await onRefresh();
       setActionMessage(copy.planSubmitted);
       setOpenDirection(null);
@@ -222,15 +216,15 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function getCancelActionId(action: MarioCancelAction): string {
   if (action.type === "plan") {
-    return MARIO_ACTION_CANCEL_PLAN;
+    return MARIO_STRATEGY_ACTION_IDS.cancelPlan;
   }
   if (action.type === "long") {
-    return MARIO_ACTION_CANCEL_LONG;
+    return MARIO_STRATEGY_ACTION_IDS.cancelLong;
   }
   if (action.type === "short") {
-    return MARIO_ACTION_CANCEL_SHORT;
+    return MARIO_STRATEGY_ACTION_IDS.cancelShort;
   }
-  return MARIO_ACTION_CANCEL_ALL;
+  return MARIO_STRATEGY_ACTION_IDS.cancelAll;
 }
 
 function getCancelActionPayload(action: MarioCancelAction): Record<string, unknown> {
