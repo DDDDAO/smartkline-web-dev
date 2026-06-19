@@ -54,15 +54,18 @@ Output Directory: .next
 
 部署后页面运行时会在浏览器侧请求 Binance Futures REST / WebSocket 行情；构建阶段不会依赖 Binance 网络请求。
 
-## Telegram OIDC BFF
+## Backend auth proxy
 
-The app includes a Next.js BFF layer for Telegram Login / OpenID Connect:
+The auth authority lives in `smartkline-backend`. The Next.js routes below are
+compatibility routes: they redirect to the backend login flow or proxy the
+opaque `sk_session` cookie to the backend. They must not sign final SmartKline
+sessions locally.
 
 ```text
-GET  /api/auth/telegram/start
-GET  /api/auth/telegram/callback
-GET  /api/auth/me
-POST /api/auth/logout
+GET  /api/auth/telegram/start    -> redirects to /auth/telegram/start
+GET  /api/auth/telegram/callback -> redirects to /auth/telegram/callback
+GET  /api/auth/me                -> proxies /auth/me and maps the legacy UI shape
+POST /api/auth/logout            -> proxies /auth/logout and clears local cookies
 ```
 
 Telegram community verification is retained as the v1 backend capability, but
@@ -86,35 +89,23 @@ POST /api/telegram/webhook
 BotFather must allow this exact redirect URI:
 
 ```text
-https://www.smartkline.com/api/auth/telegram/callback
+https://api.smartkline.com/auth/telegram/callback
 ```
 
-Configure these Vercel Environment Variables without the `NEXT_PUBLIC_` prefix:
+Configure this Vercel Environment Variable without the `NEXT_PUBLIC_` prefix:
 
 ```bash
-APP_ORIGIN=https://www.smartkline.com
-TELEGRAM_CLIENT_ID=
-TELEGRAM_CLIENT_SECRET=
-TELEGRAM_OIDC_SCOPES=openid profile telegram:bot_access
-SESSION_SECRET=
+SMARTKLINE_BACKEND_API_BASE_URL=https://api.smartkline.com
 ```
 
-`SESSION_SECRET` is the server-side signing key for the temporary OAuth cookie
-and the HttpOnly session cookie. Generate a stable high-entropy value and keep
-it secret:
-
-```bash
-openssl rand -base64 32
-```
-
-Rotating `SESSION_SECRET` invalidates existing browser sessions. Rotating
-`TELEGRAM_CLIENT_SECRET` requires updating Vercel before the next deployment.
+Telegram OIDC client credentials, session hashing, and cookie-domain settings
+belong to the backend deployment.
 
 ### Telegram community verification v1
 
 Telegram community verification v1 uses bot-generated one-person invite links.
 The frontend no longer calls this flow by default. The code keeps the storage boundary behind
-`src/app/_lib/auth/telegram-community-store.ts`, with a process-memory adapter
+`src/lib/auth/telegram-community-store.ts`, with a process-memory adapter
 only for wiring the architecture. Before relying on webhooks in production,
 replace that adapter with a durable Redis/Postgres/KV implementation because
 Telegram webhook requests do not include browser session cookies.
