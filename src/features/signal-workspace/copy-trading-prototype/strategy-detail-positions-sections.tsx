@@ -44,7 +44,14 @@ export function StrategyDetailPositionsSections({
     ...(supportsSignalSources ? [{ id: "signalSources" as const, label: strategyCopy.signalSourcePositions }] : []),
   ];
   const [selectedTab, setSelectedTab] = useState<PositionTabId>(tabs[0]?.id ?? "trader");
-  const activeTab = tabs.some((tab) => tab.id === selectedTab) ? selectedTab : tabs[0]?.id;
+  const [hasUserSelectedTab, setHasUserSelectedTab] = useState(false);
+  const hasSignalSourcePositions = detail.signalSources.some((source) => source.positions.length > 0);
+  const shouldPreferSignalSourceTab = signalSourcesSectionLoaded
+    && hasSignalSourcePositions
+    && (!positionsSectionLoaded || detail.positions.length === 0)
+    && tabs.some((tab) => tab.id === "signalSources");
+  const selectedOrPreferredTab = !hasUserSelectedTab && shouldPreferSignalSourceTab ? "signalSources" : selectedTab;
+  const activeTab = tabs.some((tab) => tab.id === selectedOrPreferredTab) ? selectedOrPreferredTab : tabs[0]?.id;
 
   if (!activeTab) {
     return null;
@@ -52,7 +59,10 @@ export function StrategyDetailPositionsSections({
 
   return (
     <Card className={isDarkTheme ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[24px] border-[#E8E8EC] bg-white p-4 text-slate-950 shadow-sm"}>
-      <Tabs value={activeTab} onValueChange={(value) => setSelectedTab(value as PositionTabId)}>
+      <Tabs value={activeTab} onValueChange={(value) => {
+        setHasUserSelectedTab(true);
+        setSelectedTab(value as PositionTabId);
+      }}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-black">{strategyCopy.currentPositions}</h3>
           <TabsList className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035]" : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA]"}>
