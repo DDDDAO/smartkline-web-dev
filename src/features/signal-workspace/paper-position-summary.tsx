@@ -1,6 +1,7 @@
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { PaperPositionRecord } from "@/lib/paper-position";
 import type { StructuredSignal } from "@/types/signal";
+import pillStyles from "./signal-pill.module.css";
 
 export function PaperPositionSummary({
   copy,
@@ -20,8 +21,8 @@ export function PaperPositionSummary({
       ? "mt-3 rounded-2xl bg-slate-700/20 p-3"
       : "mt-3 rounded-2xl bg-white/[0.035] p-3"
     : isActive
-      ? "mt-3 rounded-2xl bg-[#F1F5FA] p-3"
-      : "mt-3 rounded-2xl bg-[#F3F6FA] p-3";
+      ? "mt-3 rounded-2xl bg-[#F4F4F5] p-3"
+      : "mt-3 rounded-2xl bg-[#F4F4F5] p-3";
   const titleClassName = isDarkTheme ? "text-xs font-semibold text-slate-200" : "text-xs font-semibold text-slate-700";
   const mutedClassName = isDarkTheme ? "text-xs text-slate-500" : "text-xs text-slate-400";
 
@@ -80,7 +81,7 @@ type PaperPositionFieldModel = {
 };
 
 function PaperPositionField({ field, isDarkTheme }: { field: PaperPositionFieldModel; isDarkTheme: boolean }) {
-  const fieldClassName = isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.045] px-2 py-2" : "rounded-2xl border border-[#E5EAF0] bg-white px-2 py-2";
+  const fieldClassName = isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.045] px-2 py-2" : "rounded-2xl border border-[#E8E8EC] bg-white px-2 py-2";
   const labelClassName = isDarkTheme ? "text-[11px] text-slate-500" : "text-[11px] text-slate-400";
   const valueClassName = getPaperPositionFieldValueClass(isDarkTheme, field.tone);
 
@@ -96,7 +97,7 @@ function PaperPositionExitResult({ copy, record, isDarkTheme }: { copy: Workspac
   const isStopLoss = record.exitReason === "stop-loss";
   const containerClassName = isDarkTheme
     ? "col-span-2 rounded-2xl border border-white/[0.075] bg-white/[0.045] px-3 py-3"
-    : "col-span-2 rounded-2xl border border-[#E5EAF0] bg-white px-3 py-3";
+    : "col-span-2 rounded-2xl border border-[#E8E8EC] bg-white px-3 py-3";
   const resultClassName = isStopLoss
     ? isDarkTheme ? "text-lg font-black leading-tight text-[#FF7586]" : "text-lg font-black leading-tight text-[#D9515F]"
     : isDarkTheme ? "text-lg font-black leading-tight text-[#45DCA6]" : "text-lg font-black leading-tight text-[#159B72]";
@@ -155,33 +156,33 @@ export function getPaperPositionBadgeClass(
   pnlPercent: number | null = null,
   exitReason: PaperPositionRecord["exitReason"] = null,
 ): string {
-  const baseClassName = `kol-signal-pill kol-status-badge${isDarkTheme ? " kol-signal-pill-dark" : ""}`;
+  const baseClassName = `${pillStyles.pill} ${pillStyles.statusBadge} ${isDarkTheme ? pillStyles.dark : ""}`;
   void pnlPercent;
 
   if (status === "entered") {
-    return `${baseClassName} kol-status-live`;
+    return `${baseClassName} ${pillStyles.statusLive}`;
   }
 
   if (status === "exited") {
     const isStopLoss = exitReason === "stop-loss";
-    return `${baseClassName} ${isStopLoss ? "kol-status-risk" : "kol-status-target"}`;
+    return `${baseClassName} ${isStopLoss ? pillStyles.statusRisk : pillStyles.statusTarget}`;
   }
 
   if (status === "not-entered") {
-    return `${baseClassName} kol-status-pending`;
+    return `${baseClassName} ${pillStyles.statusPending}`;
   }
 
-  return `${baseClassName} kol-status-muted`;
+  return `${baseClassName} ${pillStyles.statusMuted}`;
 }
 
 export function getSignalDirectionBadgeClass(isDarkTheme: boolean, direction: StructuredSignal["direction"]): string {
-  const baseClassName = `kol-signal-pill kol-direction-badge${isDarkTheme ? " kol-signal-pill-dark" : ""}`;
+  const baseClassName = `${pillStyles.pill} ${pillStyles.directionBadge} ${isDarkTheme ? pillStyles.dark : ""}`;
 
   if (direction === "long") {
-    return `${baseClassName} kol-direction-long`;
+    return `${baseClassName} ${pillStyles.directionLong}`;
   }
 
-  return `${baseClassName} kol-direction-short`;
+  return `${baseClassName} ${pillStyles.directionShort}`;
 }
 
 export function getSignalPaperPositionBadgeClass(isDarkTheme: boolean, record: PaperPositionRecord | null): string {

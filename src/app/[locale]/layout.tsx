@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
@@ -16,6 +17,20 @@ import { APP_LOCALES, isAppLocale, type AppLocale } from "@/i18n/locales";
 import { getAppMessages, getSiteMetadata } from "@/i18n/messages";
 
 const GOOGLE_TAG_MANAGER_ID = "GTM-MVGXC53S";
+
+const dmSans = DM_Sans({
+  display: "swap",
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+});
+
+const jetBrainsMono = JetBrains_Mono({
+  display: "swap",
+  subsets: ["latin"],
+  variable: "--font-jetbrains-mono",
+});
+
+const rootFontClassName = `${dmSans.variable} ${jetBrainsMono.variable}`;
 
 type LocaleLayoutProps = Readonly<{
   children: ReactNode;
@@ -43,8 +58,11 @@ export default async function RootLayout({
   setRequestLocale(locale);
 
   return (
-    <html lang={getHtmlLanguage(language)} className="h-full antialiased">
-      <body className="min-h-full flex flex-col">
+    <html lang={getHtmlLanguage(language)} className={`h-full antialiased ${rootFontClassName}`}>
+      <body className="min-h-full flex flex-col bg-background font-sans text-foreground">
+        <link href="https://api.fontshare.com" rel="preconnect" />
+        <link crossOrigin="anonymous" href="https://cdn.fontshare.com" rel="preconnect" />
+        <link href="https://api.fontshare.com/v2/css?f[]=general-sans@600,700&display=swap" rel="stylesheet" />
         <NextIntlClientProvider locale={locale} messages={messages}>
           <noscript>
             <iframe

@@ -1,4 +1,5 @@
 import type { WorkspaceCopy } from "@/i18n/workspace";
+import pillStyles from "./signal-pill.module.css";
 
 export function CommunityConversionCard({
   copy,
@@ -27,7 +28,7 @@ export function CommunityConversionCard({
             className={
               isDarkTheme
                 ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-sm font-semibold text-slate-200"
-                : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-2 text-sm font-semibold text-slate-700"
+                : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-2 text-sm font-semibold text-slate-700"
             }
           >
             {benefit}
@@ -61,7 +62,7 @@ export function MetricTile({
       className={
         isDarkTheme
           ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2"
-          : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-2"
+          : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-2"
       }
     >
       <div
@@ -88,7 +89,7 @@ export function EmptyPanelState({
       className={
         isDarkTheme
           ? "rounded-[22px] border border-white/[0.075] bg-white/[0.035] p-6 text-sm text-slate-400"
-          : "rounded-[22px] border border-[#E5EAF0] bg-white p-6 text-sm text-slate-500"
+          : "rounded-[22px] border border-[#E8E8EC] bg-white p-6 text-sm text-slate-500"
       }
     >
       {copy}
@@ -98,8 +99,8 @@ export function EmptyPanelState({
 
 export function getWorkspacePanelClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "rounded-[24px] border border-white/[0.075] bg-[#181A20]"
-    : "rounded-[24px] border border-[#E5EAF0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
+    ? "rounded-[24px] border border-white/[0.075] bg-[#111113]"
+    : "rounded-[24px] border border-[#E8E8EC] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
 }
 
 export function getPanelTitleClassName(isDarkTheme: boolean): string {
@@ -121,9 +122,7 @@ export function getPanelDescriptionClassName(isDarkTheme: boolean): string {
 }
 
 export function getInfoPillClassName(isDarkTheme: boolean): string {
-  return isDarkTheme
-    ? "kol-signal-pill kol-signal-pill-dark kol-status-live"
-    : "kol-signal-pill kol-status-live";
+  return `${pillStyles.pill} ${pillStyles.statusLive} ${isDarkTheme ? pillStyles.dark : ""}`;
 }
 
 export function getRankBadgeClassName(isDarkTheme: boolean, rank: number): string {
@@ -133,8 +132,8 @@ export function getRankBadgeClassName(isDarkTheme: boolean, rank: number): strin
   if (rank <= 3) {
     return `${baseClassName} ${
       isDarkTheme
-        ? "bg-sky-400/20 text-sky-200"
-        : "bg-[#EAF8FE] text-[#087EBB]"
+        ? "bg-indigo-400/20 text-indigo-200"
+        : "bg-[#EEF2FF] text-[#4F46E5]"
     }`;
   }
 
@@ -167,11 +166,11 @@ export function getMetricValueClassName(
 }
 
 export function getPrimaryButtonClassName(): string {
-  return "motion-fx-1-nav-button inline-flex h-10 items-center justify-center rounded-full bg-[#00A6F4] px-4 text-sm font-semibold text-white transition hover:bg-[#0097DD] disabled:cursor-not-allowed";
+  return "motion-fx-1-nav-button inline-flex h-10 items-center justify-center rounded-full bg-[#6366F1] px-4 text-sm font-semibold text-white transition hover:bg-[#4F46E5] disabled:cursor-not-allowed";
 }
 
 export function getIconButtonClassName(isDarkTheme: boolean): string {
   return isDarkTheme
-    ? "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.035] text-xl text-slate-300 transition hover:bg-white/[0.08] hover:text-sky-300"
-    : "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#E5EAF0] bg-[#F8FAFC] text-xl text-slate-600 transition hover:border-[#B7E8FC] hover:bg-[#EAF8FE] hover:text-[#008DCC]";
+    ? "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.035] text-xl text-slate-300 transition hover:bg-white/[0.08] hover:text-indigo-300"
+    : "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#E8E8EC] bg-[#FAFAFA] text-xl text-slate-600 transition hover:border-[#C7D2FE] hover:bg-[#EEF2FF] hover:text-[#4F46E5]";
 }

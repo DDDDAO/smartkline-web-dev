@@ -1,0 +1,70 @@
+.form input:not([type="checkbox"]):not([type="radio"]),
+.form select,
+.form textarea {
+  background: #FFFFFF;
+  border: 1px solid #D4D4D8;
+  border-radius: 14px;
+  color: #0A0A0A;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 40px;
+  outline: none;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.form textarea {
+  min-height: 96px;
+  padding-bottom: 10px;
+  padding-top: 10px;
+}
+
+.form input:not([type="checkbox"]):not([type="radio"]):focus,
+.form select:focus,
+.form textarea:focus {
+  border-color: #818CF8;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.form input[type="checkbox"],
+.form input[type="radio"] {
+  accent-color: #6366F1;
+}
+
+.form button {
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 900;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.form legend {
+  color: #6B6B6B;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.darkForm input:not([type="checkbox"]):not([type="radio"]),
+.darkForm select,
+.darkForm textarea {
+  background: #111113;
+  border-color: rgba(255, 255, 255, 0.085);
+  color: #FAFAFA;
+}
+
+.darkForm input:not([type="checkbox"]):not([type="radio"]):focus,
+.darkForm select:focus,
+.darkForm textarea:focus {
+  border-color: rgba(99, 102, 241, 0.48);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.10);
+}

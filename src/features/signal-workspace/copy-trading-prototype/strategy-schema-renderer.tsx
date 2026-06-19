@@ -19,6 +19,7 @@ import {
 } from "./strategy-display-metadata";
 import { StrategySchemaReadonlyView } from "./strategy-schema-readonly-view";
 import { STRATEGY_WIDGETS } from "./strategy-schema-widgets";
+import styles from "./strategy-schema-renderer.module.css";
 
 export type StrategySchemaRendererMode = "action" | "create" | "edit" | "readonly";
 export type StrategySchemaRendererState = { canSubmit: boolean; errors: string[] };
@@ -75,7 +76,7 @@ export function StrategySchemaRenderer({
 
   if (!schema || Object.keys(schema).length === 0 || isEmptyObjectSchema(schema)) {
     return (
-      <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold text-slate-400" : "rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-3 text-sm font-bold text-slate-600"}>
+      <div className={isDarkTheme ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-3 text-sm font-bold text-slate-400" : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-3 text-sm font-bold text-slate-600"}>
         {rendererCopy.noAdditionalConfig}
       </div>
     );
@@ -108,7 +109,7 @@ export function StrategySchemaRenderer({
 
   return (
     <Form
-      className={isDarkTheme ? "strategy-schema-form strategy-schema-form-dark space-y-4 text-slate-100" : "strategy-schema-form space-y-4 text-slate-950"}
+      className={`${styles.form} ${isDarkTheme ? `${styles.darkForm} text-slate-100` : "text-slate-950"} space-y-4`}
       disabled={readonly}
       formContext={{ isDarkTheme, strategySchemaCopy: rendererCopy } satisfies RendererContext}
       formData={formData}
@@ -152,7 +153,7 @@ function StrategyFieldTemplate({ children, description, displayLabel, errors, he
   }
 
   return (
-    <div className={isDarkTheme ? "space-y-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "space-y-2 rounded-2xl border border-[#E5EAF0] bg-white p-3"}>
+    <div className={isDarkTheme ? "space-y-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "space-y-2 rounded-2xl border border-[#E8E8EC] bg-white p-3"}>
       {content}
     </div>
   );

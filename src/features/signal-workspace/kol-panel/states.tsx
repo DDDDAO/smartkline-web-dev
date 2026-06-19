@@ -1,4 +1,5 @@
 import type { WorkspaceCopy } from "@/i18n/workspace";
+import pillStyles from "../signal-pill.module.css";
 import { SourceAvatar, SymbolIcon } from "../card-ui";
 import { getPaperPositionBadgeClass, formatSignalPaperPositionStatus, getSignalDirectionBadgeClass, getSignalPaperPositionBadgeClass } from "../paper-position-summary";
 import type { WatchedKolSourceModel } from "./shared";
@@ -17,10 +18,10 @@ export function WatchedKolSources({
 }) {
   const shellClassName = isDarkTheme
     ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
-    : "rounded-2xl border border-[#E5EAF0] bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.025)]";
+    : "rounded-2xl border border-[#E8E8EC] bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.025)]";
   const cardClassName = isDarkTheme
-    ? "min-w-0 overflow-hidden rounded-2xl border border-white/[0.075] bg-[#181A20] px-3 py-2 text-left transition hover:border-sky-500/30 hover:bg-white/[0.055]"
-    : "min-w-0 overflow-hidden rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 py-2 text-left transition hover:border-[#B7E8FC] hover:bg-[#F4FBFF]";
+    ? "min-w-0 overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111113] px-3 py-2 text-left transition hover:border-indigo-500/30 hover:bg-white/[0.055]"
+    : "min-w-0 overflow-hidden rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-2 text-left transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF]";
 
   return (
     <section className={shellClassName}>
@@ -86,7 +87,7 @@ export function FilterEmptyState({ copy, isDarkTheme }: { copy: WorkspaceCopy; i
 
 export function KolPanelLoadingState({ copy, isDarkTheme }: { copy: WorkspaceCopy; isDarkTheme: boolean }) {
   const avatarClassName = isDarkTheme
-    ? "h-10 w-10 shrink-0 rounded-full border-2 border-[#181A20] bg-white/[0.08]"
+    ? "h-10 w-10 shrink-0 rounded-full border-2 border-[#111113] bg-white/[0.08]"
     : "h-10 w-10 shrink-0 rounded-full border-2 border-white bg-slate-200";
   const lineClassName = isDarkTheme
     ? "rounded-full bg-white/[0.08]"
@@ -157,7 +158,7 @@ export function KolPanelSourceState({
     tone === "risk"
       ? getPaperPositionBadgeClass(isDarkTheme, "exited", null, "stop-loss")
       : tone === "loading"
-        ? `kol-signal-pill kol-status-badge${isDarkTheme ? " kol-signal-pill-dark" : ""} kol-status-live`
+        ? `${pillStyles.pill} ${pillStyles.statusBadge} ${pillStyles.statusLive} ${isDarkTheme ? pillStyles.dark : ""}`
         : getPaperPositionBadgeClass(isDarkTheme, "not-entered");
 
   return (
@@ -185,7 +186,7 @@ export function getKolPanelStateCardClassName(
     "signal-card-left-status relative w-full overflow-hidden rounded-[18px] border p-3.5 text-left";
   const themeClassName = isDarkTheme
     ? "signal-card-surface-dark border-white/[0.075] bg-white/[0.035]"
-    : "signal-card-surface-light border-[#E5EAF0] bg-white";
+    : "signal-card-surface-light border-[#E8E8EC] bg-white";
   const toneClassName =
     tone === "risk"
       ? "signal-card-left-risk"

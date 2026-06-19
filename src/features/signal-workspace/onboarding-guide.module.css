@@ -1,0 +1,17 @@
+.highlightHole {
+  transition:
+    x 580ms cubic-bezier(0.22, 1, 0.36, 1),
+    y 580ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 580ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 580ms cubic-bezier(0.22, 1, 0.36, 1),
+    rx 580ms cubic-bezier(0.22, 1, 0.36, 1),
+    ry 580ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.coachMark {
+  transition:
+    left 580ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 580ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease,
+    transform 220ms ease;
+}

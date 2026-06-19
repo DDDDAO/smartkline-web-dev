@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { WorkspaceCopy } from "@/i18n/workspace";
+import styles from "./onboarding-guide.module.css";
 
 type OnboardingGuideProps = {
   copy: WorkspaceCopy["onboarding"];
@@ -223,9 +224,9 @@ export function OnboardingGuide({
 
   const dimColor = isDarkTheme ? "rgba(3, 6, 10, 0.84)" : "rgba(38, 52, 68, 0.34)";
   const coachMarkClassName = isDarkTheme
-    ? "fixed z-[92] w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-white/[0.09] bg-[#181A20]/96 px-4 py-3 text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
-    : "fixed z-[92] w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-[#E5EAF0] bg-white/96 px-4 py-3 text-slate-900 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-xl";
-  const progressClassName = "text-lg font-black leading-none text-[#00A6F4]";
+    ? "fixed z-[92] w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-white/[0.09] bg-[#111113]/96 px-4 py-3 text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
+    : "fixed z-[92] w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-[#E8E8EC] bg-white/96 px-4 py-3 text-slate-900 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-xl";
+  const progressClassName = "text-lg font-black leading-none text-[#6366F1]";
   const hintClassName = isDarkTheme ? "mt-2 text-[11px] text-slate-500" : "mt-2 text-[11px] text-slate-400";
 
   return (
@@ -241,7 +242,7 @@ export function OnboardingGuide({
           <mask id={maskId}>
             <rect fill="white" height="100%" width="100%" x="0" y="0" />
             <rect
-              className="guide-highlight-hole"
+              className={styles.highlightHole}
               fill="black"
               height={rect.height}
               rx={rect.radius}
@@ -256,7 +257,7 @@ export function OnboardingGuide({
       </svg>
       <div
         ref={coachMarkRef}
-        className={`${coachMarkClassName} guide-coach-mark`}
+        className={`${coachMarkClassName} ${styles.coachMark}`}
         style={{ left: coachMarkPosition.left, top: coachMarkPosition.top }}
         onClick={(event) => {
           event.stopPropagation();
