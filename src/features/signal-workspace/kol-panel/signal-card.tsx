@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { PaperPositionRecord } from "@/lib/paper-position";
 import type { StructuredSignal } from "@/types/signal";
@@ -61,10 +62,10 @@ export function KolSignalCard({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <button className={rawButtonClassName} type="button" onClick={(event) => { event.stopPropagation(); onFlipToggle(); }} onKeyDown={(event) => event.stopPropagation()}>
+              <Button className={rawButtonClassName} type="button" variant="ghost" onClick={(event) => { event.stopPropagation(); onFlipToggle(); }} onKeyDown={(event) => event.stopPropagation()}>
                 <span>{copy.kol.viewSource}</span>
                 <ChevronRightIcon />
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -94,10 +95,10 @@ export function KolSignalCard({
           <div className="motion-fx-3-back-panel flex h-full min-h-0 flex-col">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className={isDarkTheme ? "text-sm font-bold text-slate-50" : "text-sm font-bold text-slate-950"}>{copy.kol.replayTitle}</div>
-              <button className={rawButtonClassName} type="button" onClick={(event) => { event.stopPropagation(); onFlipToggle(); }} onKeyDown={(event) => event.stopPropagation()}>
+              <Button className={rawButtonClassName} type="button" variant="ghost" onClick={(event) => { event.stopPropagation(); onFlipToggle(); }} onKeyDown={(event) => event.stopPropagation()}>
                 <span>{copy.kol.back}</span>
                 <ChevronRightIcon />
-              </button>
+              </Button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               <TelegramSignalMessage copy={copy.kol} isDarkTheme={isDarkTheme} signal={signal} />
@@ -119,9 +120,9 @@ function FollowSignalStrip({ copy, isDarkTheme, signal, onFollowRequest }: { cop
     <div className={stripClassName}>
       <div className={labelClassName}>{copy.workspace.followConversion.signalCardLabel}</div>
       <div className={metaClassName}>{copy.workspace.followConversion.signalCardMeta}</div>
-      <button className={buttonClassName} type="button" onClick={(event) => { event.stopPropagation(); onFollowRequest(signal); }} onKeyDown={(event) => event.stopPropagation()}>
+      <Button className={buttonClassName} type="button" variant="default" onClick={(event) => { event.stopPropagation(); onFollowRequest(signal); }} onKeyDown={(event) => event.stopPropagation()}>
         {copy.workspace.followConversion.signalCardCta}
-      </button>
+      </Button>
     </div>
   );
 }

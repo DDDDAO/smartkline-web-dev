@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import type { ChartTheme } from "@/components/charts/kline-chart/types";
 import type { SignalAiHighlightTone, SignalAiSummary } from "@/lib/signal-ai-summary";
@@ -51,7 +52,7 @@ export function AiSignalSummaryOverlay({
 
   return (
     <div className={wrapperClassName}>
-      <button
+      <Button
         aria-describedby="ai-signal-summary-panel"
         aria-expanded={isCompactLayout ? isMobilePanelOpen : undefined}
         aria-label={copy.ai.ariaLabel}
@@ -59,6 +60,7 @@ export function AiSignalSummaryOverlay({
         data-guide-target="ai-summary-button"
         title={copy.ai.title}
         type="button"
+        variant="ghost"
         onClick={() => {
           if (isCompactLayout) {
             setIsMobilePanelOpen((isOpen) => !isOpen);
@@ -66,7 +68,7 @@ export function AiSignalSummaryOverlay({
         }}
       >
         <span>{copy.ai.label}</span>
-      </button>
+      </Button>
 
       <div className={panelClassName} id="ai-signal-summary-panel">
         <div className="flex items-start justify-between gap-4">
@@ -76,14 +78,16 @@ export function AiSignalSummaryOverlay({
           <div className="flex shrink-0 items-center gap-2">
             <span className={countClassName}>{copy.ai.count(summary.totalCount)}</span>
             {isCompactLayout ? (
-              <button
+              <Button
                 className={isDarkTheme ? "grid h-7 w-7 place-items-center rounded-full bg-white/[0.06] text-slate-400" : "grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-slate-500"}
+                size="icon"
                 type="button"
+                variant="ghost"
                 onClick={() => setIsMobilePanelOpen(false)}
               >
                 <span className="sr-only">{copy.common.close}</span>
                 <span aria-hidden="true">×</span>
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>

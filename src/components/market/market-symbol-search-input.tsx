@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { MarketSymbol } from "@/types/market";
 
 type MarketSymbolSearchVariant = "mario" | "workspace";
@@ -75,7 +77,7 @@ export function MarketSymbolSearchInput({
       }}
     >
       <SearchIcon className={classes.icon} />
-      <input
+      <Input
         aria-autocomplete="list"
         aria-controls={`${id}-listbox`}
         aria-expanded={isOpen}
@@ -127,19 +129,20 @@ export function MarketSymbolSearchInput({
           {matchedMarkets.length > 0 ? matchedMarkets.map((market, index) => {
             const isHighlighted = index === highlightedIndex;
             return (
-              <button
+              <Button
                 key={market}
                 aria-selected={isHighlighted}
                 className={getOptionClassName(variant, isDarkTheme, isHighlighted)}
                 role="option"
                 type="button"
+                variant="ghost"
                 onClick={() => selectMarket(market)}
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => setHighlightedIndex(index)}
               >
                 <span>{formatSymbolLabel(market)}</span>
                 <span className={classes.suffix}>{suffixLabel}</span>
-              </button>
+              </Button>
             );
           }) : (
             <div className={classes.empty}>{noMatchesLabel}</div>

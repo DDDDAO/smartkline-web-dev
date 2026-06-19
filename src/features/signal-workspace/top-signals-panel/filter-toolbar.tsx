@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import { SourceAvatar, SymbolIcon } from "../card-ui";
 import type {
@@ -86,10 +89,11 @@ export function TopSignalsSourceFilterBar({
 
   return (
     <div ref={containerRef} className={shellClassName}>
-      <button
+      <Button
         aria-expanded={isOpen}
         className={triggerClassName}
         type="button"
+        variant="ghost"
         onClick={() => setIsOpen((current) => !current)}
       >
         <span className="flex min-w-0 items-center gap-2">
@@ -101,11 +105,11 @@ export function TopSignalsSourceFilterBar({
           <span className="truncate">{selectedLabel}</span>
         </span>
         <span className={isDarkTheme ? "text-[10px] text-slate-500" : "text-[10px] text-slate-400"}>⌄</span>
-      </button>
+      </Button>
       {isOpen ? (
         <div className={dropdownClassName}>
           <div className="p-2">
-            <input
+            <Input
               ref={searchInputRef}
               aria-label={searchPlaceholder}
               className={searchClassName}
@@ -165,7 +169,7 @@ export function SourceFilterOption({
       : "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition hover:bg-[#F5F5FF]";
 
   return (
-    <button className={className} type="button" onClick={onClick}>
+    <Button className={className} type="button" variant="ghost" onClick={onClick}>
       {name ? (
         <SourceAvatarMini isActive={isActive} isDarkTheme={isDarkTheme} name={name} url={url ?? null} />
       ) : (
@@ -175,7 +179,7 @@ export function SourceFilterOption({
         <span className="block truncate">{label}</span>
         {meta ? <span className={isActive ? "block truncate text-[10px] text-white/70" : isDarkTheme ? "block truncate text-[10px] text-slate-500" : "block truncate text-[10px] text-slate-400"}>{meta}</span> : null}
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -201,9 +205,15 @@ export function TopSignalPerformanceToolbar({
   const labelClassName = isDarkTheme
     ? "text-[10px] font-black uppercase tracking-[0.12em] text-slate-500"
     : "text-[10px] font-black uppercase tracking-[0.12em] text-slate-400";
-  const selectClassName = isDarkTheme
-    ? "h-9 rounded-2xl border border-white/[0.075] bg-[#0F131A] px-3 text-xs font-bold text-slate-100 outline-none transition focus:border-indigo-400/45"
-    : "h-9 rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 text-xs font-bold text-slate-800 outline-none transition focus:border-[#818CF8]";
+  const selectTriggerClassName = isDarkTheme
+    ? "h-9 rounded-2xl border-white/[0.075] bg-[#0F131A] px-3 text-xs font-bold text-slate-100 focus:ring-indigo-400/10"
+    : "h-9 rounded-2xl border-[#E8E8EC] bg-[#FAFAFA] px-3 text-xs font-bold text-slate-800 focus:ring-[#818CF8]/10";
+  const selectContentClassName = isDarkTheme
+    ? "z-[130] rounded-2xl border border-white/[0.075] bg-[#111820] p-1 text-slate-100"
+    : "z-[130] rounded-2xl border border-[#E8E8EC] bg-white p-1 text-slate-950";
+  const selectItemClassName = isDarkTheme
+    ? "rounded-xl text-xs font-bold data-[highlighted]:bg-white/[0.055] data-[state=checked]:bg-indigo-400/10"
+    : "rounded-xl text-xs font-bold data-[highlighted]:bg-[#FAFAFA] data-[state=checked]:bg-[#EEF2FF]";
 
   return (
     <section className={shellClassName}>
@@ -219,32 +229,37 @@ export function TopSignalPerformanceToolbar({
                   ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] px-2.5 py-2 text-xs font-bold text-slate-300 transition hover:bg-white/[0.065]"
                   : "rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-2.5 py-2 text-xs font-bold text-slate-600 transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF]";
               return (
-                <button
+                <Button
                   key={window}
                   aria-pressed={isActive}
                   className={buttonClassName}
                   type="button"
+                  variant="ghost"
                   onClick={() => onPerformanceWindowChange(window)}
                 >
                   {panelCopy.performanceWindows[window]}
-                </button>
+                </Button>
               );
             })}
           </div>
         </div>
         <label className="grid gap-2">
           <span className={labelClassName}>{panelCopy.sortBy}</span>
-          <select
-            className={selectClassName}
+          <Select
             value={sortKey}
-            onChange={(event) => onSortKeyChange(event.target.value as TopSignalSortKey)}
+            onValueChange={(value) => onSortKeyChange(value as TopSignalSortKey)}
           >
-            {TOP_SIGNAL_SORT_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {panelCopy.sortOptions[option]}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className={selectTriggerClassName}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className={selectContentClassName} position="popper" sideOffset={8}>
+              {TOP_SIGNAL_SORT_OPTIONS.map((option) => (
+                <SelectItem key={option} className={selectItemClassName} value={option}>
+                  {panelCopy.sortOptions[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
       </div>
     </section>
@@ -320,8 +335,8 @@ export function WatchedTopSignalSources({
     ? "rounded-[20px] border border-white/[0.075] bg-[#181A20] p-3"
     : "rounded-[20px] border border-[#E8E8EC] bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.035)]";
   const cardClassName = isDarkTheme
-    ? "min-w-0 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-left transition hover:border-indigo-500/30 hover:bg-white/[0.065]"
-    : "min-w-0 rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-2 text-left transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF]";
+    ? "flex h-auto min-w-0 flex-col items-stretch justify-start gap-0 whitespace-normal rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2 text-left transition hover:border-indigo-500/30 hover:bg-white/[0.065]"
+    : "flex h-auto min-w-0 flex-col items-stretch justify-start gap-0 whitespace-normal rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-2 text-left transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF]";
 
   return (
     <section className={shellClassName}>
@@ -340,10 +355,11 @@ export function WatchedTopSignalSources({
           const symbol = latestPosition?.symbol ?? latestEvent?.symbol ?? null;
 
           return (
-            <button
+            <Button
               key={model.trader.trader_id}
               className={cardClassName}
               type="button"
+              variant="ghost"
               onClick={() => onSourceOpen(model)}
             >
               <div className="flex min-w-0 items-center gap-2">
@@ -367,7 +383,7 @@ export function WatchedTopSignalSources({
                 {symbol ? <SymbolIcon symbol={symbol} /> : null}
                 <span>{symbol ?? copy.workspace.watchlist.noActiveSymbols}</span>
               </div>
-            </button>
+            </Button>
           );
         })}
       </div>

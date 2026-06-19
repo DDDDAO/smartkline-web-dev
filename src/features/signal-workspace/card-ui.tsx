@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useRef, useState, type CSSProperties } from "react";
+import { Button } from "@/components/ui/button";
 import { getResolvedKolAvatarUrl } from "@/lib/kol-avatar";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { StructuredSignal } from "@/types/signal";
@@ -99,12 +100,14 @@ export function FavoriteStarButton({
       : `grid ${sizeClassName} shrink-0 place-items-center rounded-full border border-[#E8E8EC] bg-white text-slate-400 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-500`;
 
   return (
-    <button
+    <Button
       aria-label={label}
       aria-pressed={isActive}
       className={className}
+      size="icon"
       title={label}
       type="button"
+      variant="ghost"
       onClick={(event) => {
         event.stopPropagation();
         onToggle();
@@ -124,7 +127,7 @@ export function FavoriteStarButton({
           strokeWidth="1.8"
         />
       </svg>
-    </button>
+    </Button>
   );
 }
 

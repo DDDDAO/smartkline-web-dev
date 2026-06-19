@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { createStructuredSignalPositionKey } from "@/lib/kol-signal-api";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { StructuredSignal } from "@/types/signal";
@@ -27,14 +28,16 @@ export function WorkspaceNotificationBanner({
           <span className={tone.eyebrowClassName}>
             {tone.eyebrow}
           </span>
-          <button
+          <Button
             aria-label={copy.common.close}
             className={tone.closeClassName}
+            size="sm"
             type="button"
+            variant="ghost"
             onClick={onDismiss}
           >
             {copy.common.close}
-          </button>
+          </Button>
         </div>
       </div>
       <div className="flex gap-3 px-4 py-3">

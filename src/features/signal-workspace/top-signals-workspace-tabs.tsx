@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 
 export type TopSignalsWorkspacePanel = "lead" | "kol";
@@ -52,15 +53,16 @@ export function TopSignalsWorkspaceTabs({
             : "motion-fx-1-nav-button flex h-9 items-center justify-center rounded-[14px] px-3 text-xs font-bold text-slate-500 transition hover:bg-[#EEF2FF] hover:text-[#4F46E5] sm:text-sm";
 
         return (
-          <button
+          <Button
             key={panel}
             aria-pressed={isActive}
             className={buttonClassName}
             type="button"
+            variant="ghost"
             onClick={() => onPanelChange(panel)}
           >
             {copy.workspace.topSignals.panelTabs[panel]}
-          </button>
+          </Button>
         );
       })}
     </nav>

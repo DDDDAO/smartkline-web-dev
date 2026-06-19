@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useMemo } from "react";
+import { Button } from "@/components/ui/button";
 import type { PriceColorMode } from "@/components/charts/kline-chart/types";
 import type {
   PerformanceCurveMetric,
@@ -239,15 +240,16 @@ export function PerformanceCurveWindowSelector<WindowValue extends string>({
             : "rounded-full px-2.5 py-1.5 text-[11px] font-black text-slate-500 transition hover:bg-white hover:text-slate-900";
 
         return (
-          <button
+          <Button
             key={window}
             aria-pressed={isActive}
             className={buttonClassName}
             type="button"
+            variant="ghost"
             onClick={() => onWindowChange(window)}
           >
             {labels[window]}
-          </button>
+          </Button>
         );
       })}
     </div>

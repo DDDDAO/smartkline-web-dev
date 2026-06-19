@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { MarketSymbol } from "@/types/market";
 import type { StructuredSignal } from "@/types/signal";
@@ -42,10 +43,6 @@ export function KolPanelFilters({
   const containerClassName = isDarkTheme
     ? "bg-[#12161D] px-3 pb-2 pt-3"
     : "bg-[#FAFAFA] px-3 pb-2 pt-3";
-  const [openFilter, setOpenFilter] = useState<
-    "kol" | "direction" | "status" | "symbol" | null
-  >(null);
-
   return (
     <div className={containerClassName}>
       <div className="grid grid-cols-2 gap-2">
@@ -53,19 +50,16 @@ export function KolPanelFilters({
           id="kol-source-filter"
           allLabel={ALL_KOL_FILTER}
           allText={copy.common.all}
-          isOpen={openFilter === "kol"}
           isDarkTheme={isDarkTheme}
           label={copy.kol.filters.kol}
           options={kolOptions}
           value={kolFilter}
-          onOpenChange={(isOpen) => setOpenFilter(isOpen ? "kol" : null)}
           onChange={onKolFilterChange}
         />
         <FilterDropdown
           id="kol-direction-filter"
           allLabel={ALL_DIRECTION_FILTER}
           allText={copy.common.all}
-          isOpen={openFilter === "direction"}
           isDarkTheme={isDarkTheme}
           label={copy.kol.direction}
           options={directionOptions}
@@ -78,14 +72,12 @@ export function KolPanelFilters({
               />
             )
           }
-          onOpenChange={(isOpen) => setOpenFilter(isOpen ? "direction" : null)}
           onChange={onDirectionFilterChange}
         />
         <FilterDropdown
           id="kol-status-filter"
           allLabel={ALL_STATUS_FILTER}
           allText={copy.common.all}
-          isOpen={openFilter === "status"}
           isDarkTheme={isDarkTheme}
           label={copy.kol.filters.status}
           options={statusOptions}
@@ -96,14 +88,12 @@ export function KolPanelFilters({
               <StatusFilterDot status={option as StatusFilterOption} />
             )
           }
-          onOpenChange={(isOpen) => setOpenFilter(isOpen ? "status" : null)}
           onChange={onStatusFilterChange}
         />
         <FilterDropdown
           id="kol-symbol-filter"
           allLabel={ALL_SYMBOL_FILTER}
           allText={copy.common.all}
-          isOpen={openFilter === "symbol"}
           isDarkTheme={isDarkTheme}
           label={copy.kol.filters.symbol}
           options={symbolOptions}
@@ -114,7 +104,6 @@ export function KolPanelFilters({
               <SymbolIcon size="md" symbol={option} />
             )
           }
-          onOpenChange={(isOpen) => setOpenFilter(isOpen ? "symbol" : null)}
           onChange={onSymbolFilterChange}
         />
       </div>
@@ -126,63 +115,39 @@ export function FilterDropdown<T extends string>({
   allLabel,
   allText,
   id,
-  isOpen,
   isDarkTheme,
   label,
   optionLabel = (value) => value,
   options,
   renderIcon,
   value,
-  onOpenChange,
   onChange,
 }: {
   allLabel: string;
   allText: string;
   id: string;
-  isOpen: boolean;
   isDarkTheme: boolean;
   label: string;
   optionLabel?: (value: T) => string;
   options: readonly T[];
   renderIcon?: (value: string) => ReactNode;
   value: string;
-  onOpenChange: (isOpen: boolean) => void;
   onChange: (value: string) => void;
 }) {
-  const buttonClassName = isDarkTheme
+  const triggerClassName = isDarkTheme
     ? "inline-flex h-7 w-full min-w-0 items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-2 text-xs font-medium text-slate-200 outline-none transition hover:border-indigo-500/40 hover:bg-white/[0.08] focus-visible:border-[#6366F1]"
     : "inline-flex h-7 w-full min-w-0 items-center gap-1 rounded-full border border-[#E8E8EC] bg-white px-2 text-xs font-medium text-slate-700 outline-none transition hover:border-[#C7D2FE] hover:bg-[#EEF2FF] focus-visible:border-[#6366F1]";
-  const menuClassName = isDarkTheme
-    ? "motion-fx-9-surface absolute left-0 top-9 z-50 min-w-[150px] max-w-[260px] overflow-hidden rounded-2xl border border-white/[0.075] bg-[#181A20] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.28)]"
-    : "motion-fx-9-surface absolute left-0 top-9 z-50 min-w-[150px] max-w-[260px] overflow-hidden rounded-2xl border border-[#E8E8EC] bg-white p-1.5 shadow-[0_18px_48px_rgba(15,23,42,0.12)]";
-  const optionClassName = (isSelected: boolean) =>
-    isSelected
-      ? isDarkTheme
-        ? "flex h-8 w-full items-center gap-2 rounded-xl bg-[#6366F1]/15 px-2 text-left text-[11px] font-semibold text-indigo-200"
-        : "flex h-8 w-full items-center gap-2 rounded-xl bg-[#EEF2FF] px-2 text-left text-[11px] font-semibold text-[#4F46E5]"
-      : isDarkTheme
-        ? "flex h-8 w-full items-center gap-2 rounded-xl px-2 text-left text-[11px] font-medium text-slate-300 transition hover:bg-white/[0.08]"
-        : "flex h-8 w-full items-center gap-2 rounded-xl px-2 text-left text-[11px] font-medium text-slate-600 transition hover:bg-slate-50";
-  const selectedText = value === allLabel ? allText : optionLabel(value as T);
+  const contentClassName = isDarkTheme
+    ? "z-[130] min-w-[150px] max-w-[260px] rounded-2xl border border-white/[0.075] bg-[#181A20] p-1.5 text-slate-200 shadow-[0_18px_48px_rgba(0,0,0,0.28)]"
+    : "z-[130] min-w-[150px] max-w-[260px] rounded-2xl border border-[#E8E8EC] bg-white p-1.5 text-slate-700 shadow-[0_18px_48px_rgba(15,23,42,0.12)]";
+  const itemClassName = isDarkTheme
+    ? "flex h-8 items-center gap-2 rounded-xl px-2 text-[11px] font-medium data-[highlighted]:bg-white/[0.08] data-[state=checked]:bg-[#6366F1]/15 data-[state=checked]:font-semibold data-[state=checked]:text-indigo-200"
+    : "flex h-8 items-center gap-2 rounded-xl px-2 text-[11px] font-medium data-[highlighted]:bg-slate-50 data-[state=checked]:bg-[#EEF2FF] data-[state=checked]:font-semibold data-[state=checked]:text-[#4F46E5]";
   const allOptions = [allLabel, ...options];
 
   return (
-    <div
-      className="relative min-w-0"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) {
-          onOpenChange(false);
-        }
-      }}
-    >
-      <button
-        aria-expanded={isOpen}
-        aria-haspopup="listbox"
-        className={buttonClassName}
-        id={id}
-        type="button"
-        onClick={() => onOpenChange(!isOpen)}
-      >
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className={triggerClassName} id={id}>
         <span
           className={
             isDarkTheme ? "shrink-0 text-slate-500" : "shrink-0 text-slate-400"
@@ -191,55 +156,21 @@ export function FilterDropdown<T extends string>({
           {label}
         </span>
         {renderIcon?.(value)}
-        <span className="min-w-0 flex-1 truncate text-left whitespace-nowrap">
-          {selectedText}
-        </span>
-        <svg
-          aria-hidden="true"
-          className={`h-3 w-3 shrink-0 transition ${isOpen ? "rotate-180" : ""}`}
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <path
-            d="m7 10 5 5 5-5"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-          />
-        </svg>
-      </button>
-      {isOpen ? (
-        <div
-          aria-labelledby={id}
-          className={menuClassName}
-          role="listbox"
-          tabIndex={-1}
-        >
-          {allOptions.map((option) => {
-            const isSelected = option === value;
-            return (
-              <button
-                key={option}
-                aria-selected={isSelected}
-                className={optionClassName(isSelected)}
-                role="option"
-                type="button"
-                onClick={() => {
-                  onChange(option);
-                  onOpenChange(false);
-                }}
-              >
-                {renderIcon?.(option)}
-                <span className="min-w-0 truncate">
-                  {option === allLabel ? allText : optionLabel(option as T)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
+        <SelectValue className="min-w-0 flex-1 truncate text-left whitespace-nowrap" />
+      </SelectTrigger>
+      <SelectContent className={contentClassName} position="popper" sideOffset={6}>
+        {allOptions.map((option) => (
+          <SelectItem key={option} className={itemClassName} value={option}>
+            <span className="flex min-w-0 items-center gap-2">
+              {renderIcon?.(option)}
+              <span className="min-w-0 truncate">
+                {option === allLabel ? allText : optionLabel(option as T)}
+              </span>
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

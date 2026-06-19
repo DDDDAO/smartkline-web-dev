@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { CopyTradingPosition } from "@/types/copy-trading";
 import { FavoriteStarButton, SourceAvatar, SymbolIcon } from "../card-ui";
@@ -50,13 +51,13 @@ export function RowsPaginationControls({
 
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-      <button className={buttonClassName} disabled={isPreviousDisabled} type="button" onClick={onPrevious}>
+      <Button className={buttonClassName} disabled={isPreviousDisabled} size="sm" type="button" variant="outline" onClick={onPrevious}>
         {previousLabel}
-      </button>
+      </Button>
       <span className={rangeClassName}>{rangeLabel}</span>
-      <button className={buttonClassName} disabled={isNextDisabled} type="button" onClick={onNext}>
+      <Button className={buttonClassName} disabled={isNextDisabled} size="sm" type="button" variant="outline" onClick={onNext}>
         {nextLabel}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -110,9 +111,10 @@ export function SourceHeader({
         )}
       </div>
       {onActionToggle && actionLabel ? (
-        <button
+        <Button
           className={`${actionButtonClassName} col-start-3 row-start-1 self-center justify-self-end`}
           type="button"
+          variant="ghost"
           onClick={(event) => {
             event.stopPropagation();
             onActionToggle();
@@ -120,7 +122,7 @@ export function SourceHeader({
           onKeyDown={(event) => event.stopPropagation()}
         >
           {actionLabel}
-        </button>
+        </Button>
       ) : null}
       <div className={isDarkTheme ? "col-start-2 col-end-4 row-start-2 flex min-w-0 items-center gap-1.5 text-[13px] font-bold leading-none text-slate-500" : "col-start-2 col-end-4 row-start-2 flex min-w-0 items-center gap-1.5 text-[13px] font-bold leading-none text-slate-500"}>
         <span className="min-w-0 truncate whitespace-nowrap">{panelCopy.signalType}: {model.trader.platform}</span>
@@ -154,9 +156,10 @@ export function TopSignalCopyTradingAction({
     : "motion-fx-3-raw-button mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-[#C7D2FE] bg-[#EEF2FF] px-3 py-3 text-left text-[#4F46E5] transition hover:border-[#A5B4FC] hover:bg-[#EEF2FF]";
 
   return (
-    <button
+    <Button
       className={buttonClassName}
       type="button"
+      variant="ghost"
       onClick={(event) => {
         event.stopPropagation();
         onClick();
@@ -170,7 +173,7 @@ export function TopSignalCopyTradingAction({
       <span aria-hidden="true" className={isDarkTheme ? "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-indigo-300/15 text-base font-black text-indigo-200" : "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-base font-black text-[#4F46E5]"}>
         →
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -195,9 +198,10 @@ export function PositionRow({
     : "block min-h-[74px] w-full min-w-0 appearance-none overflow-hidden rounded-2xl border border-[#E8E8EC] bg-white px-3 py-2 text-left transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF]";
 
   return (
-    <button
+    <Button
       className={rowClassName}
       type="button"
+      variant="ghost"
       onClick={(event) => {
         event.stopPropagation();
         onPositionSelect(position);
@@ -223,7 +227,7 @@ export function PositionRow({
           <div className={getPnlRatioClassName(isDarkTheme, position.unrealized_pnl, pnlColorMode)}>{formatSignedPercent(position.unrealized_pnl)}</div>
         </div>
       </div>
-    </button>
+    </Button>
   );
 }
 

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import {
   PerformanceCurveChart,
@@ -118,18 +119,19 @@ export function TopSignalPerformanceCurveCard({
                 ? "rounded-full px-2.5 py-1 text-[10px] font-bold text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-100"
                 : "rounded-full px-2.5 py-1 text-[10px] font-bold text-slate-500 transition hover:bg-white hover:text-slate-900";
             return (
-              <button
+              <Button
                 key={metric}
                 aria-pressed={isActive}
                 className={buttonClassName}
                 type="button"
+                variant="ghost"
                 onClick={(event) => {
                   event.stopPropagation();
                   setActiveMetric(metric);
                 }}
               >
                 {metric === "pnl" ? panelCopy.pnl : panelCopy.roi}
-              </button>
+              </Button>
             );
           })}
         </div>

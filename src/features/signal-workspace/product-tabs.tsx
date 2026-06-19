@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 
 export { CommunityConversionModal } from "./community-conversion-modal";
@@ -65,12 +66,13 @@ export function WorkspaceProductTabs({
                 : "motion-fx-1-nav-button flex h-9 shrink-0 items-center rounded-full px-3 text-xs font-semibold text-slate-500 transition hover:bg-[#EEF2FF] hover:text-[#4F46E5] sm:px-4 sm:text-sm";
 
         return (
-          <button
+          <Button
             key={tab}
             aria-current={isActive ? "page" : undefined}
             className={buttonClassName}
             title={tabCopy.description}
             type="button"
+            variant="ghost"
             onClick={() => onTabChange(tab)}
           >
             <span>{tabCopy.label}</span>
@@ -87,7 +89,7 @@ export function WorkspaceProductTabs({
                 {tabCopy.stageLabel}
               </span>
             ) : null}
-          </button>
+          </Button>
         );
       })}
     </nav>

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import {
   getIconButtonClassName,
@@ -28,14 +29,16 @@ export function CommunityConversionModal({
               {copy.workspace.communityConversion.title}
             </h2>
           </div>
-          <button
+          <Button
             aria-label={copy.common.close}
             className={getIconButtonClassName(isDarkTheme)}
+            size="icon"
             type="button"
+            variant="ghost"
             onClick={onClose}
           >
             ×
-          </button>
+          </Button>
         </div>
         <p
           className={
@@ -72,13 +75,14 @@ export function CommunityConversionModal({
           ))}
         </div>
         <div className="mt-6 flex justify-end">
-          <button
+          <Button
             className={getPrimaryButtonClassName()}
             type="button"
+            variant="default"
             onClick={onCommunityOpen}
           >
             {copy.workspace.communityConversion.primaryAction}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

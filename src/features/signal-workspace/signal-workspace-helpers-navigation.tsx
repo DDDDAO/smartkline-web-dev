@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { flushSync } from "react-dom";
 
+import { Button } from "@/components/ui/button";
 import type { TelegramAuthMeResponse } from "@/lib/auth/telegram-auth";
 import type { WorkspaceCopy, WorkspaceLanguage } from "@/i18n/workspace";
 import { AccountEntryButton } from "./account-entry-button";
@@ -194,11 +195,12 @@ export function TelegramCommunityButton({
   const slugClassName = "max-w-0 overflow-hidden whitespace-nowrap text-xs font-normal text-white/86 opacity-0 transition-[max-width,opacity,margin] duration-200 ease-out group-hover:ml-1 group-hover:max-w-28 group-hover:opacity-100 group-focus-visible:ml-1 group-focus-visible:max-w-28 group-focus-visible:opacity-100";
 
   return (
-    <button
+    <Button
       aria-label={`${copy.workspace.community} - ${copy.workspace.communitySlug}`}
       className={className}
       title={`${copy.workspace.community} - ${copy.workspace.communitySlug}`}
       type="button"
+      variant="ghost"
       onClick={onCommunityOpen}
     >
       <TelegramIcon className="h-4 w-4 shrink-0" />
@@ -206,7 +208,7 @@ export function TelegramCommunityButton({
       <span aria-hidden="true" className={slugClassName}>
         {copy.workspace.communitySlug}
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -224,18 +226,19 @@ export function GuideIconButton({
     : "group motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#E8E8EC] bg-white px-0 text-sm font-medium text-slate-500 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6366F1] sm:h-10 sm:w-10 sm:hover:w-[104px] sm:hover:border-[#C7D2FE] sm:hover:bg-[#EEF2FF]/70 sm:hover:px-3 sm:hover:text-slate-950 sm:focus-visible:w-[104px] sm:focus-visible:px-3";
 
   return (
-    <button
+    <Button
       aria-label={copy.workspace.guide}
       className={className}
       title={copy.workspace.guide}
       type="button"
+      variant="ghost"
       onClick={onGuideOpen}
     >
       <GuideSparkIcon className="h-4 w-4 shrink-0" />
       <span className="ml-0 max-w-0 overflow-hidden whitespace-nowrap text-xs font-normal opacity-0 transition-[max-width,opacity,margin] duration-200 ease-out sm:group-hover:ml-2 sm:group-hover:max-w-16 sm:group-hover:opacity-100 sm:group-focus-visible:ml-2 sm:group-focus-visible:max-w-16 sm:group-focus-visible:opacity-100">
         {copy.workspace.guide}
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -255,15 +258,16 @@ export function LanguageToggleButton({
     : "motion-fx-1-nav-button flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#E8E8EC] bg-white text-slate-600 transition hover:border-[#C7D2FE] hover:bg-[#EEF2FF]/70 hover:text-[#4F46E5] sm:h-10 sm:w-10";
 
   return (
-    <button
+    <Button
       aria-label={copy.workspace.languageTitle[language === "zh-CN" ? "en-US" : "zh-CN"]}
       className={className}
       title={copy.workspace.languageTitle[language === "zh-CN" ? "en-US" : "zh-CN"]}
       type="button"
+      variant="ghost"
       onClick={onLanguageToggle}
     >
       <LanguagesIcon className="h-4 w-4" />
-    </button>
+    </Button>
   );
 }
 
@@ -283,10 +287,11 @@ export function AnimatedThemeToggler({
     : `motion-fx-1-nav-button ${isCollapsed ? "grid h-8 w-8 place-items-center sm:h-10 sm:w-10" : "flex h-10 w-full items-center gap-3 px-2.5"} rounded-full border border-[#E8E8EC] bg-white text-sm font-medium text-slate-500 transition hover:border-[#C7D2FE] hover:bg-[#EEF2FF]/70 hover:text-slate-950`;
 
   return (
-    <button
+    <Button
       aria-label={isDarkTheme ? copy.workspace.themeSwitchToLight : copy.workspace.themeSwitchToDark}
       className={className}
       type="button"
+      variant="ghost"
       onClick={(event) => {
         const originX = event.clientX;
         const originY = event.clientY;
@@ -335,7 +340,7 @@ export function AnimatedThemeToggler({
       {!isCollapsed ? (
         <span>{isDarkTheme ? copy.workspace.themeLight : copy.workspace.themeDark}</span>
       ) : null}
-    </button>
+    </Button>
   );
 }
 
@@ -372,11 +377,12 @@ export function PnlColorModeToggleButton({
   const trailingClassName = pnlColorMode === "positiveGreen" ? "text-rose-500" : "text-emerald-500";
 
   return (
-    <button
+    <Button
       aria-label={title}
       className={className}
       title={title}
       type="button"
+      variant="ghost"
       onClick={onToggle}
     >
       <span aria-hidden="true" className="flex items-center gap-0.5">
@@ -384,7 +390,7 @@ export function PnlColorModeToggleButton({
         <span className="text-slate-400">/</span>
         <span className={trailingClassName}>−</span>
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -413,10 +419,11 @@ export function SidebarCollapseButton({
       : "kol-edge-tab group fixed right-0 top-1/2 z-[60] hidden h-14 w-8 -translate-y-1/2 overflow-hidden rounded-l-2xl border border-r-0 border-[#C7D2FE] bg-[#F5F5FF] text-slate-700 backdrop-blur-xl transition-[width,transform,background-color,border-color,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:w-[116px] hover:-translate-x-0.5 hover:border-[#A5B4FC] hover:bg-[#EEF2FF] hover:text-slate-900 active:scale-[0.98] lg:flex";
 
     return (
-      <button
+      <Button
         aria-label={edgeLabel}
         className={className}
         type="button"
+        variant="ghost"
         onClick={onToggle}
       >
         <span className="pointer-events-none absolute inset-y-0 left-0 flex w-full items-center justify-center transition-all duration-200 ease-out group-hover:w-8 group-hover:justify-start group-hover:px-2.5">
@@ -425,7 +432,7 @@ export function SidebarCollapseButton({
         <span className="pointer-events-none absolute left-8 top-1/2 max-w-0 -translate-y-1/2 overflow-hidden whitespace-nowrap text-[13px] font-normal leading-none opacity-0 transition-[max-width,opacity] duration-200 ease-out group-hover:max-w-20 group-hover:opacity-100">
           {resolvedPanelLabel}
         </span>
-      </button>
+      </Button>
     );
   }
 
@@ -434,11 +441,12 @@ export function SidebarCollapseButton({
     : "group hidden h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[#C7D2FE] bg-[#F5F5FF] px-0 text-slate-700 transition-[width,transform,background-color,border-color,color,padding] duration-200 ease-out hover:w-[74px] hover:border-[#A5B4FC] hover:bg-[#EEF2FF] hover:px-3 hover:text-slate-900 active:scale-[0.98] focus-visible:w-[74px] focus-visible:px-3 lg:flex";
 
   return (
-    <button
+    <Button
       aria-label={label}
       className={className}
       title={label}
       type="button"
+      variant="ghost"
       onClick={onToggle}
     >
       <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-normal opacity-0 transition-[max-width,opacity,margin] duration-200 ease-out group-hover:mr-2 group-hover:max-w-10 group-hover:opacity-100 group-focus-visible:mr-2 group-focus-visible:max-w-10 group-focus-visible:opacity-100">
@@ -451,6 +459,6 @@ export function SidebarCollapseButton({
           <PanelRightCloseIcon className="motion-fx-7-collapse-icon h-4 w-4" />
         )}
       </span>
-    </button>
+    </Button>
   );
 }

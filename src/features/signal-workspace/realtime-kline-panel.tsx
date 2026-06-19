@@ -1,5 +1,6 @@
 import dynamic from "next/dynamic";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { intervals } from "@/lib/demo-data";
 import { createSignalAiSummary } from "@/lib/signal-ai-summary";
 import { getWorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
@@ -280,14 +281,15 @@ export const RealtimeKlinePanel = memo(function RealtimeKlinePanel({
           <div className="min-w-0 overflow-x-auto pb-0.5">
             <div className={isDarkTheme ? "inline-flex h-[30px] min-w-max items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] p-0.5 lg:h-9" : "inline-flex h-[30px] min-w-max items-center gap-1 rounded-full border border-[#E8E8EC] bg-[#FAFAFA] p-0.5 lg:h-9"}>
               {intervals.map((item) => (
-                <button
+                <Button
                   key={item}
                   className={item === interval ? "h-6 rounded-full bg-[#6366F1] px-3 text-xs font-semibold text-white lg:h-8 lg:px-4 lg:text-sm" : isDarkTheme ? "h-6 rounded-full px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.08] hover:text-slate-100 lg:h-8 lg:px-4 lg:text-sm" : "h-6 rounded-full px-3 text-xs font-medium text-slate-500 hover:bg-white hover:text-slate-950 lg:h-8 lg:px-4 lg:text-sm"}
                   type="button"
+                  variant="ghost"
                   onClick={() => onIntervalChange(item)}
                 >
                   {item}
-                </button>
+                </Button>
               ))}
             </div>
           </div>

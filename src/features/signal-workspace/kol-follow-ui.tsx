@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import pillStyles from "./signal-pill.module.css";
 
@@ -35,13 +36,14 @@ export function CommunityConversionCard({
           </div>
         ))}
       </div>
-      <button
+      <Button
         className={`${getPrimaryButtonClassName()} mt-3 w-full`}
         type="button"
+        variant="default"
         onClick={onOpen}
       >
         {copy.workspace.communityConversion.sideAction}
-      </button>
+      </Button>
     </section>
   );
 }

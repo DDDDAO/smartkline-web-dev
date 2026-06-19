@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import pillStyles from "../signal-pill.module.css";
 import { SourceAvatar, SymbolIcon } from "../card-ui";
@@ -20,8 +21,8 @@ export function WatchedKolSources({
     ? "rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
     : "rounded-2xl border border-[#E8E8EC] bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.025)]";
   const cardClassName = isDarkTheme
-    ? "min-w-0 overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111113] px-3 py-2 text-left transition hover:border-indigo-500/30 hover:bg-white/[0.055]"
-    : "min-w-0 overflow-hidden rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-2 text-left transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF]";
+    ? "h-auto min-w-0 flex-col items-stretch justify-start gap-0 overflow-hidden whitespace-normal rounded-2xl border border-white/[0.075] bg-[#111113] px-3 py-2 text-left transition hover:border-indigo-500/30 hover:bg-white/[0.055]"
+    : "h-auto min-w-0 flex-col items-stretch justify-start gap-0 overflow-hidden whitespace-normal rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-2 text-left transition hover:border-[#C7D2FE] hover:bg-[#F5F5FF]";
 
   return (
     <section className={shellClassName}>
@@ -35,10 +36,11 @@ export function WatchedKolSources({
       </div>
       <div className="mt-2 grid max-h-[292px] grid-cols-2 gap-2 overflow-y-auto pr-1">
         {sources.map((source) => (
-          <button
+          <Button
             key={source.key}
             className={cardClassName}
             type="button"
+            variant="ghost"
             onClick={() => onSourceOpen(source)}
           >
             <div className="flex min-w-0 items-center gap-2">
@@ -67,7 +69,7 @@ export function WatchedKolSources({
               <span className={isDarkTheme ? "text-slate-600" : "text-slate-400"}>·</span>
               <span>{copy.workspace.watchlist.signalCount(source.signalCount)}</span>
             </div>
-          </button>
+          </Button>
         ))}
       </div>
     </section>

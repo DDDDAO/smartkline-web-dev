@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { PaperPositionRecord } from "@/lib/paper-position";
 import type {
@@ -98,14 +99,15 @@ export function MobileKolBottomSheet({
   if (isOpen) {
     return (
       <>
-        <button
+        <Button
           aria-label={copy.common.close}
           className={
             isDarkTheme
-              ? "fixed inset-0 z-[70] bg-black/42 backdrop-blur-[2px] lg:hidden"
-              : "fixed inset-0 z-[70] bg-slate-950/20 backdrop-blur-[2px] lg:hidden"
+              ? "fixed inset-0 z-[70] rounded-none bg-black/42 p-0 backdrop-blur-[2px] lg:hidden"
+              : "fixed inset-0 z-[70] rounded-none bg-slate-950/20 p-0 backdrop-blur-[2px] lg:hidden"
           }
           type="button"
+          variant="ghost"
           onClick={() => onOpenChange(false)}
         />
         <div className="fixed inset-x-0 bottom-0 z-[80] h-[min(78dvh,680px)] px-2 pb-[max(8px,env(safe-area-inset-bottom))] lg:hidden">
@@ -121,14 +123,15 @@ export function MobileKolBottomSheet({
               activeCardScrollBlock="nearest"
               copy={copy}
               headerAction={
-                <button
+                <Button
                   className={closeButtonClassName}
                   type="button"
+                  variant="ghost"
                   onClick={() => onOpenChange(false)}
                 >
                   <CloseIcon className="h-3.5 w-3.5" />
                   <span>{copy.common.close}</span>
-                </button>
+                </Button>
               }
               isDarkTheme={isDarkTheme}
               paperPositionErrorsBySymbol={paperPositionErrorsBySymbol}
@@ -231,14 +234,15 @@ export function MobileTopSignalsBottomSheet({
   if (isOpen) {
     return (
       <>
-        <button
+        <Button
           aria-label={copy.common.close}
           className={
             isDarkTheme
-              ? "fixed inset-0 z-[70] bg-black/42 backdrop-blur-[2px] lg:hidden"
-              : "fixed inset-0 z-[70] bg-slate-950/20 backdrop-blur-[2px] lg:hidden"
+              ? "fixed inset-0 z-[70] rounded-none bg-black/42 p-0 backdrop-blur-[2px] lg:hidden"
+              : "fixed inset-0 z-[70] rounded-none bg-slate-950/20 p-0 backdrop-blur-[2px] lg:hidden"
           }
           type="button"
+          variant="ghost"
           onClick={() => onOpenChange(false)}
         />
         <div className="fixed inset-x-0 bottom-0 z-[80] h-[min(78dvh,680px)] px-2 pb-[max(8px,env(safe-area-inset-bottom))] lg:hidden">
@@ -253,14 +257,15 @@ export function MobileTopSignalsBottomSheet({
               activeSourceId={activeSourceId}
               copy={copy}
               headerAction={
-                <button
+                <Button
                   className={closeButtonClassName}
                   type="button"
+                  variant="ghost"
                   onClick={() => onOpenChange(false)}
                 >
                   <CloseIcon className="h-3.5 w-3.5" />
                   <span>{copy.common.close}</span>
-                </button>
+                </Button>
               }
               isDarkTheme={isDarkTheme}
               performanceWindow={performanceWindow}
@@ -323,8 +328,8 @@ export function MobileTopSignalsSheetHandle({
   onOpen: () => void;
 }) {
   const buttonClassName = isDarkTheme
-    ? "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-white/[0.085] bg-[#181A20]/96 px-3.5 py-3 text-left text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
-    : "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-[#E8E8EC] bg-white/96 px-3.5 py-3 text-left text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl";
+    ? "motion-fx-9-surface flex min-h-[92px] w-full flex-col items-stretch justify-start gap-0 whitespace-normal rounded-[22px] border border-white/[0.085] bg-[#181A20]/96 px-3.5 py-3 text-left text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
+    : "motion-fx-9-surface flex min-h-[92px] w-full flex-col items-stretch justify-start gap-0 whitespace-normal rounded-[22px] border border-[#E8E8EC] bg-white/96 px-3.5 py-3 text-left text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl";
   const eyebrowClassName = isDarkTheme
     ? "text-[10px] font-bold uppercase tracking-[0.12em] text-indigo-300"
     : "text-[10px] font-bold uppercase tracking-[0.12em] text-[#4F46E5]";
@@ -335,7 +340,7 @@ export function MobileTopSignalsSheetHandle({
       : "";
 
   return (
-    <button className={buttonClassName} type="button" onClick={onOpen}>
+    <Button className={buttonClassName} type="button" variant="ghost" onClick={onOpen}>
       <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-slate-400/45" />
       <div className="flex min-w-0 items-center gap-3">
         <span
@@ -356,7 +361,7 @@ export function MobileTopSignalsSheetHandle({
         </div>
         <ChevronUpIcon className={isDarkTheme ? "h-4 w-4 shrink-0 text-slate-400" : "h-4 w-4 shrink-0 text-slate-500"} />
       </div>
-    </button>
+    </Button>
   );
 }
 
@@ -384,8 +389,8 @@ export function MobileKolSheetHandle({
     ? (paperPositionErrorsBySymbol[activeSignal.symbol] ?? null)
     : null;
   const buttonClassName = isDarkTheme
-    ? "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-white/[0.085] bg-[#181A20]/96 px-3.5 py-3 text-left text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
-    : "motion-fx-9-surface min-h-[92px] w-full rounded-[22px] border border-[#E8E8EC] bg-white/96 px-3.5 py-3 text-left text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl";
+    ? "motion-fx-9-surface flex min-h-[92px] w-full flex-col items-stretch justify-start gap-0 whitespace-normal rounded-[22px] border border-white/[0.085] bg-[#181A20]/96 px-3.5 py-3 text-left text-slate-100 shadow-[0_18px_48px_rgba(0,0,0,0.34)] backdrop-blur-xl"
+    : "motion-fx-9-surface flex min-h-[92px] w-full flex-col items-stretch justify-start gap-0 whitespace-normal rounded-[22px] border border-[#E8E8EC] bg-white/96 px-3.5 py-3 text-left text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl";
   const eyebrowClassName = isDarkTheme
     ? "text-[10px] font-bold uppercase tracking-[0.12em] text-indigo-300"
     : "text-[10px] font-bold uppercase tracking-[0.12em] text-[#4F46E5]";
@@ -403,7 +408,7 @@ export function MobileKolSheetHandle({
       : copy.kol.noSignalsStatus;
 
   return (
-    <button className={buttonClassName} type="button" onClick={onOpen}>
+    <Button className={buttonClassName} type="button" variant="ghost" onClick={onOpen}>
       <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-slate-400/45" />
       <div className="flex min-w-0 items-center gap-3">
         {activeSignal ? (
@@ -464,6 +469,6 @@ export function MobileKolSheetHandle({
         </div>
         <ChevronUpIcon className={isDarkTheme ? "h-4 w-4 shrink-0 text-slate-400" : "h-4 w-4 shrink-0 text-slate-500"} />
       </div>
-    </button>
+    </Button>
   );
 }
