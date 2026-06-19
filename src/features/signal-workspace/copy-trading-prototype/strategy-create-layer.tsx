@@ -16,9 +16,11 @@ import {
   type CopyTradingSignalSourceConfigRow,
 } from "./copy-trading-signal-source-config";
 import { PrototypeInput } from "./prototype-form-fields";
+import { createDefinitionConfigSchema } from "./strategy-definition-schema";
 import type { JsonRecord } from "./strategy-definition-config-form";
 import { StrategyDefinitionSelect } from "./strategy-definition-select";
-import { COPY_TRADING_DEFINITION_ID, getStrategyPresentationForDefinitionId } from "./strategy-presentation-registry";
+import { COPY_TRADING_DEFINITION_ID, getStrategyPresentationModule } from "./strategy-presentation-registry";
+import { getStrategyRendererResolutionError, strategyDefinitionCacheKey } from "./strategy-renderer-registry";
 import { createStrategyConfigSkeleton, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import type { CopyTradingPrototypeTarget, PrototypeApiConnection, PrototypeStrategy, PrototypeStrategyCreateInput } from "./types";
 import { getInlineErrorClassName } from "./styles";
@@ -154,11 +156,13 @@ export function StrategyCreateLayer({
       })
       .then((definition) => {
         if (isMounted) {
+          const definitionDetailCacheKey = strategyDefinitionCacheKey(definition);
           setDefinitionDetailsById((currentDetails) => ({
             ...currentDetails,
-            [strategyDefinitionCacheKey(definition)]: definition,
+            [definitionDetailCacheKey]: definition,
+            [selectedDefinitionCacheKey]: definition,
           }));
-          setGenericConfig(createStrategyConfigSkeleton(definition.configSchema));
+          setGenericConfig(createStrategyConfigSkeleton(createDefinitionConfigSchema(definition)));
           setRendererErrors([]);
         }
       })
@@ -187,7 +191,10 @@ export function StrategyCreateLayer({
   const selectedApiConnection = availableApiConnections.find((connection) => String(connection.id) === selectedConnectorId) ?? availableApiConnections[0] ?? null;
   const selectedTradingAccountId = selectedApiConnection ? String(selectedApiConnection.id) : "";
   const selectedDefinition = selectedDefinitionCacheKey ? definitionDetailsById[selectedDefinitionCacheKey] : undefined;
-  const strategyPresentation = getStrategyPresentationForDefinitionId(selectedDefinitionId);
+  const strategyPresentation = getStrategyPresentationModule({
+    definition: selectedDefinition ?? selectedSummary,
+    definitionId: selectedDefinitionId,
+  }, "create");
   const strategyType = strategyPresentation.strategyType;
   const normalizedStrategyName = strategyName.trim();
   const parsedTakeProfit = Number(takeProfitPercent);
@@ -204,13 +211,6 @@ export function StrategyCreateLayer({
       const nextKey = state.errors.join("\n");
       return currentKey === nextKey ? currentErrors : state.errors;
     });
-  };
-
-  const updateConfigBranch = (branch: "common" | "strategy", nextBranchConfig: JsonRecord) => {
-    setGenericConfig((currentConfig) => ({
-      ...currentConfig,
-      [branch]: nextBranchConfig,
-    }));
   };
 
   const createPresentationContext = selectedDefinition ? {
@@ -234,11 +234,17 @@ export function StrategyCreateLayer({
     genericConfig,
     isDarkTheme,
     rendererErrors,
-    onConfigBranchChange: updateConfigBranch,
+    onConfigChange: setGenericConfig,
     onRendererStateChange: updateRendererState,
   } : null;
+  const createRendererError = selectedDefinition
+    ? getStrategyRendererResolutionError(selectedDefinition, "create")
+    : "";
   const createValidationErrors = createPresentationContext
-    ? strategyPresentation.create.getValidationErrors(createPresentationContext)
+    ? [
+      ...strategyPresentation.create.getValidationErrors(createPresentationContext),
+      ...(createRendererError ? [createRendererError] : []),
+    ]
     : [];
   const canCreate = selectedApiConnection !== null
     && selectedDefinition !== undefined
@@ -328,7 +334,7 @@ export function StrategyCreateLayer({
                     setSelectedDefinitionId(definitionId);
                     setStrategyName("");
                     setGenericConfig(definitionDetail
-                      ? createStrategyConfigSkeleton(definitionDetail.configSchema)
+                      ? createStrategyConfigSkeleton(createDefinitionConfigSchema(definitionDetail))
                       : {});
                     setRendererErrors([]);
                     setSubmitError("");
@@ -367,6 +373,8 @@ export function StrategyCreateLayer({
 
             {isDefinitionDetailLoading ? (
               <div className={getInfoPanelClassName(isDarkTheme)}>{strategyCreateCopy.definitionLoading}</div>
+            ) : createRendererError ? (
+              <p className={getInlineErrorClassName(isDarkTheme)}>{createRendererError}</p>
             ) : createPresentationContext ? (
               strategyPresentation.create.renderBody(createPresentationContext)
             ) : selectedSummary ? (
@@ -387,10 +395,6 @@ export function StrategyCreateLayer({
       </SheetContent>
     </Sheet>
   );
-}
-
-function strategyDefinitionCacheKey(definition: Pick<TradingFoxStrategyDefinitionSummary, "configSchemaVersion" | "id" | "version">): string {
-  return `${definition.id}:${definition.version}:${definition.configSchemaVersion}`;
 }
 
 function preferredDefinitionId(definitions: readonly TradingFoxStrategyDefinitionSummary[]): string {

@@ -13,6 +13,7 @@ import {
 import type { TradingFoxActionDefinition, TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
 import { createStrategyConfigSkeleton, StrategySchemaRenderer, type StrategySchemaRendererState } from "./strategy-schema-renderer";
 import { requestStrategyAction } from "./strategy-detail-utils";
+import { getStrategyRendererResolutionError } from "./strategy-renderer-registry";
 import {
   actionDefinitionDescription,
   actionDefinitionLabel,
@@ -42,6 +43,17 @@ export function StrategyDetailActionsSection({
   const actionDefinitions = (strategyDefinition?.capabilities.actionDefinitions ?? [])
     .filter((action) => !hiddenActionIdSet.has(action.id));
   const language = getWorkspaceLanguageFromLocale(useLocale());
+  const rendererError = strategyDefinition
+    ? getStrategyRendererResolutionError(strategyDefinition, "action")
+    : "";
+  if (rendererError) {
+    return (
+      <Card className={getModalSectionClassName(isDarkTheme)}>
+        <h3 className="text-sm font-black">{strategyCopy.manualActionsTitle}</h3>
+        <p className={getInlineErrorClassName(isDarkTheme)}>{rendererError}</p>
+      </Card>
+    );
+  }
   if (actionDefinitions.length === 0) {
     return null;
   }
@@ -95,6 +107,7 @@ function StrategyActionCard({
   const [rendererErrors, setRendererErrors] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [result, setResult] = useState<JsonRecord | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const label = actionDefinitionLabel(action, language);
   const description = actionDefinitionDescription(action, language);
@@ -109,9 +122,11 @@ function StrategyActionCard({
     setIsSubmitting(true);
     setError("");
     setMessage("");
+    setResult(null);
     try {
       const response = await requestStrategyAction(String(detail.trader.id), action.id, hasPayload ? payload : {});
       await onActionCompleted(response.detail);
+      setResult(response.result ?? null);
       setMessage(strategyCopy.manualActionSuccess(label));
     } catch (actionError) {
       setError(getTradingFoxErrorMessage(actionError, copy));
@@ -150,8 +165,49 @@ function StrategyActionCard({
         )}
       </div>
       {message ? <p className={isDarkTheme ? "mt-3 text-xs font-bold text-emerald-200" : "mt-3 text-xs font-bold text-emerald-700"}>{message}</p> : null}
+      {result ? (
+        <div className="mt-3">
+          <ActionResultView
+            action={action}
+            copy={copy}
+            isDarkTheme={isDarkTheme}
+            result={result}
+          />
+        </div>
+      ) : null}
       {error ? <p className={getInlineErrorClassName(isDarkTheme)}>{error}</p> : null}
     </Card>
+  );
+}
+
+function ActionResultView({
+  action,
+  copy,
+  isDarkTheme,
+  result,
+}: {
+  action: TradingFoxActionDefinition;
+  copy: WorkspaceCopy;
+  isDarkTheme: boolean;
+  result: JsonRecord;
+}) {
+  if (action.resultSchema) {
+    return (
+      <StrategySchemaRenderer
+        copy={copy}
+        formData={result}
+        isDarkTheme={isDarkTheme}
+        mode="readonly"
+        schema={action.resultSchema}
+        uiSchema={action.resultUiSchema}
+      />
+    );
+  }
+
+  return (
+    <pre className={isDarkTheme ? "overflow-auto rounded-2xl border border-white/[0.075] bg-[#0F131A]/70 p-3 text-xs text-slate-300" : "overflow-auto rounded-2xl border border-[#E8E8EC] bg-white p-3 text-xs text-slate-700"}>
+      {JSON.stringify(result, null, 2)}
+    </pre>
   );
 }
 

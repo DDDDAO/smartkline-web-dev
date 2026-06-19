@@ -2,7 +2,7 @@ import type { WorkspaceCopy } from "@/i18n/workspace";
 
 export type JsonRecord = Record<string, unknown>;
 export type UiCondition = { path?: string; eq?: unknown; ne?: unknown; in?: unknown[]; exists?: boolean };
-export type UiField = JsonRecord & { path: string; label?: string; help?: string; order?: number; visibleWhen?: UiCondition };
+export type UiField = JsonRecord & { path: string; description?: string; label?: string; help?: string; order?: number; visibleWhen?: UiCondition };
 export type UiSection = { title: string; description?: string; fields: ReadonlyField[] };
 export type ReadonlyField = { description?: string; label: string; path: string; schema?: JsonRecord; value: unknown };
 export type StrategySchemaCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategySchema"];

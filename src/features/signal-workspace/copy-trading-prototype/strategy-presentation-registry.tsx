@@ -10,6 +10,13 @@ import { CopyTradingCreateBody } from "./strategy-create-fields";
 import { CopyTradingSignalSourceConfigEditor } from "./copy-trading-signal-source-config-editor";
 import { createCopyTradingConfigWithSourceRows, type CopyTradingSignalSourceConfigRow } from "./copy-trading-signal-source-config";
 import { DefinitionDrivenConfigForm, type JsonRecord } from "./strategy-definition-config-form";
+import {
+  COPY_TRADING_CREATE_RENDERER_KEY,
+  COPY_TRADING_DETAIL_RENDERER_KEY,
+  MARIO_CREATE_RENDERER_KEY,
+  MARIO_DETAIL_RENDERER_KEY,
+  resolveStrategyRendererKey,
+} from "./strategy-renderer-registry";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import type { StrategySchemaRendererState } from "./strategy-schema-renderer";
 import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategyType } from "./types";
@@ -18,8 +25,9 @@ export const COPY_TRADING_DEFINITION_ID = "COPY_TRADING";
 export const MARIO_DEFINITION_ID = "MARIO_STRATEGY";
 
 export type StrategyPresentationMatchInput = {
-  definition?: Pick<TradingFoxStrategyDefinitionSummary, "display" | "id"> | null;
+  definition?: Pick<TradingFoxStrategyDefinitionSummary, "display" | "id" | "rendering"> | null;
   definitionId?: string | null;
+  surface?: "create" | "detail";
   strategy?: Pick<PrototypeStrategy, "strategyDefinitionId" | "strategyType"> | null;
 };
 
@@ -31,7 +39,7 @@ export type StrategyPresentationCreateContext = {
   genericConfig: JsonRecord;
   isDarkTheme: boolean;
   rendererErrors: readonly string[];
-  onConfigBranchChange: (branch: "common" | "strategy", nextBranchConfig: JsonRecord) => void;
+  onConfigChange: (nextConfig: JsonRecord) => void;
   onRendererStateChange: (state: StrategySchemaRendererState) => void;
 };
 
@@ -73,6 +81,7 @@ export type StrategyPresentationDetailContext = {
   detail: TradingFoxStrategyDetail;
   isDarkTheme: boolean;
   ordersSectionLoaded: boolean;
+  strategyDefinition: TradingFoxStrategyDefinition | null;
   onMarioRefresh: () => Promise<void> | void;
 };
 
@@ -131,7 +140,7 @@ const COPY_TRADING_STRATEGY_PRESENTATION_MODULE: StrategyPresentationModule = {
   strategyType: "copyTrading",
   match: (input) => matchesPresentation(input, {
     definitionIds: [COPY_TRADING_DEFINITION_ID],
-    presentationKeys: ["copyTrading", "copy-trading"],
+    presentationKeys: ["copyTrading", "copy-trading", COPY_TRADING_CREATE_RENDERER_KEY, COPY_TRADING_DETAIL_RENDERER_KEY],
     strategyTypes: ["copyTrading"],
   }),
   create: {
@@ -196,7 +205,7 @@ const MARIO_STRATEGY_PRESENTATION_MODULE: StrategyPresentationModule = {
   strategyType: "mario",
   match: (input) => matchesPresentation(input, {
     definitionIds: [MARIO_DEFINITION_ID],
-    presentationKeys: ["mario"],
+    presentationKeys: ["mario", MARIO_CREATE_RENDERER_KEY, MARIO_DETAIL_RENDERER_KEY],
     strategyTypes: ["mario"],
   }),
   create: {
@@ -216,8 +225,9 @@ const MARIO_STRATEGY_PRESENTATION_MODULE: StrategyPresentationModule = {
     hiddenActionIds: MARIO_STRATEGY_CONSOLE_ACTION_IDS,
     panels: [{
       id: "mario-console",
-      render: ({ copy, detail, isDarkTheme, ordersSectionLoaded, onMarioRefresh }) => (
+      render: ({ copy, detail, isDarkTheme, ordersSectionLoaded, strategyDefinition, onMarioRefresh }) => (
         <MarioStrategyConsole
+          actionDefinitions={strategyDefinition?.capabilities.actionDefinitions ?? []}
           detail={detail}
           isDarkTheme={isDarkTheme}
           ordersSectionLoaded={ordersSectionLoaded}
@@ -235,8 +245,11 @@ const SPECIAL_STRATEGY_PRESENTATION_MODULES: readonly StrategyPresentationModule
   MARIO_STRATEGY_PRESENTATION_MODULE,
 ];
 
-export function getStrategyPresentationModule(input: StrategyPresentationMatchInput): StrategyPresentationModule {
-  return SPECIAL_STRATEGY_PRESENTATION_MODULES.find((module) => module.match(input)) ?? GENERIC_STRATEGY_PRESENTATION_MODULE;
+export function getStrategyPresentationModule(
+  input: StrategyPresentationMatchInput,
+  surface?: "create" | "detail",
+): StrategyPresentationModule {
+  return SPECIAL_STRATEGY_PRESENTATION_MODULES.find((module) => module.match({ ...input, surface })) ?? GENERIC_STRATEGY_PRESENTATION_MODULE;
 }
 
 export function getStrategyPresentationForDefinitionId(definitionId: string | null | undefined): StrategyPresentationModule {
@@ -269,7 +282,7 @@ function renderGenericCreateBody({
   definition,
   genericConfig,
   isDarkTheme,
-  onConfigBranchChange,
+  onConfigChange,
   onRendererStateChange,
 }: StrategyPresentationCreateContext): ReactNode {
   return (
@@ -278,7 +291,7 @@ function renderGenericCreateBody({
       copy={copy}
       definition={definition}
       isDarkTheme={isDarkTheme}
-      onBranchChange={onConfigBranchChange}
+      onConfigChange={onConfigChange}
       onRendererStateChange={onRendererStateChange}
     />
   );
@@ -295,14 +308,31 @@ function matchesPresentation(
   const definitionId = normalizeStrategyDefinitionId(input.definition?.id ?? input.definitionId ?? input.strategy?.strategyDefinitionId);
   const strategyType = input.strategy?.strategyType;
   const presentationKey = normalizePresentationKey(presentationKeyFromDefinition(input.definition));
+  const rendererKeys = input.surface
+    ? [normalizePresentationKey(rendererKeyFromDefinition(input.definition, input.surface))]
+    : [
+      normalizePresentationKey(rendererKeyFromDefinition(input.definition, "create")),
+      normalizePresentationKey(rendererKeyFromDefinition(input.definition, "detail")),
+    ];
   return matcher.definitionIds.some((id) => normalizeStrategyDefinitionId(id) === definitionId)
     || (strategyType !== undefined && matcher.strategyTypes.includes(strategyType))
-    || (presentationKey !== "" && matcher.presentationKeys.some((key) => normalizePresentationKey(key) === presentationKey));
+    || (presentationKey !== "" && matcher.presentationKeys.some((key) => normalizePresentationKey(key) === presentationKey))
+    || matcher.presentationKeys.some((key) => {
+      const normalizedKey = normalizePresentationKey(key);
+      return rendererKeys.some((rendererKey) => normalizedKey === rendererKey);
+    });
 }
 
 function presentationKeyFromDefinition(definition: StrategyPresentationMatchInput["definition"]): string {
   const display = definition?.display as Record<string, unknown> | undefined;
   return typeof display?.presentationKey === "string" ? display.presentationKey : "";
+}
+
+function rendererKeyFromDefinition(
+  definition: StrategyPresentationMatchInput["definition"],
+  surface: "create" | "detail",
+): string {
+  return definition ? resolveStrategyRendererKey(definition, surface) : "";
 }
 
 function normalizeStrategyDefinitionId(definitionId: string | null | undefined): string {

@@ -88,6 +88,8 @@ export type TradingFoxActionDefinition = {
   display?: TradingFoxDisplayMetadata;
   payloadSchema?: Record<string, unknown>;
   uiSchema?: Record<string, unknown>;
+  resultSchema?: Record<string, unknown>;
+  resultUiSchema?: Record<string, unknown>;
 };
 
 export type TradingFoxStrategyCapabilities = {
@@ -102,6 +104,14 @@ export type TradingFoxStrategyCapabilities = {
   actionDefinitions?: TradingFoxActionDefinition[];
 };
 
+export type TradingFoxRendererSurface = "action" | "create" | "detail" | "state";
+
+export type TradingFoxRendererSelector = {
+  key?: string;
+};
+
+export type TradingFoxRenderingContract = Partial<Record<TradingFoxRendererSurface, TradingFoxRendererSelector>>;
+
 export type TradingFoxStrategyDefinitionSummary = {
   id: string;
   name: string;
@@ -110,8 +120,11 @@ export type TradingFoxStrategyDefinitionSummary = {
   status: string;
   version: string;
   configSchemaVersion: number;
+  manifestHash?: string;
   commonModules?: string[];
   capabilities: TradingFoxStrategyCapabilities;
+  rendering?: TradingFoxRenderingContract;
+  stateSchemaVersion?: number;
 };
 
 export type TradingFoxStrategyDefinition = TradingFoxStrategyDefinitionSummary & {
@@ -119,6 +132,19 @@ export type TradingFoxStrategyDefinition = TradingFoxStrategyDefinitionSummary &
   uiSchema?: Record<string, unknown>;
   strategyConfigSchema?: Record<string, unknown>;
   strategyUiSchema?: Record<string, unknown>;
+  stateSchema?: Record<string, unknown>;
+  stateUiSchema?: Record<string, unknown>;
+};
+
+export type TradingFoxStrategyStateResponse = {
+  traderId: number;
+  strategyDefinitionId: string;
+  definitionVersion?: string;
+  stateSchemaVersion: number;
+  initialized: boolean;
+  updatedAt: string | null;
+  state: Record<string, unknown> | null;
+  source?: string;
 };
 
 export type TradingFoxCopyStrategy = {

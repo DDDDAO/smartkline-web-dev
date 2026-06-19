@@ -16,6 +16,7 @@ import {
   strategyDefinitionDescription,
   strategyDefinitionLabel,
 } from "./strategy-display-metadata";
+import { strategyDefinitionCacheKey } from "./strategy-renderer-registry";
 
 export function StrategyDefinitionSelect({
   copy,
@@ -135,7 +136,7 @@ export function StrategyDefinitionSelect({
               const isSelected = definition.id === selectedDefinition?.id;
               return (
                 <Button
-                  key={`${definition.id}:${definition.version}:${definition.configSchemaVersion}`}
+                  key={strategyDefinitionCacheKey(definition)}
                   aria-selected={isSelected}
                   className={cn(
                     "h-auto w-full cursor-pointer justify-between whitespace-normal rounded-xl px-3 py-2 text-left",

@@ -2,6 +2,7 @@ import type { WorkspaceLanguage } from "@/i18n/workspace";
 
 export type MarioStrategyConsoleCopy = {
   actionFailed: string;
+  actionNotDeclared: (actionId: string) => string;
   availableQuantity: string;
   budget: string;
   budgetHint: string;
@@ -47,6 +48,7 @@ export type MarioStrategyConsoleCopy = {
 export const MARIO_STRATEGY_CONSOLE_COPY = {
   "zh-CN": {
     actionFailed: "操作失败",
+    actionNotDeclared: (actionId: string) => `当前 StrategyDefinition 未声明 ${actionId} 动作。`,
     availableQuantity: "可开数量",
     budget: "预算",
     budgetHint: "按账户权益计算本次风险预算，不覆盖上方账户概况。",
@@ -90,6 +92,7 @@ export const MARIO_STRATEGY_CONSOLE_COPY = {
   },
   "en-US": {
     actionFailed: "Action failed",
+    actionNotDeclared: (actionId: string) => `The current StrategyDefinition does not declare the ${actionId} action.`,
     availableQuantity: "Quantity",
     budget: "Budget",
     budgetHint: "Risk budget is calculated from account equity and does not replace the summary above.",

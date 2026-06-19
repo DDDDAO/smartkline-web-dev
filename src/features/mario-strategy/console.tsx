@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getWorkspaceLanguageFromLocale, type WorkspaceCopy } from "@/i18n/workspace";
 import { fetchUsdtPerpetualMarkets } from "@/lib/binance-market-data";
-import type { TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
+import type { TradingFoxActionDefinition, TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
 import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
 import type { MarketSymbol } from "@/types/market";
 import { createMarioOpenPositionPayload } from "./action-payload";
@@ -19,14 +19,17 @@ import { MarioStrategyPendingOrdersCard, type MarioCancelAction } from "./pendin
 import { getMarioCardClassName } from "./section-card";
 import type { MarioBudgetPercent, MarioCalculatorForm, MarioRewardRiskRatio, MarioTakeProfitTargetConfig, MarioTakeProfitTargetId, MarioTradeDirection } from "./types";
 import { requestStrategyAction } from "../signal-workspace/copy-trading-prototype/strategy-detail-utils";
+import { validateStrategySchemaData } from "../signal-workspace/copy-trading-prototype/strategy-schema-renderer";
 
 export function MarioStrategyConsole({
+  actionDefinitions,
   detail,
   isDarkTheme,
   ordersSectionLoaded,
   workspaceCopy,
   onRefresh,
 }: {
+  actionDefinitions: readonly TradingFoxActionDefinition[];
   detail: TradingFoxStrategyDetail;
   isDarkTheme: boolean;
   ordersSectionLoaded: boolean;
@@ -35,6 +38,7 @@ export function MarioStrategyConsole({
 }) {
   const language = getWorkspaceLanguageFromLocale(useLocale());
   const copy = getMarioStrategyConsoleCopy(language);
+  const actionDefinitionById = useMemo(() => new Map(actionDefinitions.map((action) => [action.id, action])), [actionDefinitions]);
   const [budget, setBudget] = useState<MarioBudgetPercent>(MARIO_INITIAL_BUDGET);
   const [ratio, setRatio] = useState<MarioRewardRiskRatio>(MARIO_INITIAL_RATIO);
   const [takeProfitTargets, setTakeProfitTargets] = useState<MarioTakeProfitTargetConfig[]>([...MARIO_DEFAULT_TAKE_PROFIT_TARGETS]);
@@ -94,11 +98,22 @@ export function MarioStrategyConsole({
     if (!openDirection || !calculation.isValidOrder) {
       return;
     }
+    const payload = createMarioOpenPositionPayload({ calculation, direction: openDirection, ratio, symbol: form.symbol });
+    if (!validateMarioActionPayload({
+      actionDefinitionById,
+      actionId: MARIO_STRATEGY_ACTION_IDS.openPosition,
+      copy,
+      language,
+      payload,
+      setActionError,
+    })) {
+      return;
+    }
     setIsSubmittingOpen(true);
     setActionError("");
     setActionMessage("");
     try {
-      await requestStrategyAction(String(detail.trader.id), MARIO_STRATEGY_ACTION_IDS.openPosition, createMarioOpenPositionPayload({ calculation, direction: openDirection, ratio, symbol: form.symbol }));
+      await requestStrategyAction(String(detail.trader.id), MARIO_STRATEGY_ACTION_IDS.openPosition, payload);
       await onRefresh();
       setActionMessage(copy.planSubmitted);
       setOpenDirection(null);
@@ -110,11 +125,16 @@ export function MarioStrategyConsole({
   };
 
   const submitCancelAction = async (action: MarioCancelAction) => {
+    const actionId = getCancelActionId(action);
+    const payload = getCancelActionPayload(action);
+    if (!validateMarioActionPayload({ actionDefinitionById, actionId, copy, language, payload, setActionError })) {
+      return;
+    }
     setIsCancelling(true);
     setActionError("");
     setActionMessage("");
     try {
-      await requestStrategyAction(String(detail.trader.id), getCancelActionId(action), getCancelActionPayload(action));
+      await requestStrategyAction(String(detail.trader.id), actionId, payload);
       await onRefresh();
       setActionMessage(copy.cancelPlan);
     } catch (error) {
@@ -154,7 +174,13 @@ export function MarioStrategyConsole({
           ratio={ratio}
           takeProfitTargets={takeProfitTargets}
           onBudgetChange={setBudget}
-          onDirectionSelect={setOpenDirection}
+          onDirectionSelect={(direction) => {
+            if (actionDefinitionById.has(MARIO_STRATEGY_ACTION_IDS.openPosition)) {
+              setOpenDirection(direction);
+            } else {
+              setActionError(copy.actionNotDeclared(MARIO_STRATEGY_ACTION_IDS.openPosition));
+            }
+          }}
           onEntryAPercentChange={updateEntryAPercent}
           onFormChange={updateFormField}
           onRatioChange={changeRatio}
@@ -232,6 +258,39 @@ function getCancelActionPayload(action: MarioCancelAction): Record<string, unkno
     return {};
   }
   return { positionSide: action.positionSide, symbol: action.symbol };
+}
+
+function validateMarioActionPayload({
+  actionDefinitionById,
+  actionId,
+  copy,
+  language,
+  payload,
+  setActionError,
+}: {
+  actionDefinitionById: ReadonlyMap<string, TradingFoxActionDefinition>;
+  actionId: string;
+  copy: ReturnType<typeof getMarioStrategyConsoleCopy>;
+  language: ReturnType<typeof getWorkspaceLanguageFromLocale>;
+  payload: Record<string, unknown>;
+  setActionError: (message: string) => void;
+}): boolean {
+  const actionDefinition = actionDefinitionById.get(actionId);
+  if (!actionDefinition) {
+    setActionError(copy.actionNotDeclared(actionId));
+    return false;
+  }
+  const errors = validateStrategySchemaData({
+    formData: payload,
+    language,
+    schema: actionDefinition.payloadSchema,
+    uiSchema: actionDefinition.uiSchema,
+  });
+  if (errors.length === 0) {
+    return true;
+  }
+  setActionError(`${copy.actionFailed}: ${errors.join(" ")}`);
+  return false;
 }
 
 function useCancelLabel(): string {
