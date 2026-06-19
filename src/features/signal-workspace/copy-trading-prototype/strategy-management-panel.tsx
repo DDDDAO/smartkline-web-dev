@@ -14,6 +14,7 @@ import type {
   PrototypeStrategyStatus,
 } from "./types";
 import { StrategyDetailView } from "./strategy-detail-view";
+import { getStrategyDashboardPath } from "./strategy-presentation-registry";
 import {
   StrategyCreateLayer,
 } from "./copy-trading-prototype-helpers";
@@ -53,6 +54,12 @@ export function StrategyManagementPanel({
   const selectedStrategyId = activeStrategyId || localSelectedStrategyId;
   const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) ?? null;
   const openStrategyDetail = (strategy: PrototypeStrategy) => {
+    const dashboardPath = getStrategyDashboardPath(strategy, window.location.pathname);
+    if (dashboardPath) {
+      window.location.assign(dashboardPath);
+      return;
+    }
+
     setLocalSelectedStrategyId(strategy.id);
     onStrategyRouteChange(strategy.id, "push");
   };
