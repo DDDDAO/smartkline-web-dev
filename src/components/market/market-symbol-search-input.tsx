@@ -178,12 +178,12 @@ function getVariantClasses(
   return {
     dropdown: isDarkTheme
       ? "absolute left-0 top-10 z-[90] max-h-[min(60dvh,20rem)] w-full overflow-y-auto rounded-2xl border border-white/[0.075] bg-[#181A20] p-1 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:w-[280px] lg:top-11"
-      : "absolute left-0 top-10 z-[90] max-h-[min(60dvh,20rem)] w-full overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-1 shadow-[0_18px_60px_rgba(15,23,42,0.10)] sm:w-[280px] lg:top-11",
+      : "absolute left-0 top-10 z-[90] max-h-[min(60dvh,20rem)] w-full overflow-y-auto rounded-2xl border border-[#E8E8EC] bg-white p-1 shadow-[0_18px_60px_rgba(15,23,42,0.10)] sm:w-[280px] lg:top-11",
     empty: isDarkTheme ? "px-3 py-3 text-xs text-slate-500" : "px-3 py-3 text-xs text-slate-400",
     icon: `pointer-events-none absolute left-4 top-[15px] h-3.5 w-3.5 -translate-y-1/2 text-slate-400 transition-opacity lg:top-[18px] ${isOpen ? "opacity-100" : "opacity-0"}`,
     input: isDarkTheme
-      ? `h-[30px] w-full rounded-full border border-white/[0.075] bg-white/[0.035] py-0 pr-4 text-xs font-medium text-slate-100 outline-none placeholder:text-slate-500 transition-[border-color,background-color,padding] focus:border-[#00A6F4] sm:w-[220px] lg:h-9 lg:w-[260px] lg:text-sm ${isOpen ? "pl-9" : "pl-4"}`
-      : `h-[30px] w-full rounded-full border border-[#E5EAF0] bg-[#F8FAFC] py-0 pr-4 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 transition-[border-color,background-color,padding] focus:border-[#00A6F4] focus:bg-[#F8FAFC] sm:w-[220px] lg:h-9 lg:w-[260px] lg:text-sm ${isOpen ? "pl-9" : "pl-4"}`,
+      ? `h-[30px] w-full rounded-full border border-white/[0.075] bg-white/[0.035] py-0 pr-4 text-xs font-medium text-slate-100 outline-none placeholder:text-slate-500 transition-[border-color,background-color,padding] focus:border-[#6366F1] sm:w-[220px] lg:h-9 lg:w-[260px] lg:text-sm ${isOpen ? "pl-9" : "pl-4"}`
+      : `h-[30px] w-full rounded-full border border-[#E8E8EC] bg-[#FAFAFA] py-0 pr-4 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 transition-[border-color,background-color,padding] focus:border-[#6366F1] focus:bg-[#FAFAFA] sm:w-[220px] lg:h-9 lg:w-[260px] lg:text-sm ${isOpen ? "pl-9" : "pl-4"}`,
     root: "relative z-[90] w-full sm:w-auto",
     suffix: isDarkTheme ? "text-[11px] text-slate-500" : "text-[11px] text-slate-400",
   };
@@ -200,8 +200,8 @@ function getOptionClassName(
 
   if (isHighlighted) {
     return isDarkTheme
-      ? "flex w-full items-center justify-between rounded-xl bg-[#00A6F4] px-3 py-2 text-left text-xs font-semibold text-white"
-      : "flex w-full items-center justify-between rounded-xl bg-[#EAF8FE] px-3 py-2 text-left text-xs font-semibold text-[#007DB8]";
+      ? "flex w-full items-center justify-between rounded-xl bg-[#6366F1] px-3 py-2 text-left text-xs font-semibold text-white"
+      : "flex w-full items-center justify-between rounded-xl bg-[#EEF2FF] px-3 py-2 text-left text-xs font-semibold text-[#4F46E5]";
   }
 
   return isDarkTheme

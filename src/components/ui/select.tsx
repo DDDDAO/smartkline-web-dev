@@ -19,7 +19,7 @@ function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.V
 function SelectTrigger({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Trigger>) {
   return (
     <SelectPrimitive.Trigger
-      className={cn("border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-9 w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm font-bold shadow-xs focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1", className)}
+      className={cn("border-input bg-card placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 flex h-[38px] w-full items-center justify-between gap-2 rounded-md border px-3.5 py-2 text-sm font-medium shadow-none outline-none transition-[border-color,box-shadow] focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1", className)}
       data-slot="select-trigger"
       {...props}
     >
@@ -35,7 +35,7 @@ function SelectContent({ className, children, position = "popper", ...props }: R
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
-        className={cn("bg-popover text-popover-foreground relative z-[180] max-h-96 min-w-[8rem] overflow-hidden rounded-md border shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0", position === "popper" && "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1", className)}
+        className={cn("bg-popover text-popover-foreground relative z-[180] max-h-96 min-w-[8rem] overflow-hidden rounded-lg border shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0", position === "popper" && "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1", className)}
         data-slot="select-content"
         position={position}
         {...props}
@@ -47,7 +47,7 @@ function SelectContent({ className, children, position = "popper", ...props }: R
 }
 
 function SelectLabel({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Label>) {
-  return <SelectPrimitive.Label className={cn("px-2 py-1.5 text-xs font-bold", className)} data-slot="select-label" {...props} />;
+  return <SelectPrimitive.Label className={cn("px-2 py-1.5 text-xs font-medium", className)} data-slot="select-label" {...props} />;
 }
 
 function SelectItem({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Item>) {
