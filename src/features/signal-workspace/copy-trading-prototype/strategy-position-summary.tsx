@@ -6,6 +6,8 @@ import { PerformanceCurveChart, PerformanceCurveLoadingOverlay, PerformanceCurve
 import { finiteNumberOrNull, formatDetailCurrency, formatDetailDate, formatSignedDetailCurrency, formatSignedPercent, formatSummaryLeverage, formatUnsignedPercent, getPnlClassName, getPositionSideBucket, positiveFiniteNumberOrNull } from "./formatters";
 import type { CopyPositionMarkPricesBySymbol, NormalizedSummaryPosition, PositionSummaryModel, PositionSummaryTotals, SignalSourcePosition, StrategyCopy, StrategyDetailCurveWindow } from "./strategy-detail-shared";
 
+const STRATEGY_PERFORMANCE_TOOLTIP_METRICS = ["roi", "pnl"] as const;
+
 export function PositionSummaryPanel({
   isDarkTheme,
   strategyCopy,
@@ -17,7 +19,7 @@ export function PositionSummaryPanel({
 }) {
   const containerClassName = isDarkTheme
     ? "mt-3 rounded-2xl border border-white/[0.075] bg-[#111820] p-2.5"
-    : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-2.5";
+    : "mt-3 rounded-2xl border border-[#E8E8EC] bg-white p-2.5";
   const pnlValue = summary.unrealizedPnl ?? 0;
   const pnlRateValue = summary.totalPnlRate ?? 0;
   const longRatioClassName = isDarkTheme ? "text-emerald-300" : "text-emerald-600";
@@ -75,7 +77,7 @@ function PositionSummaryMetric({
   label: string;
   valueClassName?: string;
 }) {
-  const containerClassName = isDarkTheme ? "min-w-0 overflow-hidden rounded-xl bg-white/[0.035] px-2 py-1.5" : "min-w-0 overflow-hidden rounded-xl bg-[#F8FAFC] px-2 py-1.5";
+  const containerClassName = isDarkTheme ? "min-w-0 overflow-hidden rounded-xl bg-white/[0.035] px-2 py-1.5" : "min-w-0 overflow-hidden rounded-xl bg-[#FAFAFA] px-2 py-1.5";
   const labelClassName = isDarkTheme ? "truncate text-[10px] font-black leading-4 text-slate-400" : "truncate text-[10px] font-black leading-4 text-slate-700";
   const neutralValueClassName = isDarkTheme ? "text-slate-50" : "text-slate-950";
   const defaultValueClassName = "mt-0.5 flex min-w-0 items-baseline gap-x-0.5 overflow-hidden whitespace-nowrap text-[13px] font-black leading-4 sm:text-sm";
@@ -115,11 +117,12 @@ export function StrategyPerformanceCurvePanel({
   const latestText = formatPerformanceCurvePercent(latestValue);
   const shellClassName = isDarkTheme
     ? "rounded-[24px] border border-white/[0.075] bg-white/[0.035] p-4"
-    : "rounded-[24px] border border-[#E5EAF0] bg-white p-4 shadow-sm";
+    : "rounded-[24px] border border-[#E8E8EC] bg-white p-4 shadow-sm";
   const chartShellClassName = isDarkTheme
     ? "relative mt-3 h-[140px] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#111820]"
-    : "relative mt-3 h-[140px] overflow-hidden rounded-2xl border border-[#E5EAF0] bg-[#F8FAFC]";
+    : "relative mt-3 h-[140px] overflow-hidden rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA]";
   const hintText = curve?.updatedAt ? strategyCopy.curveUpdatedAt(formatDetailDate(curve.updatedAt)) : strategyCopy.curveHint;
+  const curveMetricLabels = useMemo(() => ({ pnl: strategyCopy.pnl, roi: strategyCopy.roi }), [strategyCopy.pnl, strategyCopy.roi]);
 
   return (
     <section className={shellClassName}>
@@ -156,14 +159,11 @@ export function StrategyPerformanceCurvePanel({
             <PerformanceCurveChart
               ariaLabel={title}
               isDarkTheme={isDarkTheme}
-              metricLabels={{
-                pnl: strategyCopy.pnl,
-                roi: strategyCopy.roi,
-              }}
+              metricLabels={curveMetricLabels}
               points={points}
               primaryMetric="roi"
               strokeMode="brand"
-              tooltipMetrics={["roi", "pnl"]}
+              tooltipMetrics={STRATEGY_PERFORMANCE_TOOLTIP_METRICS}
             />
             {isCurveLoading ? <PerformanceCurveLoadingOverlay isDarkTheme={isDarkTheme} label={strategyCopy.curveLoading} /> : null}
           </>

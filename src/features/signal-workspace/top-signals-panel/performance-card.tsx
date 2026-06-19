@@ -9,6 +9,7 @@ import {
   formatPerformanceCurvePercent,
   getPerformanceCurveMetricValue,
   mergeReturnAndPnlCurvePoints,
+  type PerformanceCurveValueFormatters,
 } from "@/components/charts/performance-curve";
 import type { CopyTradingTrader } from "@/types/copy-trading";
 import type {
@@ -25,6 +26,8 @@ import {
   TOP_SIGNAL_PERFORMANCE_CURVE_METRICS,
   type TopSignalPerformanceCurveMetric,
 } from "./constants";
+
+const TOP_SIGNAL_PERFORMANCE_TOOLTIP_METRICS = ["roi", "pnl"] as const;
 
 export function TopSignalPerformanceCurveCard({
   copy,
@@ -44,20 +47,29 @@ export function TopSignalPerformanceCurveCard({
   const [activeMetric, setActiveMetric] = useState<TopSignalPerformanceCurveMetric>("roi");
   const panelCopy = copy.workspace.topSignals;
   const isPnlMetric = activeMetric === "pnl";
+  const performanceAsset = performance?.copier_pnl_asset || "USDT";
   const curvePoints = useMemo(() => mergeReturnAndPnlCurvePoints({
-    asset: performance?.copier_pnl_asset || "USDT",
+    asset: performanceAsset,
     pnlCurve: performance?.pnl_curve ?? [],
     returnCurve: performance?.return_curve ?? [],
-  }), [performance]);
-  const points = isPnlMetric ? adaptMetricCurvePoints(performance?.pnl_curve ?? [], "pnl") : adaptMetricCurvePoints(performance?.return_curve ?? [], "roi");
+  }), [performance?.pnl_curve, performance?.return_curve, performanceAsset]);
+  const points = useMemo(() => (
+    isPnlMetric
+      ? adaptMetricCurvePoints(performance?.pnl_curve ?? [], "pnl")
+      : adaptMetricCurvePoints(performance?.return_curve ?? [], "roi")
+  ), [isPnlMetric, performance?.pnl_curve, performance?.return_curve]);
   const latestPoint = points.length > 0 ? points[points.length - 1] : null;
   const metaText = performance?.updated_at
     ? panelCopy.updatedAt(formatDisplayTime(performance.updated_at))
     : panelCopy.performanceHint;
   const cardClassName = isDarkTheme
     ? "mt-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3"
-    : "mt-3 rounded-2xl border border-[#E5EAF0] bg-white p-3";
-  const performanceAsset = performance?.copier_pnl_asset || "USDT";
+    : "mt-3 rounded-2xl border border-[#E8E8EC] bg-white p-3";
+  const curveMetricLabels = useMemo(() => ({ pnl: panelCopy.pnl, roi: panelCopy.roi }), [panelCopy.pnl, panelCopy.roi]);
+  const curveValueFormatters = useMemo<PerformanceCurveValueFormatters>(() => ({
+    pnl: (value, point) => formatSignedAssetAmount(value, point?.asset || performanceAsset),
+    roi: (value) => formatPerformanceCurvePercent(value),
+  }), [performanceAsset]);
   const latestValue =
     (latestPoint
       ? getPerformanceCurveMetricValue(latestPoint, isPnlMetric ? "pnl" : "roi")
@@ -73,7 +85,7 @@ export function TopSignalPerformanceCurveCard({
   const windowLabel = panelCopy.performanceWindows[performanceWindow] ?? performance?.window ?? performanceWindow;
   const metricToggleShellClassName = isDarkTheme
     ? "inline-flex rounded-full border border-white/[0.075] bg-[#0F131A] p-0.5"
-    : "inline-flex rounded-full border border-[#D5E4EF] bg-[#F8FAFC] p-0.5";
+    : "inline-flex rounded-full border border-[#E8E8EC] bg-[#FAFAFA] p-0.5";
 
   return (
     <div className={cardClassName}>
@@ -101,7 +113,7 @@ export function TopSignalPerformanceCurveCard({
           {TOP_SIGNAL_PERFORMANCE_CURVE_METRICS.map((metric) => {
             const isActive = metric === activeMetric;
             const buttonClassName = isActive
-              ? "rounded-full bg-[#00A6F4] px-2.5 py-1 text-[10px] font-black text-white shadow-[0_6px_14px_rgba(0,166,244,0.18)]"
+              ? "rounded-full bg-[#6366F1] px-2.5 py-1 text-[10px] font-black text-white shadow-[0_6px_14px_rgba(99,102,241,0.18)]"
               : isDarkTheme
                 ? "rounded-full px-2.5 py-1 text-[10px] font-bold text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-100"
                 : "rounded-full px-2.5 py-1 text-[10px] font-bold text-slate-500 transition hover:bg-white hover:text-slate-900";
@@ -128,15 +140,12 @@ export function TopSignalPerformanceCurveCard({
             <PerformanceCurveChart
               ariaLabel={titleText}
               isDarkTheme={isDarkTheme}
-              metricLabels={{ pnl: panelCopy.pnl, roi: panelCopy.roi }}
+              metricLabels={curveMetricLabels}
               pnlColorMode={pnlColorMode}
               points={curvePoints}
               primaryMetric={isPnlMetric ? "pnl" : "roi"}
-              tooltipMetrics={["roi", "pnl"]}
-              valueFormatters={{
-                pnl: (value, point) => formatSignedAssetAmount(value, point?.asset || performanceAsset),
-                roi: (value) => formatPerformanceCurvePercent(value),
-              }}
+              tooltipMetrics={TOP_SIGNAL_PERFORMANCE_TOOLTIP_METRICS}
+              valueFormatters={curveValueFormatters}
             />
             {isPerformanceLoading ? (
               <PerformanceCurveLoadingOverlay
@@ -146,11 +155,11 @@ export function TopSignalPerformanceCurveCard({
             ) : null}
           </>
         ) : isPerformanceLoading ? (
-          <div className={isDarkTheme ? "relative h-full rounded-xl border border-white/[0.06] bg-[#181A20]" : "relative h-full rounded-xl border border-[#E5EAF0] bg-[#F8FAFC]"}>
+          <div className={isDarkTheme ? "relative h-full rounded-xl border border-white/[0.06] bg-[#181A20]" : "relative h-full rounded-xl border border-[#E8E8EC] bg-[#FAFAFA]"}>
             <PerformanceCurveLoadingOverlay isDarkTheme={isDarkTheme} label={loadingText} />
           </div>
         ) : (
-          <div className={isDarkTheme ? "flex h-full items-center justify-center rounded-xl border border-white/[0.06] bg-[#181A20] px-3 text-center text-xs text-slate-500" : "flex h-full items-center justify-center rounded-xl border border-[#E5EAF0] bg-[#F8FAFC] px-3 text-center text-xs text-slate-500"}>
+          <div className={isDarkTheme ? "flex h-full items-center justify-center rounded-xl border border-white/[0.06] bg-[#181A20] px-3 text-center text-xs text-slate-500" : "flex h-full items-center justify-center rounded-xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 text-center text-xs text-slate-500"}>
             {emptyText}
           </div>
         )}

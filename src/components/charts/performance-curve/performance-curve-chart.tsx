@@ -14,7 +14,6 @@ import {
   formatPerformanceCurveAssetAmount,
   formatPerformanceCurvePercent,
   formatPerformanceCurveTime,
-  getLatestPerformanceCurvePoint,
   getPerformanceCurveMetricValue,
   getPerformanceCurveStrokeColor,
 } from "./utils";
@@ -54,6 +53,7 @@ const DEFAULT_VALUE_FORMATTERS: Required<PerformanceCurveValueFormatters> = {
   pnl: (value, point) => formatPerformanceCurveAssetAmount(value, point?.asset ?? point?.currency ?? undefined),
   roi: (value) => formatPerformanceCurvePercent(value),
 };
+const RESPONSIVE_CONTAINER_INITIAL_DIMENSION = { height: 1, width: 1 };
 const VALUE_AXIS_WIDTH = 56;
 
 const CartesianGrid = dynamic(() => import("recharts").then((module) => module.CartesianGrid), { ssr: false });
@@ -86,26 +86,45 @@ export function PerformanceCurveChart({
   tooltipMetrics = [primaryMetric],
   valueFormatters,
 }: PerformanceCurveChartProps) {
-  const data = useMemo(
-    () => points
-      .map((point) => ({
+  const { data, latestValue, shouldShowZeroLine } = useMemo(() => {
+    const nextData: PerformanceCurveDatum[] = [];
+    let nextLatestValue: number | null = null;
+    let hasNegativeValue = false;
+    let hasPositiveValue = false;
+
+    for (const point of points) {
+      const primaryValue = getPerformanceCurveMetricValue(point, primaryMetric);
+      if (primaryValue === null) {
+        continue;
+      }
+
+      if (primaryValue < 0) {
+        hasNegativeValue = true;
+      } else if (primaryValue > 0) {
+        hasPositiveValue = true;
+      }
+
+      nextData.push({
         ...point,
-        primaryValue: getPerformanceCurveMetricValue(point, primaryMetric),
-      }))
-      .filter((point) => point.primaryValue !== null),
-    [points, primaryMetric],
-  );
-  const latestPoint = getLatestPerformanceCurvePoint(data, primaryMetric);
-  const latestValue = getPerformanceCurveMetricValue(latestPoint, primaryMetric);
+        primaryValue,
+      });
+      nextLatestValue = primaryValue;
+    }
+
+    return {
+      data: nextData,
+      latestValue: nextLatestValue,
+      shouldShowZeroLine: hasNegativeValue && hasPositiveValue,
+    };
+  }, [points, primaryMetric]);
   const strokeColor = strokeMode === "brand"
-    ? (isDarkTheme ? "#38BDF8" : "#00A6F4")
+    ? (isDarkTheme ? "#818CF8" : "#6366F1")
     : getPerformanceCurveStrokeColor(isDarkTheme, latestValue, pnlColorMode);
   const gridColor = isDarkTheme ? "rgba(148,163,184,0.20)" : "rgba(148,163,184,0.28)";
-  const cursorColor = isDarkTheme ? "rgba(125,211,252,0.44)" : "rgba(0,166,244,0.28)";
+  const cursorColor = isDarkTheme ? "rgba(129,140,248,0.44)" : "rgba(99,102,241,0.28)";
   const axisColor = isDarkTheme ? "rgba(203,213,225,0.72)" : "rgba(71,85,105,0.78)";
-  const mergedMetricLabels = { ...DEFAULT_METRIC_LABELS, ...metricLabels };
-  const mergedValueFormatters = { ...DEFAULT_VALUE_FORMATTERS, ...valueFormatters };
-  const shouldShowZeroLine = data.some((point) => (point.primaryValue ?? 0) < 0) && data.some((point) => (point.primaryValue ?? 0) > 0);
+  const mergedMetricLabels = useMemo(() => ({ ...DEFAULT_METRIC_LABELS, ...metricLabels }), [metricLabels]);
+  const mergedValueFormatters = useMemo(() => ({ ...DEFAULT_VALUE_FORMATTERS, ...valueFormatters }), [valueFormatters]);
 
   if (data.length === 0) {
     return null;
@@ -113,7 +132,11 @@ export function PerformanceCurveChart({
 
   return (
     <figure aria-label={ariaLabel} className={`m-0 ${className}`}>
-      <ResponsiveContainer height="100%" width="100%">
+      <ResponsiveContainer
+        height="100%"
+        initialDimension={RESPONSIVE_CONTAINER_INITIAL_DIMENSION}
+        width="100%"
+      >
         <LineChart
           data={data}
           margin={{ bottom: 4, left: 8, right: showValueAxis ? 0 : 8, top: 8 }}
@@ -203,14 +226,14 @@ export function PerformanceCurveWindowSelector<WindowValue extends string>({
 }) {
   const shellClassName = isDarkTheme
     ? "inline-flex rounded-full border border-white/[0.075] bg-[#0F141B] p-0.5"
-    : "inline-flex rounded-full border border-[#D5E4EF] bg-[#F8FAFC] p-0.5";
+    : "inline-flex rounded-full border border-[#E8E8EC] bg-[#FAFAFA] p-0.5";
 
   return (
     <div aria-label={ariaLabel} className={shellClassName} role="toolbar">
       {windows.map((window) => {
         const isActive = window === activeWindow;
         const buttonClassName = isActive
-          ? "rounded-full bg-[#00A6F4] px-2.5 py-1.5 text-[11px] font-black text-white shadow-[0_6px_14px_rgba(0,166,244,0.18)]"
+          ? "rounded-full bg-[#6366F1] px-2.5 py-1.5 text-[11px] font-black text-white shadow-[0_6px_14px_rgba(99,102,241,0.18)]"
           : isDarkTheme
             ? "rounded-full px-2.5 py-1.5 text-[11px] font-black text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-100"
             : "rounded-full px-2.5 py-1.5 text-[11px] font-black text-slate-500 transition hover:bg-white hover:text-slate-900";
@@ -239,10 +262,10 @@ export function PerformanceCurveLoadingOverlay({
   label: string;
 }) {
   const shellClassName = isDarkTheme
-    ? "pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl border border-sky-400/10 bg-[#111820]/78 backdrop-blur-[2px]"
-    : "pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl border border-sky-100 bg-white/78 backdrop-blur-[2px]";
+    ? "pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl border border-indigo-400/10 bg-[#111820]/78 backdrop-blur-[2px]"
+    : "pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl border border-indigo-100 bg-white/78 backdrop-blur-[2px]";
   const labelClassName = isDarkTheme ? "mt-2 text-[10px] font-bold text-slate-400" : "mt-2 text-[10px] font-bold text-slate-500";
-  const barClassName = "kline-loading-bar rounded-[1px] bg-[#00A6F4]";
+  const barClassName = "kline-loading-bar rounded-[1px] bg-[#6366F1]";
 
   return (
     <div className={shellClassName}>
