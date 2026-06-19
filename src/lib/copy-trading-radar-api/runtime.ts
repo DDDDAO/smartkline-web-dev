@@ -3,6 +3,7 @@ import type {
   CopyTradingTrader,
   CopyTradingTraderPerformance,
 } from "@/types/copy-trading";
+import { getResolvedKolAvatarUrl } from "@/lib/kol-avatar";
 import {
   COPY_TRADING_RADAR_TRADE_LIMIT,
   DEFAULT_TRADER_PLATFORM,
@@ -154,12 +155,13 @@ function adaptSignalCenterTrader(
   const riskLevel = sourceStatus !== "ACTIVE" ? "high" : visiblePositionCount >= 4 ? "high" : visiblePositionCount >= 2 ? "medium" : "low";
   const marginBalance = parseNumber(source.margin);
   const normalizedPerformance = adaptSignalCenterSourcePerformance(performance);
+  const traderName = source.name || source.id;
 
   return {
     trader_id: source.id,
-    name: source.name || source.id,
+    name: traderName,
     platform: source.signalType === SMART_MONEY_SIGNAL_TYPE ? DEFAULT_TRADER_PLATFORM : source.signalType || "Signal Center",
-    avatar: getSignalCenterSourceAvatarUrl(source) ?? createAvatarDataUrl(source.name || source.id, seed % 360),
+    avatar: getResolvedKolAvatarUrl(traderName, getSignalCenterSourceAvatarUrl(source) ?? createAvatarDataUrl(traderName, seed % 360)),
     followers: normalizedPerformance?.followers ?? 0,
     margin_balance: normalizedPerformance?.margin_balance ?? marginBalance,
     positions_synced_at: source.positionsSyncedTime ? normalizeTimestamp(source.positionsSyncedTime) : null,

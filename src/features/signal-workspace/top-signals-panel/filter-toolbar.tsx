@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { WorkspaceCopy } from "@/i18n/workspace";
+import { getResolvedKolAvatarUrl } from "@/lib/kol-avatar";
 import { SourceAvatar, SymbolIcon } from "../card-ui";
 import type {
   TopSignalPerformanceWindow,
@@ -302,20 +303,15 @@ export function SourceAvatarMini({
     : isDarkTheme
       ? "h-6 w-6 border-white/[0.08]"
       : "h-6 w-6 border-white";
+  const avatarUrl = getResolvedKolAvatarUrl(name, url);
 
   return (
     <span className={`block shrink-0 overflow-hidden rounded-full border ${className}`}>
       <span
         aria-hidden="true"
         className="block h-full w-full bg-cover bg-center"
-        style={url ? { backgroundImage: `url("${url}")` } : undefined}
-      >
-        {!url ? (
-          <span className="grid h-full w-full place-items-center bg-[#6366F1] text-[10px] font-black text-white">
-            {name.trim().slice(0, 1).toUpperCase() || "S"}
-          </span>
-        ) : null}
-      </span>
+        style={{ backgroundImage: `url("${avatarUrl}")` }}
+      />
     </span>
   );
 }
