@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, type RefObject } from "react";
+import { Card } from "@/components/ui/card";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
@@ -13,9 +14,12 @@ import {
 import { StrategyDetailActionsSection } from "./strategy-detail-actions-section";
 import { StrategyDetailConfigSection } from "./strategy-detail-config-section";
 import { StrategyDetailPositionsSections } from "./strategy-detail-positions-sections";
+import { StrategyDetailStateSection } from "./strategy-detail-state-section";
 import type { CopyPositionMarkPricesBySymbol, SignalSourceIdentityById } from "./strategy-detail-shared";
 import { StrategyTradeHistorySection } from "./strategy-trade-history-section";
 import type { StrategyPresentationModule } from "./strategy-presentation-registry";
+import { getStrategyRendererResolutionError } from "./strategy-renderer-registry";
+import { getInlineErrorClassName, getModalSectionClassName } from "./styles";
 import type { PrototypeStrategy } from "./types";
 
 export function StrategyDetailLoadedSections({
@@ -56,6 +60,9 @@ export function StrategyDetailLoadedSections({
   onToggleKline,
   onWindowChange,
 }: StrategyDetailLoadedSectionsProps) {
+  const detailRendererError = strategyDefinition
+    ? getStrategyRendererResolutionError(strategyDefinition, "detail")
+    : "";
   return (
     <>
       <StrategyPerformanceCurvePanel
@@ -69,17 +76,24 @@ export function StrategyDetailLoadedSections({
         onWindowChange={onWindowChange}
       />
 
-      {strategyPresentation.detail.panels.map((panel) => (
+      {!detailRendererError ? strategyPresentation.detail.panels.map((panel) => (
         <Fragment key={panel.id}>
           {panel.render({
             copy,
             detail,
             isDarkTheme,
             ordersSectionLoaded,
+            strategyDefinition,
             onMarioRefresh,
           })}
         </Fragment>
-      ))}
+      )) : null}
+
+      {detailRendererError ? (
+        <Card className={getModalSectionClassName(isDarkTheme)}>
+          <p className={getInlineErrorClassName(isDarkTheme)}>{detailRendererError}</p>
+        </Card>
+      ) : null}
 
       <StrategyDetailConfigSection
         copy={copy}
@@ -87,6 +101,14 @@ export function StrategyDetailLoadedSections({
         isDarkTheme={isDarkTheme}
         signalSourceIdentityById={signalSourceIdentityById}
         strategyCopy={strategyCopy}
+        strategyDefinition={strategyDefinition}
+        strategyDefinitionError={strategyDefinitionError}
+      />
+
+      <StrategyDetailStateSection
+        copy={copy}
+        detail={detail}
+        isDarkTheme={isDarkTheme}
         strategyDefinition={strategyDefinition}
         strategyDefinitionError={strategyDefinitionError}
       />

@@ -1,4 +1,4 @@
-import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail, TradingFoxStrategyDetailSection, TradingFoxTraderActionResponse } from "@/lib/tradingfox-control-plane";
+import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail, TradingFoxStrategyDetailSection, TradingFoxStrategyStateResponse, TradingFoxTraderActionResponse } from "@/lib/tradingfox-control-plane";
 import type { StrategyDetailCurveWindow } from "./strategy-detail-content";
 import { TRADE_HISTORY_PAGE_SIZE } from "./constants";
 
@@ -174,6 +174,18 @@ export async function requestStrategyAction(
     throw new Error("error" in responsePayload && responsePayload.error ? responsePayload.error : `Strategy action failed with status ${response.status}.`);
   }
   return responsePayload as TradingFoxTraderActionResponse;
+}
+
+export async function requestStrategyState(traderId: string): Promise<TradingFoxStrategyStateResponse> {
+  const response = await fetch(`/api/tradingfox/traders/${encodeURIComponent(traderId)}/strategy-state`, {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  const payload = await response.json().catch(() => null) as TradingFoxStrategyStateResponse | { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload && "error" in payload && payload.error ? payload.error : `Strategy state failed with status ${response.status}.`);
+  }
+  return payload as TradingFoxStrategyStateResponse;
 }
 
 export async function requestStrategyDefinition(strategyDefinitionId: string): Promise<TradingFoxStrategyDefinition> {

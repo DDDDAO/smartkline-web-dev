@@ -13,7 +13,6 @@ import {
   isReadonlyField,
   isRecord,
   isUiField,
-  isUiSection,
   joinSectionTitle,
   labelForKey,
   type JsonRecord,
@@ -23,6 +22,7 @@ import {
   type UiField,
   type UiSection,
 } from "./strategy-schema-readonly-helpers";
+import { normalizeUiFields, normalizeUiSections } from "./strategy-ui-schema";
 
 export function createVisibleReadonlySections(sections: readonly UiSection[]): UiSection[] {
   const visibleSections: UiSection[] = [];
@@ -43,9 +43,23 @@ export function createReadonlySections(
   rendererCopy: StrategySchemaCopy,
   language: WorkspaceLanguage,
 ): UiSection[] {
-  const uiSections = Array.isArray(uiSchema?.sections) ? uiSchema.sections : null;
+  const uiSections = normalizeUiSections(uiSchema);
   if (uiSections) {
     return createSectionsFromUiSections(schema, uiSections, formData, rendererCopy, language);
+  }
+
+  const uiFields = normalizeUiFields(uiSchema);
+  if (uiFields.length > 0) {
+    return [{
+      fields: uiFields.reduce<ReadonlyField[]>((readonlyFields, field) => {
+        const readonlyField = createReadonlyField(schema, field, formData, rendererCopy, language);
+        if (isReadonlyField(readonlyField)) {
+          readonlyFields.push(readonlyField);
+        }
+        return readonlyFields;
+      }, []),
+      title: schemaDisplayLabel(schema, language, rendererCopy.configurationFallbackTitle),
+    }];
   }
 
   const branchSections = createBranchReadonlySections(schema, uiSchema, formData, rendererCopy, language);
@@ -68,23 +82,16 @@ export function createReadonlySections(
 
 function createSectionsFromUiSections(
   schema: JsonRecord,
-  uiSections: unknown[],
+  uiSections: Array<{ description?: string; fields: UiField[]; order?: number; title?: string }>,
   formData: JsonRecord,
   rendererCopy: StrategySchemaCopy,
   language: WorkspaceLanguage,
   titlePrefix = "",
 ): UiSection[] {
   return uiSections
-    .filter(isUiSection)
     .sort(compareUiSections)
     .map((section, index) => {
-      const fields = section.fields.reduce<UiField[]>((uiFields, field) => {
-        if (isUiField(field)) {
-          uiFields.push(field);
-        }
-        return uiFields;
-      }, []);
-      fields.sort(compareUiFields);
+      const fields = section.fields.filter(isUiField).sort(compareUiFields);
 
       const sectionTitle = typeof section.title === "string" && section.title.trim()
         ? section.title
@@ -119,7 +126,7 @@ function createBranchReadonlySections(
     const branchData = isRecord(formData[branchKey]) ? formData[branchKey] : {};
     const branchUiSchema = isRecord(uiSchema?.[branchKey]) ? uiSchema[branchKey] : undefined;
     const branchTitle = schemaDisplayLabel(branchSchema, language, labelForKey(rendererCopy, branchKey));
-    const branchUiSections = Array.isArray(branchUiSchema?.sections) ? branchUiSchema.sections : null;
+    const branchUiSections = normalizeUiSections(branchUiSchema);
     if (branchUiSections) {
       branchSections.push(...createSectionsFromUiSections(branchSchema, branchUiSections, branchData, rendererCopy, language, branchTitle));
       continue;
@@ -207,7 +214,13 @@ function createReadonlyField(
   const fieldSchema = schemaAtPath(schema, field.path);
   const fallbackKey = field.path.split(".").pop() ?? field.path;
   return {
-    description: fieldSchema && hasSchemaDisplayDescription(fieldSchema) ? schemaDisplayDescription(fieldSchema, language) : typeof field.help === "string" ? field.help : schemaDisplayDescription(fieldSchema, language),
+    description: fieldSchema && hasSchemaDisplayDescription(fieldSchema)
+      ? schemaDisplayDescription(fieldSchema, language)
+      : typeof field.help === "string"
+        ? field.help
+        : typeof field.description === "string"
+          ? field.description
+          : schemaDisplayDescription(fieldSchema, language),
     label: fieldSchema && hasSchemaDisplayLabel(fieldSchema) ? schemaDisplayLabel(fieldSchema, language, labelForKey(rendererCopy, fallbackKey)) : typeof field.label === "string" ? field.label : schemaDisplayLabel(fieldSchema, language, labelForKey(rendererCopy, fallbackKey)),
     path: field.path,
     schema: fieldSchema ?? undefined,

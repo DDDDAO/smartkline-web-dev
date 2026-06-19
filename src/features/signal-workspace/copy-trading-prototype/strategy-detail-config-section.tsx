@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail } from "@/lib/tradingfox-control-plane";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
+import { createDefinitionConfigSchema, createDefinitionConfigUiSchema } from "./strategy-definition-schema";
 import { StrategySchemaRenderer } from "./strategy-schema-renderer";
 import { getInlineErrorClassName } from "./styles";
 
@@ -24,6 +25,9 @@ export function StrategyDetailConfigSection({
   strategyDefinition: TradingFoxStrategyDefinition | null;
   strategyDefinitionError: string;
 }) {
+  const schema = strategyDefinition ? createDefinitionConfigSchema(strategyDefinition) : undefined;
+  const uiSchema = strategyDefinition ? createDefinitionConfigUiSchema(strategyDefinition) : undefined;
+
   return (
     <Card className={isDarkTheme ? "gap-0 rounded-[24px] border-white/[0.075] bg-white/[0.035] p-4 text-slate-100 shadow-none" : "gap-0 rounded-[24px] border-[#E8E8EC] bg-white p-4 text-slate-950 shadow-sm"}>
       <h3 className="text-sm font-black">{strategyCopy.strategyConfigTitle}</h3>
@@ -39,9 +43,9 @@ export function StrategyDetailConfigSection({
             formData={detail.trader.config}
             isDarkTheme={isDarkTheme}
             mode="readonly"
-            schema={strategyDefinition.configSchema}
+            schema={schema}
             signalSourceIdentityById={signalSourceIdentityById}
-            uiSchema={strategyDefinition.uiSchema}
+            uiSchema={uiSchema}
           />
         ) : (
           <div className={isDarkTheme ? "text-sm text-slate-500" : "text-sm text-slate-500"}>{strategyCopy.loadingDetail}</div>

@@ -26,6 +26,7 @@ export {
   updateTradingFoxCopyStrategySettings,
   updateTradingFoxTraderSettings,
 } from "./tradingfox-control-plane/strategy-settings";
+export { getTradingFoxTraderStrategyState } from "./tradingfox-control-plane/strategy-state";
 export { getTradingFoxCopyStrategyDetail } from "./tradingfox-control-plane/strategies";
 export { tradingFoxUserIdFromSession } from "./tradingfox-control-plane/http";
 export { TradingFoxApiError, TradingFoxConfigError } from "./tradingfox-control-plane/types";
@@ -58,6 +59,9 @@ export type {
   TradingFoxLocalizedText,
   TradingFoxOrderHistory,
   TradingFoxPosition,
+  TradingFoxRendererSelector,
+  TradingFoxRendererSurface,
+  TradingFoxRenderingContract,
   TradingFoxRuntimeStatus,
   TradingFoxSignalSource,
   TradingFoxStrategyCurve,
@@ -66,6 +70,7 @@ export type {
   TradingFoxStrategyDetailSection,
   TradingFoxStrategyCurvePoint,
   TradingFoxStrategyDetail,
+  TradingFoxStrategyStateResponse,
   TradingFoxTrader,
   TradingFoxTraderActionResponse,
 } from "./tradingfox-control-plane/types";

@@ -21,6 +21,7 @@ import {
 } from "./copy-trading-signal-source-config";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import { requestStrategyConfigValidation } from "./strategy-detail-utils";
+import { createDefinitionConfigSchema, createDefinitionConfigUiSchema } from "./strategy-definition-schema";
 import { getStrategyPresentation } from "./strategy-presentation-registry";
 import { StrategySettingsConfigEditor } from "./strategy-settings-config-editor";
 import { validateStrategySchemaData, type StrategySchemaRendererState } from "./strategy-schema-renderer";
@@ -101,9 +102,6 @@ export function StrategySettingsDialog({
     isDarkTheme,
     signalSourceIdentityById,
   } : null;
-  const hiddenStrategyPaths = settingsPresentationContext
-    ? strategyPresentation.settings.getHiddenStrategyPaths(settingsPresentationContext)
-    : [];
   const hiddenConfigPaths = settingsPresentationContext
     ? strategyPresentation.settings.getHiddenConfigPaths(settingsPresentationContext)
     : [];
@@ -151,8 +149,8 @@ export function StrategySettingsDialog({
     };
   }, [availableSignalSources, detail?.trader.config, shouldUseCopyTradingSettingsState]);
 
-  const updateConfigBranch = (branch: "common" | "strategy", nextBranchConfig: JsonRecord) => {
-    setConfig((currentConfig) => ({ ...currentConfig, [branch]: nextBranchConfig }));
+  const updateConfig = (nextConfig: JsonRecord) => {
+    setConfig(nextConfig);
     setValidationErrors([]);
   };
 
@@ -206,8 +204,8 @@ export function StrategySettingsDialog({
       formData: configToSave,
       hiddenPaths: hiddenConfigPaths,
       language,
-      schema: strategyDefinition.configSchema,
-      uiSchema: strategyDefinition.uiSchema,
+      schema: createDefinitionConfigSchema(strategyDefinition),
+      uiSchema: createDefinitionConfigUiSchema(strategyDefinition),
     });
     if (localValidationErrors.length > 0) {
       setValidationErrors(localValidationErrors);
@@ -303,13 +301,13 @@ export function StrategySettingsDialog({
               copy={copy}
               definition={strategyDefinition ?? null}
               definitionError={strategyDefinitionError}
-              hiddenStrategyPaths={hiddenStrategyPaths}
+              hiddenPaths={hiddenConfigPaths}
               isDarkTheme={isDarkTheme}
               signalSourceIdentityById={signalSourceIdentityById}
               strategyControls={settingsPresentationContext
                 ? strategyPresentation.settings.renderControls(settingsPresentationContext)
                 : null}
-              onBranchChange={updateConfigBranch}
+              onConfigChange={updateConfig}
               onRendererStateChange={setRendererState}
             />
           ) : null}

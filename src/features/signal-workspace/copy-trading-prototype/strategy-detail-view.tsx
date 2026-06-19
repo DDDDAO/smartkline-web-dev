@@ -116,7 +116,7 @@ export function StrategyDetailView({
     definition: strategyDefinition,
     definitionId: strategyDefinitionId,
     strategy: liveStrategy,
-  });
+  }, "detail");
   const strategyType = strategyPresentation.strategyType;
 
   const {

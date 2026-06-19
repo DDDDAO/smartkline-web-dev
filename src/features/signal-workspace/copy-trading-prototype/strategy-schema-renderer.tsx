@@ -19,6 +19,7 @@ import {
 } from "./strategy-display-metadata";
 import { StrategySchemaReadonlyView } from "./strategy-schema-readonly-view";
 import { STRATEGY_WIDGETS } from "./strategy-schema-widgets";
+import { normalizeUiFields, normalizeUiSections, type UiCondition, type UiField } from "./strategy-ui-schema";
 import styles from "./strategy-schema-renderer.module.css";
 
 export type StrategySchemaRendererMode = "action" | "create" | "edit" | "readonly";
@@ -27,11 +28,38 @@ export type StrategySchemaRendererState = { canSubmit: boolean; errors: string[]
 type JsonRecord = Record<string, unknown>;
 type StrategySchemaCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategySchema"];
 type RendererContext = FormContextType & { isDarkTheme?: boolean; strategySchemaCopy?: StrategySchemaCopy };
-type UiCondition = { path?: string; eq?: unknown; ne?: unknown; in?: unknown[]; exists?: boolean };
-type UiField = JsonRecord & { path: string; label?: string; help?: string; widget?: string; order?: number; visibleWhen?: UiCondition; enabledWhen?: UiCondition };
 
-const SUPPORTED_WIDGETS = new Set(["text", "textarea", "number", "integer", "switch", "select", "radio", "json", "array-table", "string-list", "percent-sum-table", "price-percent-ladder", "symbol-picker"]);
-const WIDGET_ALIASES: Record<string, string> = { integer: "updown", switch: "checkbox" };
+const SUPPORTED_WIDGETS = new Set([
+  "array",
+  "array-table",
+  "checkbox",
+  "integer",
+  "json",
+  "number",
+  "object",
+  "percent-sum-table",
+  "price-percent-ladder",
+  "radio",
+  "readonly-badge",
+  "readonly-table",
+  "select",
+  "string-list",
+  "switch",
+  "symbol-picker",
+  "text",
+  "textarea",
+]);
+const WIDGET_ALIASES: Record<string, string | undefined> = {
+  array: undefined,
+  checkbox: "checkbox",
+  integer: "updown",
+  number: "updown",
+  object: undefined,
+  "readonly-badge": undefined,
+  "readonly-table": undefined,
+  switch: "checkbox",
+  text: undefined,
+};
 
 export function StrategySchemaRenderer({
   copy,
@@ -258,11 +286,17 @@ function assignHiddenUi(target: JsonRecord, path: string) {
 
 function convertTradingFoxUiSchema(uiSchema: JsonRecord, formData: JsonRecord, schema?: JsonRecord): JsonRecord {
   const converted: JsonRecord = {};
+  for (const field of normalizeUiFields(uiSchema)) {
+    assignFieldUi(converted, field, formData, schema);
+  }
+
   for (const [key, value] of Object.entries(uiSchema)) {
+    if (key === "fields") {
+      continue;
+    }
     if (key === "sections" && Array.isArray(value)) {
       const orderedPaths: string[] = [];
-      for (const section of value) {
-        if (!isRecord(section) || !Array.isArray(section.fields)) continue;
+      for (const section of normalizeUiSections(uiSchema) ?? []) {
         for (const field of section.fields.filter(isUiField).sort(compareUiFields)) {
           orderedPaths.push(field.path.split(".").filter(Boolean)[0] ?? "");
           assignFieldUi(converted, field, formData, schema);
@@ -287,7 +321,12 @@ function assignFieldUi(target: JsonRecord, field: UiField, formData: JsonRecord,
   const fieldSchema = schema ? schemaAtPath(schema, field.path) : null;
   if (typeof field.label === "string" && !hasSchemaDisplayLabel(fieldSchema)) current["ui:title"] = field.label;
   if (typeof field.help === "string" && !hasSchemaDisplayDescription(fieldSchema)) current["ui:description"] = field.help;
-  if (typeof field.widget === "string") current["ui:widget"] = WIDGET_ALIASES[field.widget] ?? field.widget;
+  if (typeof field.widget === "string") {
+    const widget = Object.prototype.hasOwnProperty.call(WIDGET_ALIASES, field.widget)
+      ? WIDGET_ALIASES[field.widget]
+      : field.widget;
+    if (widget) current["ui:widget"] = widget;
+  }
   if (field.visibleWhen && !evaluateCondition(field.visibleWhen, formData)) current["ui:widget"] = "hidden";
   if (field.enabledWhen && !evaluateCondition(field.enabledWhen, formData)) current["ui:disabled"] = true;
 }
@@ -315,11 +354,25 @@ function collectUiSchemaErrors(schema: JsonRecord, uiSchema: JsonRecord, path: s
       });
       continue;
     }
+    if (key === "fields") {
+      if (!isRecord(value)) {
+        errors.push(`${path}.fields must be an object.`);
+        continue;
+      }
+      for (const [fieldPath, field] of Object.entries(value)) {
+        validateUiField(schema, typeof field === "string" ? field : { ...(isRecord(field) ? field : {}), path: fieldPath }, `${path}.fields.${fieldPath}`, errors);
+      }
+      continue;
+    }
     if (isRecord(value)) collectUiSchemaErrors(propertySchemaForKey(schema, key) ?? schema, value, `${path}.${key}`, errors);
   }
 }
 
 function validateUiField(schema: JsonRecord, field: unknown, path: string, errors: string[]) {
+  if (typeof field === "string" && field.trim()) {
+    if (!schemaPathExists(schema, field.trim())) errors.push(`${path} references missing schema path "${field.trim()}".`);
+    return;
+  }
   if (!isRecord(field) || typeof field.path !== "string" || !field.path.trim()) {
     errors.push(`${path}.path is required.`);
     return;
