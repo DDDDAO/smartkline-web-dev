@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTradingFoxErrorMessage } from "@/lib/tradingfox-errors";
-import { TRADINGFOX_ACTION_SYNC_POSITIONS } from "@/lib/tradingfox-control-plane/constants";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import type { TelegramSessionUser } from "@/lib/auth/telegram-auth";
 import type { TradingFoxStrategyDefinition, TradingFoxStrategyDetail, TradingFoxStrategyDetailSection } from "@/lib/tradingfox-control-plane";
@@ -12,10 +11,11 @@ import { TRADE_HISTORY_PAGE_SIZE } from "./constants";
 import { EMPTY_TRADING_FOX_POSITIONS, StrategyPerformanceCurvePanel, createCopyPositionMarkPricesBySymbol, createOpenEndedPageRangeLabel, createSignalSourceIdentityById, createTradeHistoryRows, filterTradeHistoryRowsByStrategyStart, type StrategyDetailCurveWindow, type TradeHistoryRow } from "./strategy-detail-content";
 import { StrategySettingsDialog } from "./strategy-settings-dialog";
 import { StrategyNotificationSettingsDialog } from "./strategy-notification-settings-dialog";
+import { StrategyPositionSyncDialog } from "./strategy-position-sync-dialog";
 import { StrategyDetailSummaryCard } from "./strategy-detail-summary-card";
 import { StrategyTradeHistorySection } from "./strategy-trade-history-section";
 import { StrategyDetailPositionsSections } from "./strategy-detail-positions-sections";
-import { getAdjacentStrategyCurveWindows, getStrategyCurveQueryKey, mergeStrategyDetail, requestStrategyAction, requestStrategyDetail, scheduleStrategyDetailTask } from "./strategy-detail-utils";
+import { getAdjacentStrategyCurveWindows, getStrategyCurveQueryKey, mergeStrategyDetail, requestStrategyDetail, requestStrategyPositionSync, scheduleStrategyDetailTask } from "./strategy-detail-utils";
 import { getPrototypeStrategyType } from "./strategy-helpers";
 import { getErrorPanelClassName, getModalSectionClassName } from "./styles";
 import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategySettingsUpdateInput, PrototypeStrategyStatus } from "./types";
@@ -60,6 +60,7 @@ export function StrategyDetailView({
   const [tradeKlineInterval, setTradeKlineInterval] = useState<KlineInterval>("15m");
   const [activeCurveWindow, setActiveCurveWindow] = useState<StrategyDetailCurveWindow>(DEFAULT_STRATEGY_DETAIL_CURVE_WINDOW);
   const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false);
+  const [isPositionSyncOpen, setIsPositionSyncOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const tradeHistorySectionRef = useRef<HTMLElement | null>(null);
   const strategyCopy = copy.workspace.accountCenter.strategy;
@@ -74,6 +75,7 @@ export function StrategyDetailView({
       setActiveCurveWindow(DEFAULT_STRATEGY_DETAIL_CURVE_WINDOW);
       setIsTradeKlineOpen(false);
       setSelectedTradeKlineRowId(null);
+      setIsPositionSyncOpen(false);
       setError("");
       try {
         const nextDetail = await requestStrategyDetail(strategy.id, {
@@ -338,7 +340,7 @@ export function StrategyDetailView({
     setSyncMessage(strategyCopy.settingsSaved);
   };
 
-  const syncCopyTradingPositions = async () => {
+  const syncCopyTradingPositions = async (ratioPercent: number) => {
     if (!detail || !shouldShowCopyTradingPositionSync) {
       return;
     }
@@ -346,16 +348,9 @@ export function StrategyDetailView({
     setSyncError("");
     setSyncMessage("");
     try {
-      const response = await requestStrategyAction(String(detail.trader.id), TRADINGFOX_ACTION_SYNC_POSITIONS, { ratioPercent: 100 });
       setTradeHistoryPageOffset(0);
-      if (response.detail) {
-        setDetail(response.detail);
-      } else {
-        setDetail(await requestStrategyDetail(liveStrategy.id, {
-          orderLimit: TRADE_HISTORY_PAGE_SIZE,
-          orderOffset: 0,
-        }));
-      }
+      setDetail(await requestStrategyPositionSync(liveStrategy.id, ratioPercent));
+      setIsPositionSyncOpen(false);
       setSyncMessage(strategyCopy.syncPositionsSuccess);
     } catch (syncPositionsError) {
       setSyncError(getTradingFoxErrorMessage(syncPositionsError, copy));
@@ -387,7 +382,11 @@ export function StrategyDetailView({
         onDelete={() => void deleteStrategy()}
         onEdit={() => setIsSettingsOpen(true)}
         onNotificationOpen={() => setIsNotificationSettingsOpen(true)}
-        onSyncCopyTradingPositions={() => void syncCopyTradingPositions()}
+        onSyncCopyTradingPositions={() => {
+          setSyncError("");
+          setSyncMessage("");
+          setIsPositionSyncOpen(true);
+        }}
         onUpdateLifecycle={(status) => void updateLifecycle(status)}
       />
 
@@ -444,6 +443,16 @@ export function StrategyDetailView({
           />
 
         </>
+      ) : null}
+      {isPositionSyncOpen ? (
+        <StrategyPositionSyncDialog
+          copy={copy}
+          error={syncError}
+          isDarkTheme={isDarkTheme}
+          isSubmitting={isSyncingPositions}
+          onClose={() => setIsPositionSyncOpen(false)}
+          onConfirm={syncCopyTradingPositions}
+        />
       ) : null}
       {isNotificationSettingsOpen ? (
         <StrategyNotificationSettingsDialog
