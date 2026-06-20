@@ -290,8 +290,12 @@ export const zhWorkspaceAccountCenter = {
         pricePlaceholder: "价格",
         removeRow: "移除",
         sectionFallbackTitle: (index: number) => `配置分组 ${index}`,
+        addSymbol: "添加币种",
         stringListPlaceholder: "BTC/USDT:USDT\nETH/USDT:USDT",
+        symbolLoadFailed: "交易所币种列表加载失败，可手动输入。",
+        symbolNoMatches: "没有匹配的币种",
         symbolPlaceholder: "BTC/USDT:USDT",
+        symbolSearchPlaceholder: "搜索或输入 BTCUSDT",
         unknownSignalSource: "未命名信号源",
       },
       strategy: {

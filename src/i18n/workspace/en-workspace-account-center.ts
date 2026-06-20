@@ -293,8 +293,12 @@ export const enWorkspaceAccountCenter = {
         pricePlaceholder: "Price",
         removeRow: "Remove",
         sectionFallbackTitle: (index) => `Configuration group ${index}`,
+        addSymbol: "Add symbol",
         stringListPlaceholder: "BTC/USDT:USDT\nETH/USDT:USDT",
+        symbolLoadFailed: "Exchange symbol list failed. You can enter symbols manually.",
+        symbolNoMatches: "No matching symbols",
         symbolPlaceholder: "BTC/USDT:USDT",
+        symbolSearchPlaceholder: "Search or enter BTCUSDT",
         unknownSignalSource: "Unnamed signal source",
       },
       strategy: {

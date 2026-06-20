@@ -45,6 +45,7 @@ const SUPPORTED_WIDGETS = new Set([
   "readonly-table",
   "select",
   "string-list",
+  "symbol-list",
   "switch",
   "symbol-picker",
   "text",
@@ -278,7 +279,14 @@ function convertTradingFoxUiSchema(uiSchema: JsonRecord, formData: JsonRecord, s
       if (uiOrder.length > 0) converted["ui:order"] = [...uiOrder, "*"];
       continue;
     }
-    converted[key] = isRecord(value) ? convertTradingFoxUiSchema(value, formData, propertySchemaForKey(schema, key)) : value;
+    const childSchema = propertySchemaForKey(schema, key);
+    if (isRecord(value)) {
+      const childUi = convertTradingFoxUiSchema(value, formData, childSchema);
+      if (isSymbolListSchemaKey(key, childSchema)) childUi["ui:widget"] = "symbol-list";
+      converted[key] = childUi;
+    } else {
+      converted[key] = value;
+    }
   }
   return converted;
 }
@@ -299,8 +307,19 @@ function assignFieldUi(target: JsonRecord, field: UiField, formData: JsonRecord,
       : field.widget;
     if (widget) current["ui:widget"] = widget;
   }
+  if (isSymbolListField(field, fieldSchema)) current["ui:widget"] = "symbol-list";
   if (field.visibleWhen && !evaluateCondition(field.visibleWhen, formData)) current["ui:widget"] = "hidden";
   if (field.enabledWhen && !evaluateCondition(field.enabledWhen, formData)) current["ui:disabled"] = true;
+}
+
+function isSymbolListField(field: UiField, schema: JsonRecord | null): boolean {
+  const fieldName = field.path.split(".").filter(Boolean).at(-1)?.toLowerCase() ?? "";
+  return isSymbolListSchemaKey(fieldName, schema);
+}
+
+function isSymbolListSchemaKey(fieldName: string, schema: JsonRecord | null | undefined): boolean {
+  if (fieldName !== "blacklist" && fieldName !== "whitelist") return false;
+  return isRecord(schema) && schema.type === "array" && isRecord(schema.items) && schema.items.type === "string";
 }
 
 function collectRendererErrors(schema?: JsonRecord, uiSchema?: JsonRecord): string[] {

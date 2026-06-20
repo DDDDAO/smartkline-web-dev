@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import { cn } from "@/lib/utils";
+import { SymbolListWidget, SymbolPickerWidget } from "./strategy-schema-symbol-widgets";
 
 type StrategySchemaCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategySchema"];
 type RendererWidgetContext = FormContextType & { isDarkTheme?: boolean; strategySchemaCopy?: StrategySchemaCopy };
@@ -256,27 +257,6 @@ const StringListWidget = (props: WidgetProps) => {
   );
 };
 
-const SymbolPickerWidget = (props: WidgetProps) => {
-  const isDarkTheme = getIsDarkTheme(props);
-  const rendererCopy = getStrategySchemaCopy(props);
-  return (
-    <Input
-      aria-describedby={ariaDescribedByIds(props.id)}
-      aria-invalid={hasErrors(props) || undefined}
-      className={getInputClassName(isDarkTheme)}
-      disabled={props.disabled || props.readonly}
-      id={props.id}
-      name={props.htmlName || props.id}
-      placeholder={props.placeholder || rendererCopy.symbolPlaceholder}
-      readOnly={props.readonly}
-      value={props.value ?? ""}
-      onBlur={(event) => props.onBlur(props.id, event.target.value)}
-      onChange={(event) => props.onChange(event.target.value)}
-      onFocus={(event) => props.onFocus(props.id, event.target.value)}
-    />
-  );
-};
-
 const PricePercentLadderWidget = (props: WidgetProps) => {
   const isDarkTheme = getIsDarkTheme(props);
   const rendererCopy = getStrategySchemaCopy(props);
@@ -326,6 +306,7 @@ export const STRATEGY_WIDGETS: RegistryWidgetsType = {
   password: StrategyPasswordWidget,
   select: StrategySelectWidget,
   "string-list": StringListWidget,
+  "symbol-list": SymbolListWidget,
   "symbol-picker": SymbolPickerWidget,
   text: StrategyTextWidget,
   textarea: StrategyTextareaWidget,
