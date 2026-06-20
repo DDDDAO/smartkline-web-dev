@@ -55,6 +55,10 @@ export function createBackendAuthUrl(path: string): URL {
   return new URL(path.replace(/^\/+/, ""), `${resolveBackendApiBaseUrl()}/`);
 }
 
+export function createBackendRequestHeaders(request: NextRequest): Headers {
+  return createCookieForwardingHeaders(request);
+}
+
 export async function fetchBackendAuthMe(request: NextRequest): Promise<BackendAuthMeResponse> {
   const response = await fetch(createBackendAuthUrl("/auth/me"), {
     cache: "no-store",

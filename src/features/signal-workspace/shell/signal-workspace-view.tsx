@@ -10,6 +10,7 @@ import {
   MobileTopSignalsBottomSheet,
   OnboardingGuide,
   RealtimeKlinePanel,
+  ReferralDashboardPanel,
   SidebarCollapseButton,
   StrategyManagementPanel,
   StrategySquareProductTab,
@@ -107,6 +108,7 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
     workspaceGridClassName,
     isCompactLayout,
     isAccountManagementTab,
+    isReferralDashboardTab,
     isStrategyManagementTab,
     isStrategySquareTab,
     isTopSignalsKolPanel,
@@ -301,6 +303,15 @@ export function SignalWorkspaceView(runtime: SignalWorkspaceRuntime) {
             onStrategyRouteChange={handleAccountStrategyRouteChange}
             onStrategySettingsUpdate={handlePrototypeStrategySettingsUpdate}
             onStrategyStatusChange={handlePrototypeStrategyStatusChange}
+          />
+        ) : isReferralDashboardTab ? (
+          <ReferralDashboardPanel
+            copy={copy}
+            isAuthLoading={isAuthLoading}
+            isDarkTheme={isDarkTheme}
+            language={language}
+            telegramUser={authMe.telegramUser}
+            onLogin={startTelegramLogin}
           />
         ) : isStrategySquareTab ? (
           <StrategySquareProductTab

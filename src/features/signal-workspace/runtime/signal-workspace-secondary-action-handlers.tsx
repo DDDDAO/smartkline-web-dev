@@ -465,5 +465,5 @@ export type SignalWorkspaceSecondaryActionHandlers = ReturnType<
 >;
 
 function isPrivateWorkspaceProductTab(tab: WorkspaceProductTab): boolean {
-  return tab === "accountManagement" || tab === "strategyManagement";
+  return tab === "accountManagement" || tab === "referrals" || tab === "strategyManagement";
 }

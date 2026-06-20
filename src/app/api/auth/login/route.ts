@@ -9,7 +9,12 @@ export async function GET(request: NextRequest) {
 
   const redirectPath = parseSafeRedirectPath(request.nextUrl.searchParams.get("redirect"));
   const loginUrl = new URL("/api/auth/telegram/start", request.nextUrl.origin);
+  const referralCode = request.nextUrl.searchParams.get("ref");
+
   loginUrl.searchParams.set("redirect", redirectPath);
+  if (referralCode) {
+    loginUrl.searchParams.set("ref", referralCode);
+  }
 
   return NextResponse.redirect(loginUrl);
 }

@@ -66,6 +66,9 @@ GET  /api/auth/telegram/start    -> redirects to /auth/telegram/start
 GET  /api/auth/telegram/callback -> redirects to /auth/telegram/callback
 GET  /api/auth/me                -> proxies /auth/me and maps the legacy UI shape
 POST /api/auth/logout            -> proxies /auth/logout and clears local cookies
+GET  /api/referral/me            -> proxies /referral/me for invite and summary data
+GET  /api/referral/invitees      -> proxies /referral/invitees for the referral tree
+GET  /api/referral/commissions   -> proxies /referral/commissions for accrual rows
 ```
 
 Telegram community verification is retained as the v1 backend capability, but
