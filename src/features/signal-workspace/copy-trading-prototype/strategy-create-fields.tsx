@@ -2,10 +2,13 @@
 
 import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
+import type { TradingFoxStrategyDefinition } from "@/lib/tradingfox-control-plane";
 import { CopyTradingSignalSourceConfigEditor } from "./copy-trading-signal-source-config-editor";
 import { CopyTradingSltpConfigEditor } from "./copy-trading-sltp-config-editor";
 import type { CopyTradingSignalSourceConfigRow } from "./copy-trading-signal-source-config";
 import { PercentInput } from "./prototype-form-fields";
+import { DefinitionDrivenConfigForm } from "./strategy-definition-config-form";
+import type { StrategySchemaRendererState } from "./strategy-schema-renderer";
 import type { CopyTradingPrototypeTarget } from "./types";
 
 type JsonRecord = Record<string, unknown>;
@@ -14,14 +17,17 @@ export function CopyTradingCreateBody({
   accountCopy,
   advancedSourcesEnabled,
   advancedConfig,
+  advancedConfigHiddenPaths,
   availableSignalSources,
   copy,
+  definition,
   isDarkTheme,
   signalSourceErrors,
   signalSourceRows,
   stopLossPercent,
   takeProfitPercent,
   onAdvancedConfigChange,
+  onAdvancedConfigRendererStateChange,
   onAdvancedSourcesEnabledChange,
   onSignalSourceRowsChange,
   onStopLossPercentChange,
@@ -30,14 +36,17 @@ export function CopyTradingCreateBody({
   accountCopy: WorkspaceCopy["workspace"]["accountCenter"];
   advancedSourcesEnabled: boolean;
   advancedConfig: JsonRecord;
+  advancedConfigHiddenPaths: readonly string[];
   availableSignalSources: readonly CopyTradingPrototypeTarget[];
   copy: WorkspaceCopy;
+  definition: TradingFoxStrategyDefinition;
   isDarkTheme: boolean;
   signalSourceErrors: readonly string[];
   signalSourceRows: readonly CopyTradingSignalSourceConfigRow[];
   stopLossPercent: string;
   takeProfitPercent: string;
   onAdvancedConfigChange: (nextConfig: JsonRecord) => void;
+  onAdvancedConfigRendererStateChange: (state: StrategySchemaRendererState) => void;
   onAdvancedSourcesEnabledChange: (value: boolean) => void;
   onSignalSourceRowsChange: (rows: CopyTradingSignalSourceConfigRow[]) => void;
   onStopLossPercentChange: (value: string) => void;
@@ -81,6 +90,19 @@ export function CopyTradingCreateBody({
         isDarkTheme={isDarkTheme}
         onConfigChange={onAdvancedConfigChange}
       />
+      {advancedSourcesEnabled ? (
+        <DefinitionDrivenConfigForm
+          config={advancedConfig}
+          copy={copy}
+          definition={definition}
+          description={strategyCreateCopy.commonConfigDescription}
+          hiddenPaths={advancedConfigHiddenPaths}
+          isDarkTheme={isDarkTheme}
+          title={accountCopy.strategy.advancedCommonConfigTitle}
+          onConfigChange={onAdvancedConfigChange}
+          onRendererStateChange={onAdvancedConfigRendererStateChange}
+        />
+      ) : null}
       <div className={isDarkTheme ? "rounded-2xl border border-amber-300/15 bg-amber-300/[0.07] px-3 py-3 text-xs leading-5 text-amber-100/80" : "rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800"}>
         {strategyCreateCopy.copyTradingRiskNote}
       </div>

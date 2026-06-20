@@ -24,6 +24,7 @@ import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategyTy
 
 export const COPY_TRADING_DEFINITION_ID = "COPY_TRADING";
 export const MARIO_DEFINITION_ID = "MARIO_STRATEGY";
+const COPY_TRADING_CREATE_ADVANCED_CONFIG_HIDDEN_PATHS = ["strategy.signalSourceConfigs", "common.sltp", "common.risk"] as const;
 
 export type StrategyPresentationMatchInput = {
   definition?: Pick<TradingFoxStrategyDefinitionSummary, "display" | "id" | "rendering"> | null;
@@ -153,7 +154,7 @@ const COPY_TRADING_STRATEGY_PRESENTATION_MODULE: StrategyPresentationModule = {
       stopLossPercent: copyTrading.parsedStopLossPercent,
       takeProfitPercent: copyTrading.parsedTakeProfitPercent,
     }),
-    getValidationErrors: ({ copy, copyTrading, genericConfig }) => [
+    getValidationErrors: ({ copy, copyTrading, genericConfig, rendererErrors }) => [
       ...copyTrading.signalSourceErrors,
       ...positivePercentErrors(copyTrading.parsedTakeProfitPercent, copyTrading.parsedStopLossPercent),
       ...validateCopyTradingAdvancedSltpConfig({
@@ -161,20 +162,24 @@ const COPY_TRADING_STRATEGY_PRESENTATION_MODULE: StrategyPresentationModule = {
         config: genericConfig,
         copy,
       }),
+      ...(copyTrading.advancedSourcesEnabled ? rendererErrors : []),
     ],
-    renderBody: ({ accountCopy, copy, copyTrading, genericConfig, isDarkTheme, onConfigChange }) => (
+    renderBody: ({ accountCopy, copy, copyTrading, definition, genericConfig, isDarkTheme, onConfigChange, onRendererStateChange }) => (
       <CopyTradingCreateBody
         accountCopy={accountCopy}
         advancedSourcesEnabled={copyTrading.advancedSourcesEnabled}
         advancedConfig={genericConfig}
+        advancedConfigHiddenPaths={COPY_TRADING_CREATE_ADVANCED_CONFIG_HIDDEN_PATHS}
         availableSignalSources={copyTrading.availableSignalSources}
         copy={copy}
+        definition={definition}
         isDarkTheme={isDarkTheme}
         signalSourceErrors={copyTrading.signalSourceErrors}
         signalSourceRows={copyTrading.signalSourceRows}
         stopLossPercent={copyTrading.stopLossPercent}
         takeProfitPercent={copyTrading.takeProfitPercent}
         onAdvancedConfigChange={onConfigChange}
+        onAdvancedConfigRendererStateChange={onRendererStateChange}
         onAdvancedSourcesEnabledChange={copyTrading.onAdvancedSourcesEnabledChange}
         onSignalSourceRowsChange={copyTrading.onSignalSourceRowsChange}
         onStopLossPercentChange={copyTrading.onStopLossPercentChange}

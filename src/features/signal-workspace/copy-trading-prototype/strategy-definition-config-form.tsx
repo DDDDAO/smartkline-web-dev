@@ -11,15 +11,21 @@ export type JsonRecord = Record<string, unknown>;
 export function DefinitionDrivenConfigForm({
   config,
   copy,
+  description,
   definition,
+  hiddenPaths = [],
   isDarkTheme,
+  title,
   onConfigChange,
   onRendererStateChange,
 }: {
   config: JsonRecord;
   copy: WorkspaceCopy;
+  description?: string;
   definition: TradingFoxStrategyDefinition;
+  hiddenPaths?: readonly string[];
   isDarkTheme: boolean;
+  title?: string;
   onConfigChange: (nextConfig: JsonRecord) => void;
   onRendererStateChange: (state: StrategySchemaRendererState) => void;
 }) {
@@ -35,13 +41,14 @@ export function DefinitionDrivenConfigForm({
   return (
     <div className="space-y-4">
       <ConfigSection
-        description={strategyCreateCopy.genericConfigDescription}
+        description={description ?? strategyCreateCopy.genericConfigDescription}
         isDarkTheme={isDarkTheme}
-        title={strategyCreateCopy.genericConfigTitle}
+        title={title ?? strategyCreateCopy.genericConfigTitle}
       >
         <StrategySchemaRenderer
           copy={copy}
           formData={config}
+          hiddenPaths={hiddenPaths}
           isDarkTheme={isDarkTheme}
           mode="create"
           schema={schema}
