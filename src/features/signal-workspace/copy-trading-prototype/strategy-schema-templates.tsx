@@ -9,7 +9,6 @@ const FRAMED_WIDGETS = new Set(["array-table", "json", "percent-sum-table", "pri
 
 export function StrategyFieldTemplate({
   children,
-  description,
   displayLabel,
   errors,
   help,
@@ -44,7 +43,6 @@ export function StrategyFieldTemplate({
       <div className={getBooleanFieldClassName(isDarkTheme)}>
         <div className="min-w-0 space-y-1">
           {labelNode}
-          {description}
           {help}
           {feedbackNode}
         </div>
@@ -56,7 +54,6 @@ export function StrategyFieldTemplate({
   const content = (
     <>
       {labelNode}
-      {description}
       {children}
       {help}
       {feedbackNode}
