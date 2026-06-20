@@ -16,12 +16,13 @@ import {
   type CopyTradingSignalSourceConfigRow,
 } from "./copy-trading-signal-source-config";
 import { PrototypeInput } from "./prototype-form-fields";
+import { RequiredIndicator } from "./required-indicator";
 import { createDefinitionConfigSchema } from "./strategy-definition-schema";
-import type { JsonRecord } from "./strategy-definition-config-form";
 import { StrategyDefinitionSelect } from "./strategy-definition-select";
 import { COPY_TRADING_DEFINITION_ID, getStrategyPresentationModule } from "./strategy-presentation-registry";
 import { getStrategyRendererResolutionError, strategyDefinitionCacheKey } from "./strategy-renderer-registry";
 import { createStrategyConfigSkeleton, type StrategySchemaRendererState } from "./strategy-schema-renderer";
+import { requestStrategyConfigValidation } from "./strategy-detail-utils";
 import type { CopyTradingPrototypeTarget, PrototypeApiConnection, PrototypeStrategy, PrototypeStrategyCreateInput } from "./types";
 import { getInlineErrorClassName } from "./styles";
 
@@ -266,10 +267,9 @@ export function StrategyCreateLayer({
       }
 
       const config = strategyPresentation.create.buildConfig(createPresentationContext);
-      await validateStrategyConfig({
+      await requestStrategyConfigValidation({
         config,
         configSchemaVersion: selectedDefinition.configSchemaVersion,
-        requestFailed: strategyCreateCopy.requestFailed,
         strategyDefinitionId: selectedDefinition.id,
       });
       await onCreate({
@@ -319,7 +319,10 @@ export function StrategyCreateLayer({
 
           <div className="kol-scroll-area min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 sm:py-5">
             <section>
-              <Label className={getFormLabelClassName(isDarkTheme)}>{strategyCreateCopy.definitionSelect}</Label>
+              <Label className={getFormLabelClassName(isDarkTheme)}>
+                {strategyCreateCopy.definitionSelect}
+                <RequiredIndicator label={accountCopy.strategySchema.requiredLabel} />
+              </Label>
               {isDefinitionsLoading ? (
                 <div className={getInfoPanelClassName(isDarkTheme)}>{strategyCreateCopy.definitionsLoading}</div>
               ) : definitions.length > 0 ? (
@@ -350,12 +353,17 @@ export function StrategyCreateLayer({
               isDarkTheme={isDarkTheme}
               label={strategyCreateCopy.strategyName}
               placeholder={strategyCreateCopy.strategyNamePlaceholder}
+              required
+              requiredLabel={accountCopy.strategySchema.requiredLabel}
               value={strategyName}
               onChange={setStrategyName}
             />
 
             <div className="block">
-              <Label className={getFormLabelClassName(isDarkTheme)}>{strategyCreateCopy.apiSelect}</Label>
+              <Label className={getFormLabelClassName(isDarkTheme)}>
+                {strategyCreateCopy.apiSelect}
+                <RequiredIndicator label={accountCopy.strategySchema.requiredLabel} />
+              </Label>
               {availableApiConnections.length > 0 ? (
                 <TradingAccountSelect
                   accountCopy={accountCopy}
@@ -382,14 +390,16 @@ export function StrategyCreateLayer({
             ) : null}
 
             {definitionError ? <p className={getInlineErrorClassName(isDarkTheme)}>{definitionError}</p> : null}
-            {submitError ? <p className={getInlineErrorClassName(isDarkTheme)}>{submitError}</p> : null}
           </div>
 
-          <SheetFooter className={isDarkTheme ? "grid grid-cols-2 gap-2 border-t border-white/[0.075] pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex" : "grid grid-cols-2 gap-2 border-t border-[#E8E8EC] pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex"}>
-            <Button className={getSoftButtonClassName(isDarkTheme)} type="button" variant="outline" onClick={onClose}>{copy.common.close}</Button>
-            <Button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canCreate} type="button" onClick={() => void submitStrategy()}>
-              {isSubmitting ? strategyCreateCopy.starting : strategyCreateCopy.start}
-            </Button>
+          <SheetFooter className={isDarkTheme ? "flex flex-col gap-2 border-t border-white/[0.075] pb-[max(1rem,env(safe-area-inset-bottom))]" : "flex flex-col gap-2 border-t border-[#E8E8EC] pb-[max(1rem,env(safe-area-inset-bottom))]"}>
+            {submitError ? <p aria-live="assertive" className={getSubmitErrorClassName(isDarkTheme)} role="alert">{submitError}</p> : null}
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+              <Button className={getSoftButtonClassName(isDarkTheme)} type="button" variant="outline" onClick={onClose}>{copy.common.close}</Button>
+              <Button className={getPrimaryButtonClassName(isDarkTheme)} disabled={!canCreate} type="button" onClick={() => void submitStrategy()}>
+                {isSubmitting ? strategyCreateCopy.starting : strategyCreateCopy.start}
+              </Button>
+            </div>
           </SheetFooter>
         </div>
       </SheetContent>
@@ -429,30 +439,13 @@ function getInfoPanelClassName(isDarkTheme: boolean): string {
     : "mt-2 rounded-2xl border border-[#E8E8EC] bg-[#FAFAFA] px-3 py-3 text-sm font-bold text-slate-700";
 }
 
-async function validateStrategyConfig({
-  config,
-  configSchemaVersion,
-  requestFailed,
-  strategyDefinitionId,
-}: {
-  config: JsonRecord;
-  configSchemaVersion: number;
-  requestFailed: (status: number) => string;
-  strategyDefinitionId: string;
-}) {
-  const response = await fetch(`/api/tradingfox/strategy-definitions/${encodeURIComponent(strategyDefinitionId)}/validate-config`, {
-    body: JSON.stringify({ config, configSchemaVersion }),
-    cache: "no-store",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    method: "POST",
-  });
-  if (!response.ok) {
-    throw new Error(await readTradingFoxClientError(response, requestFailed));
-  }
-}
-
 async function readTradingFoxClientError(response: Response, requestFailed: (status: number) => string): Promise<string> {
   const payload = await response.json().catch(() => null) as { error?: string } | null;
   return payload?.error || requestFailed(response.status);
+}
+
+function getSubmitErrorClassName(isDarkTheme: boolean): string {
+  return isDarkTheme
+    ? "rounded-2xl border border-rose-300/20 bg-rose-300/[0.08] px-3 py-2 text-xs font-bold leading-5 text-rose-100"
+    : "rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-bold leading-5 text-rose-700";
 }

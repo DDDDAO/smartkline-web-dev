@@ -1,9 +1,12 @@
 import type { FieldTemplateProps, FormContextType } from "@rjsf/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import type { WorkspaceCopy } from "@/i18n/workspace";
 import { cn } from "@/lib/utils";
+import { RequiredIndicator } from "./required-indicator";
 
-type RendererTemplateContext = FormContextType & { isDarkTheme?: boolean };
+type StrategySchemaCopy = WorkspaceCopy["workspace"]["accountCenter"]["strategySchema"];
+type RendererTemplateContext = FormContextType & { isDarkTheme?: boolean; strategySchemaCopy?: StrategySchemaCopy };
 
 const FRAMED_WIDGETS = new Set(["array-table", "json", "percent-sum-table", "price-percent-ladder"]);
 
@@ -26,6 +29,7 @@ export function StrategyFieldTemplate({
   }
 
   const isDarkTheme = Boolean((registry.formContext as RendererTemplateContext | undefined)?.isDarkTheme);
+  const rendererCopy = (registry.formContext as RendererTemplateContext | undefined)?.strategySchemaCopy;
   const widget = typeof uiSchema?.["ui:widget"] === "string" ? uiSchema["ui:widget"] : "";
   const isBooleanField = schema.type === "boolean" || widget === "checkbox" || widget === "switch";
   const isContainerField = schema.type === "object" || schema.type === "array";
@@ -33,7 +37,7 @@ export function StrategyFieldTemplate({
   const shouldShowLabel = Boolean(displayLabel || (isBooleanField && label));
   const labelNode = shouldShowLabel ? (
     <Label className={getLabelClassName(isDarkTheme)} htmlFor={id}>
-      {label}{required ? " *" : ""}
+      {label}{required ? <RequiredIndicator label={rendererCopy?.requiredLabel ?? "Required"} /> : null}
     </Label>
   ) : null;
   const feedbackNode = rawErrors?.length ? <div className={getErrorClassName(isDarkTheme)}>{errors}</div> : null;
