@@ -1,6 +1,4 @@
-.form input:not([type="checkbox"]):not([type="radio"]),
-.form select,
-.form textarea {
+.form :global(.form-control) {
   background: #FFFFFF;
   border: 1px solid #D4D4D8;
   border-radius: 14px;
@@ -13,25 +11,23 @@
   width: 100%;
 }
 
-.form textarea {
+.form :global(textarea.form-control) {
   min-height: 96px;
   padding-bottom: 10px;
   padding-top: 10px;
 }
 
-.form input:not([type="checkbox"]):not([type="radio"]):focus,
-.form select:focus,
-.form textarea:focus {
+.form :global(.form-control:focus) {
   border-color: #818CF8;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
-.form input[type="checkbox"],
-.form input[type="radio"] {
+.form :global(input[type="checkbox"]),
+.form :global(input[type="radio"]) {
   accent-color: #6366F1;
 }
 
-.form button {
+.form :global(.btn) {
   border-radius: 12px;
   font-size: 12px;
   font-weight: 900;
@@ -54,17 +50,43 @@
   text-transform: uppercase;
 }
 
-.darkForm input:not([type="checkbox"]):not([type="radio"]),
-.darkForm select,
-.darkForm textarea {
+.form :global(.field-description),
+.form :global(.help-block) {
+  color: #64748B;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.form :global(.error-detail) {
+  list-style: disc;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.form :global(.text-danger) {
+  color: #F43F5E;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.darkForm :global(.form-control) {
   background: #111113;
   border-color: rgba(255, 255, 255, 0.085);
   color: #FAFAFA;
 }
 
-.darkForm input:not([type="checkbox"]):not([type="radio"]):focus,
-.darkForm select:focus,
-.darkForm textarea:focus {
+.darkForm :global(.form-control:focus) {
   border-color: rgba(99, 102, 241, 0.48);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.10);
+}
+
+.darkForm :global(.field-description),
+.darkForm :global(.help-block) {
+  color: #94A3B8;
+}
+
+.darkForm :global(.text-danger) {
+  color: #FDA4AF;
 }

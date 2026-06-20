@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useLocale } from "next-intl";
 import Form from "@rjsf/core";
-import type { FieldTemplateProps, FormContextType, RJSFSchema, UiSchema } from "@rjsf/utils";
+import type { FormContextType, RJSFSchema, UiSchema } from "@rjsf/utils";
 import validator from "@rjsf/validator-ajv8";
 import { getWorkspaceLanguageFromLocale, type WorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
@@ -18,6 +18,7 @@ import {
   withoutStrategyDisplayMetadata,
 } from "./strategy-display-metadata";
 import { StrategySchemaReadonlyView } from "./strategy-schema-readonly-view";
+import { StrategyFieldTemplate } from "./strategy-schema-templates";
 import { STRATEGY_WIDGETS } from "./strategy-schema-widgets";
 import { normalizeUiFields, normalizeUiSections, type UiCondition, type UiField } from "./strategy-ui-schema";
 import styles from "./strategy-schema-renderer.module.css";
@@ -155,35 +156,6 @@ export function StrategySchemaRenderer({
     >
       <div />
     </Form>
-  );
-}
-
-function StrategyFieldTemplate({ children, description, displayLabel, errors, help, hidden, id, label, rawErrors, registry, required, schema, uiSchema }: FieldTemplateProps) {
-  if (hidden) {
-    return <div className="hidden">{children}</div>;
-  }
-
-  const isDarkTheme = Boolean((registry.formContext as RendererContext | undefined)?.isDarkTheme);
-  const widget = typeof uiSchema?.["ui:widget"] === "string" ? uiSchema["ui:widget"] : "";
-  const shouldFrameField = Boolean(displayLabel && id !== "root" && (schema.type === "object" || schema.type === "array" || widget === "json" || widget === "array-table" || widget === "percent-sum-table" || widget === "price-percent-ladder"));
-  const content = (
-    <>
-      {displayLabel ? <label className="block text-xs font-black uppercase tracking-[0.12em] text-slate-500">{label}{required ? " *" : ""}</label> : null}
-      {description}
-      {children}
-      {help}
-      {rawErrors?.length ? <div className="text-xs font-bold text-rose-500">{errors}</div> : null}
-    </>
-  );
-
-  if (!shouldFrameField) {
-    return <div className="space-y-1.5">{content}</div>;
-  }
-
-  return (
-    <div className={isDarkTheme ? "space-y-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "space-y-2 rounded-2xl border border-[#E8E8EC] bg-white p-3"}>
-      {content}
-    </div>
   );
 }
 
