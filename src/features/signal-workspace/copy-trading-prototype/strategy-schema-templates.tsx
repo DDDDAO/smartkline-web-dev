@@ -31,7 +31,8 @@ export function StrategyFieldTemplate({
   const isBooleanField = schema.type === "boolean" || widget === "checkbox" || widget === "switch";
   const isContainerField = schema.type === "object" || schema.type === "array";
   const shouldFrameField = Boolean(id !== "root" && (isContainerField || FRAMED_WIDGETS.has(widget)));
-  const labelNode = displayLabel ? (
+  const shouldShowLabel = Boolean(displayLabel || (isBooleanField && label));
+  const labelNode = shouldShowLabel ? (
     <Label className={getLabelClassName(isDarkTheme)} htmlFor={id}>
       {label}{required ? " *" : ""}
     </Label>
