@@ -41,14 +41,14 @@ export const enWorkspaceMain = {
       retry: "Retry",
       invite: {
         title: "Personal invite links",
-        description: "Share either the web login link or Telegram Bot start link. After the invited user logs in, the backend records the referral binding.",
+        description: "Share the SmartKline invite link. It opens Telegram Bot first, records the invite, and then guides the user back to login.",
         codeLabel: "Invite code",
-        webLinkLabel: "Web login invite link",
-        telegramLinkLabel: "Telegram Bot invite link",
+        webLinkLabel: "SmartKline invite link",
+        telegramLinkLabel: "Direct Telegram Bot link",
         telegramPayloadLabel: "Telegram start payload",
         copy: "Copy",
         copied: "Copied",
-        unavailableBot: "If the Bot username is not configured, copy the start payload instead.",
+        unavailableBot: "If the Bot username is not configured, the SmartKline invite link falls back to login binding. You can also copy the start payload.",
       },
       plan: {
         title: "Current commission plan",

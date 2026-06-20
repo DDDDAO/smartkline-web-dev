@@ -16,7 +16,7 @@ import {
   getTelegramUserDisplayName,
 } from "./copy-trading-prototype/telegram-user-avatar";
 import {
-  createWebInviteUrl,
+  createSmartKlineInviteUrl,
   formatDate,
   formatMoney,
   formatRate,
@@ -105,8 +105,8 @@ export function ReferralDashboardPanel({
     };
   }, [loadReferralDashboard]);
 
-  const webInviteUrl = dashboard?.invite.personalCode && typeof window !== "undefined"
-    ? createWebInviteUrl(dashboard.invite.personalCode, language)
+  const smartKlineInviteUrl = dashboard?.invite.personalCode && typeof window !== "undefined"
+    ? createSmartKlineInviteUrl(dashboard.invite.personalCode, language)
     : "";
 
   const handleCopy = useCallback(async (key: string, value: string) => {
@@ -175,7 +175,7 @@ export function ReferralDashboardPanel({
                 dashboard={dashboard}
                 isDarkTheme={isDarkTheme}
                 referralCopy={referralCopy}
-                webInviteUrl={webInviteUrl}
+                smartKlineInviteUrl={smartKlineInviteUrl}
                 onCopy={handleCopy}
               />
               <PlanCard dashboard={dashboard} isDarkTheme={isDarkTheme} referralCopy={referralCopy} />
@@ -206,14 +206,14 @@ function InviteCard({
   dashboard,
   isDarkTheme,
   referralCopy,
-  webInviteUrl,
+  smartKlineInviteUrl,
   onCopy,
 }: {
   copiedKey: string | null;
   dashboard: ReferralDashboardResponse;
   isDarkTheme: boolean;
   referralCopy: WorkspaceCopy["workspace"]["referrals"];
-  webInviteUrl: string;
+  smartKlineInviteUrl: string;
   onCopy: (key: string, value: string) => Promise<void>;
 }) {
   const telegramUrl = dashboard.invite.telegramBotStartUrl ?? "";
@@ -238,8 +238,8 @@ function InviteCard({
           copied={copiedKey === "web"}
           isDarkTheme={isDarkTheme}
           label={referralCopy.invite.webLinkLabel}
-          value={webInviteUrl}
-          onCopy={() => onCopy("web", webInviteUrl)}
+          value={smartKlineInviteUrl}
+          onCopy={() => onCopy("web", smartKlineInviteUrl)}
           copy={referralCopy.invite.copy}
           copiedLabel={referralCopy.invite.copied}
         />

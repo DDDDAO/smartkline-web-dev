@@ -4,6 +4,7 @@ import {
   createBackendRequestHeaders,
 } from "@/lib/auth/backend-auth";
 import type { ReferralDashboardResponse } from "@/lib/referral";
+import { createTelegramBotStartUrl } from "@/lib/referral-invite";
 
 export async function proxyBackendReferralGet(
   request: NextRequest,
@@ -33,15 +34,11 @@ export async function proxyBackendReferralGet(
 function enrichReferralDashboardPayload(
   payload: ReferralDashboardResponse,
 ): ReferralDashboardResponse {
-  const botUsername = process.env.TELEGRAM_BOT_USERNAME?.trim().replace(/^@/u, "");
-
   return {
     ...payload,
     invite: {
       ...payload.invite,
-      telegramBotStartUrl: botUsername
-        ? `https://t.me/${botUsername}?start=${encodeURIComponent(payload.invite.telegramStartPayload)}`
-        : null,
+      telegramBotStartUrl: createTelegramBotStartUrl(payload.invite.telegramStartPayload),
     },
   };
 }

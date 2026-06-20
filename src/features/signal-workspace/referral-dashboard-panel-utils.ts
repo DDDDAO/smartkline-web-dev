@@ -21,8 +21,8 @@ export function formatDate(value: string, language: WorkspaceLanguage): string {
   });
 }
 
-export function createWebInviteUrl(personalCode: string, language: WorkspaceLanguage): string {
-  const url = new URL("/api/auth/telegram/start", window.location.origin);
+export function createSmartKlineInviteUrl(personalCode: string, language: WorkspaceLanguage): string {
+  const url = new URL("/api/referral/invite", window.location.origin);
   url.searchParams.set("ref", personalCode);
   url.searchParams.set("redirect", `/${language === "en-US" ? "en" : "zh"}/referrals`);
   return url.toString();

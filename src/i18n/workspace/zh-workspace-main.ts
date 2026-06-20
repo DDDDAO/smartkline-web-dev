@@ -38,14 +38,14 @@ export const zhWorkspaceMain = {
       retry: "重试",
       invite: {
         title: "专属邀请链接",
-        description: "分享 Web 登录链接或 Telegram Bot start 链接。好友完成登录后，后端会写入邀请绑定。",
+        description: "分享 SmartKline 邀请链接。好友打开后会先进入 Telegram Bot，由 Bot 记录邀请关系并引导完成登录绑定。",
         codeLabel: "邀请码",
-        webLinkLabel: "Web 登录邀请链接",
-        telegramLinkLabel: "Telegram Bot 邀请链接",
+        webLinkLabel: "SmartKline 邀请链接",
+        telegramLinkLabel: "直接 Telegram Bot 链接",
         telegramPayloadLabel: "Telegram start 参数",
         copy: "复制",
         copied: "已复制",
-        unavailableBot: "未配置 Bot 用户名时，可先复制 start 参数。",
+        unavailableBot: "未配置 Bot 用户名时，SmartKline 邀请链接会回退到登录绑定；也可以复制 start 参数。",
       },
       plan: {
         title: "当前返佣计划",
