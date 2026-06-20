@@ -292,6 +292,7 @@ export const enWorkspaceAccountCenter = {
         percentPlaceholder: "Percent",
         pricePlaceholder: "Price",
         removeRow: "Remove",
+        requiredLabel: "Required",
         sectionFallbackTitle: (index) => `Configuration group ${index}`,
         addSymbol: "Add symbol",
         stringListPlaceholder: "BTC/USDT:USDT\nETH/USDT:USDT",

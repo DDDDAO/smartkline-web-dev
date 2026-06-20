@@ -3,12 +3,15 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { RequiredIndicator } from "./required-indicator";
 
 export function PercentInput({
   copyLabel,
   fieldName,
   isDarkTheme,
   placeholder,
+  required = false,
+  requiredLabel = "Required",
   value,
   onChange,
 }: {
@@ -16,6 +19,8 @@ export function PercentInput({
   fieldName: string;
   isDarkTheme: boolean;
   placeholder: string;
+  required?: boolean;
+  requiredLabel?: string;
   value: string;
   onChange: (value: string) => void;
 }) {
@@ -23,9 +28,12 @@ export function PercentInput({
 
   return (
     <div className="block">
-      <Label className={getPrototypeLabelClassName(isDarkTheme)} htmlFor={id}>{copyLabel}</Label>
+      <Label className={getPrototypeLabelClassName(isDarkTheme)} htmlFor={id}>
+        {copyLabel}{required ? <RequiredIndicator label={requiredLabel} /> : null}
+      </Label>
       <div className="relative mt-2">
         <Input
+          aria-required={required || undefined}
           className={cn(
             "h-12 rounded-2xl pr-8 text-sm font-black",
             isDarkTheme
@@ -36,6 +44,7 @@ export function PercentInput({
           inputMode="decimal"
           name={id}
           placeholder={placeholder}
+          required={required}
           value={value}
           onChange={(event) => onChange(event.target.value)}
         />
@@ -52,6 +61,8 @@ export function PrototypeInput({
   isDarkTheme,
   label,
   placeholder,
+  required = false,
+  requiredLabel = "Required",
   type = "text",
   value,
   onChange,
@@ -62,6 +73,8 @@ export function PrototypeInput({
   isDarkTheme: boolean;
   label: string;
   placeholder?: string;
+  required?: boolean;
+  requiredLabel?: string;
   type?: "password" | "text";
   value: string;
   onChange: (value: string) => void;
@@ -70,8 +83,11 @@ export function PrototypeInput({
 
   return (
     <div className="block">
-      <Label className={getPrototypeLabelClassName(isDarkTheme)} htmlFor={id}>{label}</Label>
+      <Label className={getPrototypeLabelClassName(isDarkTheme)} htmlFor={id}>
+        {label}{required ? <RequiredIndicator label={requiredLabel} /> : null}
+      </Label>
       <Input
+        aria-required={required || undefined}
         autoComplete={autoComplete}
         className={cn(
           "mt-2 h-12 rounded-2xl text-sm font-semibold",
@@ -83,6 +99,7 @@ export function PrototypeInput({
         inputMode={inputMode}
         name={id}
         placeholder={placeholder}
+        required={required}
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}

@@ -71,6 +71,8 @@ export function CopyTradingCreateBody({
           fieldName="create-take-profit"
           isDarkTheme={isDarkTheme}
           placeholder={accountCopy.copyTrading.takeProfitPlaceholder}
+          required
+          requiredLabel={accountCopy.strategySchema.requiredLabel}
           value={takeProfitPercent}
           onChange={onTakeProfitPercentChange}
         />
@@ -79,6 +81,8 @@ export function CopyTradingCreateBody({
           fieldName="create-stop-loss"
           isDarkTheme={isDarkTheme}
           placeholder={accountCopy.copyTrading.stopLossPlaceholder}
+          required
+          requiredLabel={accountCopy.strategySchema.requiredLabel}
           value={stopLossPercent}
           onChange={onStopLossPercentChange}
         />

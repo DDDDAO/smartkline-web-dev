@@ -289,6 +289,7 @@ export const zhWorkspaceAccountCenter = {
         percentPlaceholder: "百分比",
         pricePlaceholder: "价格",
         removeRow: "移除",
+        requiredLabel: "必填",
         sectionFallbackTitle: (index: number) => `配置分组 ${index}`,
         addSymbol: "添加币种",
         stringListPlaceholder: "BTC/USDT:USDT\nETH/USDT:USDT",

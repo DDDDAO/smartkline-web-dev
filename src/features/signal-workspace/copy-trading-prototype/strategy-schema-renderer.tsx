@@ -18,6 +18,7 @@ import {
   withoutStrategyDisplayMetadata,
 } from "./strategy-display-metadata";
 import { StrategySchemaReadonlyView } from "./strategy-schema-readonly-view";
+import { createStrategyConfigSkeleton } from "./strategy-schema-defaults";
 import { StrategyFieldTemplate } from "./strategy-schema-templates";
 import { STRATEGY_WIDGETS } from "./strategy-schema-widgets";
 import { normalizeUiFields, normalizeUiSections, type UiCondition, type UiField } from "./strategy-ui-schema";
@@ -62,6 +63,7 @@ const WIDGET_ALIASES: Record<string, string | undefined> = {
   switch: "checkbox",
   text: undefined,
 };
+const DEFAULT_FORM_STATE_BEHAVIOR = { emptyObjectFields: "skipEmptyDefaults" } as const;
 
 export function StrategySchemaRenderer({
   copy,
@@ -141,6 +143,7 @@ export function StrategySchemaRenderer({
     <Form
       className={`${styles.form} ${isDarkTheme ? `${styles.darkForm} text-slate-100` : "text-slate-950"} space-y-4`}
       disabled={readonly}
+      experimental_defaultFormStateBehavior={DEFAULT_FORM_STATE_BEHAVIOR}
       formContext={{ isDarkTheme, strategySchemaCopy: rendererCopy } satisfies RendererContext}
       formData={formData}
       liveOmit
@@ -160,10 +163,7 @@ export function StrategySchemaRenderer({
   );
 }
 
-export function createStrategyConfigSkeleton(schema?: JsonRecord): JsonRecord {
-  const value = createDefaultValue(schema, true);
-  return isRecord(value) ? value : {};
-}
+export { createStrategyConfigSkeleton };
 
 export function validateStrategySchemaData({
   formData,
@@ -193,30 +193,6 @@ export function validateStrategySchemaData({
   return validation.errors
     .map((error) => error.stack || error.message || error.name)
     .filter((error): error is string => Boolean(error));
-}
-
-function createDefaultValue(schema: unknown, isRequired: boolean): unknown {
-  if (!isRecord(schema)) return undefined;
-  if (schema.default !== undefined) return JSON.parse(JSON.stringify(schema.default)) as unknown;
-  if (schema.type === "object") {
-    const properties = isRecord(schema.properties) ? schema.properties : {};
-    const required = new Set(Array.isArray(schema.required) ? schema.required.map(String) : []);
-    const output: JsonRecord = {};
-    for (const [key, childSchema] of Object.entries(properties)) {
-      const childRequired = required.has(key);
-      const childValue = createDefaultValue(childSchema, childRequired);
-      if (childValue !== undefined) {
-        output[key] = childValue;
-      } else if (childRequired && isRecord(childSchema) && childSchema.type === "object") {
-        output[key] = {};
-      } else if (childRequired && isRecord(childSchema) && childSchema.type === "array") {
-        output[key] = [];
-      }
-    }
-    return output;
-  }
-  if (schema.type === "array") return isRequired ? [] : undefined;
-  return undefined;
 }
 
 function toRjsfUiSchema({

@@ -93,6 +93,8 @@ export function CopyTradingPrototypeModal({
               isDarkTheme={isDarkTheme}
               label={accountCopy.strategyCreate.strategyName}
               placeholder={accountCopy.strategyCreate.strategyNamePlaceholder}
+              required
+              requiredLabel={accountCopy.strategySchema.requiredLabel}
               value={effectiveStrategyName}
               onChange={(value) => {
                 setHasEditedStrategyName(true);
@@ -121,6 +123,8 @@ export function CopyTradingPrototypeModal({
                 fieldName="take-profit"
                 isDarkTheme={isDarkTheme}
                 placeholder={accountCopy.copyTrading.takeProfitPlaceholder}
+                required
+                requiredLabel={accountCopy.strategySchema.requiredLabel}
                 value={takeProfitPercent}
                 onChange={setTakeProfitPercent}
               />
@@ -129,6 +133,8 @@ export function CopyTradingPrototypeModal({
                 fieldName="stop-loss"
                 isDarkTheme={isDarkTheme}
                 placeholder={accountCopy.copyTrading.stopLossPlaceholder}
+                required
+                requiredLabel={accountCopy.strategySchema.requiredLabel}
                 value={stopLossPercent}
                 onChange={setStopLossPercent}
               />
