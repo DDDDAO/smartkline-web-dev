@@ -3,13 +3,17 @@
 import { Button } from "@/components/ui/button";
 import type { WorkspaceCopy } from "@/i18n/workspace";
 import { CopyTradingSignalSourceConfigEditor } from "./copy-trading-signal-source-config-editor";
+import { CopyTradingSltpConfigEditor } from "./copy-trading-sltp-config-editor";
 import type { CopyTradingSignalSourceConfigRow } from "./copy-trading-signal-source-config";
 import { PercentInput } from "./prototype-form-fields";
 import type { CopyTradingPrototypeTarget } from "./types";
 
+type JsonRecord = Record<string, unknown>;
+
 export function CopyTradingCreateBody({
   accountCopy,
   advancedSourcesEnabled,
+  advancedConfig,
   availableSignalSources,
   copy,
   isDarkTheme,
@@ -17,6 +21,7 @@ export function CopyTradingCreateBody({
   signalSourceRows,
   stopLossPercent,
   takeProfitPercent,
+  onAdvancedConfigChange,
   onAdvancedSourcesEnabledChange,
   onSignalSourceRowsChange,
   onStopLossPercentChange,
@@ -24,6 +29,7 @@ export function CopyTradingCreateBody({
 }: {
   accountCopy: WorkspaceCopy["workspace"]["accountCenter"];
   advancedSourcesEnabled: boolean;
+  advancedConfig: JsonRecord;
   availableSignalSources: readonly CopyTradingPrototypeTarget[];
   copy: WorkspaceCopy;
   isDarkTheme: boolean;
@@ -31,6 +37,7 @@ export function CopyTradingCreateBody({
   signalSourceRows: readonly CopyTradingSignalSourceConfigRow[];
   stopLossPercent: string;
   takeProfitPercent: string;
+  onAdvancedConfigChange: (nextConfig: JsonRecord) => void;
   onAdvancedSourcesEnabledChange: (value: boolean) => void;
   onSignalSourceRowsChange: (rows: CopyTradingSignalSourceConfigRow[]) => void;
   onStopLossPercentChange: (value: string) => void;
@@ -67,6 +74,13 @@ export function CopyTradingCreateBody({
           onChange={onStopLossPercentChange}
         />
       </div>
+      <CopyTradingSltpConfigEditor
+        advancedEnabled={advancedSourcesEnabled}
+        config={advancedConfig}
+        copy={copy}
+        isDarkTheme={isDarkTheme}
+        onConfigChange={onAdvancedConfigChange}
+      />
       <div className={isDarkTheme ? "rounded-2xl border border-amber-300/15 bg-amber-300/[0.07] px-3 py-3 text-xs leading-5 text-amber-100/80" : "rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800"}>
         {strategyCreateCopy.copyTradingRiskNote}
       </div>

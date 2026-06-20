@@ -77,6 +77,7 @@ export function createCopyTradingConfigWithSourceRows({
     risk.stopLossPercent = stopLossPercent;
   }
   common.risk = risk;
+  common.sltp = advancedEnabled ? normalizeCopyTradingSltpConfig(common.sltp) : {};
   strategy.signalSourceConfigs = effectiveRows.map((row, index) => createSignalSourceConfigForWrite(row, index, now, takeProfitPercent));
 
   return {
@@ -84,6 +85,43 @@ export function createCopyTradingConfigWithSourceRows({
     common,
     strategy,
   };
+}
+
+function normalizeCopyTradingSltpConfig(value: unknown): JsonRecord {
+  const sltp = isRecord(value) ? cloneRecord(value) : {};
+  for (const key of ["singlePositionSL", "singlePositionTP", "singlePositionTrailingSL"]) {
+    const setting = sltp[key];
+    /**
+     * The JSON-schema renderer can materialize empty optional objects for SLTP
+     * controls. TradingFox treats the object's presence as an enabled-setting
+     * contract and then requires `enabled`, so blank placeholders must be
+     * omitted before copy-trading config validation.
+     */
+    if (isRecord(setting) && isBlankOptionalConfig(setting)) {
+      delete sltp[key];
+    }
+  }
+  return sltp;
+}
+
+function isBlankOptionalConfig(value: JsonRecord): boolean {
+  return Object.values(value).every(isBlankConfigValue);
+}
+
+function isBlankConfigValue(value: unknown): boolean {
+  if (value === undefined || value === null) {
+    return true;
+  }
+  if (typeof value === "string") {
+    return value.trim().length === 0;
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+  if (isRecord(value)) {
+    return isBlankOptionalConfig(value);
+  }
+  return false;
 }
 
 export function createCopyTradingSourceSummary({
