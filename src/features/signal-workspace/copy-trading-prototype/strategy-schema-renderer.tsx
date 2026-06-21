@@ -240,7 +240,7 @@ function createDefaultValue(schema: unknown, isRequired: boolean): unknown {
         output[key] = [];
       }
     }
-    return output;
+    return isRequired || Object.keys(output).length > 0 ? output : undefined;
   }
   if (schema.type === "array") return isRequired ? [] : undefined;
   return undefined;
