@@ -59,8 +59,10 @@ export function useSignalWorkspaceStateDerived(base: SignalWorkspaceStateBase) {
   const isTopSignalsKolPanel = isTopSignalsTab && topSignalsPanel === "kol";
   const isStrategySquareTab = activeProductTab === "strategySquare";
   const isStrategyManagementTab = activeProductTab === "strategyManagement";
+  const isReferralDashboardTab = activeProductTab === "referrals";
   const isAccountManagementTab = activeProductTab === "accountManagement";
-  const isPrivateWorkspaceTab = isStrategyManagementTab || isAccountManagementTab;
+  const isPrivateWorkspaceTab =
+    isStrategyManagementTab || isReferralDashboardTab || isAccountManagementTab;
   const shouldUsePaperPositions = isTopSignalsKolPanel;
   const kolSignals = useMemo(() => sortSignalsForKolPanel(signals), [signals]);
   const watchlistedKolSourceKeys = useMemo(
@@ -260,6 +262,7 @@ export function useSignalWorkspaceStateDerived(base: SignalWorkspaceStateBase) {
     isActiveChartPaperPositionReady,
     isDarkTheme,
     isPrivateWorkspaceTab,
+    isReferralDashboardTab,
     isStrategyManagementTab,
     isStrategySquareTab,
     isTopSignalsKolPanel,

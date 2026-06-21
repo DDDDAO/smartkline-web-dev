@@ -73,6 +73,13 @@ export const StrategyManagementPanel = dynamic(
     ),
   { loading: () => null },
 );
+export const ReferralDashboardPanel = dynamic(
+  () =>
+    import("./referral-dashboard-panel").then(
+      (module) => module.ReferralDashboardPanel,
+    ),
+  { loading: () => null },
+);
 export const CopyTradingPrototypeModalWithWallet = dynamic(
   () =>
     import("./account-wallet-boundary").then(

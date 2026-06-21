@@ -12,6 +12,7 @@ const WORKSPACE_TAB_ROUTE_SEGMENTS: Readonly<
   Record<WorkspaceProductTab, string>
 > = {
   accountManagement: "account",
+  referrals: "referrals",
   strategyManagement: "strategies",
   strategySquare: "strategy-square",
   topSignals: "signal",

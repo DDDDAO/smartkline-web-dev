@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useLocale } from "next-intl";
 import Form from "@rjsf/core";
-import type { FieldTemplateProps, FormContextType, RJSFSchema, UiSchema } from "@rjsf/utils";
+import type { FormContextType, RJSFSchema, UiSchema } from "@rjsf/utils";
 import validator from "@rjsf/validator-ajv8";
 import { getWorkspaceLanguageFromLocale, type WorkspaceCopy, type WorkspaceLanguage } from "@/i18n/workspace";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
@@ -18,6 +18,8 @@ import {
   withoutStrategyDisplayMetadata,
 } from "./strategy-display-metadata";
 import { StrategySchemaReadonlyView } from "./strategy-schema-readonly-view";
+import { createStrategyConfigSkeleton } from "./strategy-schema-defaults";
+import { StrategyFieldTemplate } from "./strategy-schema-templates";
 import { STRATEGY_WIDGETS } from "./strategy-schema-widgets";
 import { normalizeUiFields, normalizeUiSections, type UiCondition, type UiField } from "./strategy-ui-schema";
 import styles from "./strategy-schema-renderer.module.css";
@@ -44,6 +46,7 @@ const SUPPORTED_WIDGETS = new Set([
   "readonly-table",
   "select",
   "string-list",
+  "symbol-list",
   "switch",
   "symbol-picker",
   "text",
@@ -60,6 +63,7 @@ const WIDGET_ALIASES: Record<string, string | undefined> = {
   switch: "checkbox",
   text: undefined,
 };
+const DEFAULT_FORM_STATE_BEHAVIOR = { emptyObjectFields: "skipEmptyDefaults" } as const;
 
 export function StrategySchemaRenderer({
   copy,
@@ -139,6 +143,7 @@ export function StrategySchemaRenderer({
     <Form
       className={`${styles.form} ${isDarkTheme ? `${styles.darkForm} text-slate-100` : "text-slate-950"} space-y-4`}
       disabled={readonly}
+      experimental_defaultFormStateBehavior={DEFAULT_FORM_STATE_BEHAVIOR}
       formContext={{ isDarkTheme, strategySchemaCopy: rendererCopy } satisfies RendererContext}
       formData={formData}
       liveOmit
@@ -158,39 +163,7 @@ export function StrategySchemaRenderer({
   );
 }
 
-function StrategyFieldTemplate({ children, description, displayLabel, errors, help, hidden, id, label, rawErrors, registry, required, schema, uiSchema }: FieldTemplateProps) {
-  if (hidden) {
-    return <div className="hidden">{children}</div>;
-  }
-
-  const isDarkTheme = Boolean((registry.formContext as RendererContext | undefined)?.isDarkTheme);
-  const widget = typeof uiSchema?.["ui:widget"] === "string" ? uiSchema["ui:widget"] : "";
-  const shouldFrameField = Boolean(displayLabel && id !== "root" && (schema.type === "object" || schema.type === "array" || widget === "json" || widget === "array-table" || widget === "percent-sum-table" || widget === "price-percent-ladder"));
-  const content = (
-    <>
-      {displayLabel ? <label className="block text-xs font-black uppercase tracking-[0.12em] text-slate-500">{label}{required ? " *" : ""}</label> : null}
-      {description}
-      {children}
-      {help}
-      {rawErrors?.length ? <div className="text-xs font-bold text-rose-500">{errors}</div> : null}
-    </>
-  );
-
-  if (!shouldFrameField) {
-    return <div className="space-y-1.5">{content}</div>;
-  }
-
-  return (
-    <div className={isDarkTheme ? "space-y-2 rounded-2xl border border-white/[0.075] bg-white/[0.035] p-3" : "space-y-2 rounded-2xl border border-[#E8E8EC] bg-white p-3"}>
-      {content}
-    </div>
-  );
-}
-
-export function createStrategyConfigSkeleton(schema?: JsonRecord): JsonRecord {
-  const value = createDefaultValue(schema, true);
-  return isRecord(value) ? value : {};
-}
+export { createStrategyConfigSkeleton };
 
 export function validateStrategySchemaData({
   formData,
@@ -220,30 +193,6 @@ export function validateStrategySchemaData({
   return validation.errors
     .map((error) => error.stack || error.message || error.name)
     .filter((error): error is string => Boolean(error));
-}
-
-function createDefaultValue(schema: unknown, isRequired: boolean): unknown {
-  if (!isRecord(schema)) return undefined;
-  if (schema.default !== undefined) return JSON.parse(JSON.stringify(schema.default)) as unknown;
-  if (schema.type === "object") {
-    const properties = isRecord(schema.properties) ? schema.properties : {};
-    const required = new Set(Array.isArray(schema.required) ? schema.required.map(String) : []);
-    const output: JsonRecord = {};
-    for (const [key, childSchema] of Object.entries(properties)) {
-      const childRequired = required.has(key);
-      const childValue = createDefaultValue(childSchema, childRequired);
-      if (childValue !== undefined) {
-        output[key] = childValue;
-      } else if (childRequired && isRecord(childSchema) && childSchema.type === "object") {
-        output[key] = {};
-      } else if (childRequired && isRecord(childSchema) && childSchema.type === "array") {
-        output[key] = [];
-      }
-    }
-    return isRequired || Object.keys(output).length > 0 ? output : undefined;
-  }
-  if (schema.type === "array") return isRequired ? [] : undefined;
-  return undefined;
 }
 
 function toRjsfUiSchema({
@@ -306,7 +255,14 @@ function convertTradingFoxUiSchema(uiSchema: JsonRecord, formData: JsonRecord, s
       if (uiOrder.length > 0) converted["ui:order"] = [...uiOrder, "*"];
       continue;
     }
-    converted[key] = isRecord(value) ? convertTradingFoxUiSchema(value, formData, propertySchemaForKey(schema, key)) : value;
+    const childSchema = propertySchemaForKey(schema, key);
+    if (isRecord(value)) {
+      const childUi = convertTradingFoxUiSchema(value, formData, childSchema);
+      if (isSymbolListSchemaKey(key, childSchema)) childUi["ui:widget"] = "symbol-list";
+      converted[key] = childUi;
+    } else {
+      converted[key] = value;
+    }
   }
   return converted;
 }
@@ -327,8 +283,19 @@ function assignFieldUi(target: JsonRecord, field: UiField, formData: JsonRecord,
       : field.widget;
     if (widget) current["ui:widget"] = widget;
   }
+  if (isSymbolListField(field, fieldSchema)) current["ui:widget"] = "symbol-list";
   if (field.visibleWhen && !evaluateCondition(field.visibleWhen, formData)) current["ui:widget"] = "hidden";
   if (field.enabledWhen && !evaluateCondition(field.enabledWhen, formData)) current["ui:disabled"] = true;
+}
+
+function isSymbolListField(field: UiField, schema: JsonRecord | null): boolean {
+  const fieldName = field.path.split(".").filter(Boolean).at(-1)?.toLowerCase() ?? "";
+  return isSymbolListSchemaKey(fieldName, schema);
+}
+
+function isSymbolListSchemaKey(fieldName: string, schema: JsonRecord | null | undefined): boolean {
+  if (fieldName !== "blacklist" && fieldName !== "whitelist") return false;
+  return isRecord(schema) && schema.type === "array" && isRecord(schema.items) && schema.items.type === "string";
 }
 
 function collectRendererErrors(schema?: JsonRecord, uiSchema?: JsonRecord): string[] {

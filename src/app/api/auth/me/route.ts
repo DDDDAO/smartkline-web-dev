@@ -1,11 +1,12 @@
 import { connection, NextRequest, NextResponse } from "next/server";
 import {
-  createLoggedInAuthMeResponse,
+  fetchBackendAuthMe,
+  mapBackendAuthMeResponse,
+} from "@/lib/auth/backend-auth";
+import {
   createLoggedOutAuthMeResponse,
   SESSION_COOKIE_NAME,
-  verifySessionToken,
 } from "@/lib/auth/telegram-auth";
-import { getTelegramCommunityBindingForSession } from "@/lib/auth/telegram-community";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,16 +14,15 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   await connection();
 
-  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-
-  if (!sessionToken) {
-    return NextResponse.json(createLoggedOutAuthMeResponse());
-  }
-
   try {
-    const session = await verifySessionToken(sessionToken);
-    const communityBinding = await getTelegramCommunityBindingForSession(session).catch(() => "unverified" as const);
-    return NextResponse.json(createLoggedInAuthMeResponse(session, communityBinding));
+    const authMe = await fetchBackendAuthMe(request);
+    const response = NextResponse.json(mapBackendAuthMeResponse(authMe));
+
+    if (!authMe.isLoggedIn) {
+      response.cookies.delete({ name: SESSION_COOKIE_NAME, path: "/" });
+    }
+
+    return response;
   } catch {
     const response = NextResponse.json(createLoggedOutAuthMeResponse());
     response.cookies.delete({ name: SESSION_COOKIE_NAME, path: "/" });

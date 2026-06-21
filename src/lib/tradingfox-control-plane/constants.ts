@@ -20,6 +20,7 @@ export type TradingFoxDemoExchangePlatform = "Mock" | "BinanceDemo";
 export type TradingFoxLiveExchangePlatform = "Aster" | "Binance" | "Bitget" | "Bybit" | "Gate" | "HyperLiquid" | "OKX";
 
 export type TradingFoxCopyStrategyConfigInput = {
+  commonConfig?: Record<string, unknown>;
   signalSourceConfigs?: readonly Record<string, unknown>[];
   signalSourceId: string;
   startTime?: string;

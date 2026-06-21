@@ -9,6 +9,7 @@ export type WorkspaceProductTab =
   | "strategySquare"
   | "topSignals"
   | "strategyManagement"
+  | "referrals"
   | "accountManagement";
 
 export const WORKSPACE_PRODUCT_TAB_STORAGE_KEY =
@@ -18,6 +19,7 @@ export const WORKSPACE_PRODUCT_TABS: readonly WorkspaceProductTab[] = [
   "strategySquare",
   "topSignals",
   "strategyManagement",
+  "referrals",
   "accountManagement",
 ];
 

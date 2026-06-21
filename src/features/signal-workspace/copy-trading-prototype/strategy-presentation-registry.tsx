@@ -9,6 +9,7 @@ import { MARIO_STRATEGY_CONSOLE_ACTION_IDS } from "@/features/mario-strategy/con
 import { CopyTradingCreateBody } from "./strategy-create-fields";
 import { CopyTradingSignalSourceConfigEditor } from "./copy-trading-signal-source-config-editor";
 import { createCopyTradingConfigWithSourceRows, type CopyTradingSignalSourceConfigRow } from "./copy-trading-signal-source-config";
+import { CopyTradingSltpConfigEditor, validateCopyTradingAdvancedSltpConfig } from "./copy-trading-sltp-config-editor";
 import { DefinitionDrivenConfigForm, type JsonRecord } from "./strategy-definition-config-form";
 import {
   COPY_TRADING_CREATE_RENDERER_KEY,
@@ -23,6 +24,7 @@ import type { CopyTradingPrototypeTarget, PrototypeStrategy, PrototypeStrategyTy
 
 export const COPY_TRADING_DEFINITION_ID = "COPY_TRADING";
 export const MARIO_DEFINITION_ID = "MARIO_STRATEGY";
+const COPY_TRADING_CREATE_ADVANCED_CONFIG_HIDDEN_PATHS = ["strategy.signalSourceConfigs", "common.sltp", "common.risk"] as const;
 
 export type StrategyPresentationMatchInput = {
   definition?: Pick<TradingFoxStrategyDefinitionSummary, "display" | "id" | "rendering"> | null;
@@ -66,6 +68,7 @@ export type StrategyPresentationSettingsContext = {
   detail: TradingFoxStrategyDetail;
   isDarkTheme: boolean;
   signalSourceIdentityById?: SignalSourceIdentityById;
+  onConfigChange: (nextConfig: JsonRecord) => void;
 };
 
 export type CopyTradingSettingsPresentationState = {
@@ -151,21 +154,32 @@ const COPY_TRADING_STRATEGY_PRESENTATION_MODULE: StrategyPresentationModule = {
       stopLossPercent: copyTrading.parsedStopLossPercent,
       takeProfitPercent: copyTrading.parsedTakeProfitPercent,
     }),
-    getValidationErrors: ({ copyTrading }) => [
+    getValidationErrors: ({ copy, copyTrading, genericConfig, rendererErrors }) => [
       ...copyTrading.signalSourceErrors,
       ...positivePercentErrors(copyTrading.parsedTakeProfitPercent, copyTrading.parsedStopLossPercent),
+      ...validateCopyTradingAdvancedSltpConfig({
+        advancedEnabled: copyTrading.advancedSourcesEnabled,
+        config: genericConfig,
+        copy,
+      }),
+      ...(copyTrading.advancedSourcesEnabled ? rendererErrors : []),
     ],
-    renderBody: ({ accountCopy, copy, copyTrading, isDarkTheme }) => (
+    renderBody: ({ accountCopy, copy, copyTrading, definition, genericConfig, isDarkTheme, onConfigChange, onRendererStateChange }) => (
       <CopyTradingCreateBody
         accountCopy={accountCopy}
         advancedSourcesEnabled={copyTrading.advancedSourcesEnabled}
+        advancedConfig={genericConfig}
+        advancedConfigHiddenPaths={COPY_TRADING_CREATE_ADVANCED_CONFIG_HIDDEN_PATHS}
         availableSignalSources={copyTrading.availableSignalSources}
         copy={copy}
+        definition={definition}
         isDarkTheme={isDarkTheme}
         signalSourceErrors={copyTrading.signalSourceErrors}
         signalSourceRows={copyTrading.signalSourceRows}
         stopLossPercent={copyTrading.stopLossPercent}
         takeProfitPercent={copyTrading.takeProfitPercent}
+        onAdvancedConfigChange={onConfigChange}
+        onAdvancedConfigRendererStateChange={onRendererStateChange}
         onAdvancedSourcesEnabledChange={copyTrading.onAdvancedSourcesEnabledChange}
         onSignalSourceRowsChange={copyTrading.onSignalSourceRowsChange}
         onStopLossPercentChange={copyTrading.onStopLossPercentChange}
@@ -179,20 +193,36 @@ const COPY_TRADING_STRATEGY_PRESENTATION_MODULE: StrategyPresentationModule = {
       baseConfig: config,
       rows: copyTrading.signalSourceRows,
     }),
-    getHiddenConfigPaths: () => ["strategy.signalSourceConfigs"],
+    getHiddenConfigPaths: () => ["strategy.signalSourceConfigs", "common.sltp"],
     getHiddenStrategyPaths: () => ["signalSourceConfigs"],
-    getValidationErrors: ({ copyTrading }) => copyTrading.signalSourceErrors,
-    renderControls: ({ availableSignalSources, copy, copyTrading, isDarkTheme }) => (
-      <CopyTradingSignalSourceConfigEditor
-        advancedEnabled={copyTrading.advancedSourcesEnabled}
-        availableSignalSources={availableSignalSources}
-        copy={copy}
-        errors={copyTrading.signalSourceErrors}
-        isDarkTheme={isDarkTheme}
-        rows={copyTrading.signalSourceRows}
-        onAdvancedEnabledChange={copyTrading.onAdvancedSourcesEnabledChange}
-        onRowsChange={copyTrading.onSignalSourceRowsChange}
-      />
+    getValidationErrors: ({ config, copy, copyTrading }) => [
+      ...copyTrading.signalSourceErrors,
+      ...validateCopyTradingAdvancedSltpConfig({
+        advancedEnabled: copyTrading.advancedSourcesEnabled,
+        config,
+        copy,
+      }),
+    ],
+    renderControls: ({ availableSignalSources, config, copy, copyTrading, isDarkTheme, onConfigChange }) => (
+      <div className="space-y-3">
+        <CopyTradingSignalSourceConfigEditor
+          advancedEnabled={copyTrading.advancedSourcesEnabled}
+          availableSignalSources={availableSignalSources}
+          copy={copy}
+          errors={copyTrading.signalSourceErrors}
+          isDarkTheme={isDarkTheme}
+          rows={copyTrading.signalSourceRows}
+          onAdvancedEnabledChange={copyTrading.onAdvancedSourcesEnabledChange}
+          onRowsChange={copyTrading.onSignalSourceRowsChange}
+        />
+        <CopyTradingSltpConfigEditor
+          advancedEnabled={copyTrading.advancedSourcesEnabled}
+          config={config}
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          onConfigChange={onConfigChange}
+        />
+      </div>
     ),
   },
   detail: {

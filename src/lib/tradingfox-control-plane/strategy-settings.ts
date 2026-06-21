@@ -136,6 +136,7 @@ async function updateLegacyCopyStrategySettings(
 
   const configSchemaVersion = 1;
   const config = createTradingFoxCopyStrategyConfig({
+    commonConfig: recordValue(trader.config.common),
     signalSourceConfigs: signalSourceConfigsFromCopyStrategyConfig(trader.config),
     signalSourceId,
     startTime: stringValue(signalSourceConfig?.startTime) || trader.createdAt,

@@ -19,6 +19,7 @@ import {
   validateCopyTradingSourceRows,
   type CopyTradingSignalSourceConfigRow,
 } from "./copy-trading-signal-source-config";
+import { hasCopyTradingAdvancedSltpConfig } from "./copy-trading-sltp-config-editor";
 import type { SignalSourceIdentityById } from "./strategy-detail-shared";
 import { requestStrategyConfigValidation } from "./strategy-detail-utils";
 import { createDefinitionConfigSchema, createDefinitionConfigUiSchema } from "./strategy-definition-schema";
@@ -68,7 +69,9 @@ export function StrategySettingsDialog({
       ? createCopyTradingSourceRowsFromConfig({ availableSignalSources, config: cloneJsonRecord(detail.trader.config) })
       : []
   ));
-  const [copyTradingAdvancedSourcesEnabled, setCopyTradingAdvancedSourcesEnabled] = useState(() => copyTradingSignalSourceRows.length > 1);
+  const [copyTradingAdvancedSourcesEnabled, setCopyTradingAdvancedSourcesEnabled] = useState(() => (
+    copyTradingSignalSourceRows.length > 1 || hasCopyTradingAdvancedSltpConfig(cloneJsonRecord(detail?.trader.config))
+  ));
   const [takeProfitPercent, setTakeProfitPercent] = useState(String(strategy.takeProfitPercent || 20));
   const [stopLossPercent, setStopLossPercent] = useState(String(strategy.stopLossPercent || 10));
   const [rendererState, setRendererState] = useState<StrategySchemaRendererState>({ canSubmit: !hasConfigEditor, errors: [] });
@@ -101,6 +104,7 @@ export function StrategySettingsDialog({
     detail,
     isDarkTheme,
     signalSourceIdentityById,
+    onConfigChange: updateConfig,
   } : null;
   const hiddenConfigPaths = settingsPresentationContext
     ? strategyPresentation.settings.getHiddenConfigPaths(settingsPresentationContext)
@@ -149,10 +153,10 @@ export function StrategySettingsDialog({
     };
   }, [availableSignalSources, detail?.trader.config, shouldUseCopyTradingSettingsState]);
 
-  const updateConfig = (nextConfig: JsonRecord) => {
+  function updateConfig(nextConfig: JsonRecord) {
     setConfig(nextConfig);
     setValidationErrors([]);
-  };
+  }
 
   const saveSettings = async () => {
     if (!canSave) {

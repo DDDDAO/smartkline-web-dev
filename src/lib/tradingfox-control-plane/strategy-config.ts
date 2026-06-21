@@ -20,6 +20,7 @@ export function isMarioStrategyTrader(trader: TradingFoxTrader): boolean {
  */
 export function createTradingFoxCopyStrategyConfig(input: TradingFoxCopyStrategyConfigInput): Record<string, unknown> {
   const startTime = input.startTime || new Date().toISOString();
+  const commonConfig = recordValue(input.commonConfig);
   const signalSourceConfigs = input.signalSourceConfigs?.length
     ? input.signalSourceConfigs.map((config, index) => normalizeTradingFoxSignalSourceConfig(config, {
       fallbackId: index + 1,
@@ -37,6 +38,7 @@ export function createTradingFoxCopyStrategyConfig(input: TradingFoxCopyStrategy
     ];
 
   const risk: Record<string, unknown> = {
+    ...recordValue(commonConfig.risk),
     /**
      * TradingFox treats stopLossMargin/takeProfitMargin as absolute
      * account-equity cutoffs. SmartKline's copy setup collects percentage
@@ -53,11 +55,13 @@ export function createTradingFoxCopyStrategyConfig(input: TradingFoxCopyStrategy
     common: {
       execution: {
         leverage: 10,
+        ...recordValue(commonConfig.execution),
       },
-      market: {},
-      orders: {},
+      market: recordValue(commonConfig.market),
+      orders: recordValue(commonConfig.orders),
       risk,
-      sltp: {},
+      schedule: recordValue(commonConfig.schedule),
+      sltp: recordValue(commonConfig.sltp),
     },
     strategy: {
       signalSourceConfigs,
@@ -152,6 +156,7 @@ export async function ensureTradingFoxCopyStrategyConfigEnvelope(
     {
       body: JSON.stringify({
         config: createTradingFoxCopyStrategyConfig({
+          commonConfig: recordValue(trader.config.common),
           signalSourceConfigs: signalSourceConfigsFromCopyStrategyConfig(trader.config),
           signalSourceId,
           startTime: stringValue(signalSourceConfig?.startTime) || trader.createdAt,
@@ -178,6 +183,7 @@ export async function normalizeCopyStrategyDefinitionConfigForWrite(
   }
   const takeProfitPercent = copyStrategyConfigNumber(config, "takeProfitPercent", 20);
   return createTradingFoxCopyStrategyConfig({
+    commonConfig: recordValue(config.common),
     signalSourceConfigs,
     signalSourceId,
     startTime: stringValue(signalSourceConfig?.startTime) || new Date().toISOString(),
