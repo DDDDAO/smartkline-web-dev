@@ -1,4 +1,5 @@
 import type { WorkspaceCopy } from "@/i18n/workspace";
+import { createTradingFoxCopyStrategyCommonConfig } from "@/lib/tradingfox-control-plane/copy-strategy-config-shape";
 import type { CopyTradingPrototypeTarget, PrototypeStrategy } from "./types";
 
 export type CopyTradingSignalSourceConfigRow = {
@@ -69,15 +70,18 @@ export function createCopyTradingConfigWithSourceRows({
 }): JsonRecord {
   const now = new Date().toISOString();
   const effectiveRows = effectiveCopyTradingSourceRows(rows, advancedEnabled);
-  const common = isRecord(baseConfig.common) ? cloneRecord(baseConfig.common) : {};
-  const risk = isRecord(common.risk) ? cloneRecord(common.risk) : {};
+  const baseCommon = isRecord(baseConfig.common) ? baseConfig.common : {};
+  const risk = isRecord(baseCommon.risk) ? cloneRecord(baseCommon.risk) : {};
   const strategy = isRecord(baseConfig.strategy) ? cloneRecord(baseConfig.strategy) : {};
 
   if (stopLossPercent !== undefined) {
     risk.stopLossPercent = stopLossPercent;
   }
-  common.risk = risk;
-  common.sltp = advancedEnabled ? normalizeCopyTradingSltpConfig(common.sltp) : {};
+  const common = createTradingFoxCopyStrategyCommonConfig({
+    commonConfig: baseCommon,
+    risk,
+    sltp: advancedEnabled ? normalizeCopyTradingSltpConfig(baseCommon.sltp) : {},
+  });
   strategy.signalSourceConfigs = effectiveRows.map((row, index) => createSignalSourceConfigForWrite(row, index, now, takeProfitPercent));
 
   return {

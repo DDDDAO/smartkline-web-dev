@@ -1,4 +1,5 @@
 import { DEFAULT_MOCK_MARGIN_BALANCE, TRADINGFOX_COPY_STRATEGY_DEFINITION_ID, TRADINGFOX_MARIO_STRATEGY_DEFINITION_ID, type TradingFoxAccountStatusResponse, type TradingFoxCopyStrategyConfigInput } from "./constants";
+import { createTradingFoxCopyStrategyCommonConfig } from "./copy-strategy-config-shape";
 import { settleTradingFoxRequest, tradingFoxRequest } from "./http";
 import { normalizeNonNegativeInteger, normalizePositiveInteger } from "./normalizers";
 import { TradingFoxApiError } from "./types";
@@ -52,17 +53,11 @@ export function createTradingFoxCopyStrategyConfig(input: TradingFoxCopyStrategy
   }
 
   return {
-    common: {
-      execution: {
-        leverage: 10,
-        ...recordValue(commonConfig.execution),
-      },
-      market: recordValue(commonConfig.market),
-      orders: recordValue(commonConfig.orders),
+    common: createTradingFoxCopyStrategyCommonConfig({
+      commonConfig,
+      executionDefaults: { leverage: 10 },
       risk,
-      schedule: recordValue(commonConfig.schedule),
-      sltp: recordValue(commonConfig.sltp),
-    },
+    }),
     strategy: {
       signalSourceConfigs,
     },
