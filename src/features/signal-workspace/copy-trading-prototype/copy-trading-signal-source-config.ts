@@ -60,13 +60,11 @@ export function createCopyTradingConfigWithSourceRows({
   baseConfig,
   rows,
   stopLossPercent,
-  takeProfitPercent,
 }: {
   advancedEnabled: boolean;
   baseConfig: JsonRecord;
   rows: readonly CopyTradingSignalSourceConfigRow[];
   stopLossPercent?: number;
-  takeProfitPercent?: number;
 }): JsonRecord {
   const now = new Date().toISOString();
   const effectiveRows = effectiveCopyTradingSourceRows(rows, advancedEnabled);
@@ -82,7 +80,7 @@ export function createCopyTradingConfigWithSourceRows({
     risk,
     sltp: advancedEnabled ? normalizeCopyTradingSltpConfig(baseCommon.sltp) : {},
   });
-  strategy.signalSourceConfigs = effectiveRows.map((row, index) => createSignalSourceConfigForWrite(row, index, now, takeProfitPercent));
+  strategy.signalSourceConfigs = effectiveRows.map((row, index) => createSignalSourceConfigForWrite(row, index, now));
 
   return {
     ...baseConfig,
@@ -265,7 +263,6 @@ function createSignalSourceConfigForWrite(
   row: CopyTradingSignalSourceConfigRow,
   index: number,
   fallbackStartTime: string,
-  takeProfitPercent: number | undefined,
 ): JsonRecord {
   const original = row.originalConfig ?? {};
   const output: JsonRecord = {
@@ -277,14 +274,6 @@ function createSignalSourceConfigForWrite(
     traderID: nonNegativeIntegerOrFallback(original.traderID ?? original.traderId ?? original.TraderID, 0),
   };
   copyKnownOptionalConfig(original, output);
-  if (takeProfitPercent !== undefined) {
-    output.smartklineTakeProfitPercent = takeProfitPercent;
-  } else if (positiveNumberOrNull(output.smartklineTakeProfitPercent) === null) {
-    const existingTakeProfit = positiveNumberOrNull(original.takeProfitPercent ?? original.smartklineTakeProfitPercent);
-    if (existingTakeProfit !== null) {
-      output.smartklineTakeProfitPercent = existingTakeProfit;
-    }
-  }
   return output;
 }
 
@@ -294,7 +283,6 @@ function copyKnownOptionalConfig(input: JsonRecord, output: JsonRecord) {
     ["whitelist", "whitelist"],
     ["centsFeePerHour", "centsFeePerHour"],
     ["exitTime", "exitTime"],
-    ["smartklineTakeProfitPercent", "smartklineTakeProfitPercent"],
     ["stopLossPercent", "stopLossPercent"],
   ] as const) {
     const value = input[sourceKey] ?? input[sourceKey[0].toUpperCase() + sourceKey.slice(1)];

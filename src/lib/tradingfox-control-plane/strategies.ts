@@ -41,7 +41,7 @@ export async function createTradingFoxStrategy(
 ): Promise<TradingFoxAccountResponse> {
   const strategyDefinitionId = requireText(input.strategyDefinitionId, "strategyDefinitionId");
   const copyTradingInput = isRecord(input.copyTrading) ? input.copyTrading : null;
-  if (strategyDefinitionId === TRADINGFOX_COPY_STRATEGY_DEFINITION_ID && copyTradingInput) {
+  if (strategyDefinitionId === TRADINGFOX_COPY_STRATEGY_DEFINITION_ID && copyTradingInput && !isRecord(input.config)) {
     return createTradingFoxCopyStrategy(session, {
       exchangeConnectorId: input.exchangeConnectorId,
       eventsCount: numberOrUndefined(copyTradingInput.eventsCount),
@@ -75,7 +75,11 @@ export async function createTradingFoxStrategy(
     await ensureCopyStrategyConnectorPositionMode(connector);
   }
   const config = isCopyTradingDefinition
-    ? await normalizeCopyStrategyDefinitionConfigForWrite(input.config, connector)
+    ? await normalizeCopyStrategyDefinitionConfigForWrite(input.config, connector, {
+      takeProfitPercent: copyTradingInput
+        ? normalizePositiveNumber(copyTradingInput.takeProfitPercent)
+        : undefined,
+    })
     : input.config;
   const configSchemaVersion = normalizePositiveInteger(input.configSchemaVersion);
   await validateTradingFoxStrategyConfig({

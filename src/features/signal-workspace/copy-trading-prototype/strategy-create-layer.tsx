@@ -11,6 +11,7 @@ import { TradingAccountSelect } from "./account-connection-ui";
 import {
   createAvailableSourceById,
   createDefaultCopyTradingSourceRows,
+  effectiveCopyTradingSourceRows,
   updateCopyTradingSourceRow,
   validateCopyTradingSourceRows,
   type CopyTradingSignalSourceConfigRow,
@@ -274,6 +275,13 @@ export function StrategyCreateLayer({
       });
       await onCreate({
         autoStart: true,
+        copyTrading: buildCopyTradingCreatePayload({
+          advancedEnabled: copyTradingAdvancedSourcesEnabled,
+          rows: copyTradingSignalSourceRows,
+          stopLossPercent: parsedStopLoss,
+          strategyType,
+          takeProfitPercent: parsedTakeProfit,
+        }),
         config,
         configSchemaVersion: selectedDefinition.configSchemaVersion,
         definition: selectedDefinition,
@@ -409,6 +417,38 @@ export function StrategyCreateLayer({
 
 function preferredDefinitionId(definitions: readonly TradingFoxStrategyDefinitionSummary[]): string {
   return definitions.find((definition) => definition.id === COPY_TRADING_DEFINITION_ID)?.id ?? definitions[0]?.id ?? "";
+}
+
+function buildCopyTradingCreatePayload({
+  advancedEnabled,
+  rows,
+  stopLossPercent,
+  strategyType,
+  takeProfitPercent,
+}: {
+  advancedEnabled: boolean;
+  rows: readonly CopyTradingSignalSourceConfigRow[];
+  stopLossPercent: number;
+  strategyType: string;
+  takeProfitPercent: number;
+}): PrototypeStrategyCreateInput["copyTrading"] {
+  if (strategyType !== "copyTrading") {
+    return undefined;
+  }
+  const firstRow = effectiveCopyTradingSourceRows(rows, advancedEnabled)[0];
+  if (!firstRow?.source) {
+    return undefined;
+  }
+  return {
+    avatarUrl: firstRow.source.trader.avatar,
+    eventsCount: firstRow.source.eventsCount,
+    platform: firstRow.source.trader.platform,
+    positionsCount: firstRow.source.positionsCount,
+    signalSourceId: firstRow.signalSourceId,
+    stopLossPercent,
+    takeProfitPercent,
+    traderName: firstRow.source.trader.name,
+  };
 }
 
 function getPrimaryButtonClassName(isDarkTheme: boolean): string {

@@ -27,14 +27,12 @@ export function createTradingFoxCopyStrategyConfig(input: TradingFoxCopyStrategy
       fallbackId: index + 1,
       fallbackSignalSourceId: input.signalSourceId,
       fallbackStartTime: startTime,
-      fallbackTakeProfitPercent: input.takeProfitPercent,
     }))
     : [
       normalizeTradingFoxSignalSourceConfig({}, {
         fallbackId: 1,
         fallbackSignalSourceId: input.signalSourceId,
         fallbackStartTime: startTime,
-        fallbackTakeProfitPercent: input.takeProfitPercent,
       }),
     ];
 
@@ -70,7 +68,6 @@ function normalizeTradingFoxSignalSourceConfig(
     fallbackId: number;
     fallbackSignalSourceId: string;
     fallbackStartTime: string;
-    fallbackTakeProfitPercent?: number;
   },
 ): Record<string, unknown> {
   const signalSourceId = stringValue(config.signalSourceID) || stringValue(config.signalSourceId) || stringValue(config.SignalSourceID) || fallback.fallbackSignalSourceId;
@@ -87,9 +84,6 @@ function normalizeTradingFoxSignalSourceConfig(
     traderID: traderId,
   };
   const stopLossPercent = normalizePositiveNumber(config.stopLossPercent ?? config.StopLossPercent);
-  const smartklineTakeProfitPercent = normalizePositiveNumber(
-    config.smartklineTakeProfitPercent ?? config.takeProfitPercent ?? fallback.fallbackTakeProfitPercent,
-  );
   const centsFeePerHour = normalizeNonNegativeInteger(config.centsFeePerHour ?? config.CentsFeePerHour);
   const blacklist = stringArrayValue(config.blacklist ?? config.Blacklist);
   const whitelist = stringArrayValue(config.whitelist ?? config.Whitelist);
@@ -97,9 +91,6 @@ function normalizeTradingFoxSignalSourceConfig(
 
   if (stopLossPercent !== undefined) {
     normalized.stopLossPercent = stopLossPercent;
-  }
-  if (smartklineTakeProfitPercent !== undefined) {
-    normalized.smartklineTakeProfitPercent = smartklineTakeProfitPercent;
   }
   if (centsFeePerHour > 0) {
     normalized.centsFeePerHour = centsFeePerHour;
@@ -169,6 +160,7 @@ export async function ensureTradingFoxCopyStrategyConfigEnvelope(
 export async function normalizeCopyStrategyDefinitionConfigForWrite(
   config: Record<string, unknown>,
   connector: TradingFoxConnector,
+  options: { takeProfitPercent?: number } = {},
 ): Promise<Record<string, unknown>> {
   const signalSourceConfigs = signalSourceConfigsFromCopyStrategyConfig(config);
   const signalSourceConfig = signalSourceConfigs[0] ?? null;
@@ -176,7 +168,7 @@ export async function normalizeCopyStrategyDefinitionConfigForWrite(
   if (!signalSourceId) {
     throw new TradingFoxApiError("Copy strategy signal source is missing.", 400);
   }
-  const takeProfitPercent = copyStrategyConfigNumber(config, "takeProfitPercent", 20);
+  const takeProfitPercent = options.takeProfitPercent ?? copyStrategyConfigNumber(config, "takeProfitPercent", 20);
   return createTradingFoxCopyStrategyConfig({
     commonConfig: recordValue(config.common),
     signalSourceConfigs,

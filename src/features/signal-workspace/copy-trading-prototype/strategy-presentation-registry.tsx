@@ -152,7 +152,6 @@ const COPY_TRADING_STRATEGY_PRESENTATION_MODULE: StrategyPresentationModule = {
       baseConfig: genericConfig,
       rows: copyTrading.signalSourceRows,
       stopLossPercent: copyTrading.parsedStopLossPercent,
-      takeProfitPercent: copyTrading.parsedTakeProfitPercent,
     }),
     getValidationErrors: ({ copy, copyTrading, genericConfig, rendererErrors }) => [
       ...copyTrading.signalSourceErrors,

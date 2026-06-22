@@ -80,7 +80,7 @@ async function updateDefinitionDrivenTraderConfig(
 
   const configSchemaVersion = normalizePositiveInteger(input.configSchemaVersion) ?? trader.configSchemaVersion;
   const normalizedConfig = isCopyTradingTrader(trader)
-    ? await normalizeDefinitionDrivenCopyConfig(session, trader, input.config)
+    ? await normalizeDefinitionDrivenCopyConfig(session, trader, input)
     : input.config;
   const validation = await validateTradingFoxStrategyConfig({
     config: normalizedConfig,
@@ -102,12 +102,17 @@ async function updateDefinitionDrivenTraderConfig(
 async function normalizeDefinitionDrivenCopyConfig(
   session: TelegramAuthSession,
   trader: TradingFoxTrader,
-  config: Record<string, unknown>,
+  input: UpdateCopyStrategySettingsInput,
 ): Promise<Record<string, unknown>> {
+  if (!isRecord(input.config)) {
+    throw new TradingFoxApiError("config is required.", 400);
+  }
   const userId = tradingFoxUserIdFromSession(session);
   const connector = await getConnectorForUser(trader.exchangeConnectorId, userId);
   await ensureCopyStrategyConnectorPositionMode(connector);
-  return normalizeCopyStrategyDefinitionConfigForWrite(config, connector);
+  return normalizeCopyStrategyDefinitionConfigForWrite(input.config, connector, {
+    takeProfitPercent: normalizePositiveNumber(input.takeProfitPercent),
+  });
 }
 
 async function updateLegacyCopyStrategySettings(
