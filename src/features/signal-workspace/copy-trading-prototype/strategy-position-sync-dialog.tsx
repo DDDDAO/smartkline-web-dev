@@ -83,7 +83,7 @@ export function StrategyPositionSyncDialog({
                   inputMode="decimal"
                   min="0.0001"
                   placeholder={strategyCopy.ratioPlaceholder}
-                  step="0.01"
+                  step="any"
                   type="number"
                   value={ratioPercent}
                   onChange={(event) => {
